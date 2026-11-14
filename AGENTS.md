@@ -180,7 +180,7 @@ documentation conventions. Use the referenced
   1. roll `## [Unreleased]` into a dated `## [x.y.z] - YYYY-MM-DD` section in
      the root `CHANGELOG.md`;
   2. bump every release-version declaration to the same `x.y.z`;
-  3. keep generated package names in `02_Tools/create_package.py`
+  3. keep generated package names in `02_Tools/package/create_delivery_package.py`
      derived from that version rather than hardcoding a separate one.
 - Use Semantic Versioning: MAJOR for breaking CLI/config/state/executor
   contracts, MINOR for backward-compatible capabilities, and PATCH for fixes
@@ -204,7 +204,7 @@ need to remember them.
   entries per category in a release; merge or rewrite related notes instead.
 - Record the decision as one task journal Log line at build:
   `release-notes: added | updated | none (<reason>)`.
-- Before validate, run `python 02_Tools/internal/check_release_notes.py --since <task
+- Before validate, run `python 02_Tools/package/release_checks/check_release_notes.py --since <task
   base>`. It fails on contract errors and warns when `CHANGELOG.md` changed
   without the release notes; resolve the warning or justify it in the journal.
 - When cutting a release, rename `Unreleased` to the new version with the date

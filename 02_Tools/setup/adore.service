@@ -5,8 +5,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
-# ADORE systemd unit TEMPLATE (design doc 12a) - installed by install-ubuntu.sh,
-# which replaces __ADORE_DIR__ (04_Software or the bundle root) and __ADORE_USER__.
+# ADORE systemd unit TEMPLATE - installed by install_linux_service.sh,
+# which replaces __ADORE_DIR__ (04_Software) and __ADORE_USER__.
 # Logs go to journald: journalctl -u adore -f
 
 [Unit]
@@ -19,7 +19,7 @@ Wants=network-online.target
 Type=simple
 User=__ADORE_USER__
 WorkingDirectory=__ADORE_DIR__
-# Secrets: OS-level EnvironmentFile is preferred on a server (design 12b).
+# Secrets: use the service account's protected EnvironmentFile.
 # The leading "-" makes it optional - ADORE also reads .env from the working
 # directory itself, and glab/gh/tea host auth may cover everything.
 EnvironmentFile=-__ADORE_DIR__/.env

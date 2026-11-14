@@ -17,8 +17,8 @@
          also warns, without failing, when `CHANGELOG.md` changed since that
          revision but the release notes did not.
 @example
-    python 02_Tools/internal/check_release_notes.py
-    python 02_Tools/internal/check_release_notes.py --since <task base>
+    python 02_Tools/package/release_checks/check_release_notes.py
+    python 02_Tools/package/release_checks/check_release_notes.py --since <task base>
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ import re
 import subprocess
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "04_Software"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "04_Software"))
 
 from adore.release_notes import (  # noqa: E402
     UNRELEASED,
@@ -118,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     @return     1 when the notes break the contract, else 0.
     """
     parser = argparse.ArgumentParser(description="Check the four-locale user-facing release notes.")
-    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[3])
     parser.add_argument("--since",
                         help="git revision; warn when CHANGELOG.md changed but the notes did not")
     args = parser.parse_args(argv)

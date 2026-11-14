@@ -33,7 +33,7 @@ import pytest
 # CONSTANTS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CHECKER = REPO_ROOT / "02_Tools" / "internal" / "check_release_notes.py"
+CHECKER = REPO_ROOT / "02_Tools" / "package" / "release_checks" / "check_release_notes.py"
 NOTES = "04_Software/adore/release_notes.toml"
 LOCALES = ("en", "fr", "de", "ro")
 

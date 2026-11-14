@@ -105,7 +105,7 @@ notice for native RPC, the offline notice for internet-off container RPC, and no
 notice for internet-on container RPC. No stored format or run lifecycle changes.
 
 Hatchling includes the complete resource directory in the application wheel.
-`02_Tools/create_package.py` installs that wheel into portable Python unchanged;
+`02_Tools/package/create_delivery_package.py` installs that wheel into portable Python unchanged;
 its cleanup targets scripts, metadata and bytecode, not Markdown resources. The
 portable manifest hashes every included file.
 

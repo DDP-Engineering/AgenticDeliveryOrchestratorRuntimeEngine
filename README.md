@@ -116,7 +116,7 @@ through CLI/configuration. Label a small ticket
 `agent-ready` with a priority such as `P2`, run one supervised poll, review the
 presented evidence, add `agent-approved`, and poll again to see the draft MR/PR
 open. Unattended operation on Ubuntu (systemd) or Windows 11 (Task Scheduler)
-is set up by the scripts in `02_Tools/deploy/`.
+is set up by the scripts in `02_Tools/setup/`.
 
 ## Documentation
 
@@ -152,14 +152,16 @@ python -m ruff check adore tests
 
 The suite is fully offline. ADORE's own development follows the AEGIS
 workflow installed in `.agentic/`; read `AGENTS.md` before contributing. A
-release additionally passes `python 02_Tools/internal/check_release_consistency.py
+release additionally passes `python 02_Tools/package/release_checks/check_release_consistency.py
 --require-artifacts`. End-user Windows/Linux archives are built with
-`python 02_Tools/create_package.py`; `07_Delivery/` contains only the two
+`python 02_Tools/package/create_delivery_package.py`; `07_Delivery/` contains only the two
 archives and their optional adjacent hashes. Temporary build/verification work
 is removed automatically and results are printed without saved reports.
-The three public repository tools are `setup_environment.py`, `create_package.py`
-and `verify_package.py` under `02_Tools/`. Internal release/license helpers are
-called automatically. Setup/deployment scripts do not require automated tests.
+Repository tools are grouped under `02_Tools/setup/`, `02_Tools/build/` and
+`02_Tools/package/`. The public commands prepare development dependencies,
+build production web assets, create delivery archives and verify those archives.
+See the [tools guide](02_Tools/README.md). Release/license helpers are called
+automatically. Setup/deployment scripts do not require automated tests.
 
 ## Versioning and AEGIS compatibility
 

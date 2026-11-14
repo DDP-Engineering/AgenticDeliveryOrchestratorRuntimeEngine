@@ -12,7 +12,7 @@ When release consistency is checked, the repository checker shall reject a web b
 
 verification = "Inspection: run release consistency on matching assets and isolated copies with changed source, changed output and missing stamp; verify success and rejection."
 
-affected_paths = ["02_Tools/internal/stamp_web_assets.py", "02_Tools/internal/check_release_consistency.py"]
+affected_paths = ["02_Tools/package/release_checks/stamp_web_assets.py", "02_Tools/package/release_checks/check_release_consistency.py"]
 
 linked_tests = []
 

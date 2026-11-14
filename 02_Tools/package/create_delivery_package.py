@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 """
-@file       create_package.py
+@file       create_delivery_package.py
 @brief      Build a native, self-contained ADORE user distribution.
 @details    Checks the release, compiles/licenses the frontend, provisions CPython,
             installs locked wheels and writes only an archive/hash to 07_Delivery.
@@ -33,7 +33,7 @@ import tomllib
 import zipfile
 
 # CONSTANTS
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 PYTHON_VERSION = "3.12.13"
 MAX_FILES = 30000
 MAX_BYTES = 1024 * 1024 * 1024
@@ -90,12 +90,9 @@ def main(argv: list[str] | None = None) -> int:
     if not uv:
         parser.error("uv is required on the build host")
     software = REPO / "04_Software"
-    npm = shutil.which("npm")
-    if not npm:
-        parser.error("prepare the repository first: python 02_Tools/setup_environment.py")
+    print(run([sys.executable, str(REPO / "02_Tools/build/build_web_assets.py")], REPO).strip())
     for checker in ("check_release_notes.py", "check_release_consistency.py"):
-        print(run([sys.executable, str(REPO / "02_Tools/internal" / checker)], REPO).strip())
-    subprocess.run([npm, "run", "build"], cwd=software / "web", check=True, timeout=1800)
+        print(run([sys.executable, str(REPO / "02_Tools/package/release_checks" / checker)], REPO).strip())
     with (software / "pyproject.toml").open("rb") as handle:
         version = tomllib.load(handle)["project"]["version"]
     static = software / "adore/web/static"
@@ -152,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
                                  bundle).strip())
         if not site_packages.resolve().is_relative_to(runtime.resolve()):
             raise RuntimeError("bundled Python site-packages escaped its runtime")
-        shutil.copy2(REPO / "02_Tools/portable/adore_portable.pth",
+        shutil.copy2(REPO / "02_Tools/package/launcher_templates/adore_portable.pth",
                      site_packages / "adore_portable.pth")
         for cache in list(runtime.rglob("__pycache__")):
             shutil.rmtree(cache)
@@ -163,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         # after ZIP/TAR timestamps change, with no build-path code filenames.
         run([str(interpreter), "-I", "-B", "-m", "compileall", "-q",
              "--invalidation-mode", "unchecked-hash", "-s", str(runtime), str(runtime)], bundle)
-        for source in (REPO / "02_Tools/portable").iterdir():
+        for source in (REPO / "02_Tools/package/launcher_templates").iterdir():
             if (source.is_file() and source.suffix != ".pth"
                     and (system == "windows" or source.suffix != ".cmd")):
                 if system == "windows" and source.suffix == ".sh":

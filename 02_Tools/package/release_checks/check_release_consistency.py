@@ -260,11 +260,11 @@ def _check_release_surfaces(root: Path, issues: list[str]) -> None:
             f'WINDOWS_TASK_NAME = "{EXPECTED_TASK}"',
             f'RUNTIME_PACKAGE_PREFIX = "{EXPECTED_RUNTIME_PREFIX}"',
         ),
-        "02_Tools/deploy/adore.service": (
+        "02_Tools/setup/adore.service": (
             "__ADORE_DIR__", "__ADORE_USER__", ".venv/bin/adore",
             ".adore/adore.lock",
         ),
-        "02_Tools/deploy/install-windows.ps1": (
+        "02_Tools/setup/install_windows_service.ps1": (
             f'$TaskName    = "{EXPECTED_TASK}"',
             '"adore-executor-base:1.0.0"',
         ),
@@ -278,10 +278,10 @@ def _check_release_surfaces(root: Path, issues: list[str]) -> None:
         text = _require_text(root, relative, issues)
         _expect_tokens(relative, text, tokens, issues)
 
-    if not (root / "02_Tools/deploy/adore.service").is_file():
-        issues.append("missing 02_Tools/deploy/adore.service")
+    if not (root / "02_Tools/setup/adore.service").is_file():
+        issues.append("missing 02_Tools/setup/adore.service")
     old_service = "ad" + "or.service"
-    if (root / "02_Tools/deploy" / old_service).exists():
+    if (root / "02_Tools/setup" / old_service).exists():
         issues.append("pre-1.0 systemd service still exists")
     old_package = "ad" + "or"
     if (root / "04_Software" / old_package).exists():
@@ -400,7 +400,7 @@ def check_repository(root: Path, *, require_artifacts: bool = False) -> list[str
                 subprocess.run([node, str(vite), "build", "--outDir", str(generated)],
                                cwd=web, check=True, capture_output=True, timeout=180)
                 # Stamp using this checker's companion, with the candidate sources.
-                subprocess.run([sys.executable, str(resolved / "02_Tools/internal/stamp_web_assets.py"),
+                subprocess.run([sys.executable, str(resolved / "02_Tools/package/release_checks/stamp_web_assets.py"),
                                 "--output", str(generated)], cwd=web, check=True,
                                capture_output=True, timeout=30)
                 if fingerprint(resolved, static)["outputs"] != fingerprint(resolved, generated)["outputs"]:
@@ -426,7 +426,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--repo-root",
         type=Path,
-        default=Path(__file__).resolve().parents[2],
+        default=Path(__file__).resolve().parents[3],
         help="repository root (default: parent of 02_Tools)",
     )
     parser.add_argument(

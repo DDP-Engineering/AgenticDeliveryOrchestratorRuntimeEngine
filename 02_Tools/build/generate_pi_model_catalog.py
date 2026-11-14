@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 """
-@file generate_pi_catalog.py
+@file generate_pi_model_catalog.py
 @brief Write ADORE's Pi provider and model catalog from the pinned Pi, offline.
 @details Reads the single-variable API-key provider table from the installed
          Pi package's `docs/providers.md`, then runs `pi --list-models` once per
@@ -26,7 +26,7 @@
          no chat models (TypeSafe classifiers) are left out. Run it again
          whenever the pinned Pi version changes.
 @example
-    python 02_Tools/generate_pi_catalog.py --node <node22>/node.exe \
+    python 02_Tools/build/generate_pi_model_catalog.py --node <node22>/node.exe \
         --cli <prefix>/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
 """
 
@@ -44,7 +44,7 @@ import tempfile
 from urllib.parse import urlsplit
 
 # CONSTANTS
-OUTPUT = Path(__file__).resolve().parents[1] / "04_Software" / "adore" / "pi_catalog.json"
+OUTPUT = Path(__file__).resolve().parents[2] / "04_Software" / "adore" / "pi_catalog.json"
 #: Variables ADORE does not offer: a GitHub token is a forge credential, and
 #: TypeSafe serves classifier models only.
 EXCLUDED_VARIABLES = frozenset({"COPILOT_GITHUB_TOKEN", "TYPESAFE_API_KEY"})

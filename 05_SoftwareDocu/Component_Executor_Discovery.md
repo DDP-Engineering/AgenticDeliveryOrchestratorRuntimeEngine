@@ -53,5 +53,5 @@ is configured in the service environment.
 `tests/test_executor_discovery.py`: filesystem and HTTP trust boundaries, including
 POSIX executable bits and symlinks on Linux. `web/e2e/local-executors.spec.ts`
 checks that enrollment uses managed Pi and skips discovery.
-`02_Tools/verify_package.py` checks the final native archives' authenticated discovery
+`02_Tools/package/verify_delivery_package.py` checks the final native archives' authenticated discovery
 API against an inert fixture without running an agent or contacting a provider.

@@ -182,7 +182,7 @@ protects the worktree from routine cleanup and further autonomous execution.
   and never merges; `delivery.draft` selects draft (`true`, default) or ready (`false`) creation.
 - Secrets live only in the process environment or a gitignored `.env`.
 - Version assignment, packaging and delivery are repository operations outside
-  AEGIS scope, checked by `02_Tools/internal/check_release_consistency.py`. This
+  AEGIS scope, checked by `02_Tools/package/release_checks/check_release_consistency.py`. This
   repository's own `.agentic/` companion does not ship in the runtime bundle.
 - Code follows `01_Documentation/Code_Style.md`. Each component keeps a
   contract in `05_SoftwareDocu/` and a page in `.agentic/knowledge/`, updated
@@ -201,7 +201,7 @@ duplicate identities while genuine absence remains missing; no schema/timestamp 
   environment verification. The durable queue owns actual command outcomes.
 - `04_Software/web/` is the build-time React source; the packaged static build
   lives in `04_Software/adore/web/static/`.
-- `02_Tools/deploy/` holds the host installers and systemd unit;
+- `02_Tools/setup/` holds the host installers and systemd unit;
   `04_Software/docker/` holds the executor base and egress-proxy images.
 - `01_Documentation/` is operator documentation, `05_SoftwareDocu/` holds
   component contracts, `02_Tools/` holds release tooling, `07_Delivery/` holds

@@ -29,7 +29,7 @@ remains an independent ADORE setting.
 The build context is the repository root. From that directory:
 
 ```sh
-docker build --file 02_Tools/containers/adore-executor/Dockerfile \
+docker build --file 02_Tools/build/executor_images/adore/Dockerfile \
   --tag adore-executor-adore:synthetic-check .
 docker run --rm --network none adore-executor-adore:synthetic-check python --version
 docker run --rm --network none adore-executor-adore:synthetic-check pi --version
@@ -43,7 +43,7 @@ prepare a unique identity in that job's container, never copy the server's ID.
 
 `build.json` declares every exported input and the exact tag currently saved for
 the DCP project. Register it as
-`02_Tools/containers/adore-executor/build.json@<full-source-commit>` in
+`02_Tools/build/executor_images/adore/build.json@<full-source-commit>` in
 `container.build_definition`, after that commit is available in the enrolled
 project clone. A reviewed Git snapshot containing just these inputs also works;
 keep its commit reachable with a local reference on the server.

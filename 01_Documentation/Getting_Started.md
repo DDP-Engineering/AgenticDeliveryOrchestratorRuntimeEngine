@@ -224,7 +224,7 @@ Open the default `http://127.0.0.1:8765`. Only a fresh identity store gets the
 initial admin/admin account; change its password in My account. Serve remote
 access over HTTPS and protect the home with the service account's permissions.
 Do not add a standalone CLI loop over web-managed profiles. See
-[Web interface](Web_Interface.md) and [deployment tools](../02_Tools/deploy/README.md).
+[Web interface](Web_Interface.md) and [deployment tools](../02_Tools/setup/README.md).
 
 For container projects, prepare the runtime and images externally; see
 [Project executor images](Project_Executor_Images.md). For server execution,

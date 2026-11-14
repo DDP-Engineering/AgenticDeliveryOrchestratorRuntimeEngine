@@ -6,35 +6,31 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
-# @file    install-ubuntu.sh
-# @brief   Deploy ADORE on Ubuntu 22+ (design doc 12/12a).
+# @file    install_linux_service.sh
+# @brief   Prepare a source checkout and optionally install its Linux CLI service.
 # @details Fail-fast, idempotent, re-runnable. Steps: check host prerequisites,
 #          sync the Python environment (uv), validate config.toml, build the
 #          executor base image when absent, and optionally install + start the
 #          systemd unit (adore.service template in this directory).
 #          Secrets are never echoed and never appear in argv; they stay in
-#          .env / an EnvironmentFile (design 12b).
-# @usage   bash 02_Tools/deploy/install-ubuntu.sh [--service] [--skip-image]
+#          .env / an EnvironmentFile.
+# @usage   bash 02_Tools/setup/install_linux_service.sh [--service] [--skip-image]
 #            [--allow-open-egress] [--uninstall]
 #            (no flag)   prepare only: env sync + config validate + image
 #            --service   also install/enable/start the systemd unit (sudo)
 #            --skip-image  do not check/build the executor image
 #            --uninstall stop/disable/remove the systemd unit (sudo)
 # @author  Eng. Dan Dumitru Pasare
-# @date    2026-07-04
-# @version 0.4.0
+# @date    2026-11-15
+# @version 0.16.0
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
 # CONSTANTS
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Repository: <root>/02_Tools/deploy; bundle: <runtime>/deploy.
+# Source checkout: <root>/02_Tools/setup beside <root>/04_Software.
 DEPLOYMENT_PARENT="$(dirname "${SCRIPT_DIR}")"
-if [ "$(basename "${DEPLOYMENT_PARENT}")" = "02_Tools" ]; then
-    SOFTWARE_DIR="$(dirname "${DEPLOYMENT_PARENT}")/04_Software"
-else
-    SOFTWARE_DIR="${DEPLOYMENT_PARENT}"
-fi
+SOFTWARE_DIR="$(dirname "${DEPLOYMENT_PARENT}")/04_Software"
 UNIT_TEMPLATE="${SCRIPT_DIR}/adore.service"
 UNIT_PATH="/etc/systemd/system/adore.service"
 IMAGE_TAG="${IMAGE_TAG:-adore-executor-base:1.0.0}"
@@ -53,7 +49,7 @@ as_root() {
 
 usage() {
     cat <<'EOF'
-usage: bash <path-to-deploy>/install-ubuntu.sh [--service] [--skip-image] [--allow-open-egress] [--uninstall]
+usage: bash <path-to-deploy>/install_linux_service.sh [--service] [--skip-image] [--allow-open-egress] [--uninstall]
   (no flag)             prepare only: env sync + config validate + executor image
   --service             also install/enable/start the systemd unit (uses sudo;
                         service user from ADORE_USER, default: the invoking user)
@@ -96,7 +92,7 @@ fi
 
 # INSTALL - 1. host prerequisites (fail closed with a hint, never auto-install)
 [ -f "${SOFTWARE_DIR}/pyproject.toml" ] && [ -d "${SOFTWARE_DIR}/adore" ] \
-    || fail "runtime not found at '${SOFTWARE_DIR}'; keep 02_Tools/deploy beside 04_Software in a checkout, or deploy beside pyproject.toml in a runtime bundle"
+    || fail "runtime not found at '${SOFTWARE_DIR}'; keep 02_Tools/setup beside 04_Software in a source checkout"
 note "checking host prerequisites"
 need_cmd uv   "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
 need_cmd git  "Install: sudo apt-get install -y git"

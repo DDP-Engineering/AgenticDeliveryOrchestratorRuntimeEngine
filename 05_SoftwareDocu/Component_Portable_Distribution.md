@@ -7,8 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Component: Portable user distribution
 
-Sources: `02_Tools/create_package.py`, `02_Tools/portable/`,
-`02_Tools/verify_package.py`, `02_Tools/tests/test_portable.py`.
+Sources: `02_Tools/package/create_delivery_package.py`, `02_Tools/package/launcher_templates/`,
+`02_Tools/package/verify_delivery_package.py`, `02_Tools/package/tests/test_delivery_package.py`.
 
 ## 1. Purpose
 
@@ -81,7 +81,7 @@ and durable state contracts are unchanged.
 ## 5. Inputs And Outputs
 
 - Build input: `04_Software/pyproject.toml`, `uv.lock`, application/frontend source,
-  frontend lockfile and the `02_Tools/portable/` templates. Release checks and
+  frontend lockfile and the `02_Tools/package/launcher_templates/` templates. Release checks and
   frontend compilation/licensing run automatically before archive construction.
 - Build output: `07_Delivery/adore-<version>-windows-x64.zip` or
   `07_Delivery/adore-<version>-linux-x64.tar.gz`. Each archive has an adjacent
@@ -101,22 +101,22 @@ and durable state contracts are unchanged.
 Prepare the checkout once, then create/verify on each native host:
 
 ```text
-python 02_Tools/setup_environment.py
-python 02_Tools/create_package.py
-python 02_Tools/verify_package.py
+python 02_Tools/setup/setup_development_environment.py
+python 02_Tools/package/create_delivery_package.py
+python 02_Tools/package/verify_delivery_package.py
 ```
 
 Linux can use `python3` for these tooling commands. User startup is
 `Start-ADORE.cmd` on Windows or `./start-adore.sh` on Linux. See the copied
-`02_Tools/portable/README.md` for data, logs, updates, shutdown and optional flags.
+`02_Tools/package/launcher_templates/README.md` for data, logs, updates, shutdown and optional flags.
 
 ## 9. Validation And Tests
 
-`python -m unittest discover -s 02_Tools/tests -p test_portable.py -v` covers
+`python -m unittest discover -s 02_Tools/package/tests -p test_delivery_package.py -v` covers
 complete manifests, tampering, missing/unlisted files, invalid external paths,
 host/schema mismatches, malformed launch limits and unsupported output overrides.
 
-`python 02_Tools/verify_package.py <archive-in-07_Delivery>` extracts and moves
+`python 02_Tools/package/verify_delivery_package.py <archive-in-07_Delivery>` extracts and moves
 the actual archive into a path with spaces, removes all host tools from PATH,
 verifies native dependency imports and CLI startup, checks corruption/port
 rejection, starts the actual API/worker, verifies the fake browser sees ready
@@ -149,10 +149,11 @@ includes automatic/custom clone destinations and closed advanced native options.
 
 Self-contained Windows ZIP/Linux TAR.GZ user media contains only
 Documentation/README.md, Administrator_Guide.md and Troubleshooting.md, sourced
-from 01_Documentation/User_Guide. package_portable.copy_user_documentation uses
+from the three flat source guides in `01_Documentation/`, with User_Guide.md
+renamed README.md in the archive. `create_delivery_package.copy_user_documentation` uses
 a fixed three-file allowlist and refuses missing/linked required sources before
-staging. Internal code style, UX handoff, exhaustive API/source references and
-operator cheat sheets remain repository material. The full four-locale interface
-help remains in the compiled app. test_portable checks exact inventory and all
+staging. Internal code style, implementation references and the operator quick
+reference remain repository material. The full four-locale interface
+help remains in the compiled app. `test_delivery_package` checks exact inventory and all
 relative guide links in each actual archive; Tools unit tests cover extra and
-missing/linked inputs. Advanced runtime bundles retain their operator references.
+missing/linked inputs.

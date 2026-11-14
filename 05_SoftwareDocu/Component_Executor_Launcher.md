@@ -12,9 +12,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > Sources: `04_Software/adore/executor/base.py`,
 > `04_Software/adore/executor/launcher.py`,
 > `04_Software/adore/executor/pi_rpc.py`; Pi guard:
-> `04_Software/adore/executor/adore-guard.ts`.
+> `04_Software/docker/pi/adore-guard.ts`.
 > System overview: [Operations guide](../01_Documentation/Operations_Guide.md#system-overview);
-> Runtime-image and credential contracts: `02_Tools/containers/README.md` and
+> Runtime-image and credential contracts: `04_Software/docker/README.md` and
 > `01_Documentation/Security_And_Credentials.md`.
 
 ## 1. Purpose

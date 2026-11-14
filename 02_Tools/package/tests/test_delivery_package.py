@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 """
-@file       test_portable.py
+@file       test_delivery_package.py
 @brief      Offline contract checks for portable delivery trust boundaries.
 @details    Exercises the public verifier and command argument validation using
             temporary isolated media; never downloads or starts services.
@@ -30,13 +30,13 @@ import unittest
 from unittest import mock
 
 # CONSTANTS
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 WORK = Path(tempfile.gettempdir())
 SPEC = importlib.util.spec_from_file_location("portable_launcher",
-                                             REPO / "02_Tools/portable/launch.py")
+                                             REPO / "02_Tools/package/launcher_templates/launch.py")
 LAUNCHER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(LAUNCHER)
-PACKAGE_SPEC = importlib.util.spec_from_file_location("portable_packager", REPO / "02_Tools/create_package.py")
+PACKAGE_SPEC = importlib.util.spec_from_file_location("portable_packager", REPO / "02_Tools/package/create_delivery_package.py")
 PACKAGER = importlib.util.module_from_spec(PACKAGE_SPEC)
 PACKAGE_SPEC.loader.exec_module(PACKAGER)
 
@@ -50,7 +50,7 @@ class PortableDocumentation(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="portable-doc-unit-", dir=WORK) as temp:
             source = Path(temp) / "source"
             source.mkdir()
-            body = (REPO / "02_Tools/portable/README.md").read_text(encoding="utf-8")
+            body = (REPO / "02_Tools/package/launcher_templates/README.md").read_text(encoding="utf-8")
             for name in (*PACKAGER.USER_DOC_SOURCES.values(), "Code_Style.md", "README.md"):
                 (source / name).write_text(body, encoding="utf-8")
             (source / "Operator_Cheat_Sheets").mkdir()
@@ -65,7 +65,7 @@ class PortableDocumentation(unittest.TestCase):
             source = Path(temp) / "source"
             source.mkdir()
             (source / "User_Guide.md").write_text(
-                (REPO / "02_Tools/portable/README.md").read_text(encoding="utf-8"), encoding="utf-8")
+                (REPO / "02_Tools/package/launcher_templates/README.md").read_text(encoding="utf-8"), encoding="utf-8")
             destination = Path(temp) / "Documentation"
             with self.assertRaisesRegex(RuntimeError, "guide missing"):
                 PACKAGER.copy_user_documentation(destination, source=source)
@@ -78,7 +78,7 @@ class PortableDocumentation(unittest.TestCase):
             source = Path(temp) / "source"
             source.mkdir()
             for name in PACKAGER.USER_DOC_SOURCES.values():
-                (source / name).symlink_to(REPO / "02_Tools/portable/README.md")
+                (source / name).symlink_to(REPO / "02_Tools/package/launcher_templates/README.md")
             destination = Path(temp) / "Documentation"
             with self.assertRaisesRegex(RuntimeError, "guide missing or linked"):
                 PACKAGER.copy_user_documentation(destination, source=source)
@@ -157,13 +157,13 @@ class PortableDelivery(unittest.TestCase):
         """@brief Invalid external limits fail before package or user-state access."""
         for arguments in (("--port", "0"), ("--startup-timeout", "999"),
                           ("--restart-limit", "-1"), ("--service", "worker")):
-            result = subprocess.run([sys.executable, str(REPO / "02_Tools/portable/launch.py"),
+            result = subprocess.run([sys.executable, str(REPO / "02_Tools/package/launcher_templates/launch.py"),
                                      *arguments], capture_output=True, timeout=10, check=False)
             self.assertEqual(result.returncode, 2)
 
     def test_packager_rejects_output_outside_delivery(self) -> None:
         """@brief An output escape is rejected before network or build operations."""
-        result = subprocess.run([sys.executable, str(REPO / "02_Tools/create_package.py"),
+        result = subprocess.run([sys.executable, str(REPO / "02_Tools/package/create_delivery_package.py"),
                                  "--output", "02_Tools/invalid-output"],
                                 capture_output=True, text=True, timeout=10, check=False)
         self.assertEqual(result.returncode, 2)

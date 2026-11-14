@@ -136,7 +136,7 @@ file: internet on gives mode `open`; internet off gives mode `allowlist-proxy`
 whose allowlist is `pi_providers.provider_hosts(executor)` plus
 `[container.egress] allowlist`, deduplicated and sorted. `provider_hosts` is
 the catalog's `hosts` for an API-key provider (generated from every `baseUrl`
-of Pi's pi-ai provider data by `02_Tools/generate_pi_catalog.py`), the
+of Pi's pi-ai provider data by `02_Tools/build/generate_pi_model_catalog.py`), the
 `openai` hosts for `chatgpt`, and the `base_url` host (a name or an IP
 address) for `custom`. `EgressPolicy` still supports mode `none`, but no
 configuration selects it. The orchestrator, Test AI connection and the

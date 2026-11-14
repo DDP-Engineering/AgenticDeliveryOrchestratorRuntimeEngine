@@ -53,7 +53,7 @@ owners.
 |---|---|---|
 | Resource/render boundary | `PromptCatalog`, `LEGAL_PREFIX`, `FRAGMENTS` | `test_prompts.py` loader and negative contracts |
 | Prompt wording/inventory | `adore/prompts/{direct,stage,recovery,review,live,system}/` and callers | `test_prompts.py` original-byte and caller matrices |
-| Packaging inclusion | Hatch wheel tree and `02_Tools/create_package.py` | Manual complete wheel path/byte check; inspect unchanged-wheel portable install |
+| Packaging inclusion | Hatch wheel tree and `02_Tools/package/create_delivery_package.py` | Manual complete wheel path/byte check; inspect unchanged-wheel portable install |
 
 ## Key behaviors
 

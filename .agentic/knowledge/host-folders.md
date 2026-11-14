@@ -61,4 +61,4 @@ left it in the address bar. The reviewed enrollment flow owns clone creation.
 Exact source/tests above, setupCopy.ts for four locales and styles.css for modal
 and narrow layouts. Component_Host_Folders.md documents schemas and limits;
 Web_Interface.md and four-locale projects help explain operation.
-02_Tools/verify_package.py exercises the endpoint in both native archives.
+02_Tools/package/verify_delivery_package.py exercises the endpoint in both native archives.

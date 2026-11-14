@@ -7,13 +7,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Deployment and packaging
 
-The public repository tools are `02_Tools/setup_environment.py`,
-`create_package.py` and `verify_package.py`.
+The public repository tools prepare development dependencies, build web assets,
+create delivery packages and verify archives. Their entry points live under
+`02_Tools/setup/`, `02_Tools/build/` and `02_Tools/package/`; see `02_Tools/README.md`.
 Setup synchronizes frozen Python/web development dependencies, frontend packages
 and Chromium without running tests, configuring credentials or installing services.
 Create checks release metadata/notes, compiles and licenses the frontend, then
 bundles managed CPython, frozen dependencies, ADORE, three curated user guides
-and the `02_Tools/portable/` launch templates for the matching native OS.
+and the `02_Tools/package/launcher_templates/` launch templates for the matching native OS.
 Verify checks archive release identity and optional hash, relocates/exercises the
 actual media with isolated data, then removes all temporary files on exit.
 
@@ -22,12 +23,12 @@ optional adjacent hashes. No technical directory, README, report, build workspac
 or extracted verification media is retained. Build and verification use managed
 OS temporary storage and console output.
 
-`02_Tools/internal/` contains release metadata/note checks and asset licensing. The release consistency check verifies the committed frontend fingerprints and compares an isolated local Vite rebuild before packaging; rebuild and commit the bundle when inputs change.
-`02_Tools/deploy/` remains specialized service administration. No automated tests
+`02_Tools/package/release_checks/` contains release metadata/note checks and asset licensing. The release consistency check verifies the committed frontend fingerprints and compares an isolated local Vite rebuild before packaging; rebuild and commit the bundle when inputs change.
+`02_Tools/setup/` remains specialized service administration. No automated tests
 are added or run for environment setup or deployment scripts. The old advanced
 source bundle and separate wheelhouse installer flow have been retired.
 
-`02_Tools/deploy/` provides host-specific unattended operation, while
+`02_Tools/setup/` provides host-specific unattended operation, while
 `02_Tools/package_runtime.*` creates a compact, transparent runtime bundle.
 They keep OS-specific behavior outside ADORE's portable Python conductor.
 `02_Tools/package_web_offline.py` additionally creates an OS/Python-specific
@@ -35,8 +36,8 @@ web bundle from the locked dependencies and bundled React assets.
 
 ## Public interface
 
-`deploy/install-ubuntu.sh` prepares an Ubuntu 22+ checkout and can install a
-systemd service. `deploy/install-windows.ps1` prepares Windows 11 and can
+`deploy/install_linux_service.sh` prepares an Ubuntu 22+ checkout and can install a
+systemd service. `deploy/install_windows_service.ps1` prepares Windows 11 and can
 register the ADORE Task Scheduler task in loop or repeating-once mode.
 Both scripts are fail-fast, idempotent, validate the chosen config, leave state
 on uninstall, and never put secret values in argv or logs. They refuse
@@ -91,8 +92,8 @@ has no automated product-test workflow under the repository applicability rule.
 
 - `02_Tools/package_runtime.*`, `package_web_offline.py` - delivery media.
 - `02_Tools/install_web_offline.py`, `launch_web.py` - offline install and launch.
-- `02_Tools/internal/check_release_consistency.py` - release contract checker.
-- `02_Tools/deploy/` - OS service installation.
+- `02_Tools/package/release_checks/check_release_consistency.py` - release contract checker.
+- `02_Tools/setup/` - OS service installation.
 - `04_Software/tests/test_web_package.py`, `test_release_consistency.py` - checks.
 
 Canonical resource verification uses an isolated wheel build in automatically

@@ -40,6 +40,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 ### Changed
 
 - Consolidate current operator guidance into one quick reference and update all five presentations for ADORE 0.16.0.
+- Group repository tools by setup, build and package responsibilities; name delivery commands and launcher templates explicitly and keep final package output in `07_Delivery/`.
 - Remove superseded planning material and duplicate manuals; keep current user and technical guides together.
 
 - Delete affected `runs/<run-id>/` directories with an empty `execution` record before starting this build.

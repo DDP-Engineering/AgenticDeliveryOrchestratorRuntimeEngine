@@ -46,6 +46,6 @@ installation.
 
 Source and tests above; `05_SoftwareDocu/Component_Executor_Discovery.md` documents
 schemas and integration; `01_Documentation/Local_Execution.md` describes usage.
-`02_Tools/verify_package.py` proves the actual packaged API on both native hosts.
+`02_Tools/package/verify_delivery_package.py` proves the actual packaged API on both native hosts.
 
 The inventory does not choose or launch an executor. Enrollment and Settings use the managed Pi runtime.

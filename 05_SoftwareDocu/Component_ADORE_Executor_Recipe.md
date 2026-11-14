@@ -23,7 +23,7 @@ the agent. Registering this recipe does not build an image or resume a job.
 
 ## 3. Implementation Overview
 
-Source files live under `02_Tools/containers/adore-executor/`. The Dockerfile
+Source files live under `02_Tools/build/executor_images/adore/`. The Dockerfile
 reconstructs the executor base from Ubuntu 22.04, then installs Playwright and
 Chromium. Its adjacent `Dockerfile.dockerignore` admits only reviewed build
 inputs, including ADORE's existing Pi guard and subscription helper. No host

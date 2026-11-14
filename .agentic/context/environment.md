@@ -10,11 +10,11 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 Offline web control proof uses isolated temporary homes and fake external runners. Worker activity evidence is advisory and requires a current heartbeat.
 
-Portable user delivery is built natively with `python 02_Tools/create_package.py`
+Portable user delivery is built natively with `python 02_Tools/package/create_delivery_package.py`
 with automatic frontend compilation/licensing. It includes managed CPython and locked
 web dependencies; uv and network access are needed only on the build host.
 Windows ZIP/Linux TAR.GZ output goes to repository-relative `07_Delivery/`.
-Run `python 02_Tools/verify_package.py <archive>` on each matching host; it uses
+Run `python 02_Tools/package/verify_delivery_package.py <archive>` on each matching host; it uses
 an isolated home and empty host PATH, and removes temporary data on exit; results go to the console only.
 User startup uses Start-ADORE.cmd/start-adore.sh with no host Python setup.
 
@@ -38,11 +38,11 @@ of ambient Python flags or the Windows account code page. Native evidence
 decoding remains strict. Explicit Retry revalidates the effective environment
 fingerprint and existing process ownership.
 
-Run `python 02_Tools/setup_environment.py` to prepare the source environment
+Run `python 02_Tools/setup/setup_development_environment.py` to prepare the source environment
 without tests or service installation. From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
 the `dev` group and installs the `adore` command in editable mode. Operator
 installation on a host follows `01_Documentation/Getting_Started.md`;
-unattended installation follows `02_Tools/deploy/README.md`.
+unattended installation follows `02_Tools/setup/README.md`.
 Frontend calculation tests use Node.js 22.18 or later for native TypeScript loading.
 For web development use `uv sync --extra web --group dev` from `04_Software`,
 then `npm ci` and `npx playwright install chromium` in `04_Software/web`.
@@ -130,7 +130,7 @@ deadlines. Jobs and Tickets share context-before-page route detachment and bound
 English/light restoration after the body; active handler errors still fail.
 The final proof for a governed task is
 `python .agentic/aegis.py check --task TASK-<id> --strict --run`. A release
-additionally passes `python 02_Tools/internal/check_release_consistency.py
+additionally passes `python 02_Tools/package/release_checks/check_release_consistency.py
 --require-artifacts`. Outcomes belong in task evidence, not here.
 
 ## Platform details
@@ -151,7 +151,7 @@ runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
   first poll.
 - `01_Documentation/Security_And_Credentials.md` - where every credential
   lives.
-- `02_Tools/deploy/README.md` - systemd and Task Scheduler installation.
+- `02_Tools/setup/README.md` - systemd and Task Scheduler installation.
 - `04_Software/docker/README.md` - executor and proxy image build commands.
 - `02_Tools/README.md` - release check and packaging scripts.
 - `01_Documentation/Web_Interface.md` - optional web setup and offline media.

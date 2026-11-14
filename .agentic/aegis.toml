@@ -44,7 +44,7 @@ tests = ["04_Software/tests/", "04_Software/web/tests/"]
 docs = [
   "00_Planning/", "01_Documentation/", "05_SoftwareDocu/",
   "README.md", "CHANGELOG.md", "LICENSE.txt",
-  "02_Tools/README.md", "04_Software/README.md", "02_Tools/deploy/README.md",
+  "02_Tools/README.md", "04_Software/README.md", "02_Tools/setup/README.md",
   "04_Software/docker/README.md", "07_Delivery/README.md",
 ]
 

@@ -4,7 +4,7 @@
 # See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
 # User-facing release notes shown in About > What's new. Rules: AGENTS.md
-# "Release notes rules"; check: python 02_Tools/internal/check_release_notes.py.
+# "Release notes rules"; check: python 02_Tools/package/release_checks/check_release_notes.py.
 # One [[release]] per release, "Unreleased" first, then released versions
 # newest first with the date of their CHANGELOG.md heading. Each entry has a
 # category (new | improved | fixed), a short topic and a text of at most 100

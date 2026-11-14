@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 """
-@file       verify_package.py
+@file       verify_delivery_package.py
 @brief      Test an actual extracted portable distribution on its native host.
 @details    Uses isolated user data and an empty PATH, no forge/container/model
             calls, a fake browser, and bounded startup/shutdown. Temporary files
@@ -38,10 +38,10 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-from internal.check_release_consistency import check_package
+from release_checks.check_release_consistency import check_package
 
 # CONSTANTS
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 WINDOWS = sys.platform == "win32"
 
 

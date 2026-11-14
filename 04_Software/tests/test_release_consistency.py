@@ -26,7 +26,7 @@ from adore import __version__ as RELEASE_VERSION
 # CONSTANTS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CHECKER = REPO_ROOT / "02_Tools" / "internal" / "check_release_consistency.py"
+CHECKER = REPO_ROOT / "02_Tools" / "package" / "release_checks" / "check_release_consistency.py"
 REQUIRED_INPUTS = (
     "README.md",
     "CHANGELOG.md",
@@ -34,8 +34,8 @@ REQUIRED_INPUTS = (
     "04_Software/uv.lock",
     "04_Software/adore/__init__.py",
     "04_Software/adore/branding.py",
-    "02_Tools/deploy/adore.service",
-    "02_Tools/deploy/install-windows.ps1",
+    "02_Tools/setup/adore.service",
+    "02_Tools/setup/install_windows_service.ps1",
     "04_Software/docker/README.md",
 )
 

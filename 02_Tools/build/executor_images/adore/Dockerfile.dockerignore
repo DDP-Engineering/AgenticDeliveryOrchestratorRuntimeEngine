@@ -5,11 +5,12 @@
 **
 !LICENSE.txt
 !02_Tools/
-!02_Tools/containers/
-!02_Tools/containers/adore-executor/
-!02_Tools/containers/adore-executor/Dockerfile
-!02_Tools/containers/adore-executor/Dockerfile.dockerignore
-!02_Tools/containers/adore-executor/README.md
+!02_Tools/build/
+!02_Tools/build/executor_images/
+!02_Tools/build/executor_images/adore/
+!02_Tools/build/executor_images/adore/Dockerfile
+!02_Tools/build/executor_images/adore/Dockerfile.dockerignore
+!02_Tools/build/executor_images/adore/README.md
 !04_Software/
 !04_Software/docker/
 !04_Software/docker/pi/

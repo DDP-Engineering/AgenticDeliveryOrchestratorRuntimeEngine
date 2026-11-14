@@ -12,7 +12,7 @@ ADORE shall accept its Pi provider catalog only when every provider entry lists 
 
 verification = "Automated catalog tests observe hosts on every shipped provider (api.openai.com for openai, api.anthropic.com for anthropic) and refuse a catalog whose entry lacks hosts, has an empty list or a host with a path or space."
 
-affected_paths = ["04_Software/adore/pi_providers.py", "04_Software/adore/pi_catalog.json", "02_Tools/generate_pi_catalog.py"]
+affected_paths = ["04_Software/adore/pi_providers.py", "04_Software/adore/pi_catalog.json", "02_Tools/build/generate_pi_model_catalog.py"]
 
 linked_tests = ["04_Software/tests/test_pi_providers.py::test_catalog_providers_carry_their_hosts", "04_Software/tests/test_pi_providers.py::test_catalog_hosts_are_validated"]
 

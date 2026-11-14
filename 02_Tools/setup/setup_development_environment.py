@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 """
-@file       setup_environment.py
+@file       setup_development_environment.py
 @brief      Prepare the ADORE repository environment on Windows or Linux.
 @details    Synchronizes locked Python/frontend dependencies and Chromium.
             Does not run tests, install services or configure credentials.
@@ -24,7 +24,7 @@ import subprocess
 import sys
 
 # CONSTANTS
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 
 
 # PUBLIC API
@@ -57,7 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(f"Environment setup failed: {error}", file=sys.stderr)
         return 1
-    print("Repository environment ready. Next: python 02_Tools/create_package.py")
+    print("Repository environment ready. Next: python 02_Tools/build/build_web_assets.py "
+          "or python 02_Tools/package/create_delivery_package.py")
     return 0
 
 

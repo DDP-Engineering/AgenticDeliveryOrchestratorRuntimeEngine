@@ -32,7 +32,7 @@ def fingerprint(repo: Path, static: Path) -> dict:
     @exception OSError A required input or output cannot be read.
     """
     web = repo / "04_Software/web"
-    inputs = [repo / "LICENSE.txt", repo / "02_Tools/internal/stamp_web_assets.py"]
+    inputs = [repo / "LICENSE.txt", repo / "02_Tools/package/release_checks/stamp_web_assets.py"]
     inputs += [web / name for name in ("index.html", "package.json", "package-lock.json", "tsconfig.json", "vite.config.ts", "THIRD_PARTY_NOTICES.md")]
     for folder in ("src", "public"):
         directory = web / folder
@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     @return Zero after stamping the requested build.
     @exception SystemExit The destination has no built index.html.
     """
-    repo = Path(__file__).resolve().parents[2]
+    repo = Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path,
                         default=repo / "04_Software" / "adore" / "web" / "static")

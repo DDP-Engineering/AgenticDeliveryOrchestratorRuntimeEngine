@@ -1,10 +1,10 @@
 {
   "inputs": {
-    "02_Tools/internal/stamp_web_assets.py": "a5c36430eb71452d8cb742fdbc9f1ff573e69359375f080aafc7f8bc22ac7051",
+    "02_Tools/package/release_checks/stamp_web_assets.py": "af30e8b86dff2ca3f133f9bf4a20bd428fee6e9c8ac178ea1395fb983bb490d7",
     "04_Software/web/THIRD_PARTY_NOTICES.md": "d37d52874114ed0021bdd24e27054209dd0278ba72a8bca3171a0db77235ed86",
     "04_Software/web/index.html": "28f09ef54e175589502f0b0648a250ec9d8c17a41d8402777d4ec72276f1299b",
     "04_Software/web/package-lock.json": "5519adcf4a488c76b03faf317d324ec6abf83e39b42292b9d7cf43cfa9f4b028",
-    "04_Software/web/package.json": "ca0bbc352cde359c8085298055c865ee546ab2f5168c2aa5fc6365223e7530fe",
+    "04_Software/web/package.json": "a1f519029645af43b22fc34af628257ade1f71ff9413df6504ff0aac658c832a",
     "04_Software/web/src/AccountActionDialog.tsx": "be20162ecf6cf2f48eef3e76619b167ad911b5d1a04b67a622ce2737d9f6132f",
     "04_Software/web/src/AgentConnectionEditor.tsx": "8d063a2a5f6943cf75204b3f16589aace9d317a167dc9a7b487265fa0086bb99",
     "04_Software/web/src/App.tsx": "e7f8bc968c559b540e75b8db9aadc1e8044dfb249c1ef8154c8c204cdf127397",

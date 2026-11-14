@@ -78,9 +78,9 @@ guides belong in `01_Documentation/`.
 - `Component_Process_Log.md` - ADORE-owned rotating `run` command log at
   `<store_root>/adore.log` (`adore/process_log.py`).
 - `Component_Deployment.md` - Task Scheduler/systemd deployment scripts and
-  service setup (`02_Tools/deploy/`).
+  service setup (`02_Tools/setup/`).
 - `Component_Packaging.md` - runtime-bundle packaging scripts
-  (`02_Tools/create_package.py`).
+  (`02_Tools/package/create_delivery_package.py`).
 
 ## Component documentation (phase 5 - assisted setup and profiles)
 

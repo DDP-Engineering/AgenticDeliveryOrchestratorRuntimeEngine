@@ -232,7 +232,7 @@ The portable Start/Stop controls own the complete application tree.
 Interrupted effects retain uncertain ownership until process death is proved.
 They are not silently replayed. Inspect durable operation outcomes and job evidence
 before resubmitting a command. Service setup is in
-[deployment tools](../02_Tools/deploy/README.md).
+[deployment tools](../02_Tools/setup/README.md).
 
 ## Data, backup and maintenance
 

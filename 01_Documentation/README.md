@@ -45,5 +45,5 @@ package. The index and engineering references remain repository documentation.
 | [Portable project settings](Portable_Project_Settings.md) | Closed working-rule export and transfer format. |
 
 [Operator quick reference](Operator_Quick_Reference.md) provides task-oriented
-reminders and the five current presentations. [Deployment tools](../02_Tools/deploy/README.md)
+reminders and the five current presentations. [Deployment tools](../02_Tools/setup/README.md)
 document service installation; source automation belongs under 02_Tools.

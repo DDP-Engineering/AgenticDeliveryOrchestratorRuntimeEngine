@@ -100,7 +100,7 @@ new / License / Third-party notices buttons; licenses stay folded until pressed.
 What's new renders `release_notes` from `/api/v1/about` (packaged
 `adore/release_notes.toml`, four locales, English fallback, `Unreleased` as In
 development); agents maintain it under AGENTS.md "Release notes rules" and
-`02_Tools/internal/check_release_notes.py` checks it.
+`02_Tools/package/release_checks/check_release_notes.py` checks it.
 
 **How ADORE works** opens the in-app help center (`/help`, `/help/<topic>`):
 ten bundled Markdown topics per locale under `src/help/content/`, parsed by
@@ -332,8 +332,8 @@ SQLite bytes, authorization, scope and financial redaction.
   login emits a Secure session cookie.
 - `adore-web-worker --home ...` polls profiles and queued operations.
 - `WebStore(home / "web.db")` owns accounts, sessions, grants, audit and queue.
-- `02_Tools/create_package.py` creates a complete native portable archive;
-  `verify_package.py` checks it using automatically cleaned temporary data.
+- `02_Tools/package/create_delivery_package.py` creates a complete native portable archive;
+  `verify_delivery_package.py` checks it using automatically cleaned temporary data.
 
 Admin container export defaults to the complete source ZIP. RawConfiguration keeps
 missing-base attachment, replacement, errors and recovery inside one compact dialog;
@@ -1005,7 +1005,7 @@ Native control/auth route to local-execution.md. Focused proof:
   (configuration rows and grouping) and `web/src/settingHelp.ts` (per-setting
   help texts for the `web/src/settingKeys.json` catalog) are pure modules tested by
   `web/tests/*.test.mjs`.
-- `02_Tools/create_package.py`, `verify_package.py` and
+- `02_Tools/package/create_delivery_package.py`, `verify_delivery_package.py` and
   `internal/stamp_web_assets.py` - portable media and static asset preparation.
 - `04_Software/tests/test_web_*.py` - focused API, pricing, worker and packaging tests.
 - `04_Software/web/src/ChatGptSignIn.tsx`, `chatgptCopy.ts` - the server's ChatGPT

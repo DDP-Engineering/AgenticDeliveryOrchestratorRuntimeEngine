@@ -210,7 +210,7 @@ Clients read the returned operation ID to obtain the confirmed status/body.
 The API and supervisor use one service account and the same absolute ADORE home.
 Run one supervisor per home, without another CLI loop over those profiles. The
 portable application's Start/Stop manages the process tree. Service-host setup is
-in [deployment tools](../02_Tools/deploy/README.md).
+in [deployment tools](../02_Tools/setup/README.md).
 
 Use HTTPS for access beyond a trusted local endpoint. Protect the home, logs,
 backups, TLS material and credentials with the service account's permissions.

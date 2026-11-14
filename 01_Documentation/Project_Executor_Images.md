@@ -177,7 +177,7 @@ configured separately.
 ## Build and verify on the execution server
 
 For the ADORE project itself, a synthetic recipe and export manifest are available
-under `02_Tools/containers/adore-executor/`. This reconstructs the DCP executor's
+under `02_Tools/build/executor_images/adore/`. This reconstructs the DCP executor's
 observed Pi, Node, Python and Playwright tooling from Ubuntu, without requiring
 the original local image. See its `README.md` for versions, build context,
 registration and verification. It reconstructs the toolchain; it is not an image

@@ -5,8 +5,8 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
-# @file    install-windows.ps1
-# @brief   Deploy ADORE on Windows 11 (design doc 12/12a).
+# @file    install_windows_service.ps1
+# @brief   Prepare a source checkout and optionally register its Windows CLI task.
 # @details Fail-fast, idempotent, re-runnable; Windows PowerShell 5.1
 #          compatible. Steps: check host prerequisites, sync the Python
 #          environment (uv), validate config.toml, verify the executor/base image
@@ -14,14 +14,14 @@
 #          Scheduler job - either the long-running poll loop at logon (-Mode
 #          loop, the default) or a repeating single pass (-Mode once
 #          -IntervalMinutes N). Secrets are never echoed and never appear in
-#          argv; ADORE reads .env from its working directory (design 12b).
-# @usage   .\02_Tools\deploy\install-windows.ps1 [-Mode loop|once] [-IntervalMinutes 10]
+#          argv; ADORE reads .env from its working directory.
+# @usage   .\02_Tools\setup\install_windows_service.ps1 [-Mode loop|once] [-IntervalMinutes 10]
 #              [-Runtime "docker"] [-ImageTag "adore-executor-base:1.0.0"]
 #              [-SkipImageCheck] [-AllowOpenEgress] [-NoTask] [-Uninstall]
 #          With Docker Engine in WSL2: -Runtime "wsl -d Ubuntu-24.04 -- docker"
 # @author  Eng. Dan Dumitru Pasare
-# @date    2026-07-04
-# @version 0.4.0
+# @date    2026-11-15
+# @version 0.16.0
 # -----------------------------------------------------------------------------
 [CmdletBinding()]
 param(
@@ -41,13 +41,9 @@ $ErrorActionPreference = "Stop"
 
 # CONSTANTS
 $TaskName    = "ADORE Orchestrator & Runtime Engine"
-# Repository: <root>/02_Tools/deploy; bundle: <runtime>/deploy.
+# Source checkout: <root>/02_Tools/setup beside <root>/04_Software.
 $DeploymentParent = Split-Path -Parent $PSScriptRoot
-if ((Split-Path -Leaf $DeploymentParent) -eq "02_Tools") {
-    $SoftwareDir = Join-Path (Split-Path -Parent $DeploymentParent) "04_Software"
-} else {
-    $SoftwareDir = $DeploymentParent
-}
+$SoftwareDir = Join-Path (Split-Path -Parent $DeploymentParent) "04_Software"
 $AdoreExe    = Join-Path $SoftwareDir ".venv\Scripts\adore.exe"
 
 # LOCAL HELPERS
@@ -79,7 +75,7 @@ if ($Uninstall) {
 # INSTALL - 1. host prerequisites (fail closed with a hint, never auto-install)
 if (-not (Test-Path -LiteralPath (Join-Path $SoftwareDir "pyproject.toml") -PathType Leaf) -or
     -not (Test-Path -LiteralPath (Join-Path $SoftwareDir "adore") -PathType Container)) {
-    Fail "runtime not found at '$SoftwareDir'; keep 02_Tools/deploy beside 04_Software in a checkout, or deploy beside pyproject.toml in a runtime bundle"
+    Fail "runtime not found at '$SoftwareDir'; keep 02_Tools/setup beside 04_Software in a source checkout"
 }
 Note "checking host prerequisites"
 Need-Command uv  "Install: winget install astral-sh.uv"
@@ -205,7 +201,7 @@ if ($null -ne $existing) {
 }
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
     -Settings $settings `
-    -Description "ADORE - Agentic Delivery Orchestrator & Runtime Engine (design 12a)" | Out-Null
+    -Description "ADORE - Agentic Delivery Orchestrator & Runtime Engine" | Out-Null
 
 Note "task registered. Start it now with:  Start-ScheduledTask -TaskName '$TaskName'"
 Note "inspect runs in Task Scheduler or with:  Get-ScheduledTaskInfo -TaskName '$TaskName'"

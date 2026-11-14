@@ -6,11 +6,11 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Deployment (`02_Tools/deploy/`)
+# Component: Deployment (`02_Tools/setup/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `02_Tools/deploy/install-ubuntu.sh`, `02_Tools/deploy/install-windows.ps1`,
-> `02_Tools/deploy/adore.service` (template).
+> Sources: `02_Tools/setup/install_linux_service.sh`, `02_Tools/setup/install_windows_service.ps1`,
+> `02_Tools/setup/adore.service` (template).
 > System overview: [Operations guide](../01_Documentation/Operations_Guide.md#system-overview).
 
 ## 1. Purpose
@@ -23,12 +23,12 @@ this one directory as scripts, not code.
 
 ## 2. Responsibilities
 
-- `install-ubuntu.sh` - prerequisite checks (uv, git, glab/gh/tea; docker unless
+- `install_linux_service.sh` - prerequisite checks (uv, git, glab/gh/tea; docker unless
   `--skip-image`), `uv sync --frozen`, `adore config validate`, executor-base
   image build when absent, and with `--service` the systemd unit install/enable/
   start (template rendering via `sed`, sudo only for the unit step);
   `--uninstall` removes the unit and keeps all state.
-- `install-windows.ps1` (Windows PowerShell 5.1 compatible) - the same
+- `install_windows_service.ps1` (Windows PowerShell 5.1 compatible) - the same
   prepare steps, executor-image **verification** for the configured
   `-Runtime` (including WSL-wrapped, e.g. `"wsl -d Ubuntu-24.04 -- docker"`),
   and registration of the **"ADORE Orchestrator & Runtime Engine"** scheduled task: `-Mode
@@ -39,17 +39,16 @@ this one directory as scripts, not code.
   `__ADORE_USER__` placeholders, `WorkingDirectory` at the checkout (so
   `config.toml` and `.env` resolve), optional `EnvironmentFile=-<dir>/.env`,
   `Restart=on-failure` + 30 s backoff, `NoNewPrivileges` / `PrivateTmp`.
-- `02_Tools/deploy/README.md` - the operator-facing deployment procedure.
+- `02_Tools/setup/README.md` - the operator-facing deployment procedure.
 
 Explicitly not owned: installing prerequisites (checks fail closed with the
 install hint - deterministic, no surprise system changes), secret contents
-(placement only; design 12b), and native OS packaging (single-file exe / deb
-are separate backlog items). The complete portable user distribution is owned by
-`02_Tools/create_package.py`; service setup is separate.
+(placement only), and application archive assembly. The complete user distribution is owned by
+`02_Tools/package/create_delivery_package.py`; service setup is separate.
 
 ## 3. Implementation Overview
 
-- Scripts and the service template live in `02_Tools/deploy/`. In a source
+- Scripts and the service template live in `02_Tools/setup/`. In a source
   checkout they resolve the sibling `04_Software/` as the runtime. Packagers
   do not copy service setup into ordinary user archives.
   Configuration, `.env`, `.venv`, Docker build contexts and scheduler working
@@ -61,7 +60,7 @@ are separate backlog items). The complete portable user distribution is owned by
   the environment; an existing image or task is reused/replaced cleanly).
 - Config is validated during deployment - a typo stops the install where the
   operator is watching, not the service start at 3 a.m. (the engine
-  re-validates at startup anyway; design 12a).
+  re-validates at startup).
 - Secrets never appear in argv and are never echoed; the scripts only point
   at `.env` (gitignored, documented by `.env.example`) or the unit's
   `EnvironmentFile`.
@@ -116,19 +115,19 @@ Operations afterwards go through the CLI (`status`, `pause`, `cleanup`,
 
 ```bash
 # Ubuntu
-bash 02_Tools/deploy/install-ubuntu.sh --service          # full: env, config, image, unit
-bash 02_Tools/deploy/install-ubuntu.sh --allow-open-egress --service
+bash 02_Tools/setup/install_linux_service.sh --service          # full: env, config, image, unit
+bash 02_Tools/setup/install_linux_service.sh --allow-open-egress --service
 journalctl -u adore -f                          # host service logs
 tail -f 04_Software/.adore/adore.log                         # ADORE-owned run log
-bash 02_Tools/deploy/install-ubuntu.sh --uninstall         # remove the unit, keep state
+bash 02_Tools/setup/install_linux_service.sh --uninstall         # remove the unit, keep state
 ```
 
 ```powershell
 # Windows
-.\02_Tools\deploy\install-windows.ps1 -Runtime "wsl -d Ubuntu-24.04 -- docker"
-.\02_Tools\deploy\install-windows.ps1 -AllowOpenEgress
+.\02_Tools\setup\install_windows_service.ps1 -Runtime "wsl -d Ubuntu-24.04 -- docker"
+.\02_Tools\setup\install_windows_service.ps1 -AllowOpenEgress
 Start-ScheduledTask -TaskName "ADORE Orchestrator & Runtime Engine"
-.\02_Tools\deploy\install-windows.ps1 -Uninstall
+.\02_Tools\setup\install_windows_service.ps1 -Uninstall
 ```
 
 ## 9. Verification
@@ -153,7 +152,7 @@ Review script changes directly; verify actual user application archives separate
 
 ## Curated user documentation in portable packages
 
-`02_Tools/create_package.py` reads the three user guides beside the technical
+`02_Tools/package/create_delivery_package.py` reads the three user guides beside the technical
 manuals in `01_Documentation/`. `USER_DOC_SOURCES` maps source filenames to their
 package names: `User_Guide.md` becomes `Documentation/README.md`, while
 `Administrator_Guide.md` and `Troubleshooting.md` keep their names.
