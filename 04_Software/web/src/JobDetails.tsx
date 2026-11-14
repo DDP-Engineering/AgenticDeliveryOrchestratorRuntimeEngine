@@ -135,7 +135,6 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
           <dl><div><dt>{budget.launches}</dt><dd>{job.budget.launches} / {job.budget.max_launches ?? "—"}</dd></div><div><dt>{budget.active}</dt><dd>{Math.floor(job.budget.active_seconds)} / {job.budget.max_active_seconds ?? "—"}</dd></div></dl>
           {job.budget.availability === "unavailable" ? <p className="notice" role="status">{budget.unavailable}</p> :
             (job.budget.launches / job.budget.max_launches >= .9 || job.budget.active_seconds / job.budget.max_active_seconds >= .9) && <p className="notice" role="status">{job.budget.launches >= job.budget.max_launches || job.budget.active_seconds >= job.budget.max_active_seconds ? budget.reached : budget.near}</p>}
-          <p className="field-hint">{text.notProgress}</p><details><summary>{copy.details}</summary><p className="field-hint">{budget.timing}</p></details>
           {admin && !job.project_archived && <a href={formatRoute({ view: "projectDetails", project: job.project_id, tab: "configuration" })}>{budget.settings}</a>}
         </section>}
         <section className="job-usage"><h3>{copy.consumption}</h3>{consumption}<p className="field-hint">{text.unknownCost}</p></section>

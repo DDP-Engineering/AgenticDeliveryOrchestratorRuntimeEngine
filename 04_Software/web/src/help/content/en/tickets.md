@@ -51,6 +51,8 @@ Optional labels shape the job: `bug` or `fix` makes a fix task, `change` a chang
 
 Use **Tickets** in the sidebar for all authorized projects or one selected project, or the separate **Tickets** tab in a project. Both read automatically on opening; the global page also rereads after scope changes. **Read tickets** remains the manual refresh. Jobs retains its search, filters and pagination.
 
+Click Number, Project, Title, Labels or Status to sort ascending; click the active heading again to reverse the order. Project appears only when several projects are shown. Sorting covers all loaded tickets before pagination, returns to the first page and stays selected after Read tickets. The same controls are available in the project’s Tickets tab.
+
 The page reads up to 500 open tickets. More than 10 tickets are shown a page at a time: choose 10, 25, 50 or All in **Rows per page**, and move with **Previous** and **Next**; the pager shows the page number of the page count. Each row shows the number in a narrow column alongside the title, labels, Status and actions. Status names what blocks a ticket:
 
 | Status | Meaning |

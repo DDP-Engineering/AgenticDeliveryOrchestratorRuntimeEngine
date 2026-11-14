@@ -37,6 +37,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Remove the budget explanation and Details disclosure from job budget cards.
+
+- Sort global and project Tickets by number, project, title, labels or status before pagination.
+
 - Separate project Jobs and Tickets, keep budgets beside job content, and page Activity.
 - Present recorded agent conversations with full retained prompts, inline messages and send/queue controls.
 

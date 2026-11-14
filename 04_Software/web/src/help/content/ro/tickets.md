@@ -51,6 +51,8 @@ Etichetele opționale modelează lucrarea: `bug` sau `fix` produce o sarcină de
 
 Folosește **Tichete** din meniul lateral pentru toate proiectele autorizate sau unul singur, ori fila separată **Tichete** a proiectului. Ambele citesc automat la deschidere; pagina globală recitește și la schimbarea selecției. **Citește tichetele** rămâne actualizarea manuală. Lucrări păstrează căutarea, filtrele și paginarea.
 
+Apasă pe Număr, Proiect, Titlu, Etichete sau Stare pentru sortare crescătoare; apasă din nou pe coloana activă pentru a inversa ordinea. Proiect apare numai când sunt afișate mai multe proiecte. Sortarea se aplică tuturor tichetelor încărcate înainte de paginare, revine la prima pagină și se păstrează după Citește tichetele. Aceleași controale există în fila Tichete a proiectului.
+
 Pagina citește până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:
 
 | Stare | Semnificație |

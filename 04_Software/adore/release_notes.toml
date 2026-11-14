@@ -17,6 +17,11 @@ version = "Unreleased"
 
 
 [[release.entry]]
+category = "improved"
+topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
+text = { en = "Sort ticket columns across loaded results, globally or inside a project.", fr = "Triez les colonnes des tickets chargés, globalement ou dans un projet.", de = "Ticketspalten über geladene Ergebnisse sortieren, global oder im Projekt.", ro = "Sortează coloanele tichetelor încărcate, global sau în interiorul unui proiect." }
+
+[[release.entry]]
 category = "fixed"
 topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
 text = { en = "Recorded messages without a message time are displayed correctly.", fr = "Les messages enregistrés sans heure s’affichent correctement.", de = "Aufgezeichnete Nachrichten ohne Zeitangabe werden korrekt angezeigt.", ro = "Mesajele înregistrate fără ora mesajului sunt afișate corect." }
@@ -24,7 +29,7 @@ text = { en = "Recorded messages without a message time are displayed correctly.
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Jobs and Tickets are separate; job budgets sit beside paginated activity.", fr = "Travaux et Tickets sont séparés ; les budgets accompagnent l’activité paginée.", de = "Jobs und Tickets sind getrennt; Jobbudgets stehen neben der paginierten Aktivität.", ro = "Lucrări și Tichete sunt separate; bugetele stau lângă activitatea paginată." }
+text = { en = "Jobs and Tickets are separate; compact budgets sit beside paginated activity.", fr = "Travaux et Tickets sont séparés ; les budgets simplifiés accompagnent l’activité paginée.", de = "Jobs und Tickets sind getrennt; kompakte Budgets stehen neben der paginierten Aktivität.", ro = "Lucrări și Tichete sunt separate; bugetele compacte stau lângă activitatea paginată." }
 
 [[release.entry]]
 category = "fixed"

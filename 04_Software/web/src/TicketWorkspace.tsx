@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, describeError } from "./errors";
 import { messages, type Locale } from "./i18n";
 import { safeEvidenceLink } from "./jobModel";
@@ -12,6 +12,7 @@ import { startVisiblePolling } from "./polling";
 import { keptLabels, outcomeText } from "./operationReason";
 import { jobCopy } from "./jobCopy";
 import { fill, ticketCopy, operationResultText } from "./ticketCopy";
+import { SortHeader } from "./SortHeader";
 import { HelpLink } from "./HelpCenter";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
 import { ForgeMarkdown } from "./forgeMarkdown";
@@ -40,6 +41,8 @@ type Props = {
 };
 /** One ticket row keeps its owning project and that project's label policy. */
 type Row = { key: string; project: Project; list: TicketList; ticket: Ticket };
+type TicketSort = "number" | "project" | "title" | "labels" | "status";
+
 type StartRequest = { row: Row; addsReady: boolean; needsPriority: boolean };
 
 const FINISHED = ["done", "failed", "cancelled", "handed-off", "handoff-pending"];
@@ -104,7 +107,7 @@ function readStop(value: unknown): StopResult {
   return result;
 }
 
-/** Tickets sub-tab: reads open forge tickets only on request and starts or stops one at a time. */
+/** Shared scoped tickets table: automatic/manual reads, sortable columns and isolated actions. */
 export function TicketWorkspace({ projects, showProject = false, automatic = false, locale, csrf, request, bodyMode, modeBusy, onBodyMode }: Props) {
   const copy = ticketCopy[locale];
   const t = messages[locale];
@@ -119,6 +122,13 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
   // A read returns up to 500 tickets; they are shown a page at a time.
   const [size, setSize] = useState<number | "all">(10);
   const [offset, setOffset] = useState(0);
+  const [sortKey,setSortKey]=useState<TicketSort>("number");
+  const [sortDescending,setSortDescending]=useState(true);
+  const changeSort=(key:TicketSort)=>{
+    if(key===sortKey)setSortDescending(value=>!value);
+    else {setSortKey(key);setSortDescending(false);}
+    setOffset(0);setStarting(null);setConfirm(null);
+  };
   // Tickets started since the last read stay unavailable for Start until the next read.
   const [queued, setQueued] = useState<string[]>([]);
   const [busyProjects, setBusyProjects] = useState<Set<string>>(new Set());
@@ -137,6 +147,9 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const base = (project: Project) => `/projects/${encodeURIComponent(project.id)}`;
   const projectName = (project: Project) => project.display_name || project.name;
+  const status = ({ ticket, list }: Row) => ticket.job ? fill(copy.job, { lifecycle: ticket.job.lifecycle }) :
+    ticket.blocked_by === PICKUP_PAUSED ? copy.pickup_paused :
+    ticket.reason === null ? copy.startable : fill(copy[(ticket.blocked_by ?? ticket.reason) as keyof typeof copy] as string, { label: list.ready_label });
   // Several projects can share ticket numbers, so messages name the project when more than one is shown.
   const named = (row: Row, line: string) => showProject ? `${projectName(row.project)} · ${line}` : line;
   const when = (value: string) => {
@@ -172,7 +185,15 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
     return()=>{readGeneration.current++;pendingRead.current=null;};
   },[scopeKey,automatic]);
   const currentLists = readScope === scopeKey ? lists : null;
-  const rows: Row[] = (currentLists ?? []).flatMap(({ project, list }) => list.tickets.map(ticket => ({ key: `${project.id}:${ticket.iid}`, project, list, ticket })));
+  const rows=useMemo(()=>{
+    const all:Row[]=(currentLists??[]).flatMap(({project,list})=>list.tickets.map(ticket=>({key:`${project.id}:${ticket.iid}`,project,list,ticket})));
+    const collator=new Intl.Collator(locale,{numeric:true,sensitivity:"base"});
+    const value=(row:Row)=>sortKey==="project"?projectName(row.project):sortKey==="title"?row.ticket.title:sortKey==="labels"?row.ticket.labels.join(", "):status(row);
+    return all.sort((left,right)=>{
+      const primary=sortKey==="number"?left.ticket.iid-right.ticket.iid:collator.compare(value(left),value(right));
+      return (sortDescending?-primary:primary)||collator.compare(projectName(left.project),projectName(right.project))||left.ticket.iid-right.ticket.iid||left.key.localeCompare(right.key);
+    });
+  },[currentLists,sortKey,sortDescending,locale]);
   const latestRead = (currentLists ?? []).map(item => item.list.read_at).sort().at(-1);
   const pages = size === "all" ? 1 : Math.max(1, Math.ceil(rows.length / size));
   const first = size === "all" ? 0 : Math.min(offset, (pages - 1) * size);
@@ -265,9 +286,6 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
     return () => { active = false; stopPolling(); };
   }, [operation?.id, operation?.status]);
 
-  const status = ({ ticket, list }: Row) => ticket.job ? fill(copy.job, { lifecycle: ticket.job.lifecycle }) :
-    ticket.blocked_by === PICKUP_PAUSED ? copy.pickup_paused :
-    ticket.reason === null ? copy.startable : fill(copy[(ticket.blocked_by ?? ticket.reason) as keyof typeof copy] as string, { label: list.ready_label });
   const pausedLists = (currentLists ?? []).filter(({ list }) => list.tickets.some(ticket => ticket.blocked_by === PICKUP_PAUSED));
   const failure = notice?.operation && ["failed", "uncertain"].includes(notice.operation.status) ? notice.operation : null;
   const stoppable = ({ ticket, list }: Row) => !!ticket.job && !FINISHED.includes(ticket.job.lifecycle) || ticket.labels.includes(list.ready_label);
@@ -298,7 +316,7 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
       {currentLists && currentLists.length > 0 && rows.length === 0 && <p className="muted">{copy.none}</p>}
       {(currentLists ?? []).filter(item => item.list.truncated).map(({ project }) => <p className="muted" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.truncated}</p>)}
       {rows.length > 0 && <div className="table-scroll"><table className="ticket-table">
-        <thead><tr><th>{copy.number}</th>{showProject && <th>{copy.project}</th>}<th>{copy.title}</th><th>{copy.labels}</th><th>{copy.status}</th><th>{copy.actions}</th></tr></thead>
+        <thead><tr>{([...(showProject?["number","project"] as const:["number"] as const),"title","labels","status"] as const).map(key=><SortHeader key={key} label={copy[key]} sortKey={key} activeKey={sortKey} descending={sortDescending} onSort={changeSort}/>)}<th>{copy.actions}</th></tr></thead>
         <tbody>{shown.map(row => {
           const { ticket, project } = row;
           const link = safeEvidenceLink(ticket.web_url);

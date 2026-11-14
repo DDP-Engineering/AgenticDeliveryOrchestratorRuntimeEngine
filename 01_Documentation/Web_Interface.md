@@ -1704,3 +1704,21 @@ Optional session message time is validated only when present. Its absence means
 unknown time and does not invalidate an otherwise readable JSONL record. Explicitly
 malformed times still produce a refused-record notice. Damaged or previously truncated
 source text is not reconstructed by this correction.
+
+## Ticket column sorting
+
+TicketWorkspace shares the same column sorting in global Tickets and Project Tickets.
+SortHeader provides keyboard-operable Number, Project (multi-project only), Title,
+Labels and Status headings with aria-sort and direction indicators. Actions is not a
+data sort column. The initial order is numeric ticket number descending. Clicking a
+new column selects ascending order; clicking it again reverses it. Sorting uses the
+active locale with natural numeric comparison, displayed label order and displayed
+status, with deterministic project/number/key tie-breaks. All successfully loaded
+scoped tickets are sorted before pagination; forge reads and per-project limits are
+unchanged. Sorting returns to page one and closes pending Start/Stop confirmations,
+while preserving owning row identities, details and actions. Manual refresh retains
+the chosen column/direction; both fixed and selectable project scopes use this table.
+
+Job budgets shows the consumed/current-limit values, near/reached/unavailable warnings
+and the administrator Settings link. It omits the explanatory progress paragraph and
+Details/timing disclosure; budget timing semantics remain documented in Help.

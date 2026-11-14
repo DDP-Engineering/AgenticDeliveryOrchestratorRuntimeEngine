@@ -51,6 +51,8 @@ Des étiquettes facultatives orientent la tâche : `bug` ou `fix` donne une tâc
 
 Utilisez **Tickets** dans la barre latérale pour tous les projets autorisés ou un seul, ou l’onglet **Tickets** distinct du projet. Les deux lisent automatiquement à l’ouverture ; la page globale relit après un changement de périmètre. **Lire les tickets** reste l’actualisation manuelle. Travaux conserve recherche, filtres et pagination.
 
+Cliquez sur Numéro, Projet, Titre, Étiquettes ou Statut pour trier par ordre croissant ; cliquez à nouveau sur la colonne active pour inverser l’ordre. Projet apparaît seulement avec plusieurs projets. Le tri porte sur tous les tickets chargés avant pagination, revient à la première page et reste choisi après Lire les tickets. Les mêmes commandes existent dans l’onglet Tickets du projet.
+
 La page lit jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :
 
 | État | Signification |

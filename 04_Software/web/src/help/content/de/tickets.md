@@ -51,6 +51,8 @@ Optionale Labels formen den Auftrag: `bug` oder `fix` ergibt eine Fehlerbehebung
 
 **Tickets** in der Seitenleiste zeigt alle berechtigten Projekte oder eines; im Projekt gibt es einen separaten **Tickets**-Reiter. Beide lesen beim Öffnen automatisch, die globale Seite auch bei geändertem Umfang. **Tickets lesen** bleibt zur manuellen Aktualisierung. Jobs behält Suche, Filter und Seitennavigation.
 
+Auf Nummer, Projekt, Titel, Labels oder Status klicken, um aufsteigend zu sortieren; erneutes Klicken kehrt die Richtung um. Projekt erscheint nur bei mehreren Projekten. Alle geladenen Tickets werden vor der Seiteneinteilung sortiert; die erste Seite wird geöffnet und die Sortierung bleibt nach Tickets lesen erhalten. Dieselben Bedienelemente gibt es im Tickets-Reiter des Projekts.
+
 Die Seite liest bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
 
 | Status | Bedeutung |
