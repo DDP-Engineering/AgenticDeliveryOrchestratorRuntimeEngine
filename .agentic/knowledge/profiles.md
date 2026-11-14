@@ -41,7 +41,10 @@ Writes are atomic, corrupt metadata fails closed and is reported, and deletion
 clears a matching active pointer. The store deliberately persists metadata
 only, never credentials or `.env` values.
 Metadata replacement uses a unique temporary file and bounded Windows sharing
-retries. A persistent error preserves the previous metadata file.
+retries. A persistent error preserves the previous metadata file. Reads retry only recognized
+Windows sharing errors over five attempts/185 ms scheduled delay; persistent denial
+and malformed/missing data still fail closed. Focused proof is
+`test_profile_read_bounds_windows_sharing_contention` in test_profiles.py.
 Each profile has an immutable 32-hex `project_id` distinct from its directory
 label: `create()` assigns a random one and `save()` requires one. A rename
 persists that ID, while a malformed ID fails closed. A `profile.json` with

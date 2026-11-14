@@ -326,3 +326,11 @@ independent PIDs, N+1 admission deferral and completed B while A is blocked. Par
 crash proof observes descendant death and uncertain claims. Only targeted Python/
 help checks and the required static bundle build run in WK-04; final umbrella
 validation remains separate. Portable tools receive inspection/smoke only.
+
+
+Scoped configuration proof uses isolated homes, fake model/runtime/forge runners,
+protected input/result corruption and deterministic thread barriers, plus a single
+owned configuration process for HTTP-to-worker consumption. Managed image build
+barriers prove B/global progress and free image edit locks without any real runtime.
+Targeted frontend configuration/help tests and the required static build verify the
+browser wait contract. Full umbrella validation stays deferred by user instruction.

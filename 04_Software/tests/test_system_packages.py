@@ -182,8 +182,8 @@ def test_package_setting_requires_review_and_preserves_network(tmp_path):
     from adore.config import load_config
     from adore.state import StateStore
     from adore.web.app import create_app
-    from fastapi.testclient import TestClient
 
+    from tests.configuration_client import TestClient
     from tests.test_model_connection import project
 
     profiles = project(tmp_path)
@@ -218,8 +218,8 @@ def test_package_setting_refuses_non_boolean_candidates(tmp_path, value):
     """@brief Human-written settings cannot silently coerce administrative rights."""
     from adore.state import StateStore
     from adore.web.app import create_app
-    from fastapi.testclient import TestClient
 
+    from tests.configuration_client import TestClient
     from tests.test_model_connection import project
 
     profiles = project(tmp_path)

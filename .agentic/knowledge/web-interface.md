@@ -100,7 +100,7 @@ Its link opens Repository and focuses the single target-branch setting.
 
 ## Branch naming preview and edit authority
 
-`POST /api/v1/projects/{name}/config/branch-preview` accepts the closed strict body `{template, rule, revision}` (512-character text bounds, SHA-256 revision). Scoped users supply CSRF; the shared config lock coordinates preview reads with application, and project grants and before/after revision checks precede evidence release. The route returns the shared config preview plus inspected revision and performs no writes or Git operations. Corrupt source returns `config_corrupt`, stale input returns `stale_config_revision`, and malformed transport fails request validation. Scoped developer reads hide inaccessible project identity with the existing 404 policy.
+`POST /api/v1/projects/{name}/config/branch-preview` accepts the closed strict body `{template, rule, revision}` (512-character text bounds, SHA-256 revision). Scoped users supply CSRF; atomic replacement and before/after revision checks bind preview reads, and project grants and before/after revision checks precede evidence release. The route returns the shared config preview plus inspected revision and performs no writes or Git operations. Corrupt source returns `config_corrupt`, stale input returns `stale_config_revision`, and malformed transport fails request validation. Scoped developer reads hide inaccessible project identity with the existing 404 policy.
 
 Only `worktree.branch_template`, `worktree.branch_rule` and the administrator-chosen `execution.backend`, `container.runtime`, `container.image` and `local.account/home/path/cgroup_root` are exceptions to the external environment edit restriction. They advertise editability/restart and retain administrator, validated candidate, lock, revision, paused/idle and replay integrity gates (direct PUT of the chosen keys returns 409 `pending_config_required`). Every other worktree/container/execution/local setting keeps external ownership. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
 
@@ -1319,3 +1319,14 @@ reservation blocks it even when saved state is terminal; corrupt state is refuse
 Other projects retain independent barriers. The command worker and CLI recheck
 archived deletion before effects. Pausing monitoring keeps active jobs running.
 Focused proof: `04_Software/tests/test_shared_resources.py` and `test_web_archive.py`.
+
+## Durable configuration/control integration
+
+Existing long settings/probe and reviewed enrollment routes submit protected scoped
+work through `ConfigurationTasks.route`; the independent configuration process invokes
+the same handlers. HTTP 202 is acceptance and administrator operation status exposes
+the actual confirmed outcome. Project config/credentials and current actor rights fence
+publication; unsafe application retains a staged conflict. Global account/access/audit
+transactions stay short and independent. Shared ChatGPT has its own server resource.
+See configuration-worker.md and Component_Configuration_Worker.md for bounded lanes,
+image reservations, storage/refusal and browser/test integration.

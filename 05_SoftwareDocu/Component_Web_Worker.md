@@ -11,7 +11,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 The `adore-web-worker` entry owns one local supervisor per home. Independent
 project workers own admission and their N-place run pools; a separate process
-consumes existing configuration control commands. The API never conducts jobs.
+consumes durable scoped configuration tasks and immediate admission controls. The API never conducts jobs.
 
 ## 2. Responsibilities
 
@@ -35,9 +35,10 @@ or repeated publication. Initial queued dispatch authority remains explicit.
 
 One separately owned command child per project executes Start/Retry/Restart/Cancel independently
 of the polling and run processes. Starts/Retry/Restart wait in the durable queue
-at capacity; Cancel keeps its control path. Configuration pause/resume/delete
-commands execute in a separate consumer; protected configuration candidates
-remain for their dedicated implementation. No global single-job ceiling exists.
+at capacity; Cancel keeps its control path. Configuration tasks use independent bounded fast/long/shared-auth lanes; Pause/Resume
+use the immediate control pass and Delete uses its existing confirmed CLI path.
+See [Configuration worker](Component_Configuration_Worker.md) for revision/authority,
+private records, staging, environment preparation and durable outcome contracts. No global single-job ceiling exists.
 
 ## 4. Dependencies
 

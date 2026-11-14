@@ -1138,8 +1138,8 @@ def test_local_review_apply_rechecks_native_identity_and_permissions(tmp_path, m
     import re
 
     from adore.web.app import create_app
-    from fastapi.testclient import TestClient
 
+    from tests.configuration_client import TestClient
     from tests.test_web_pending_config import _headers, _project
 
     _config, context, _backend, _controller, _work = local_fixture(tmp_path, monkeypatch)

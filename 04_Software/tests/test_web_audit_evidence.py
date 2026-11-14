@@ -19,9 +19,9 @@ import sqlite3
 from adore.profiles import ProfileStore
 from adore.web.app import create_app
 from adore.web.store import WebStore, WebStoreError
-from fastapi.testclient import TestClient
 import pytest
 
+from tests.configuration_client import TestClient
 from tests.test_web_enrollment import (  # noqa: F401
     _body,
     _import_body,

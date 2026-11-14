@@ -392,8 +392,18 @@ class ProfileStore:
         if not path.is_file():
             raise ProfileError(f"no such profile: {name!r}")
         try:
-            with path.open(encoding="utf-8") as handle:
-                data = json.load(handle)
+            for attempt, delay in enumerate((0.0, 0.01, 0.025, 0.05, 0.1)):
+                if delay:
+                    sleep(delay)
+                try:
+                    with path.open(encoding="utf-8") as handle:
+                        data = json.load(handle)
+                    break
+                except PermissionError as exc:
+                    # Atomic replacement may briefly deny a Windows reader. Retry
+                    # only recognized sharing errors; malformed data never retries.
+                    if getattr(exc, "winerror", None) not in (5, 32, 33) or attempt == 4:
+                        raise
         except (json.JSONDecodeError, OSError) as exc:
             raise ProfileError(f"corrupt profile.json for {name!r}: {exc}") from exc
         if not isinstance(data, dict):

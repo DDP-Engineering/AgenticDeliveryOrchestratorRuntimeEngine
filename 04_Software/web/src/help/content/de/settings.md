@@ -8,7 +8,7 @@ Der Reiter Einstellungen eines Projekts listet die Arbeitsregeln auf, die ADORE 
 
 Die gespeicherten Einstellungen werden alle 15 Sekunden aktualisiert, solange der Browser-Tab sichtbar ist. Bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen pausiert die Aktualisierung. Auch bei der Eingabe eines Preises oder API-Schlüssels und bei der ChatGPT-Anmeldung pausiert die Aktualisierung.
 
-Administratoren können bearbeiten. Entwickler mit Zugriff auf das Projekt sehen **Schreibgeschützte Einstellungen**, ohne Schaltflächen zum Bearbeiten und ohne Geheimnisse oder Finanzeinstellungen. Jedes Projekt hat eigene Einstellungen; die globale Kapazität und die Audit-Aufbewahrung gehören zur Verwaltung.
+Administratoren können bearbeiten. Entwickler mit Zugriff auf das Projekt sehen **Schreibgeschützte Einstellungen**, ohne Schaltflächen zum Bearbeiten und ohne Geheimnisse oder Finanzeinstellungen. Überwachung, Laufzeit, Modell, Limits und Regeln gehören zum jeweiligen Projekt. Konten, Audit, gemeinsame ChatGPT-Anmeldung und Dienstverwaltung bleiben serverweit.
 
 ## Einstellungsgruppen {#groups}
 
@@ -49,6 +49,8 @@ Es gelten folgende Regeln:
 - Budgets gelten vor dem nächsten Versuch oder Fortsetzen bei erhaltenem Verbrauch und Fortschritt. Siehe [Jobbudgets](#budgets).
 
 Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespeicherte Einstellungen verworfen werden. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
+
+Speichern und Prüfen laufen getrennt von Aufträgen und langen Vorbereitungen. Erst das bestätigte Ergebnis gilt als gespeichert. Pause/Fortsetzen der Überwachung und Abbruchsignale benötigen keinen freien Auftragsplatz. Eine unverträgliche Änderung bleibt mit einem ausdrücklichen Konflikt für dieses Projekt vorbereitet; laufende Aufträge und andere Projekte behalten ihre Einstellungen.
 
 ## Original-TOML {#toml}
 

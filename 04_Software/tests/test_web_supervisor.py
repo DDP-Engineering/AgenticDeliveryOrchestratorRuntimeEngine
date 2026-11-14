@@ -559,26 +559,31 @@ def test_process_capture_is_bounded_under_large_output():
 
 
 def test_configuration_worker_reports_busy_during_command(tmp_path, monkeypatch):
-    """@brief Supervisor aggregation can distinguish blocked configuration from idle."""
+    """@brief Durable configuration work reports busy from its independent process loop."""
+    import adore.web.app as app_module
+    from adore.web.app import create_app
     import adore.web.supervisor as module
+    from fastapi.testclient import TestClient
 
     profiles = ProfileStore(tmp_path / "home")
     project(profiles, "alpha")
     web = WebStore(profiles.home / "web.db")
-    admin = web.authenticate("admin", "admin")
-    web.enqueue(admin["id"], "alpha", "pause", "", "pause-once")
     entered, release, stop = Event(), Event(), Event()
     errors = []
 
-    def runner(argv, environment):
+    def probe(config, *args, **kwargs):
         entered.set()
-        assert release.wait(5)
-        return 0
+        assert release.wait(8)
+        return {"ready": True, "reason": "ready", "executor": "pi", "model": config.executor.model}
 
-    def factory(profiles, web, **kwargs):
-        return commands.CommandWorker(profiles, web, runner=runner, **kwargs)
+    monkeypatch.setattr(app_module, "probe_model_connection", probe)
+    with TestClient(create_app(profiles.home)) as client:
+        csrf = client.post("/api/v1/session", json={
+            "username":"admin","password":"admin"}).json()["csrf"]
+        accepted = client.post("/api/v1/projects/alpha/model-connection-test",
+                               headers={"X-CSRF-Token":csrf})
+        assert accepted.status_code == 202
 
-    monkeypatch.setattr(module, "CommandWorker", factory)
     def run():
         try:
             module.configuration_loop(profiles, web, stop)
@@ -588,12 +593,18 @@ def test_configuration_worker_reports_busy_during_command(tmp_path, monkeypatch)
     thread.start()
     try:
         assert entered.wait(5)
-        assert any(row["activity"] == "busy" for row in web.worker_heartbeats(
-            role="configuration"))
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            if any(row["activity"] == "busy" for row in web.worker_heartbeats(
+                    role="configuration")):
+                break
+            Event().wait(.01)
+        else:
+            raise AssertionError("configuration activity did not become busy")
     finally:
-        stop.set()
         release.set()
-        thread.join(5)
+        stop.set()
+        thread.join(8)
     assert not errors and not thread.is_alive()
 
 

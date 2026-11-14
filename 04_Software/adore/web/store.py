@@ -1522,7 +1522,7 @@ class WebStore:
         return self._operation_with_current_project(row) if row else None
 
     def enqueue_configuration(self, actor_id: int, reference: str, key: str, *,
-                              project_id: str | None) -> dict[str, Any]:
+                              project_id: str | None, serial_key: str = "") -> dict[str, Any]:
         """@brief Queue a protected configuration reference with explicit global/project scope.
         @param[in] reference Opaque reference to the existing protected candidate, never its data.
         @param[in] project_id Immutable project ID, or explicit None for global configuration.
@@ -1531,6 +1531,8 @@ class WebStore:
         if (not isinstance(reference, str) or not re.fullmatch(r"[a-f0-9]{32}", reference)
                 or not isinstance(key, str) or not key or len(key) > 128):
             raise WebStoreError("invalid configuration reference")
+        if serial_key and (project_id is not None or not re.fullmatch(r"[a-f0-9]{32}", serial_key)):
+            raise WebStoreError("invalid configuration resource")
         if project_id is None:
             name, identity, domain = "", "", "configuration_global"
         else:
@@ -1546,6 +1548,17 @@ class WebStore:
                                        (actor_id,)).fetchone()
             if actor is None or actor["disabled"] or actor["role"] != "admin":
                 raise WebStoreError("configuration requires an administrator")
+            if serial_key and connection.execute(
+                "SELECT 1 FROM operations WHERE action='configure' "
+                "AND domain='configuration_global' "
+                "AND status IN ('pending','running') AND idempotency_key LIKE ? LIMIT 1",
+                (serial_key + ":%",)).fetchone():
+                raise WebStoreError("configuration resource is busy")
+            pending = connection.execute(
+                "SELECT COUNT(*) FROM operations WHERE action='configure' "
+                "AND status IN ('pending','running')").fetchone()[0]
+            if pending >= 256:
+                raise WebStoreError("configuration queue is full")
             stamp = _now()
             cursor = connection.execute(
                 "INSERT OR IGNORE INTO operations(actor_id,project,project_id,action,run_id,"
@@ -1631,8 +1644,17 @@ class WebStore:
                 (actor_id, key)).fetchone()
         return self._operation_with_current_project(row) if row else None
 
+    def pending_configuration(self) -> list[dict]:
+        """@brief List bounded explicit configure requests without claiming or reading payloads."""
+        with self._ownership_connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM operations WHERE action='configure' AND status IN "
+                "('pending','running') ORDER BY id LIMIT 257").fetchall()
+        return [self._operation_with_current_project(row) for row in rows]
+
     def has_unfinished_operations(self, project: str) -> bool:
-        """@brief Check for queued or executing operations before project archive."""
+        """@brief Check for other queued/executing operations before a project edit."""
+        from adore.web.configuration import current_operation
         identity = _profile_identity(self.path.parent, project)
         if identity is None:
             raise WebStoreError("project not found")
@@ -1640,7 +1662,8 @@ class WebStore:
             with self._connect() as connection:
                 row = connection.execute(
                     "SELECT 1 FROM operations WHERE project_id=? AND status IN "
-                    "('pending','running') LIMIT 1", (identity[0],),
+                    "('pending','running') AND id<>? AND (?=0 OR action<>'configure') LIMIT 1",
+                    (identity[0], current_operation(), current_operation()),
                 ).fetchone()
         except sqlite3.DatabaseError as exc:
             raise WebStoreError("operation storage is corrupt") from exc
@@ -1729,15 +1752,18 @@ class WebStore:
         return ""
 
     def claim_next(self, owner: WorkerOwner, *, domain: str, action: str = "",
-                   actions: tuple[str, ...] = ()) -> dict[str, Any] | None:
+                   actions: tuple[str, ...] = (), operation_id: int = 0) -> dict[str, Any] | None:
         """@brief Atomically claim one authorized operation within the exact owner scope.
         @param[in] owner Server-issued role/project/run handle.
         @param[in] action Optional exact action filter.
         @param[in] actions Optional declared consumer action allowlist.
         @param[in] domain Explicit execution or project/global configuration domain.
+        @param[in] operation_id Optional exact inspected request; zero selects the next request.
         @return Claimed operation, or None; revoked requests finish without effects.
         """
         self._claim_scope(owner, domain)
+        if type(operation_id) is not int or operation_id < 0:
+            raise WebStoreError("invalid operation identity filter")
         if domain == "execution":
             self.recover_interrupted(project_id=owner.project_id, role="run")
         if (not isinstance(actions, tuple) or any(item not in (
@@ -1758,6 +1784,7 @@ class WebStore:
             row = connection.execute(
                 "SELECT o.* FROM operations o WHERE o.status='pending' "
                 "AND o.domain=? AND o.project_id=? AND (?='' OR o.action=?) "
+                "AND (?=0 OR o.id=?) "
                 "AND (?='' OR o.resource_key=? OR o.resource_key=?) "
                 "AND NOT EXISTS (SELECT 1 FROM operations r WHERE r.status='running' "
                 "AND r.domain=o.domain AND r.project_id=o.project_id "
@@ -1767,7 +1794,7 @@ class WebStore:
                 "AND o.resource_key='job:' || w.run_id) "
                 + action_filter
                 + "ORDER BY CASE WHEN o.action='cancel' THEN 0 ELSE 1 END,o.id LIMIT 1",
-                (domain, owner.project_id, action, action, owner.run_id,
+                (domain, owner.project_id, action, action, operation_id, operation_id, owner.run_id,
                  "job:" + owner.run_id, "cancel:" + owner.run_id,
                  owner.id, *actions)).fetchone()
             if row is None:
@@ -2581,6 +2608,7 @@ class WebStore:
                                 "pause",
                                 "resume",
                                 "delete",
+                                "configure",
                             )
                             or operation["status"]
                             not in ("pending", "running", "succeeded", "failed", "uncertain")
@@ -2590,7 +2618,7 @@ class WebStore:
                             or len(operation["result"]) > 1000
                             or not isinstance(operation["reason"], str)
                             or len(operation["reason"]) > 64
-                            or operation["project_id"] != item["project_id"]
+                            or (operation["project_id"] or None) != item["project_id"]
                             or operation["actor_id"] != item["actor_id"]
                             or item["action"] == "operation-finished"
                             and {
@@ -2611,6 +2639,10 @@ class WebStore:
                             item["resource_type"], item["resource_id"] = "ticket", target
                         elif operation["action"] == "start":
                             raise WebStoreError("operation audit identity is corrupt")
+                        elif operation["action"] == "configure":
+                            if not re.fullmatch(r"[a-f0-9]{32}", target):
+                                raise WebStoreError("operation audit identity is corrupt")
+                            item["resource_type"], item["resource_id"] = "config", "settings"
                         elif operation["action"] in ("retry", "cancel", "restart"):
                             if operation["action"] == "restart" and not re.fullmatch(
                                 r"[A-Za-z0-9._-]{1,160}\.[a-f0-9]{64}", target

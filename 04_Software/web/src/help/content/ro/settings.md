@@ -8,7 +8,7 @@ Deschideți [Proiecte](/projects), alegeți un proiect și selectați fila **Set
 
 Setările salvate se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea se oprește dacă aveți setări nesalvate sau dacă salvarea ori renunțarea la modificări este în curs. Actualizarea se oprește și când introduceți un tarif sau o cheie API ori când vă conectați la ChatGPT.
 
-Administratorii pot edita. Dezvoltatorii cu acces la proiect văd **Setări doar pentru citire**, fără butoane Modifică și fără secrete sau setări financiare. Fiecare proiect are propriile setări; capacitatea globală și păstrarea auditului aparțin Administrării.
+Administratorii pot edita. Dezvoltatorii cu acces la proiect văd **Setări doar pentru citire**, fără butoane Modifică și fără secrete sau setări financiare. Monitorizarea, mediul de execuție, modelul, limitele și politicile aparțin fiecărui proiect. Conturile, auditul, autentificarea ChatGPT comună și administrarea serviciului rămân globale.
 
 ## Grupuri de setări {#groups}
 
@@ -49,6 +49,8 @@ Reguli aplicabile:
 - Bugetele se aplică înaintea următoarei încercări sau reluări și păstrează consumul și progresul. Vezi [Bugetele jobului](#budgets).
 
 Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
+
+Salvările și verificările rulează separat de lucrări și pregătiri lungi. Așteptați rezultatul confirmat înainte de a considera schimbarea salvată. Pauza/reluarea monitorizării și semnalul de anulare nu cer un loc liber pentru lucrări. O schimbare incompatibilă rămâne pregătită pentru proiect cu un conflict explicit; lucrările active și celelalte proiecte își păstrează setările.
 
 ## TOML original {#toml}
 

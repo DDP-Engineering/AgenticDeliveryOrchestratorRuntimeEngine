@@ -131,3 +131,13 @@ Project_Executor_Images.md.
 
 
 The atomic connection edit includes the Pi thinking level, validated against exact provider/model capabilities from the pinned catalog. Blank leaves Pi default; custom endpoints support off.
+
+## Durable control integration
+
+Credential writes/removal, repository/model probes and shared ChatGPT operations use
+[Configuration worker](Component_Configuration_Worker.md). HTTP 202 identifies accepted
+work; only its confirmed outcome contains the existing public response. Project
+credential fingerprints and current administrator rights fence execution/publication.
+Private input records reuse the existing protected credential-record primitive.
+Model/host probes run outside edit/admission locks and reacquire them to publish.
+A running executor keeps its original configuration and environment.

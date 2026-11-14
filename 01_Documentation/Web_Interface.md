@@ -19,6 +19,27 @@ information, not a readiness gate or an AEGIS version claim. A missing local clo
 stays not inspected until an explicit check can read it. The live pre-pick probe
 remains authoritative for a present AEGIS payload.
 
+## Settings and administration during jobs
+
+A project's settings, monitoring, backend, runtime/image, provider/model, limits,
+polling and policies affect that project only. Existing account/access management,
+audit retention, shared ChatGPT sign-in and service administration remain server-wide.
+
+Saving or explicitly checking settings uses a separate configuration process with
+bounded fast/long work. A long job or preparation in A does not consume B's settings
+capacity or independent server administration. Pause/Resume admission and Cancel
+signalling do not wait for a free executor slot. The browser waits for the confirmed
+result; initial HTTP acceptance does not mean settings were applied. API clients use
+the 202 response's operation ID and `GET /api/v1/operations/{id}` to read its actual
+`outcome.status_code` and `outcome.body`.
+
+Stale revisions, ambiguous project references, revoked rights and competing stale
+saves fail closed. An incompatible change stays staged for the selected project with
+an explicit conflict; pause monitoring and finish its active work before retrying.
+Other projects keep their own configuration and running executors keep their snapshots.
+A worker crash leaves interrupted configuration uncertain rather than replaying it.
+Inspect the active settings and durable result before submitting another operation.
+
 ## Local worker processes
 
 `adore-web-worker --home <ADORE_HOME>` owns one home lock and supervises

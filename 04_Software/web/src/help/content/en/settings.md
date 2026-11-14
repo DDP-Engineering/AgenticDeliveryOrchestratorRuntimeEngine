@@ -8,7 +8,7 @@ Open [Projects](/projects), choose a project and select the **Settings** tab. Th
 
 Saved settings refresh every 15 seconds while the browser tab is visible. Updates pause while you have unsaved settings or while a save or discard is in progress. The refresh also pauses while you enter a price or API key, or complete ChatGPT sign-in.
 
-Administrators can edit. Developers with access to the project see **Read-only settings**, without Edit buttons and without secrets or financial settings. Each project has its own settings; global capacity and audit retention belong to Administration.
+Administrators can edit. Developers with access to the project see **Read-only settings**, without Edit buttons and without secrets or financial settings. Each project owns monitoring, runtime, model, limits and policies. Accounts, audit, shared ChatGPT sign-in and service administration stay server-wide.
 
 ## Setting groups {#groups}
 
@@ -49,6 +49,8 @@ Rules that apply:
 - Budget limits apply before the next attempt or resume, preserving consumed work and progress. See [Job budgets](#budgets).
 
 Navigation and browser reload ask before discarding unsaved settings edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
+
+Settings saves and checks run separately from jobs and long tool preparation. Wait for the confirmed result before treating a change as saved. Pause/Resume monitoring and cancellation signalling do not need a free job slot. An incompatible change remains prepared for this project with an explicit conflict; running jobs and other projects keep their settings.
 
 ## Original TOML {#toml}
 

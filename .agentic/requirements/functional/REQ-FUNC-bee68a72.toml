@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-bee68a72"
+
+title = "Admission control bypasses long configuration work"
+
+status = "active"
+
+requirement = """
+When an authorized operator pauses or resumes project admission or signals cancellation, the service shall process the control independently of long configuration tasks and free executor slots.
+"""
+
+verification = "Block configuration lane and occupy run capacity, issue scoped pause/resume and cancel and verify durable pause/cancel markers before blocked work ends; revoked controls fail closed."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/store.py", "04_Software/adore/web/environment.py", "04_Software/web/src/configurationTasks.ts"]
+
+linked_tests = ["04_Software/tests/test_web_configuration_worker.py", "04_Software/web/tests/configurationTasks.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

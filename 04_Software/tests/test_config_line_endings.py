@@ -20,8 +20,9 @@ from adore.config import load_config
 from adore.profiles import ProfileStore
 from adore.state import StateStore
 from adore.web.app import create_app
-from fastapi.testclient import TestClient
 import pytest
+
+from tests.configuration_client import TestClient
 
 _CONFIG = """[platform]
 kind = "gitlab"

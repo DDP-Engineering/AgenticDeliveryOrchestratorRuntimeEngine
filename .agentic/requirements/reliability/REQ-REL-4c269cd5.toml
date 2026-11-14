@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-REL-4c269cd5"
+
+title = "Unsafe changes retain explicit staged conflict"
+
+status = "active"
+
+requirement = """
+When an administrator applies an incompatible staged candidate during an active project run, the service shall retain the candidate and report an explicit conflict without changing the running configuration.
+"""
+
+verification = "Stage container/policy candidate with active A state, apply and verify terminal conflict plus unchanged active bytes and preserved pending candidate; B stays unchanged."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/store.py", "04_Software/adore/web/environment.py", "04_Software/web/src/configurationTasks.ts"]
+
+linked_tests = ["04_Software/tests/test_web_configuration_worker.py", "04_Software/web/tests/configurationTasks.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

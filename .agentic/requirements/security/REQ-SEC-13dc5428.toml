@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-SEC-13dc5428"
+
+title = "Configuration execution authority and revision fencing"
+
+status = "active"
+
+requirement = """
+Before a queued configuration effect, the worker shall enforce its immutable project identity, inspected configuration revision and current administrator authority.
+"""
+
+verification = "Revoke actor, change revision, recycle identity, race two saves and inspect closed failed results without unintended writes."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/store.py", "04_Software/adore/web/environment.py", "04_Software/adore/web/model_connection.py", "04_Software/web/src/configurationTasks.ts"]
+
+linked_tests = ["04_Software/tests/test_web_configuration_worker.py", "04_Software/web/tests/configurationTasks.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

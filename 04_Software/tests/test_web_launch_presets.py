@@ -22,7 +22,8 @@ from adore.config import load_config
 from adore.profiles import ProfileStore
 from adore.state import StateStore
 from adore.web.app import create_app
-from fastapi.testclient import TestClient
+
+from tests.configuration_client import TestClient
 
 PRESET = "pi -p --mode json --model {model} {prompt}"
 

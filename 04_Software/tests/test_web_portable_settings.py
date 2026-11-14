@@ -19,8 +19,9 @@ from pathlib import Path
 from adore.portable_settings import export_settings, parse_settings
 from adore.profiles import ProfileStore
 from adore.web.app import create_app
-from fastapi.testclient import TestClient
 import pytest
+
+from tests.configuration_client import TestClient
 
 # CONSTANTS
 EXAMPLE = Path(__file__).resolve().parents[1] / "config.example.toml"

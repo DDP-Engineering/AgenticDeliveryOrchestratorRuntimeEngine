@@ -24,8 +24,9 @@ from adore.state import RunState, StateStore
 from adore.util import CommandResult
 from adore.web.app import create_app
 from adore.web.store import WebStore
-from fastapi.testclient import TestClient
 import pytest
+
+from tests.configuration_client import TestClient
 
 
 # LOCAL HELPERS

@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { completedConfiguration } from "./configurationTasks";
 import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
@@ -108,6 +109,7 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
   } catch (cause) {
     throw new ApiError("network_error", String((cause as Error)?.message ?? cause));
   }
+  response = await completedConfiguration(response, signal);
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     const detail = payload?.detail;

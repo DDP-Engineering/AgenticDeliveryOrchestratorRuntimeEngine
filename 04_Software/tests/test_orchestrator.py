@@ -4649,8 +4649,8 @@ def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path,
     from adore.config import load_config
     import adore.state as state_module
     from adore.web.app import create_app
-    from fastapi.testclient import TestClient
 
+    from tests.configuration_client import TestClient
     from tests.test_web_pending_config import _headers, _project
 
     profiles, source, store = _project(tmp_path)

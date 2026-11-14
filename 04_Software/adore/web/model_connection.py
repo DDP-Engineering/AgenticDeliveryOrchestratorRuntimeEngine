@@ -361,8 +361,11 @@ def probe_model_connection(config, runner, env_file: Path, *,
             result["reason"] = "runtime-error"
         finally:
             if provisioned:
+                from adore.web.configuration import owned_cleanup
+
                 runtime.runner = lambda argv, **kwargs: runner(argv, **{**kwargs, "timeout": 8})
-                runtime.remove(name)
+                with owned_cleanup():
+                    runtime.remove(name)
     return result
 
 

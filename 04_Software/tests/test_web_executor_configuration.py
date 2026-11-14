@@ -22,9 +22,9 @@ import tomllib
 from adore.config import load_config
 from adore.state import StateStore
 from adore.web.app import create_app
-from fastapi.testclient import TestClient
 import pytest
 
+from tests.configuration_client import TestClient
 from tests.test_model_connection import project
 
 

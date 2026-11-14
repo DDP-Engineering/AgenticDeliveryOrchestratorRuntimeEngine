@@ -8,7 +8,7 @@ Ouvrez [Projets](/projects), choisissez un projet et sélectionnez l’onglet **
 
 Les paramètres enregistrés s’actualisent toutes les 15 secondes quand l’onglet du navigateur est visible. L’actualisation se met en pause en cas de modification non enregistrée, d’enregistrement ou d’abandon en cours. L’actualisation se met aussi en pause pendant la saisie d’un tarif ou d’une clé API et pendant la connexion ChatGPT.
 
-Les administrateurs peuvent modifier. Les développeurs qui ont accès au projet voient **Paramètres en lecture seule**, sans boutons Modifier et sans secrets ni paramètres financiers. Chaque projet a ses propres paramètres ; la capacité globale et la conservation de l’audit relèvent de l’Administration.
+Les administrateurs peuvent modifier. Les développeurs qui ont accès au projet voient **Paramètres en lecture seule**, sans boutons Modifier et sans secrets ni paramètres financiers. Chaque projet possède sa surveillance, son environnement, son modèle, ses limites et ses règles. Les comptes, l’audit, la connexion ChatGPT commune et le service restent globaux.
 
 ## Groupes de paramètres {#groups}
 
@@ -49,6 +49,8 @@ Règles applicables :
 - Les budgets s’appliquent avant la prochaine tentative ou reprise, en conservant consommation et progression. Voir [Budgets du travail](#budgets).
 
 La navigation et le rechargement de la page demandent confirmation avant d’abandonner les modifications. Les brefs blocages de fichier Windows sont réessayés automatiquement ; si l’enregistrement échoue, vérifiez l’accès au fichier et réessayez **Enregistrer**.
+
+Les enregistrements et vérifications sont séparés des tâches et des longues préparations. Attendez le résultat confirmé avant de considérer un changement enregistré. La pause/reprise de la surveillance et le signal d’annulation ne nécessitent pas de place libre. Un changement incompatible reste préparé pour ce projet avec un conflit explicite ; les tâches actives et les autres projets gardent leurs paramètres.
 
 ## TOML d’origine {#toml}
 

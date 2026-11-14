@@ -16,9 +16,9 @@ from adore.config import Config
 from adore.util import CommandResult
 from adore.web.app import create_app
 from adore.web.environment import EnvironmentPreparation
-from fastapi.testclient import TestClient
 import pytest
 
+from tests.configuration_client import TestClient
 from tests.test_web_enrollment import _body, _import_body, _login
 
 
@@ -205,7 +205,7 @@ def test_reviewed_environment_routes_preserve_candidate_and_enforce_authorizatio
                            headers=headers).status_code == 409
         assert engine.calls == []
         started = client.post(path, json=reviewed, headers=headers)
-        assert started.status_code == 202, started.text
+        assert started.status_code == 200, started.text
         def read(job_id):
             return client.get(f"/api/v1/environment-preparations/{job_id}").json()
         done = finish(read, started.json())
@@ -217,3 +217,29 @@ def test_reviewed_environment_routes_preserve_candidate_and_enforce_authorizatio
         developer = _login(client, "dev", "longer-password")
         assert client.post(path, json=reviewed, headers=developer).status_code == 403
         assert client.get(f"/api/v1/environment-preparations/{done['id']}").status_code == 403
+
+
+def test_worker_owned_preparation_persists_progress_for_another_api_instance(tmp_path):
+    """@brief Foreground worker preparation confirms only after durable value-free progress."""
+    import json
+
+    from adore.web.environment import EnvironmentError
+
+    engine = Engine([EXECUTOR_BASE_IMAGE, EGRESS_PROXY_IMAGE])
+    worker = EnvironmentPreparation(tmp_path, engine)
+    completed = worker.prepare(config())
+    assert completed["status"] == "ready"
+    another = EnvironmentPreparation(tmp_path, engine)
+    assert another.read(completed["id"]) == completed
+    record = tmp_path / "environment" / "jobs" / (completed["id"] + ".json")
+    value = json.loads(record.read_text())
+    value["schema"] = 2
+    record.write_text(json.dumps(value))
+    with pytest.raises(EnvironmentError, match="environment_preparation_failed"):
+        another.read(completed["id"])
+    assert json.loads(record.read_text())["schema"] == 2
+    for corrupt in ({**value, "schema":1, "status":"running", "stage":"ready"},
+                    {**value, "schema":1, "status":"failed", "stage":"failed", "error":"PRIVATE"}):
+        record.write_text(json.dumps(corrupt))
+        with pytest.raises(EnvironmentError):
+            another.read(completed["id"])

@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-SEC-ec87820f"
+
+title = "Protected configuration references"
+
+status = "active"
+
+requirement = """
+When configuration work carries credentials, the service shall retain secret data only in existing protected-record storage while exposing opaque references and redacted outcomes in operations and history.
+"""
+
+verification = "Queue credential update with sentinel token, inspect queue/audit/status and private file mode, execute and confirm provider credential publication; corrupt protected envelope is refused."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/store.py", "04_Software/adore/web/environment.py", "04_Software/adore/web/model_connection.py", "04_Software/web/src/configurationTasks.ts", "04_Software/adore/web/executor_settings.py"]
+
+linked_tests = ["04_Software/tests/test_web_configuration_worker.py", "04_Software/web/tests/configurationTasks.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

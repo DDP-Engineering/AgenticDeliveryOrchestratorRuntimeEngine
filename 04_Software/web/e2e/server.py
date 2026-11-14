@@ -32,6 +32,7 @@ from adore.state import RunState, StateStore, derive_run_id
 from adore.util import CommandResult
 import adore.web.app as web_app
 from adore.web.commands import CommandWorker
+from adore.web.configuration import ConfigurationWorker
 from adore.web.ownership import WorkerOwner
 from adore.web.store import WebStore
 from adore.wizard import run_wizard
@@ -520,12 +521,27 @@ def main() -> None:
         store = app.state.web_store
         developer = store.create_user("developer", "test-password", "developer")
         store.set_memberships(developer["id"], ["alpha"])
-        worker = CommandWorker(profiles, store, runner=simulated_command)
+        worker = CommandWorker(profiles, store, runner=simulated_command,
+            actions=("start", "retry", "restart", "cancel", "delete"))
         stop = Event()
 
         @asynccontextmanager
         async def lifespan(_app):
             """@brief Stop and join the isolated worker on graceful shutdown."""
+            configuration = ConfigurationWorker(app.state.configuration_tasks)
+            control_errors = []
+
+            def control():
+                """@brief Consume durable configuration with the same offline API collaborators."""
+                try:
+                    while not stop.is_set():
+                        configuration.tick()
+                        stop.wait(0.025)
+                except BaseException as exc:
+                    control_errors.append(exc)
+
+            control_thread = Thread(target=control, daemon=True)
+            control_thread.start()
             thread = Thread(target=lambda: worker.run_forever(
                 interval=0.05, heartbeat_interval=0.1, stop=stop), daemon=True)
             thread.start()
@@ -534,6 +550,10 @@ def main() -> None:
             finally:
                 stop.set()
                 thread.join(timeout=3)
+                control_thread.join(timeout=3)
+                configuration.close()
+                if control_thread.is_alive() or control_errors:
+                    raise RuntimeError("offline configuration worker did not stop cleanly")
                 if thread.is_alive():
                     raise RuntimeError("offline worker did not stop")
 

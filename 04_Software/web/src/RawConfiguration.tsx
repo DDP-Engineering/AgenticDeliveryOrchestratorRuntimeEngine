@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { completedConfiguration } from "./configurationTasks";
 import { useEffect, useId, useRef, useState } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale } from "./i18n";
@@ -130,11 +131,12 @@ export function RawConfiguration({ project, locale, dockerBuild, image, csrf, re
 
   async function recipeRequest(method: "GET" | "POST" | "PUT", body?: Attachment, signal?: AbortSignal) {
     const suffix = method === "POST" ? "/preview" : "";
-    const response = await fetch(`/api/v1/projects/${encodeURIComponent(project)}/executor-recipe${suffix}`, {
+    let response = await fetch(`/api/v1/projects/${encodeURIComponent(project)}/executor-recipe${suffix}`, {
       method, credentials:"same-origin",cache:"no-store",signal,
       headers:body?{"Content-Type":"application/json","X-CSRF-Token":csrf}:undefined,
       body:body?JSON.stringify(body):undefined,
     });
+    response = await completedConfiguration(response, signal);
     const value = await response.json().catch(() => { throw new ApiError("unexpected_response"); });
     if (!response.ok) {
       const recovery = typeof value?.detail?.recovery === "string" &&

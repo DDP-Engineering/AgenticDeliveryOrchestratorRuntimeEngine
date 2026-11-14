@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-80b5347e"
+
+title = "Durable scoped configuration results"
+
+status = "active"
+
+requirement = """
+When an administrator requests a long project settings operation, the API shall return HTTP 202 with its durable explicit scoped operation identity before executing it.
+"""
+
+verification = "Submit existing settings/probe routes, observe 202 and unchanged file, execute worker, then read exact completed or failed outcome; missing scope is refused."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/store.py", "04_Software/adore/web/environment.py", "04_Software/web/src/configurationTasks.ts", "04_Software/adore/release_notes.toml", "04_Software/web/src/App.tsx", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/RawConfiguration.tsx", "04_Software/web/src/RawImportDialog.tsx", "04_Software/web/e2e/server.py", "04_Software/web/src/help/content/en/settings.md", "04_Software/web/src/help/content/fr/settings.md", "04_Software/web/src/help/content/de/settings.md", "04_Software/web/src/help/content/ro/settings.md", "04_Software/web/tests/configurationTasks.test.mjs", "04_Software/adore/web/static/BUILD_FINGERPRINT.json", "04_Software/adore/web/static/index.html", "04_Software/adore/web/static/assets/index-DAvd6occ.js"]
+
+linked_tests = ["04_Software/tests/test_web_configuration_worker.py", "04_Software/web/tests/configurationTasks.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

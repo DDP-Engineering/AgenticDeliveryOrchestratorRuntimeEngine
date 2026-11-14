@@ -157,3 +157,12 @@ it before creating a directory. CLI rename retains its separate behavior.
 Public transfer route-name coverage: `test_web_transfer.py`.
 Public contract coverage: `test_web_enrollment.py` exercises display edits that
 keep membership, operations and paths, corrupt labels, portable IDs, incomplete ownership and preserved grants/operations.
+
+## Concurrent configuration reads
+
+Profile metadata reads tolerate only recognized transient Windows sharing errors
+from concurrent atomic replacement, with five attempts and at most 185 ms scheduled
+delay. Persistent permission errors and malformed/missing metadata still raise
+ProfileError; no data is repaired or replaced. This keeps a fast B publication from
+being misclassified as corrupt registry data by independent A/control readers.
+Focused happy/persistent-denial proof is test_profile_read_bounds_windows_sharing_contention.

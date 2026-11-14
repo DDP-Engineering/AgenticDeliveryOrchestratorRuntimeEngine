@@ -20,8 +20,9 @@ from adore.profiles import ProfileStore
 from adore.web.app import create_app
 import adore.web.store as store_module
 from adore.web.store import WebStore
-from fastapi.testclient import TestClient
 import pytest
+
+from tests.configuration_client import TestClient
 
 
 # LOCAL HELPERS

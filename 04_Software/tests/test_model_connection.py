@@ -26,8 +26,9 @@ from adore.config import load_config
 from adore.profiles import ProfileStore
 from adore.util import CommandResult
 from adore.web.model_connection import probe_model_connection
-from fastapi.testclient import TestClient
 import pytest
+
+from tests.configuration_client import TestClient
 
 
 def project(tmp_path, provider="gitlab"):

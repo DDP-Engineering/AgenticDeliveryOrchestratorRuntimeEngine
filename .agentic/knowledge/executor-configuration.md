@@ -108,3 +108,11 @@ by native policy and applied through the existing reviewed configuration flow.
 The local launch command is not editable; guided setup and reviewed settings share the managed Pi backend.
 
 The atomic connection candidate includes thinking and validates it with the exact provider/model. The pinned catalog exposes the per-model supported levels.
+
+## Durable settings integration
+
+Credential writes/removal, model/repository probes and shared ChatGPT operations
+use the independent scoped configuration worker. Initial HTTP 202 carries the
+operation identity; only its confirmed outcome contains the original public response.
+Protected credential fingerprints and current rights fence execution/publication;
+no edit/admission lock spans a model probe. See configuration-worker.md.

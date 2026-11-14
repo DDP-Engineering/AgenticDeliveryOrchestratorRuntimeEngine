@@ -15,16 +15,14 @@ command. Candidate fingerprints, target freshness and fresh human approval remai
 required before publication. Old `workflow.verify_command` values are ignored
 without rewriting profiles and cannot be edited through the API.
 
-Guided enrollment and raw-file import call the reviewed shared-environment
-preparation route automatically on confirmation. `EnvironmentProgress` shows the
-current stage and an indeterminate progress indicator in four locales; the user
-can retry preparation failures with the reviewed answers/file retained. Saving
-waits for a strictly validated ready response with the same operation ID. Navigation
-guards remain active throughout preparation and publication. Closed views stop
-polling and never proceed to publication; shared server preparation can finish
-and be reused. Long builds refresh previously measured readiness before saving.
-`environment.test.mjs` covers transport/state boundaries; browser journeys cover
-visible progress, publication order and failed-build retry.
+`configurationTasks.ts` consumes accepted configuration operations from the existing
+Settings, recipe, enrollment/import and shared ChatGPT callers. It polls the exact
+operation identity/domain/project, refuses contradictory/malformed results and
+returns the confirmed HTTP outcome. Pending acceptance never becomes a saved result;
+conflict/uncertainty retain existing recovery/error flows. Browser abort stops its
+wait without replaying or cancelling the accepted server task. Enrollment publishes
+only after its configuration task confirms ready preparation. The current UI awaits
+completion; richer progress/capacity presentation belongs to the subsequent UI work.
 
 Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
 

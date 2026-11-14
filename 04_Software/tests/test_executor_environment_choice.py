@@ -27,9 +27,9 @@ from adore.profiles import ProfileStore
 from adore.state import StateStore
 from adore.util import CommandResult
 from adore.web.app import create_app
-from fastapi.testclient import TestClient
 import pytest
 
+from tests.configuration_client import TestClient
 from tests.test_web_enrollment import _body, offline_wizard  # noqa: F401 - autouse fixture
 
 # CONSTANTS

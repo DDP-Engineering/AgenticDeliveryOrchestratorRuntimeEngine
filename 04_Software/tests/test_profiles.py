@@ -341,3 +341,34 @@ def test_profile_identity_survives_rename_and_bad_ids_fail(tmp_path: Path) -> No
 
 
 # END OF FILE
+
+
+@pytest.mark.parametrize("persistent", [False, True])
+def test_profile_read_bounds_windows_sharing_contention(tmp_path, monkeypatch, persistent):
+    """@brief Retry transient metadata replacement sharing; persistent denial fails closed."""
+    store = ProfileStore(tmp_path)
+    expected = store.create("alpha")
+    target = store.profile_dir("alpha") / "profile.json"
+    original_open = Path.open
+    calls = []
+
+    def contended(path, *args, **kwargs):
+        if path == target:
+            calls.append(True)
+            if persistent or len(calls) <= 2:
+                error = PermissionError("simulated metadata replacement sharing")
+                error.winerror = 32
+                raise error
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", contended)
+    monkeypatch.setattr("adore.profiles.sleep", lambda seconds: None)
+    if persistent:
+        with pytest.raises(ProfileError):
+            store.load("alpha")
+        assert len(calls) == 5
+    else:
+        assert store.load("alpha").project_id == expected.project_id
+        assert len(calls) == 3
+    with original_open(target, encoding="utf-8") as stream:
+        assert json.load(stream)["project_id"] == expected.project_id

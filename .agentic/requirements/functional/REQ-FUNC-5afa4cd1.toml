@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-5afa4cd1"
+
+title = "Independent bounded configuration lanes"
+
+status = "active"
+
+requirement = """
+While long project configuration tasks are running, the configuration worker shall provide independently bounded fast-project and global control progress outside executor capacity.
+"""
+
+verification = "Block injected A model probe and verify B save and global administration finish before release; saturate the long lane and check fast work/control."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/store.py", "04_Software/adore/web/environment.py", "04_Software/web/src/configurationTasks.ts", "04_Software/adore/profiles.py"]
+
+linked_tests = ["04_Software/tests/test_web_configuration_worker.py", "04_Software/web/tests/configurationTasks.test.mjs", "04_Software/tests/test_profiles.py::test_profile_read_bounds_windows_sharing_contention"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

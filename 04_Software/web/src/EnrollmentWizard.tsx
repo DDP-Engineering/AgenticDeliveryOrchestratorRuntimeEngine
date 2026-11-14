@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { completedConfiguration } from "./configurationTasks";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Locale, MessageKey } from "./i18n";
 import { ApiError, describeError } from "./errors";
@@ -295,6 +296,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       response = await fetch("/api/v1/projects/" + path, { method: "POST", credentials: "same-origin",
         cache: "no-store", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify(body) });
     } catch { throw new ApiError("network_error"); }
+    response = await completedConfiguration(response);
     const value = await response.json().catch(() => { throw new ApiError("unexpected_response"); });
     if (!response.ok) {
       if (typeof value?.detail?.code !== "string") throw new ApiError("unexpected_response");

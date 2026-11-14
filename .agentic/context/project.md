@@ -468,3 +468,18 @@ stopping and cannot use marker fallback to mutate a foreign run target.
 
 
 Concurrent production resource names include a canonical-state-root project suffix; cleanup requires exact saved/path/runtime ownership and preserves stateless or foreign resources. Project archive/deletion exclude every live run/cleanup reservation.
+
+
+## Scoped configuration/control
+
+The separate configuration process dispatches existing settings/probe and reviewed
+enrollment handlers through bounded independent fast/long/shared-auth lanes. HTTP
+acceptance has durable explicit scope and an administrator-only confirmed outcome;
+current actor, project, config/pending revisions and protected credentials fence effects.
+Operational settings and monitoring belong to the selected project. Existing global
+account/access/audit, common ChatGPT and service administration remain independent.
+Pause/Resume use immediate control; Cancel stays on independent project signalling.
+Unsafe apply retains its staged candidate and running executor snapshots remain bound.
+Managed default image preparation runs in the durable worker with short process-birth
+reservations and persisted value-free progress; no config lock spans probes/builds.
+See knowledge/configuration-worker.md for exact contracts and focused proof.

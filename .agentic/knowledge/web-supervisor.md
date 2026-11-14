@@ -17,7 +17,7 @@ schema/authorization routes to web-interface.md and state locks to state-store.m
 ## Purpose and boundaries
 
 One supervisor owns each home. Project workers dispatch admission, scoped commands
-and N run children independently. Configuration controls run in their own consumer.
+and N run children independently. Configuration tasks and immediate controls run in a separate bounded consumer; see configuration-worker.md.
 The conductor remains responsible for lifecycle transitions, budgets and publication.
 
 ## Public interface

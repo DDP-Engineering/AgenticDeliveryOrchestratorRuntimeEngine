@@ -114,6 +114,25 @@ def _atomic(path: Path, raw: bytes) -> None:
 
 # PUBLIC API
 
+def write_private_record(path: Path, raw: bytes) -> None:
+    """@brief Publish a private control record using credential-store protection.
+    @param[in] path Target record in an existing protected store directory.
+    @param[in] raw Caller-bounded serialized bytes, published atomically.
+    @exception OSError The old record remains when publication fails.
+    """
+    _atomic(path, raw)
+
+
+def read_private_record(path: Path, limit: int) -> bytes | None:
+    """@brief Read bounded private evidence without following a record symlink.
+    @param[in] path Selected protected record.
+    @param[in] limit Maximum byte size accepted by its current format.
+    @return Bytes, or None for a missing record.
+    @exception ExecutorSettingsError Nonregular, oversized, unreadable or linked record.
+    """
+    return _private_bytes(path, limit)
+
+
 
 def credential_view(directory: Path, config) -> dict:
     """@brief Return the project's credential names and sources, never their values.

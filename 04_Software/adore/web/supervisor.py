@@ -319,24 +319,36 @@ class ProjectWorker:
 
 
 def configuration_loop(profiles: ProfileStore, web: WebStore, stop: Event) -> None:
-    """@brief Independent consumer seam for existing project configuration commands.
-    @note Configuration implementation extends this process, never the supervisor.
-    """
+    """@brief Run bounded configuration lanes and immediate admission control independently."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from adore.web.app import create_app
+    from adore.web.configuration import ConfigurationWorker
+
     web.recover_interrupted(role="configuration")
     owner = web.register_worker("configuration")
-    worker = CommandWorker(profiles, web, domains=("configuration_project",),
-                           actions=_CONFIGURATION)
-    worker._supervisor = owner
+    app = create_app(profiles.home)
+    worker = ConfigurationWorker(app.state.configuration_tasks, owner=owner)
+    deletion = CommandWorker(profiles, web, domains=("configuration_project",), actions=("delete",))
+    deletion._supervisor = owner
+    pool = ThreadPoolExecutor(1)
+    future = None
     try:
         with _heartbeat(web, owner) as failed:
             while not stop.is_set():
                 assert_ancestry()
                 if failed.is_set():
                     raise OwnershipError("configuration worker heartbeat failed")
-                if not worker.run_pending():
-                    stop.wait(0.2)
+                worker.tick()
+                if future is None or future.done():
+                    if future is not None:
+                        future.result()
+                    future = pool.submit(deletion.run_pending)
+                stop.wait(0.05)
     finally:
-        for scoped in [*worker._owners.values(), owner]:
+        pool.shutdown(wait=True)
+        worker.close()
+        for scoped in deletion._owners.values():
             with suppress(OwnershipError):
                 web.clear_worker(scoped)
 

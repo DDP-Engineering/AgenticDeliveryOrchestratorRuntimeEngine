@@ -14,6 +14,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Execute scoped settings, checks and reviewed environment preparation in an independent
+  bounded configuration worker; confirm durable outcomes, fence revisions/rights and
+  preserve fast project saves, global administration and immediate admission controls.
 - Run the web worker as one local supervisor with independent project workers and
   per-project run pools, fenced process trees and bounded application shutdown.
 

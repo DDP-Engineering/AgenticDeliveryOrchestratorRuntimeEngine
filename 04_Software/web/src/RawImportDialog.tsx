@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { completedConfiguration } from "./configurationTasks";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale } from "./i18n";
@@ -88,6 +89,7 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
       response = await fetch("/api/v1/projects/" + path, { method: "POST", credentials: "same-origin", cache: "no-store", signal,
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify(body) });
     } catch { throw new ApiError("network_error"); }
+    response = await completedConfiguration(response, signal);
     const value = await response.json().catch(() => { throw new ApiError("unexpected_response"); });
     if (!response.ok) {
       if (typeof value?.detail?.code !== "string") throw new ApiError("unexpected_response");

@@ -15,28 +15,19 @@ command. Candidate fingerprints, target freshness and fresh human approval remai
 required before publication. Old `workflow.verify_command` values are ignored
 without rewriting profiles and cannot be edited through the API.
 
-The browser starts `POST /api/v1/projects/setup-environment` or `import-environment`
-with the exact reviewed enrollment, then polls administrator-only
-`GET /api/v1/environment-preparations/{id}` before publishing with the existing
-create/import route. `transfer-environment` accepts the same reviewed transfer
-contract as `transfer-create`. Admin/CSRF and stale-source checks precede all work.
-No project is published by preparation. Progress contains only an opaque ID,
-status, stage and allowlisted failure code; no build output or credentials.
+Long configuration and reviewed enrollment operations return HTTP 202 with a durable
+scoped operation identity. The separate configuration process executes their existing
+handlers; administrators inspect the actual HTTP outcome through
+`GET /api/v1/operations/{id}`. The browser waits for confirmation before displaying
+success or publishing an enrollment. See
+[Configuration worker](Component_Configuration_Worker.md) for the exact queue,
+protected record, capacity, scope, revision, rights and uncertainty contracts.
 
-`environment.py` prepares missing default executor/proxy images from four bundled
-files, matches service UID/GID (including WSL), verifies Pi with no network or
-mounts, and reuses existing images. Custom image names are inspected, never built
-or pulled automatically. WSL aliases share a canonical runtime key. Simultaneous
-imports share progress; crash-reclaiming locks serialize builds across web processes.
-There are at most eight active and 64 retained operations; each build has a
-30-minute limit. Failed/restarted preparation can be retried with engine layer-cache
-reuse. Progress is in memory; after a web restart callers retry, and image presence
-is inspected again. The wheel shares executor sources with `adore/_executor_recipe` and includes
-the proxy Dockerfile under `adore/container_assets`.
-Regression coverage: `test_web_environment.py`, browser enrollment/import journeys
-and `environment.test.mjs`. Existing API creation routes remain compatible; browser
-enrollment automatically invokes preparation before them. Manual checks/previews
-remain read-only. Measured readiness is refreshed after long builds before creation.
+`setup/transfer/import-environment` uses worker-owned bounded preparation from bundled
+assets, with value-free durable progress and short PID/birth/token reservations.
+No lock spans image probes/builds. Custom images are inspected rather than built.
+A 1800-second build limit fits the 3600-second control task budget. Preparation
+publishes no project; each enrollment still requires its exact reviewed target.
 
 Container readiness checks the configured Docker/Podman daemon with `info`,
 including canonical WSL command prefixes, before probing Pi inside the selected
@@ -215,7 +206,7 @@ Admin submits an empty grant list and receives all-project/system access by role
 Dev receives exactly the selected current, visible, unarchived projects.
 
 The store commits account/grants and the existing secret-free success audit in
-one SQLite transaction. The API serializes archive changes with `config_lock`;
+one SQLite transaction. Per-project edit locks and short registry transactions coordinate archive changes;
 selected metadata is rechecked before commit, with 409 `project_changed` for
 observed lifecycle races. Invalid grants return 400 `invalid_request`, archived
 projects 400 `project_archived`, corrupt metadata 503 `project_corrupt` and
@@ -769,9 +760,9 @@ token and explicit allow_http. API owns config/conductor locks, idle/pending/
 archive checks and identity/digest recheck. repository_auth verifies bounded
 CLI account/repository evidence and returns safe identity. begin_change records
 uncertain filesystem publication before atomic token replacement; confirmation
-marks completion. No request secret enters audit. Readiness and connection
-serialize through config_lock so an old credential check cannot overwrite fresh
-invalidation. Errors use stable value-free codes. See Component_Repository_Auth.md
+marks completion. No request secret enters audit. Readiness and connection tasks serialize by project; revision/credential fingerprints
+are rechecked during short publication so old checks cannot overwrite fresh
+invalidation. Long probes hold no edit/admission lock. Errors use stable value-free codes. See Component_Repository_Auth.md
 and tests/test_repository_connection.py.
 
 The Gitea host sign-in check uses bounded tea api GET user with the configured
@@ -935,3 +926,18 @@ Focused proof: `04_Software/tests/test_shared_resources.py` and the component’
 
 Deletion enqueue also takes the full project barrier. A queued deletion blocks
 Restore so admission cannot be re-enabled during deletion.
+
+## Durable configuration responses
+
+The existing config/credential/model/readiness/recipe/enrollment handlers are queued
+at their original routes; there is no alternate synchronous mutation route. Actual
+success/error status and public body are returned as the operation's confirmed
+`outcome`. Current rights, source/pending revisions and protected credential inputs
+are rechecked at execution/publication. A 202 alone confirms acceptance. Unsafe
+project apply retains its candidate with a terminal conflict. Shared server settings
+remain independent of every project's monitoring and runtime choices.
+
+Settings GET reads current checked execution-plan evidence and never probes the host
+or Git. An absent/stale plan is unknown until an explicit host check or reviewed
+configuration application records the current plan. Corrupt/foreign plan evidence
+returns a typed service error naming `execution-plan.json` for explicit deletion.

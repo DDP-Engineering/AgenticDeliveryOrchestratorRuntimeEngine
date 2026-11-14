@@ -116,6 +116,7 @@ from adore.util import (
     strict_json_loads,
 )
 from adore.web import analytics
+from adore.web.configuration import ConfigurationTasks, effect_guard, probe_timeout
 from adore.web.environment import EnvironmentError, EnvironmentPreparation
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
@@ -1596,6 +1597,7 @@ def _publish_paused_locked(
             before={"exists": False},
         )
         directory = profiles.profile_dir(name)
+        effect_guard()
         try:
             directory.mkdir(parents=True, exist_ok=False)
         except FileExistsError as exc:
@@ -1681,6 +1683,7 @@ def _publish_paused_locked(
 @contextmanager
 def _web_config_edit_lock(path: Path):
     """@brief Map shared edit-lock contention to an HTTP conflict."""
+    effect_guard()
     try:
         with config_edit_lock(path):
             yield
@@ -2322,6 +2325,7 @@ def _sync_profile_config_identity(profiles: ProfileStore, item, path: Path) -> N
 
 def _write_pending_config(path: Path, value: dict) -> None:
     """@brief Replace one staged JSON record atomically."""
+    effect_guard()
     descriptor, candidate_name = tempfile.mkstemp(prefix="pending-config-", dir=path.parent)
     candidate = Path(candidate_name)
     try:
@@ -2329,6 +2333,7 @@ def _write_pending_config(path: Path, value: dict) -> None:
             json.dump(value, handle, ensure_ascii=False)
             handle.flush()
             os.fsync(handle.fileno())
+        effect_guard()
         candidate.replace(path)
     finally:
         candidate.unlink(missing_ok=True)
@@ -2783,9 +2788,24 @@ def create_app(home: str | Path | None = None,
     @param[in] chatgpt_popen Process factory of the ChatGPT sign-in helper.
     @return Configured FastAPI application.
     """
+    def guarded_runner(original):
+        """@brief Fence each external command using the current task's authority and budget."""
+        def run(*args, **kwargs):
+            """@brief Authorize and bound the command, then recheck before retaining its result."""
+            effect_guard()
+            kwargs["timeout"] = probe_timeout(kwargs.get("timeout"))
+            result = original(*args, **kwargs)
+            effect_guard()
+            return result
+        return run
+
+    probe_runner = guarded_runner(probe_runner)
+    if environment_runner is not None:
+        environment_runner = guarded_runner(environment_runner)
+
     profiles = ProfileStore(home)
     web = WebStore(profiles.home / "web.db")
-    config_lock = Lock()
+    configuration = ConfigurationTasks(profiles, web)
     environment = EnvironmentPreparation(profiles.home, environment_runner or probe_runner)
     enrollment_evidence: dict[str, tuple[int, str, str, float, dict]] = {}
     enrollment_lock = Lock()
@@ -2837,6 +2857,7 @@ def create_app(home: str | Path | None = None,
     app = FastAPI(title="ADORE", version=__version__, docs_url=None, redoc_url=None)
     app.state.web_store = web
     app.state.profiles = profiles
+    app.state.configuration_tasks = configuration
 
     @app.exception_handler(WebStoreError)
     async def web_store_failure(_request: Request, _exc: WebStoreError) -> JSONResponse:
@@ -2918,6 +2939,7 @@ def create_app(home: str | Path | None = None,
         return user
 
     def project(name: str, user: dict):
+        effect_guard()
         name = _profile_name(name)
         try:
             named = profiles.load(name) if profiles.exists(name) else None
@@ -2958,6 +2980,7 @@ def create_app(home: str | Path | None = None,
                     or web.has_unfinished_operations(item.name)
                     or _restart_required(key) and not state.is_paused()):
                 raise _error(409, "project_has_active_work")
+            effect_guard()
             yield
         finally:
             state.release_lock()
@@ -3171,29 +3194,28 @@ def create_app(home: str | Path | None = None,
     def add_user_with_access(body: UserWithAccess,
                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Create exactly the reviewed account/grants in one transaction."""
-        with config_lock:
-            try:
-                return web.create_user_with_access(
-                    body.username, body.password, body.role, body.project_ids,
-                    body.allow_no_projects, user["id"],
-                )
-            except WebStoreError as exc:
-                codes = {
-                    "invalid grants": (400, "invalid_request"),
-                    "project archived": (400, "project_archived"),
-                    "project changed during the update": (409, "project_changed"),
-                    "administrator required": (403, "admin_required"),
-                    "project metadata is corrupt": (503, "project_corrupt"),
-                    "duplicate project identity": (503, "project_corrupt"),
-                    "user creation storage failed": (503, "request_rejected"),
-                    "audit policy is corrupt": (503, "web_store_corrupt"),
-                    "audit policy is missing": (503, "web_store_corrupt"),
-                    "audit row is corrupt": (503, "web_store_corrupt"),
-                }
-                if str(exc) in codes:
-                    status, code = codes[str(exc)]
-                    raise _error(status, code) from exc
-                raise _store_error(400, exc) from exc
+        try:
+            return web.create_user_with_access(
+                body.username, body.password, body.role, body.project_ids,
+                body.allow_no_projects, user["id"],
+            )
+        except WebStoreError as exc:
+            codes = {
+                "invalid grants": (400, "invalid_request"),
+                "project archived": (400, "project_archived"),
+                "project changed during the update": (409, "project_changed"),
+                "administrator required": (403, "admin_required"),
+                "project metadata is corrupt": (503, "project_corrupt"),
+                "duplicate project identity": (503, "project_corrupt"),
+                "user creation storage failed": (503, "request_rejected"),
+                "audit policy is corrupt": (503, "web_store_corrupt"),
+                "audit policy is missing": (503, "web_store_corrupt"),
+                "audit row is corrupt": (503, "web_store_corrupt"),
+            }
+            if str(exc) in codes:
+                status, code = codes[str(exc)]
+                raise _error(status, code) from exc
+            raise _store_error(400, exc) from exc
 
     @app.post("/api/v1/users")
     def add_user(body: NewUser, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
@@ -3322,6 +3344,7 @@ def create_app(home: str | Path | None = None,
                     _finding("project_exists", "name", "Choose another available ID.")]}
 
     @app.post("/api/v1/projects/{name}/labels/ensure")
+    @configuration.route(lane="long")
     def ensure_project_labels(name: str,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """
@@ -3449,6 +3472,7 @@ def create_app(home: str | Path | None = None,
                 "clone": "existing" if path.exists() else "new"}
 
     @app.post("/api/v1/projects/setup-preview")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def preview_project_setup(
         body: ProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -3498,6 +3522,7 @@ def create_app(home: str | Path | None = None,
         return {"source_revision": revision, "settings": settings}
 
     @app.post("/api/v1/projects/transfer-source")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def preview_transfer_source(
         body: TransferSourceInput, request: Request, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -3512,6 +3537,7 @@ def create_app(home: str | Path | None = None,
         return _prepare_transfer(profiles, body, source["settings"])
 
     @app.post("/api/v1/projects/transfer-preview")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def preview_transfer(
         body: TransferInput, request: Request, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -3546,6 +3572,7 @@ def create_app(home: str | Path | None = None,
         return preview, candidate
 
     @app.post("/api/v1/projects/transfer-check")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def check_transfer(
         body: ReviewedTransferInput,
         request: Request,
@@ -3606,7 +3633,7 @@ def create_app(home: str | Path | None = None,
     def prepare_environment(config, user: dict, name: str) -> dict:
         """Start shared preparation only after the enrollment's exact review passes."""
         try:
-            job = environment.start(config)
+            job = environment.prepare(config)
         except EnvironmentError as exc:
             raise _error(503, exc.code) from exc
         web.audit(user["id"], "environment-preparation-started", name)
@@ -3616,12 +3643,17 @@ def create_app(home: str | Path | None = None,
     def read_environment_preparation(job_id: str,
                                      _user: Annotated[dict, Depends(administrator)]) -> dict:
         """Expose only bounded, value-free progress to server administrators."""
-        job = environment.read(job_id)
+        try:
+            job = environment.read(job_id)
+        except EnvironmentError as exc:
+            raise _error(503, exc.code, "Delete ADORE_HOME/environment/jobs/" + job_id
+                + ".json to discard corrupt preparation evidence before starting fresh.") from exc
         if job is None:
             raise _error(404, "environment_preparation_expired")
         return job
 
     @app.post("/api/v1/projects/transfer-environment", status_code=202)
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def prepare_transfer_environment(body: ReviewedTransferInput, request: Request,
                                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         _preview, candidate = reviewed_transfer(body, request)
@@ -3629,6 +3661,7 @@ def create_app(home: str | Path | None = None,
         return prepare_environment(config, user, body.target.name)
 
     @app.post("/api/v1/projects/transfer-create")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def create_transfer(
         body: ReviewedTransferInput,
         request: Request,
@@ -3698,6 +3731,7 @@ def create_app(home: str | Path | None = None,
         return preview, candidate
 
     @app.post("/api/v1/projects/setup-environment", status_code=202)
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def prepare_setup_environment(body: ReviewedProjectInput,
                                   user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         _preview, candidate = reviewed_setup(body)
@@ -3705,6 +3739,7 @@ def create_app(home: str | Path | None = None,
         return prepare_environment(config, user, body.name)
 
     @app.post("/api/v1/projects/setup-check")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def check_project_setup(
         body: ReviewedProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -3767,6 +3802,7 @@ def create_app(home: str | Path | None = None,
         }
 
     @app.post("/api/v1/projects/setup-create")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def create_reviewed_project(
         body: ReviewedProjectInput, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -3786,6 +3822,7 @@ def create_app(home: str | Path | None = None,
             candidate.metadata, readiness=readiness))
 
     @app.post("/api/v1/projects")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def add_project(body: ProjectInput,
                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         preview, candidate = _prepare_project(profiles, body)
@@ -3801,6 +3838,7 @@ def create_app(home: str | Path | None = None,
             candidate.metadata))
 
     @app.post("/api/v1/projects/import-preview")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def preview_project_import(
         body: ProjectImportPreviewInput,
         _user: Annotated[dict, Depends(admin_mutation)],
@@ -3820,12 +3858,14 @@ def create_app(home: str | Path | None = None,
         return preview
 
     @app.post("/api/v1/projects/import-environment", status_code=202)
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def prepare_import_environment(body: ProjectImportInput,
                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         _preview, config = _reviewed_import(profiles, body)
         return prepare_environment(config, user, body.name)
 
     @app.post("/api/v1/projects/import/bundle-environment", status_code=202)
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def prepare_bundle_environment(body: ProjectBundleImportInput,
                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """Prepare the execution environment bound to the reviewed complete ZIP."""
@@ -3841,6 +3881,7 @@ def create_app(home: str | Path | None = None,
             raise recipe_failure(exc) from exc
 
     @app.post("/api/v1/projects/import/bundle-preview")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def preview_project_bundle(body: ProjectBundlePreviewInput,
                                user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Automatically validate the exact complete ZIP without retaining sources."""
@@ -3855,6 +3896,7 @@ def create_app(home: str | Path | None = None,
         return preview
 
     @app.post("/api/v1/projects/import/bundle")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def import_project_bundle(body: ProjectBundleImportInput,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Publish exact project configuration and retained image sources together."""
@@ -3882,6 +3924,7 @@ def create_app(home: str | Path | None = None,
             raise recipe_failure(exc) from exc
 
     @app.post("/api/v1/projects/import-check")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def check_project_import(body: ProjectImportInput,
                              _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Explicitly probe the exact reviewed import without publishing.
@@ -3912,6 +3955,7 @@ def create_app(home: str | Path | None = None,
                 "checked_at": datetime.now(UTC).isoformat()}
 
     @app.post("/api/v1/projects/import")
+    @configuration.route(scope="global", lane="long", resource="enrollment")
     def import_project(
         body: ProjectImportInput,
         user: Annotated[dict, Depends(admin_mutation)],
@@ -3980,99 +4024,107 @@ def create_app(home: str | Path | None = None,
         return _profile_view(profiles, project(name, user))
 
     @app.post("/api/v1/projects/{name}/repository-connection")
+    @configuration.route(lane="long")
     def connect_repository(name: str, body: RepositoryConnectionInput,
                            user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Verify scoped forge credentials before protected idle publication."""
-        with config_lock:
-            item = project(name, user)
-            if item.archived:
-                raise _error(409, "project_archived")
-            path = profiles.config_path(item.name)
-            try:
-                raw = path.read_bytes()
-                revision = sha256(raw).hexdigest()
-                config = _config_from_bytes(raw)
-                if _config_findings(config):
-                    raise _error(409, "invalid_config")
-                with (_web_config_edit_lock(path),
-                      guard_direct_config_apply(item, path, "repository.auth")):
-                    verified = verify_connection(config, item.project_id, body.server, body.token,
-                                                 body.allow_http, probe_runner)
-                    current = project(name, user)
-                    if (current.project_id != item.project_id
-                            or sha256(path.read_bytes()).hexdigest() != revision):
-                        raise _error(409, "stale_config_revision")
-                    confirmation = web.begin_change(
-                        user["id"], "repository-connected", item.name)
-                    _verification_view(profiles, item, revision)
-                    save_connection(profiles.profile_dir(item.name), verified)
-                    web.audit(user["id"], "repository-connected", item.name,
-                              confirmation_key=confirmation)
-                    return connection_view(verified)
-            except RepositoryAuthError as exc:
-                status = 422 if exc.code == "repository_connection_invalid" else (
-                    400 if exc.code == "repository_connection_failed" else 503)
-                raise _error(status, exc.code) from exc
-            except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
-                raise _error(503, "config_corrupt") from exc
+        item = project(name, user)
+        if item.archived:
+            raise _error(409, "project_archived")
+        path = profiles.config_path(item.name)
+        try:
+            raw = path.read_bytes()
+            revision = sha256(raw).hexdigest()
+            config = _config_from_bytes(raw)
+            if _config_findings(config):
+                raise _error(409, "invalid_config")
+            with (
+                _web_config_edit_lock(path),
+                guard_direct_config_apply(item, path, "repository.auth"),
+            ):
+                effect_guard()
+            verified = verify_connection(config, item.project_id, body.server, body.token,
+                                         body.allow_http, probe_runner)
+            with (
+                _web_config_edit_lock(path),
+                guard_direct_config_apply(item, path, "repository.auth"),
+            ):
+                current = project(name, user)
+                if (current.project_id != item.project_id
+                        or sha256(path.read_bytes()).hexdigest() != revision):
+                    raise _error(409, "stale_config_revision")
+                confirmation = web.begin_change(
+                    user["id"], "repository-connected", item.name)
+                _verification_view(profiles, item, revision)
+                effect_guard()
+                save_connection(profiles.profile_dir(item.name), verified)
+                web.audit(user["id"], "repository-connected", item.name,
+                          confirmation_key=confirmation)
+                return connection_view(verified)
+        except RepositoryAuthError as exc:
+            status = 422 if exc.code == "repository_connection_invalid" else (
+                400 if exc.code == "repository_connection_failed" else 503)
+            raise _error(status, exc.code) from exc
+        except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
+            raise _error(503, "config_corrupt") from exc
 
     @app.get("/api/v1/projects/{name}/executor-credentials")
     def executor_credentials_read(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
         """@brief Expose private key source/presence without returning credential values."""
-        with config_lock:
-            item = project(name, user)
-            path = profiles.config_path(item.name)
-            try:
-                raw = path.read_bytes()
-                config = _config_from_bytes(raw)
-                if _config_findings(config):
-                    raise _error(409, "invalid_config")
-                return {"project_id": item.project_id, "revision": sha256(raw).hexdigest(),
-                        **credential_view(profiles.profile_dir(item.name), config)}
-            except (OSError, ValueError, TypeError) as exc:
-                raise _error(503, "executor_credentials_corrupt") from exc
+        item = project(name, user)
+        path = profiles.config_path(item.name)
+        try:
+            raw = path.read_bytes()
+            config = _config_from_bytes(raw)
+            if _config_findings(config):
+                raise _error(409, "invalid_config")
+            return {"project_id": item.project_id, "revision": sha256(raw).hexdigest(),
+                    **credential_view(profiles.profile_dir(item.name), config)}
+        except (OSError, ValueError, TypeError) as exc:
+            raise _error(503, "executor_credentials_corrupt") from exc
 
     @app.put("/api/v1/projects/{name}/executor-credentials")
     @app.delete("/api/v1/projects/{name}/executor-credentials")
+    @configuration.route(lane="fast")
     def executor_credentials_write(name: str, body: ExecutorCredentialInput, request: Request,
                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Atomically save/remove an approved key while the project is idle."""
         deleting = request.method == "DELETE"
         if (deleting and body.token is not None or not deleting and body.token is None):
             raise _error(400, "executor_credential_invalid")
-        with config_lock:
-            item = project(name, user)
-            if item.archived:
-                raise _error(409, "project_archived")
-            path = profiles.config_path(item.name)
-            try:
-                with (_web_config_edit_lock(path),
-                      guard_direct_config_apply(item, path, "executor.credentials")):
-                    raw = path.read_bytes()
-                    revision = sha256(raw).hexdigest()
-                    if revision != body.revision:
-                        raise _error(409, "stale_config_revision")
-                    config = _config_from_bytes(raw)
-                    if _config_findings(config):
-                        raise _error(409, "invalid_config")
-                    directory = profiles.profile_dir(item.name)
-                    model_evidence(directory, config, item.project_id, revision)
-                    action = ("executor-credential-removed" if deleting
-                              else "executor-credential-saved")
-                    confirmation = web.begin_change(user["id"], action, item.name)
-                    _verification_view(profiles, item, revision)
-                    update_credential(directory, config, body.variable, body.token)
-                    (directory / "model-connection.json").unlink(missing_ok=True)
-                    web.audit(user["id"], action, item.name, confirmation_key=confirmation)
-                    return {"project_id": item.project_id, "revision": revision,
-                            **credential_view(directory, config)}
-            except ExecutorSettingsError as exc:
-                code = str(exc)
-                status = (400 if code == "executor_credential_invalid" else
-                          409 if code == "executor_credential_external" else 503)
-                raise _error(status, code) from exc
-            except (OSError, ValueError, TypeError) as exc:
-                raise _error(503, "executor_credentials_corrupt") from exc
+        item = project(name, user)
+        if item.archived:
+            raise _error(409, "project_archived")
+        path = profiles.config_path(item.name)
+        try:
+            with (_web_config_edit_lock(path),
+                  guard_direct_config_apply(item, path, "executor.credentials")):
+                raw = path.read_bytes()
+                revision = sha256(raw).hexdigest()
+                if revision != body.revision:
+                    raise _error(409, "stale_config_revision")
+                config = _config_from_bytes(raw)
+                if _config_findings(config):
+                    raise _error(409, "invalid_config")
+                directory = profiles.profile_dir(item.name)
+                model_evidence(directory, config, item.project_id, revision)
+                action = ("executor-credential-removed" if deleting
+                          else "executor-credential-saved")
+                confirmation = web.begin_change(user["id"], action, item.name)
+                _verification_view(profiles, item, revision)
+                effect_guard()
+                update_credential(directory, config, body.variable, body.token)
+                (directory / "model-connection.json").unlink(missing_ok=True)
+                web.audit(user["id"], action, item.name, confirmation_key=confirmation)
+                return {"project_id": item.project_id, "revision": revision,
+                        **credential_view(directory, config)}
+        except ExecutorSettingsError as exc:
+            code = str(exc)
+            status = (400 if code == "executor_credential_invalid" else
+                      409 if code == "executor_credential_external" else 503)
+            raise _error(status, code) from exc
+        except (OSError, ValueError, TypeError) as exc:
+            raise _error(503, "executor_credentials_corrupt") from exc
 
     def chatgpt_view() -> dict:
         """@brief The server's sign-in status and whether a sign-in waits (lock held)."""
@@ -4091,9 +4143,11 @@ def create_app(home: str | Path | None = None,
         raise _error(status, code) from exc
 
     @app.get("/api/v1/chatgpt-sign-in")
+    @configuration.route(scope="global", lane="global", resource="chatgpt")
     def chatgpt_sign_in_read(user: Annotated[dict, Depends(administrator)]) -> dict:
         """@brief Report the server's ChatGPT sign-in without starting Pi."""
         with chatgpt_lock:
+            effect_guard()
             chatgpt_view()  # Expire an abandoned attempt before reading its pipe.
             session = chatgpt_pending["session"]
             if session is not None:
@@ -4108,19 +4162,19 @@ def create_app(home: str | Path | None = None,
             return chatgpt_view()
 
     @app.post("/api/v1/projects/{name}/chatgpt-sign-in")
+    @configuration.route(lane="long")
     def chatgpt_sign_in_start(name: str,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Start Sign in with ChatGPT with this project's runtime and image."""
-        with config_lock:
-            item = project(name, user)
-            if item.archived:
-                raise _error(409, "project_archived")
-            try:
-                config = _config_from_bytes(profiles.config_path(item.name).read_bytes())
-            except (OSError, ValueError, TypeError) as exc:
-                raise _error(503, "config_corrupt") from exc
-            if _config_findings(config):
-                raise _error(409, "invalid_config")
+        item = project(name, user)
+        if item.archived:
+            raise _error(409, "project_archived")
+        try:
+            config = _config_from_bytes(profiles.config_path(item.name).read_bytes())
+        except (OSError, ValueError, TypeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+        if _config_findings(config):
+            raise _error(409, "invalid_config")
         manager = None if config.execution.backend == "local" else ContainerManager(
             config.container.runtime, config.container.image or EXECUTOR_BASE_IMAGE,
             config.container.uv_cache_volume, config.container.npm_cache_volume,
@@ -4137,12 +4191,14 @@ def create_app(home: str | Path | None = None,
                     raise _error(503, code)
         manager = chatgpt.helper_for(config, manager, runner=probe_runner)
         with chatgpt_lock:
+            effect_guard()
             previous = chatgpt_pending["session"]
             if previous is not None:
                 previous.cancel()
             chatgpt_pending["session"] = None
             session = chatgpt.SignIn(manager, chatgpt_dir, popen=chatgpt_popen)
             try:
+                effect_guard()
                 url = session.start()
             except chatgpt.ChatGptError as exc:
                 chatgpt_failure(user, exc, item.name)
@@ -4154,15 +4210,18 @@ def create_app(home: str | Path | None = None,
             return {"authorize_url": url, "expires_in": chatgpt.SIGN_IN_SECONDS}
 
     @app.put("/api/v1/chatgpt-sign-in")
+    @configuration.route(scope="global", lane="global", resource="chatgpt")
     def chatgpt_sign_in_complete(body: ChatGptRedirectInput,
                                  user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Pass the pasted redirect address to the waiting sign-in."""
         with chatgpt_lock:
+            effect_guard()
             chatgpt_view()
             session = chatgpt_pending["session"]
             if session is None:
                 raise _error(409, "chatgpt_sign_in_not_pending")
             try:
+                effect_guard()
                 session.submit(body.redirect_url)
             except chatgpt.ChatGptError as exc:
                 if session.finished:
@@ -4173,9 +4232,11 @@ def create_app(home: str | Path | None = None,
             return chatgpt_view()
 
     @app.delete("/api/v1/chatgpt-sign-in/pending")
+    @configuration.route(scope="global", lane="global", resource="chatgpt")
     def chatgpt_sign_in_cancel(user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief End a waiting sign-in; the stored credential stays."""
         with chatgpt_lock:
+            effect_guard()
             session = chatgpt_pending["session"]
             chatgpt_pending["session"] = None
             if session is not None:
@@ -4184,14 +4245,17 @@ def create_app(home: str | Path | None = None,
             return chatgpt_view()
 
     @app.delete("/api/v1/chatgpt-sign-in")
+    @configuration.route(scope="global", lane="global", resource="chatgpt")
     def chatgpt_disconnect(user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Delete the server's ChatGPT credential and end a waiting sign-in."""
         with chatgpt_lock:
+            effect_guard()
             session = chatgpt_pending["session"]
             chatgpt_pending["session"] = None
             if session is not None:
                 session.cancel()
             try:
+                effect_guard()
                 chatgpt.disconnect(chatgpt_dir)
             except OSError as exc:
                 raise _error(503, "chatgpt_credential_unreadable") from exc
@@ -4199,171 +4263,176 @@ def create_app(home: str | Path | None = None,
             return chatgpt_view()
 
     @app.post("/api/v1/projects/{name}/model-connection-test")
+    @configuration.route(lane="long")
     def model_connection_test(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Test the configured model explicitly and persist scoped access evidence."""
-        with config_lock:
-            item = project(name, user)
-            if item.archived:
-                raise _error(409, "project_archived")
-            path = profiles.config_path(item.name)
-            try:
-                raw = path.read_bytes()
-                revision = sha256(raw).hexdigest()
-                config = _config_from_bytes(raw)
-                if _config_findings(config):
-                    raise _error(409, "invalid_config")
-                with (
-                    _web_config_edit_lock(path),
-                    guard_direct_config_apply(item, path, "model.connection-test"),
+        item = project(name, user)
+        if item.archived:
+            raise _error(409, "project_archived")
+        path = profiles.config_path(item.name)
+        try:
+            raw = path.read_bytes()
+            revision = sha256(raw).hexdigest()
+            config = _config_from_bytes(raw)
+            if _config_findings(config):
+                raise _error(409, "invalid_config")
+            with (
+                _web_config_edit_lock(path),
+                guard_direct_config_apply(item, path, "model.connection-test"),
+            ):
+                directory = profiles.profile_dir(item.name)
+                binding = credential_binding(directory, config)
+                model_evidence(directory, config, item.project_id, revision)
+            result = probe_model_connection(
+                config, probe_runner, directory / ".env", chatgpt_dir=chatgpt_dir)
+            with (
+                _web_config_edit_lock(path),
+                guard_direct_config_apply(item, path, "model.connection-test"),
+            ):
+                if (
+                    project(name, user).project_id != item.project_id
+                    or sha256(path.read_bytes()).hexdigest() != revision
                 ):
-                    if sha256(path.read_bytes()).hexdigest() != revision:
-                        raise _error(409, "stale_config_revision")
-                    directory = profiles.profile_dir(item.name)
-                    binding = credential_binding(directory, config)
-                    model_evidence(directory, config, item.project_id, revision)
-                    result = probe_model_connection(
-                        config,
-                        probe_runner,
-                        profiles.profile_dir(item.name) / ".env",
-                        chatgpt_dir=chatgpt_dir,
-                    )
-                    if (
-                        project(name, user).project_id != item.project_id
-                        or sha256(path.read_bytes()).hexdigest() != revision
-                    ):
-                        raise _error(409, "stale_config_revision")
-                    if credential_binding(directory, config) != binding:
-                        raise _error(409, "stale_config_revision")
-                    if (
-                        result.get("executor") != EXECUTOR_NAME
-                        or result.get("model") != config.executor.model
-                    ):
-                        raise ExecutorSettingsError("executor_evidence_corrupt")
-                    result = {
-                        **result,
-                        "project_id": item.project_id,
-                        "revision": revision,
-                        "checked_at": datetime.now(UTC).isoformat(),
-                    }
-                    save_model_evidence(directory, result, binding)
-                    web.audit(user["id"], "model-connection-tested", item.name)
-                    return result
-            except (OSError, ValueError, TypeError, IsolationError) as exc:
-                raise _error(503, "model_test_failed") from exc
+                    raise _error(409, "stale_config_revision")
+                if credential_binding(directory, config) != binding:
+                    raise _error(409, "stale_config_revision")
+                if (
+                    result.get("executor") != EXECUTOR_NAME
+                    or result.get("model") != config.executor.model
+                ):
+                    raise ExecutorSettingsError("executor_evidence_corrupt")
+                result = {
+                    **result,
+                    "project_id": item.project_id,
+                    "revision": revision,
+                    "checked_at": datetime.now(UTC).isoformat(),
+                }
+                effect_guard()
+                save_model_evidence(directory, result, binding)
+                web.audit(user["id"], "model-connection-tested", item.name)
+                return result
+        except (OSError, ValueError, TypeError, IsolationError) as exc:
+            raise _error(503, "model_test_failed") from exc
 
     @app.post("/api/v1/projects/{name}/readiness-check")
+    @configuration.route(lane="long")
     def readiness_check(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Probe selected host prerequisites on explicit admin request."""
-        with config_lock:
-            item = project(name, user)
+        item = project(name, user)
+        try:
+            raw = profiles.config_path(item.name).read_bytes()
+            revision = sha256(raw).hexdigest()
+            config = _config_from_bytes(raw)
+            if _config_findings(config):
+                raise _error(409, "invalid_config")
+        except (
+            OSError,
+            AttributeError,
+            UnicodeError,
+            TypeError,
+            ValueError,
+            tomllib.TOMLDecodeError,
+        ) as exc:
+            raise _error(503, "config_corrupt") from exc
+        _verification_view(profiles, item, revision)
+        host = _readiness_host()
+        binding = _readiness_binding(profiles, item.name, config)
+        auth_bound = _readiness_auth_bound(profiles, item.name, config)
+        try:
+            evidence = _probe_setup(
+                config,
+                project_runner(profiles.profile_dir(item.name), config, probe_runner),
+                profiles.config_path(item.name).parent / ".env",
+                chatgpt_dir,
+                external_auth=False,
+            )
+        except RepositoryAuthError as exc:
+            raise _error(503, exc.code) from exc
+        if (not isinstance(evidence, dict)
+                or not _valid_workflow(evidence.get("workflow"))
+                or not _valid_readiness_checks(evidence.get("checks"), config)):
+            raise _error(503, "readiness_probe_failed")
+        checked_plan = None
+        if config.execution.preparation or config.execution.backend == "local":
             try:
-                raw = profiles.config_path(item.name).read_bytes()
-                revision = sha256(raw).hexdigest()
-                config = _config_from_bytes(raw)
-                if _config_findings(config):
-                    raise _error(409, "invalid_config")
-            except (
-                OSError,
-                AttributeError,
-                UnicodeError,
-                TypeError,
-                ValueError,
-                tomllib.TOMLDecodeError,
-            ) as exc:
-                raise _error(503, "config_corrupt") from exc
-            _verification_view(profiles, item, revision)
-            host = _readiness_host()
-            binding = _readiness_binding(profiles, item.name, config)
-            auth_bound = _readiness_auth_bound(profiles, item.name, config)
-            try:
-                evidence = _probe_setup(
-                    config,
-                    project_runner(profiles.profile_dir(item.name), config, probe_runner),
-                    profiles.config_path(item.name).parent / ".env",
-                    chatgpt_dir,
-                    external_auth=False,
-                )
-            except RepositoryAuthError as exc:
-                raise _error(503, exc.code) from exc
-            if (not isinstance(evidence, dict)
-                    or not _valid_workflow(evidence.get("workflow"))
-                    or not _valid_readiness_checks(evidence.get("checks"), config)):
-                raise _error(503, "readiness_probe_failed")
-            value = {
-                "schema": 3,
-                "workflow": evidence["workflow"],
-                "project_id": item.project_id,
-                "revision": revision,
-                "host": host,
-                "binding": binding,
-                "auth_bound": auth_bound,
-                "context": "api-host",
-                "checked_at": datetime.now(UTC).isoformat(),
-                "checks": evidence["checks"],
-            }
-            try:
-                with _web_config_edit_lock(profiles.config_path(item.name)):
-                    current = project(name, user)
-                    current_revision = sha256(
-                        profiles.config_path(item.name).read_bytes()
-                    ).hexdigest()
-                    if (
-                        current.project_id != item.project_id
-                        or current_revision != revision
-                        or host != _readiness_host()
-                        or binding != _readiness_binding(profiles, item.name, config)
-                        or auth_bound != _readiness_auth_bound(profiles, item.name, config)
-                    ):
-                        raise _error(409, "stale_config_revision")
-                    _verification_view(profiles, current, current_revision)
-                    _write_pending_config(profiles.profile_dir(item.name) / "readiness.json", value)
-                    web.audit(user["id"], "readiness-checked", item.name)
-                    view = _verification_view(profiles, current, revision)
-                    if "local_probe" in evidence:
-                        view["local_probe"] = evidence["local_probe"]
-                    return view
-            except OSError as exc:
-                raise _contract_rejection(
-                    "readiness_store_failed",
-                    "readiness",
-                    "Check local evidence storage before retrying.",
-                ) from exc
+                checked_plan = preview_plan(config, runner=probe_runner)
+            except PreparationError as exc:
+                raise _error(503, "readiness_probe_failed") from exc
+        value = {
+            "schema": 3,
+            "workflow": evidence["workflow"],
+            "project_id": item.project_id,
+            "revision": revision,
+            "host": host,
+            "binding": binding,
+            "auth_bound": auth_bound,
+            "context": "api-host",
+            "checked_at": datetime.now(UTC).isoformat(),
+            "checks": evidence["checks"],
+        }
+        try:
+            with _web_config_edit_lock(profiles.config_path(item.name)):
+                current = project(name, user)
+                current_revision = sha256(
+                    profiles.config_path(item.name).read_bytes()
+                ).hexdigest()
+                if (
+                    current.project_id != item.project_id
+                    or current_revision != revision
+                    or host != _readiness_host()
+                    or binding != _readiness_binding(profiles, item.name, config)
+                    or auth_bound != _readiness_auth_bound(profiles, item.name, config)
+                ):
+                    raise _error(409, "stale_config_revision")
+                _verification_view(profiles, current, current_revision)
+                if checked_plan is not None:
+                    configuration.save_execution_plan(item, revision, checked_plan)
+                _write_pending_config(profiles.profile_dir(item.name) / "readiness.json", value)
+                web.audit(user["id"], "readiness-checked", item.name)
+                view = _verification_view(profiles, current, revision)
+                if "local_probe" in evidence:
+                    view["local_probe"] = evidence["local_probe"]
+                return view
+        except OSError as exc:
+            raise _contract_rejection(
+                "readiness_store_failed",
+                "readiness",
+                "Check local evidence storage before retrying.",
+            ) from exc
 
     @app.post("/api/v1/projects/{name}/archive")
     def archive_project(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Stop pickup while retaining project configuration and history."""
-        with config_lock:
-            item = project(name, user)
-            if not item.archived:
-                state = _store_for(profiles, item)
-                try:
-                    with state.project_barrier():
-                        if (any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
-                                for run in state.list_runs())
-                                or web.has_unfinished_operations(item.name)):
-                            raise _error(409, "project_has_active_work")
-                        item.archived = True
-                        profiles.save(item)
-                        web.audit(user["id"], "project-archived", item.name)
-                except LockHeldError as exc:
-                    raise _error(409, "project_has_active_work") from exc
-                except StateError as exc:
-                    raise _error(503, "run_state_corrupt") from exc
-            return _profile_view(profiles, item)
+        item = project(name, user)
+        if not item.archived:
+            state = _store_for(profiles, item)
+            try:
+                with state.project_barrier():
+                    if (any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
+                            for run in state.list_runs())
+                            or web.has_unfinished_operations(item.name)):
+                        raise _error(409, "project_has_active_work")
+                    item.archived = True
+                    profiles.save(item)
+                    web.audit(user["id"], "project-archived", item.name)
+            except LockHeldError as exc:
+                raise _error(409, "project_has_active_work") from exc
+            except StateError as exc:
+                raise _error(503, "run_state_corrupt") from exc
+        return _profile_view(profiles, item)
 
     @app.post("/api/v1/projects/{name}/restore")
     def restore_project(name: str,
                         user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Re-enable project pickup without changing retained history."""
-        with config_lock:
-            item = project(name, user)
-            if item.archived:
-                if web.has_unfinished_operations(item.name):
-                    raise _error(409, "project_has_active_work")
-                item.archived = False
-                profiles.save(item)
-                web.audit(user["id"], "project-restored", item.name)
-            return _profile_view(profiles, item)
+        item = project(name, user)
+        if item.archived:
+            if web.has_unfinished_operations(item.name):
+                raise _error(409, "project_has_active_work")
+            item.archived = False
+            profiles.save(item)
+            web.audit(user["id"], "project-restored", item.name)
+        return _profile_view(profiles, item)
 
     def clone_view(item) -> dict:
         """@brief The removal decision for an archived project's local clone."""
@@ -4447,12 +4516,8 @@ def create_app(home: str | Path | None = None,
         except ExecutorSettingsError as exc:
             raise _error(503, "executor_evidence_corrupt") from exc
         issues = validate_config(config)
-        plan = None
-        if (config.execution.preparation or config.execution.backend == "local") and not issues:
-            try:
-                plan = public_plan(preview_plan(config, runner=probe_runner))
-            except PreparationError as exc:
-                issues.append(str(exc))
+        # Read only explicitly checked current evidence; never probe host/Git from a settings read.
+        plan = configuration.execution_plan(item, sha256(raw).hexdigest()) if not issues else None
         local_context = None
         if config.execution.backend == "local":
             from adore.local_process import native_context
@@ -4484,19 +4549,18 @@ def create_app(home: str | Path | None = None,
         """
         # Coordinate source/profile reads with atomic config application, also
         # on Windows where an open reader can prevent replacing the source.
-        with config_lock:
-            item = project(name, user)
-            path = profiles.config_path(item.name)
-            try:
-                raw = path.read_bytes()
-                if not secrets.compare_digest(sha256(raw).hexdigest(), body.revision):
-                    raise _error(409, "stale_config_revision")
-                config = load_config(path)
-                result = branch_naming_preview(body.template, body.rule, config.agent.slug)
-                if path.read_bytes() != raw or project(name, user).project_id != item.project_id:
-                    raise _error(409, "stale_config_revision")
-            except (OSError, ValueError, TypeError) as exc:
-                raise _error(503, "config_corrupt") from exc
+        item = project(name, user)
+        path = profiles.config_path(item.name)
+        try:
+            raw = path.read_bytes()
+            if not secrets.compare_digest(sha256(raw).hexdigest(), body.revision):
+                raise _error(409, "stale_config_revision")
+            config = load_config(path)
+            result = branch_naming_preview(body.template, body.rule, config.agent.slug)
+            if path.read_bytes() != raw or project(name, user).project_id != item.project_id:
+                raise _error(409, "stale_config_revision")
+        except (OSError, ValueError, TypeError) as exc:
+            raise _error(503, "config_corrupt") from exc
         return {**result, "revision": body.revision}
 
     def recipe_failure(exc):
@@ -4538,6 +4602,7 @@ def create_app(home: str | Path | None = None,
         return item, path, raw, config
 
     @app.get("/api/v1/projects/{name}/executor-recipe")
+    @configuration.route(lane="long")
     def executor_recipe(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
         """@brief Read image-shared definition availability without changing project or jobs."""
         _, path, raw, config = recipe_config(name, user)
@@ -4582,6 +4647,7 @@ def create_app(home: str | Path | None = None,
                                              "revision": sha256(raw).hexdigest()}
 
     @app.post("/api/v1/projects/{name}/executor-recipe/preview")
+    @configuration.route(lane="long")
     def preview_executor_recipe(name: str, body: RecipeInput,
                                 user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Check the selected source and graph in memory; no catalog writes occur."""
@@ -4589,18 +4655,22 @@ def create_app(home: str | Path | None = None,
         return result
 
     @app.put("/api/v1/projects/{name}/executor-recipe")
+    @configuration.route(lane="long")
     def save_executor_recipe(name: str, body: RecipeInput,
                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Save source metadata with image/config binding, independent of job admission."""
         item = project(name, user)
-        with _web_config_edit_lock(profiles.config_path(item.name)):
-            _, _, config, document, _ = inspect_recipe(name, body, user)
-            try:
+        path, raw, config, document, _ = inspect_recipe(name, body, user)
+        try:
+            with _web_config_edit_lock(path):
+                if recipe_source_bytes(path) != raw:
+                    raise _error(409, "stale_config_revision")
+                effect_guard()
                 saved_digest = RecipeStore(profiles.home).put(
                     document, expected_digest=body.expected_digest)
-                result = recipe_status(config, home=profiles.home, runner=probe_runner)
-            except (RecipeError, BuildBundleError) as exc:
-                raise recipe_failure(exc) from exc
+            result = recipe_status(config, home=profiles.home, runner=probe_runner)
+        except (RecipeError, BuildBundleError) as exc:
+            raise recipe_failure(exc) from exc
         web.audit(user["id"], "executor-recipe-saved", item.name,
                   resource_type="config", resource_id="executor-recipe", phase="apply",
                   result="applied", base_revision=body.expected_digest,
@@ -4661,6 +4731,7 @@ def create_app(home: str | Path | None = None,
         return Response(content=raw, media_type="text/plain", headers=headers)
 
     @app.put("/api/v1/projects/{name}/config")
+    @configuration.route(lane="fast")
     def config_update(
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -4675,7 +4746,6 @@ def create_app(home: str | Path | None = None,
             raise _error(409, "pending_config_required")
         path = profiles.config_path(item.name)
         with (
-            config_lock,
             _web_config_edit_lock(path),
             guard_direct_config_apply(
                 item,
@@ -4725,6 +4795,7 @@ def create_app(home: str | Path | None = None,
                     before={"value": _candidate_value(
                         tomllib.loads(raw.decode()), body.key, body.value)},
                 )
+                effect_guard()
                 candidate.replace(path)
                 _sync_profile_config_identity(profiles, item, path)
                 web.confirm_change(
@@ -4755,6 +4826,7 @@ def create_app(home: str | Path | None = None,
         return _public_pending_config(value, active_text=active_text)
 
     @app.post("/api/v1/projects/{name}/config/preview")
+    @configuration.route(lane="long")
     def preview_config(
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -4763,11 +4835,12 @@ def create_app(home: str | Path | None = None,
         if _external_environment_key(body.key):
             raise _error(400, "environment_managed_externally")
         path = profiles.config_path(item.name)
-        with config_lock, _web_config_edit_lock(path):
-            raw, _changed, value = _prepare_config_candidate(path, body, probe_runner)
-            return _public_pending_config(value, active_text=raw.decode("utf-8"))
+        raw, _changed, value = _prepare_config_candidate(path, body, probe_runner)
+        effect_guard()
+        return _public_pending_config(value, active_text=raw.decode("utf-8"))
 
     @app.post("/api/v1/projects/{name}/config/pending")
+    @configuration.route(lane="settings")
     def stage_config(
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -4777,7 +4850,10 @@ def create_app(home: str | Path | None = None,
             raise _error(400, "environment_managed_externally")
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
-        with config_lock, _web_config_edit_lock(path):
+        raw, changed, value = _prepare_config_candidate(path, body, probe_runner)
+        with _web_config_edit_lock(path):
+            if sha256(path.read_bytes()).hexdigest() != value["base_revision"]:
+                raise _error(409, "stale_config_revision")
             previous = _read_pending_config(pending_path)
             if previous is not None:
                 if body.pending_revision is None:
@@ -4794,7 +4870,6 @@ def create_app(home: str | Path | None = None,
                     raise _error(409, "stale_config_revision")
             elif body.pending_revision is not None:
                 raise _error(409, "stale_pending_revision")
-            raw, changed, value = _prepare_config_candidate(path, body, probe_runner)
             public = _public_pending_config(value)
             attempt = web.begin_change(
                 user["id"],
@@ -4808,6 +4883,7 @@ def create_app(home: str | Path | None = None,
                 before={"value": _candidate_value(
                     tomllib.loads(raw.decode()), body.key, body.value)},
             )
+            effect_guard()
             _write_pending_config(pending_path, value)
             web.confirm_change(
                 attempt,
@@ -4817,6 +4893,7 @@ def create_app(home: str | Path | None = None,
         return public
 
     @app.post("/api/v1/projects/{name}/config/apply")
+    @configuration.route(lane="settings")
     def apply_config(
         name: str, body: ConfigApply, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
@@ -4824,8 +4901,32 @@ def create_app(home: str | Path | None = None,
         item = project(name, user)
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
-        with config_lock, _web_config_edit_lock(path):
+        inspected = _read_pending_config(pending_path)
+        if inspected is None:
+            raise _error(404, "pending_config_not_found")
+        try:
+            inspected_active = path.read_bytes().decode("utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+        _public_pending_config(inspected, active_text=inspected_active)
+        if "execution_plan" in inspected:
+            configuration.execution_plan(item, sha256(inspected_active.encode("utf-8")).hexdigest())
+        try:
+            proposed = _config_from_bytes(inspected["candidate_text"].encode("utf-8"))
+            if validate_config(proposed):
+                raise _error(503, "pending_config_corrupt")
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
+            raise _error(503, "pending_config_corrupt") from exc
+        if proposed.execution.preparation or proposed.execution.backend == "local":
+            try:
+                if preview_plan(proposed, runner=probe_runner) != inspected.get("execution_plan"):
+                    raise PreparationError("reviewed execution plan changed")
+            except PreparationError as exc:
+                raise _error(409, "execution_plan_stale") from exc
+        with _web_config_edit_lock(path):
             pending = _read_pending_config(pending_path)
+            if pending != inspected:
+                raise _error(409, "stale_pending_revision")
             if pending is None:
                 raise _error(404, "pending_config_not_found")
             _public_pending_config(pending)
@@ -4906,18 +5007,9 @@ def create_app(home: str | Path | None = None,
                         os.close(descriptor)
                         candidate = Path(candidate_name)
                         candidate.write_bytes(pending["candidate_text"].encode("utf-8"))
-                        if validate_config(load_config(candidate)):
-                            raise _error(400, "invalid_config")
-                        proposed = load_config(candidate)
-                        if proposed.execution.preparation or proposed.execution.backend == "local":
-                            try:
-                                plan = preview_plan(proposed, runner=probe_runner)
-                                if plan != pending.get("execution_plan"):
-                                    raise PreparationError("reviewed execution plan changed")
-                            except PreparationError as exc:
-                                raise _error(409, "execution_plan_stale") from exc
                         if sha256(path.read_bytes()).hexdigest() != pending["base_revision"]:
                             raise _error(409, "stale_config_revision")
+                        effect_guard()
                         candidate.replace(path)
                     _sync_profile_config_identity(profiles, item, path)
                     web.confirm_change(
@@ -4930,6 +5022,11 @@ def create_app(home: str | Path | None = None,
                         },
                         detail=pending["key"],
                     )
+                    if "execution_plan" in pending:
+                        configuration.save_execution_plan(
+                            item, pending["candidate_revision"], pending["execution_plan"],
+                            after_apply=True)
+                    effect_guard(revision=False)
                     pending_path.unlink()
                 finally:
                     if candidate is not None:
@@ -4939,12 +5036,13 @@ def create_app(home: str | Path | None = None,
         return {"revision": sha256(path.read_bytes()).hexdigest()}
 
     @app.delete("/api/v1/projects/{name}/config/pending")
+    @configuration.route(lane="fast")
     def discard_config(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Explicitly discard a staged candidate, including corrupt ones."""
         item = project(name, user)
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
-        with config_lock, _web_config_edit_lock(path):
+        with _web_config_edit_lock(path):
             if not pending_path.is_file():
                 raise _error(404, "pending_config_not_found")
             # Corrupt candidates remain explicitly discardable; do not fabricate their diff.
@@ -4957,6 +5055,7 @@ def create_app(home: str | Path | None = None,
                 phase="discard",
                 before={"exists": True},
             )
+            effect_guard()
             pending_path.unlink()
             web.confirm_change(attempt, after={"exists": False})
         return {"ok": True}
@@ -5656,6 +5755,20 @@ def create_app(home: str | Path | None = None,
         operation = web.operation(operation_id)
         if operation is None:
             raise _error(404, "operation_not_found")
+        if operation["action"] == "configure":
+            if user["role"] != "admin":
+                raise _error(404, "operation_not_found")
+            if operation["project_id"]:
+                project(operation["project_id"], user)
+            try:
+                outcome = configuration.outcome(operation)
+            except WebStoreError as exc:
+                raise _error(503, "web_store_corrupt", "Delete ADORE_HOME/configuration-tasks/"
+                    + operation["run_id"] + ".result.json to discard corrupt outcome evidence; "
+                    "inspect active settings before submitting another request.") from exc
+            return {**{key: operation[key] for key in (
+                "id", "project_id", "domain", "action", "status", "result", "reason",
+                "created_at", "updated_at")}, "outcome": outcome}
         if not operation["project_id"]:
             raise _error(404, "operation_not_found")
         try:

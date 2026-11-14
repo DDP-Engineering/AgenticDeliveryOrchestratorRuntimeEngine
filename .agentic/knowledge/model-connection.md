@@ -59,3 +59,11 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `05_SoftwareDocu/Component_Model_Connection.md`: detailed contract.
 
 The native and container model diagnostics pass the configured Pi thinking level to their RPC launcher.
+
+## Configuration ownership
+
+The durable configuration worker rechecks actor/config authority for new work and
+result publication. Internally owned disposable cleanup uses ownership/ancestry-only
+authority with eight-second command bounds after actor revocation/deadline; it cannot
+publish evidence. The fake RPC revocation contract proves cleanup after provision.
+See configuration-worker.md and test_web_configuration_worker.py.

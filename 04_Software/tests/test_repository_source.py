@@ -30,8 +30,9 @@ from adore.web.repository_source import (
     suggest_id,
     tea_login_hosts,
 )
-from fastapi.testclient import TestClient
 import pytest
+
+from tests.configuration_client import TestClient
 
 # CONSTANTS
 

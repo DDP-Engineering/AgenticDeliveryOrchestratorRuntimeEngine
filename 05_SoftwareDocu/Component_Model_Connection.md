@@ -74,3 +74,13 @@ separate from the container internet switch. See
 
 
 Native and container diagnostics pass the same selected Pi thinking level as stage execution.
+
+## Scoped configuration execution and cleanup
+
+Explicit model tests are consumed by the independent configuration worker. Every
+new runtime command and evidence publication rechecks current actor/revision authority.
+The exact internally owned disposable probe retains worker/ancestry-only cleanup
+authority after actor revocation or timeout, with bounded cleanup commands; no model
+result is published by that cleanup scope. Tests include revocation during actual
+fake Pi RPC after provisioning, confirmed resource removal and absent model evidence.
+See Component_Configuration_Worker.md and test_web_configuration_worker.py.

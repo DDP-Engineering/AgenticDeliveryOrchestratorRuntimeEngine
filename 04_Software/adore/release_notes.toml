@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Save project settings and control monitoring while other projects work or prepare tools.", fr = "Enregistrez les paramètres et contrôlez la surveillance pendant le travail des autres projets.", de = "Projekteinstellungen und Überwachung bleiben während anderer Arbeiten bedienbar.", ro = "Salvați setări și controlați monitorizarea cât timp alte proiecte lucrează sau pregătesc unelte." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "Projects progress independently and run jobs in parallel up to each project’s limit.", fr = "Les projets avancent séparément, avec des tâches parallèles selon leur propre limite.", de = "Projekte arbeiten unabhängig und führen Aufträge bis zu ihrer eigenen Grenze parallel aus.", ro = "Proiectele progresează independent și execută lucrări în paralel până la limita fiecăruia." }
 

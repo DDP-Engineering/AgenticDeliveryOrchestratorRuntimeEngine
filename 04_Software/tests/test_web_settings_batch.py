@@ -23,9 +23,9 @@ import tomllib
 from adore.config import load_config
 from adore.web.app import create_app
 from adore.web.store import WebStore
-from fastapi.testclient import TestClient
 import pytest
 
+from tests.configuration_client import TestClient
 from tests.test_web_pending_config import _headers, _project
 
 # CONSTANTS
