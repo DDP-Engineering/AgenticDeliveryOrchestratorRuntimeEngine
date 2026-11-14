@@ -30,7 +30,7 @@ export type Job = {
     responsible_role: string | null; responsible_person: string | null; evidence_url: string | null; source: string | null };
   evidence_url: string; consumption: { availability: "unknown" };
   coverage: { ticket: string; journal: string; title: string; last_activity: string };
-  timeline?: Array<{ ts: string | null; event: string; stage: string | null }>;
+  timeline?: Array<{ ts: string | null; event: string; stage: string | null; attempt?: number | null }>;
 };
 export type JobPage = { items: Job[]; total: number; counts: Record<string, number>; groups: Record<string, number>;
   limit: number; offset: number; complete: true; snapshot: string; snapshot_semantics: "optimistic-source-revision";
@@ -153,6 +153,7 @@ export function readJobDetail(value: unknown, project: string, run: string): Job
   if (job.workflow === "direct") readDirectEvidence(job.direct);
   else if ("direct" in job) invalid();
   for (const event of job.timeline!) if (!event || !stamp(event.ts) || !string(event.event) || !event.event ||
+    (event.attempt !== undefined && event.attempt !== null && (!count(event.attempt) || event.attempt < 1)) ||
     event.stage !== null && (!stages.includes(event.stage as typeof stages[number]) ||
       job.workflow === "direct" && !["build", "validate", "done"].includes(event.stage)
         && !(event.stage === "publishing" && event.event === "reset"))) invalid();

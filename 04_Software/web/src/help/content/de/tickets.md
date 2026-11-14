@@ -49,9 +49,9 @@ Optionale Labels formen den Auftrag: `bug` oder `fix` ergibt eine Fehlerbehebung
 
 ## Tickets prüfen und starten {#tickets-view}
 
-**Tickets** in der Seitenleiste öffnet eine eigene globale Seite. Sie liest beim Öffnen und Bereichswechsel automatisch; **Tickets lesen** aktualisiert manuell. Tickets und Aufträge bieten alle berechtigten Projekte oder ein einzelnes. Lesefehler werden angezeigt. Die Projektzentrale behält Tickets, Aufträge und Kapazität; ihr Ticket-Untertab liest weiter auf Anfrage.
+**Tickets** in der Seitenleiste zeigt alle berechtigten Projekte oder eines; im Projekt gibt es einen separaten **Tickets**-Reiter. Beide lesen beim Öffnen automatisch, die globale Seite auch bei geändertem Umfang. **Tickets lesen** bleibt zur manuellen Aktualisierung. Jobs behält Suche, Filter und Seitennavigation.
 
-In der Projektzentrale drücken Sie **Tickets lesen**. Die globale Ticketseite liest beim Öffnen und Bereichswechsel automatisch; **Tickets lesen** aktualisiert weiterhin manuell. Das lädt bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
+Die Seite liest bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
 
 | Status | Bedeutung |
 |---|---|

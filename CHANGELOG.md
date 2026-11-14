@@ -35,6 +35,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Separate project Jobs and Tickets, keep budgets beside job content, and page Activity.
+- Present recorded agent conversations with full retained prompts, inline messages and send/queue controls.
+
 - Separate global Jobs and Tickets with retained scopes and list controls; automatically read global tickets and compact job details into four tabs above the saved status.
 
 - Compact Summary capacity into operational tiles and move cross-project capacity/current job states into a paginated Capacity tab.

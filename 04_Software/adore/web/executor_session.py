@@ -31,8 +31,8 @@ _ATTEMPT = re.compile(
     r"(frame|specify|design|build|validate)-attempt-([1-9][0-9]*)"
     r"-attempt1(?:-([2-9]|[1-9][0-9]+))?")
 _LIVE = re.compile(r"live-[a-f0-9]{32}")
-_TEXT_BYTES = 16 * 1024
-_LINE_BYTES = 256 * 1024
+_TEXT_BYTES = 16 * 1024 * 1024
+_LINE_BYTES = _TEXT_BYTES + 64 * 1024
 _SCAN_BYTES = 4 * 1024 * 1024
 _FILE_BYTES = 64 * 1024 * 1024
 _MAX_ARCHIVES = 10000
@@ -51,8 +51,7 @@ def _text(value) -> str:
     raw = value.encode("utf-8")
     if len(raw) <= _TEXT_BYTES:
         return value
-    marker = "\n[truncated]"
-    return raw[:_TEXT_BYTES - len(marker)].decode("utf-8", errors="ignore") + marker
+    raise ValueError("session item exceeds the record bound")
 
 
 def _notice(text: str) -> dict:
@@ -90,6 +89,14 @@ def _items(record: dict, include_cost: bool) -> list[dict]:
     if not isinstance(record, dict):
         raise ValueError("invalid event")
     kind = record.get("type")
+    if kind == "adore_prompt":
+        if not isinstance(record.get("text"), str):
+            raise ValueError("invalid prompt")
+        identity = record.get("instruction_id", "")
+        if identity != "adore-prompt" and not re.fullmatch(r"[a-f0-9]{32}", identity):
+            raise ValueError("invalid instruction identity")
+        return [{"kind": "prompt", "text": _text(record["text"]),
+                 **({"instruction_id": identity} if identity != "adore-prompt" else {})}]
     if kind == "adore_malformed_record":
         return [_notice("Malformed session record omitted by the executor.")]
     if "adore_omitted_bytes" in record:
@@ -361,6 +368,10 @@ def read_session(run: Path, attempt_id: str, cursor: int = 0, limit: int = 200,
                     try:
                         record = _object(line, "job_evidence_corrupt")
                         batch = _items(record, include_cost)
+                        stamp = _stamp(record.get("adore_at"), "job_evidence_corrupt")
+                        if stamp:
+                            for item in batch:
+                                item["at"] = stamp
                         if live:
                             if (record.get("type") == "message_start"
                                     and isinstance(record.get("message"), dict)

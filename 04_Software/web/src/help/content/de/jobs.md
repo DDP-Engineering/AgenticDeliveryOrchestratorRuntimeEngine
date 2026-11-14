@@ -85,7 +85,7 @@ Hat ein früher gelöschter Auftrag einen Branch ohne gespeicherten Checkpoint h
 
 ## Aufträge verfolgen {#following-jobs}
 
-Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** eines Projekts und dann den Unterreiter **Aufträge**. Die Tabelle hat diese Spalten:
+**Jobs** in der Seitenleiste oder den separaten **Jobs**-Reiter des Projekts verwenden. Die Tabelle enthält diese Spalten:
 
 | Spalte | Inhalt |
 |---|---|
@@ -99,23 +99,23 @@ Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** finde
 
 Die Details ersetzen ihre Ursprungsliste. Über dem Titel stehen **Aktivität**, **Agentensitzungen**, **Artefakte** und **Technische Informationen**, dann **Ticket anzeigen** und rechts **Schließen**. Gespeicherter Status, Phase und Workflow folgen unter dem Titel. Aktionen, Budgets, Verbrauch sowie Rückfrage-, Freigabe- und Prüfaktionen bleiben erreichbar. **Schließen** stellt Ansicht, Bereich, Suche, Filter und Seitenauswahl wieder her.
 
+**Aktivität** ist eine paginierte Tabelle mit Zeit, Aktivität, Phase und Sitzung. 10, 25, 50 oder Alle Zeilen wählen und Zurück/Weiter verwenden. **Unterhaltung öffnen** führt zur genauen Sitzung, wenn Phase und Versuch einen aufgezeichneten Start eindeutig bestimmen; andere Ereignisse haben keinen Link. Die Rückkehr erhält die Seite. Budgets und Verbrauch stehen rechts, auf schmalen Bildschirmen darunter.
+
 ## Verlauf der Agentensitzungen {#agent-sessions}
 
-Unter **Agentensitzungen** wählen Sie einen abgeschlossenen Versuch, neueste zuerst. Quelle ist die archivierte Pi-Ausgabe dieses Auftrags: ADORE-Anweisung, Assistententext, Werkzeugaufrufe und Ergebnisse, Runden und Tokenverbrauch. Klappen Sie ein Werkzeug für den vollständigen Text auf. Lesbare Überlegungen sind eingeklappt; Systemnachrichten werden nie angezeigt. Deltas und doppelte Abschlusslisten entfallen. **Mehr laden** setzt die Aufzeichnung fort. Angezeigt wird der Archivierungsabschluss; eine fehlende Startzeit wird benannt.
+**Agentensitzungen** öffnet die aktuelle oder zuletzt abgeschlossene Sitzung. Die Unterhaltung zeigt die ursprüngliche Anweisung, Agentenantworten, Benutzernachrichten sowie ausklappbare Werkzeugaufrufe und Ergebnisse. Antworten verwenden lesbares Markdown. Lange Anweisungen und Überlegungen lassen sich aufklappen. Der Verbrauch bleibt rechts.
 
-Administratoren und zugewiesene Entwickler sehen den Text wie aufgezeichnet, einschließlich enthaltenen Geheimnissen. Strukturierte Kostenbeträge sehen nur Administratoren. Antworten werden nicht zwischengespeichert. **Letzte Executor-Ausgabe anzeigen** bleibt unter **Technische Informationen**. Texte sind auf 16 KiB begrenzt und sichtbar markiert; fehlerhafte oder ausgelassene Einträge werden Hinweise. Über 64 MiB erscheint ein Größenhinweis.
+Der Verlauf lädt schrittweise, ohne gespeicherten Nachrichtentext zu kürzen. Neue Nachrichten werden nur am unteren Ende automatisch verfolgt; **Neue Nachrichten** führt dorthin zurück. Die Sitzungsauswahl erhält frühere Versuche, **Aktuelle Sitzung** führt zur laufenden Arbeit.
 
-Der aktuelle Versuch steht während der Agentenausführung zuerst als **Live**. Dieser Reiter aktualisiert abgeschlossene Nachrichten und Werkzeugaufrufe/-ergebnisse alle drei Sekunden, solange der Auftrag läuft und diese Ansicht und der Browserreiter sichtbar sind. **Agent arbeitet** nennt das unfertige Werkzeug oder Denken; Textfragmente werden nicht gestreamt. Eine unvollständige Zeile wartet auf ihren Abschluss. Nach einem Startende bleibt das endgültige Archiv verfügbar und die Ansicht folgt dem nächsten Live-Start. Ein gewähltes älteres Archiv bleibt bei Aktualisierungen und Reiterwechseln ausgewählt. Die Abfragen stoppen, wenn der Auftrag nicht mehr läuft oder die Ansicht oder der Browserreiter verborgen ist.
+Neue Starts speichern ausgehende Anweisungen und Nachrichtenzeiten ausdrücklich. Frühere Sitzungen zeigen nur vorhandene Aufzeichnungen. Zugriffsrechte für Administratoren und zugewiesene Entwickler bleiben unverändert; strukturierte Kosten bleiben Administratoren vorbehalten.
 
 ### Anweisungen senden {#instructions}
 
-Geben Sie unter der Live-Ansicht in **Agentensitzungen** eine **Anweisung für den Agenten** ein und wählen Sie **Jetzt senden** oder **Nach Abschluss senden**. Administratoren und dem Projekt zugewiesene Entwickler können während der Bearbeitung Anweisungen einreihen, auch zwischen Sitzungen oder vor der ersten Sitzung. Verwenden Sie 1–4000 Zeichen ohne NUL; jeder Job behält höchstens 256 Anweisungen.
+Eine **Nachricht an den Agenten** unten in der aktuellen Unterhaltung eingeben. **Jetzt senden** übergibt sie an der nächsten sicheren Agentengrenze; **Nachricht einreihen** wartet auf den Abschluss der aktuellen Arbeit. Zwischen Sitzungen bleibt Einreihen während der Bearbeitung verfügbar. Historische Unterhaltungen sind schreibgeschützt.
 
-**Wartend** bedeutet, dass Pi den Empfang noch nicht bestätigt hat. **Übermittelt** bedeutet eine Empfangsbestätigung von Pi, keinen Abschluss der Arbeit. Der Text bleibt unverändert. Abgelehnte oder unbestätigte Anweisungen bleiben für die nächste Sitzung eingereiht, nach der menschlichen Diskussion in deren Eingabe. Fehlerhafte Anweisungen bleiben mit einem Ablehnungsnachweis ungesendet. Nach Ende der Bearbeitung ist das Senden nicht verfügbar.
+Die Nachricht erscheint mit **Wartend**, **Vom Agenten empfangen** oder einem Fehlerstatus. Empfangen bestätigt den Empfang, nicht die erledigte Arbeit. Eingabefehler werden beim Senden erklärt: 1–4000 Zeichen ohne NUL, höchstens 256 gespeicherte Anweisungen pro Job.
 
-Jede Übermittlung wird im Job aufgezeichnet und einmal als ADORE-Kommentar ins Ticket kopiert. Ein vorübergehend fehlgeschlagener Kommentar wird unabhängig wiederholt und macht die Übermittlung an Pi nicht rückgängig.
-
-> **Jetzt senden** wartet auf die laufenden Werkzeuge und unterbricht sie nicht. **Nach Abschluss senden** wartet, bis der Agent keine weitere Arbeit hat.
+Unbestätigte Anweisungen bleiben für eine spätere Sitzung eingereiht. Bestätigter Empfang wird im Job gespeichert und im Ticket veröffentlicht; vorübergehende Kommentarfehler werden unabhängig erneut versucht.
 
 ## Jobbudgets {#budgets}
 
@@ -146,7 +146,7 @@ Wenn **Verbrauch** nicht lädt, nutzen Sie **Verbrauch aktualisieren** neben dem
 
 ## Projektkapazität {#project-capacity}
 
-Die Projektübersicht zeigt nur **Limit paralleler Aufträge**, **Frei** und **Aufträge in Warteschlange** als kompakte Rechtecke neben den Betriebsangaben. Wählen Sie im Reiter **Aufträge** des Projekts den Unterreiter **Kapazität** neben **Tickets** und **Aufträge**. Eine Zeile je Projekt zeigt Limit, freie Plätze, Warteschlange, Überwachung und aktuelle Auftragszustände. Beendete Aufträge, Vorgangsverlauf und Logs sind ausgeschlossen. Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**.
+**Zusammenfassung** zeigt die Grenze paralleler Jobs, freie Plätze und wartende Jobs neben den Betriebsdaten. Jobs und Tickets sind separate Projektreiter ohne Kapazitätsunterreiter. Die globale Jobs-Seite behält ihre Kapazitätstabelle mit Projektgrenzen, freien Plätzen, Warteschlange, Überwachung und Seitennavigation.
 
 Die Warteschlange zählt eingereichte Anfragen und aufgenommene Aufträge vor ihrem Start, keine nicht angeforderten Tickets. Ein volles Projekt blockiert keine anderen. Einstellungen zeigt weiterhin **Ihre letzten Vorgänge** und gespeicherte Ergebnisse; Eingereiht und In Bearbeitung bedeuten nicht Bestätigt.
 

@@ -36,7 +36,8 @@ Wenn Sie ein Projekt unter Projekte öffnen, sehen Sie seinen Namen und den Repo
 |---|---|
 | Zusammenfassung | Containertyp, Überwachung, Umgebungsprüfung, Auftragszahlen sowie kompakte Tabellen für Handlungsbedarf und aktive Aufträge. Administratoren erhalten außerdem **Überwachung pausieren** oder **Überwachung aktivieren**, **Projekt archivieren** oder **Projekt wiederherstellen**, **Host-Voraussetzungen prüfen** und **Repository-Zugang**. |
 | Einstellungen | Effektive Einstellungen, gemeinsames Speichern für Administratoren und Export mit gespeicherten Executor-Image-Definitionen. Entwickler lesen ohne Geheimnisse. Siehe [Projekteinstellungen](/help/settings). |
-| Aufträge | Die Unterreiter Tickets und Aufträge für dieses Projekt, ohne Projektauswahl. |
+| Aufträge | Jobs dieses Projekts mit Suche, Filtern und Seitennavigation. |
+| Tickets | Offene Tickets dieses Projekts, automatisch gelesen und manuell aktualisierbar. |
 | Statistiken | Derselbe Berichtszeitraum, dieselben Reiter und Exporte wie auf der Seite Statistiken, nur für dieses Projekt. |
 | Verlauf | Aufgezeichnete Änderungen am Projekt und seine abgeschlossenen Aufträge. |
 | Zugriff | Nur für Administratoren: den Zugriff eines Entwicklers gewähren oder entziehen. |

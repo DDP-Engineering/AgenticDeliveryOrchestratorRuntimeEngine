@@ -9,7 +9,7 @@ import { CapacityTable } from "./CapacityTable";
 import { readDraft, writeDraft, clearDraft, clearPrivateDrafts } from "./settingsDrafts";
 import { capacityCopy, workerCopy } from "./projectStatus";
 import { completedConfiguration } from "./configurationTasks";
-import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { PasswordField } from "./PasswordField";
@@ -47,6 +47,7 @@ import { readStatistics, readConsumption } from "./statistics";
 import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
 import { statisticsCopy } from "./statisticsCopy";
 import { JobWorkspace, type Filters } from "./JobWorkspace";
+import { PagedTable } from "./PagedTable";
 import { SortHeader } from "./SortHeader";
 import { jobCopy } from "./jobCopy";
 import { outcomeText } from "./operationReason";
@@ -325,27 +326,17 @@ export default function App() {
     setMetricsTab(metricsTabs[next]);
     document.getElementById(`metrics-tab-${metricsTabs[next]}`)?.focus();
   };
-  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "jobs", "statistics", "history", "access"] : ["overview", "configuration", "jobs", "statistics", "history"];
+  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "jobs", "tickets", "statistics", "history", "access"] : ["overview", "configuration", "jobs", "tickets", "statistics", "history"];
   // Leaving a tab closes any job detail opened in the Jobs tab.
   const selectProjectTab = (tab: ProjectTab) => {
     if (tab !== projectTab && enrollmentGuard.current && !enrollmentGuard.current()) return false;
     setRequestedRun("");
     if (tab === "statistics" && tab !== projectTab) setMetricsTab("summary");
-    // The Jobs tab opens on Tickets; job detail links select the Jobs sub-tab explicitly.
-    if (tab === "jobs" && tab !== projectTab) setJobsView("tickets");
+    if (tab === "jobs") setJobsView("jobs");
     setProjectTab(tab);
     return true;
   };
   const selectJobsView = (view: JobsView) => { setRequestedRun(""); setJobsView(view); };
-  const onJobsViewKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    const views:JobsView[]=["tickets","jobs","capacity"];
-    const index=views.indexOf(jobsView);
-    const next=views[event.key==="Home"?0:event.key==="End"?views.length-1:(index+(event.key==="ArrowRight"?1:-1)+views.length)%views.length];
-    selectJobsView(next);
-    document.getElementById(`jobs-subtab-${next}`)?.focus();
-  };
   const onProjectTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: ProjectTab) => {
     const current = projectTabs.indexOf(tab);
     const next = event.key === "ArrowRight" ? (current + 1) % projectTabs.length :
@@ -795,7 +786,7 @@ export default function App() {
       case "tickets": return {view:"tickets", ...(jobScope ? {project:jobScope} : {})};
       case "overview": return jobScope ? { view: "overview", project: jobScope } : { view: "overview" };
       case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab,
-        ...(projectTab === "jobs" ? requestedRun ? { run: requestedRun } : jobsView !== "tickets" ? { jobsView } : {} : {}),
+        ...(projectTab === "jobs" && requestedRun ? { run: requestedRun } : {}),
         ...(projectTab === "statistics" ? { ...reportingRoute, ...(metricsTab !== "summary" && metricsTab !== "projects" ? { metricsTab } : {}) } : {}) } : { view: "projects" };
       case "jobs": return { view: "jobs", ...reportingRoute, ...(requestedRun ? {project:selected,run:requestedRun} : jobScope ? {project:jobScope} : {}), ...(jobsView === "capacity" ? {jobsView} : {}) };
       case "metrics": return { view: "metrics", ...reportingRoute, ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
@@ -813,7 +804,7 @@ export default function App() {
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
     if (route.view === "help") setHelpTopic(route.topic);
-    if (route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run || route.view === "jobs" && !route.jobsView ? "jobs" : route.jobsView || "tickets");
+    if (route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.view === "projectDetails" ? "jobs" : route.jobsView || "jobs");
     if (route.view === "metrics" || route.view === "jobs" || route.view === "projectDetails" && route.tab === "statistics") {
       setMetricFrom(route.reporting?.from ?? ""); setMetricTo(route.reporting?.through ?? "");
       setMetricTimezone(route.reporting?.timezone ?? "UTC"); setMetricGranularity((route.reporting?.granularity ?? "day") as "day" | "week" | "month");
@@ -1249,7 +1240,7 @@ export default function App() {
     <section className="project-context project-hub" aria-label={t("projectContext")}>
       <div><strong>{selectedProject.display_name}</strong><small>{selectedProject.repo}</small></div>
       <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
-        {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => selectProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{tab === "overview" ? jc.summary : tab === "configuration" ? jc.settings : tab === "jobs" ? t("jobs") : tab === "statistics" ? t("metrics") : tab === "history" ? jc.history : t("projectAccessTab")}</button>)}
+        {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => selectProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{tab === "overview" ? jc.summary : tab === "configuration" ? jc.settings : tab === "jobs" ? t("jobs") : tab === "tickets" ? t("tickets") : tab === "statistics" ? t("metrics") : tab === "history" ? jc.history : t("projectAccessTab")}</button>)}
       </div>
     </section> : null;
 
@@ -1274,10 +1265,6 @@ export default function App() {
   const usageColumns: Array<[UsageSortKey, MessageKey]> = [["date", "date"], ["executor", "executor"], ["model", "model"], ["events", "usageEvents"], ["tokens_in", "tokensIn"],
     ["tokens_out", "tokensOut"], ["cache_read_tokens", "cacheRead"], ["cache_write_tokens", "cacheWrite"], ...(isAdmin ? [["reported_cost_usd", "cost"], ["estimated_cost_usd", "estimatedCost"]] as Array<[UsageSortKey, MessageKey]> : [])];
 
-  /** Tickets/Jobs sub-tabs shared by the project hub and the global Jobs page. */
-  const jobsSubtabs = <div className="metrics-tabs jobs-subtabs" role="tablist" aria-label={ticketCopy[locale].sections}>
-    {(["tickets", "jobs", "capacity"] as const).map(view => <button key={view} id={`jobs-subtab-${view}`} type="button" role="tab" aria-controls="jobs-subtab-panel" aria-selected={jobsView === view} tabIndex={jobsView === view ? 0 : -1} onClick={() => selectJobsView(view)} onKeyDown={onJobsViewKeyDown}>{view==="capacity"?capacityCopy[locale].tab:ticketCopy[locale][view]}</button>)}
-  </div>;
   const jobScopeProject = projects.find(item => item.id === jobScope);
 
   // Storage measurements share a row per physical volume, so one disk is described once.
@@ -1453,13 +1440,8 @@ export default function App() {
           </section></ProjectDeleteDialog>}
           </>}
           {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}:${viewRefresh}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
-          {projectTab === "jobs" && selectedProject && <>
-            {jobsSubtabs}
-            <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "capacity" ? <CapacityTable projects={[selectedProject]} locale={locale} request={request} t={t} refresh={viewRefresh} paginate={table=><PagedTable alwaysControls t={t}>{table}</PagedTable>}/> : jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
-                : <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
-            </div>
-          </>}
+          {projectTab === "tickets" && selectedProject && <TicketWorkspace automatic key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />}
+          {projectTab === "jobs" && selectedProject && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
           {projectTab === "statistics" && statisticsView(true)}
           {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>
@@ -1550,18 +1532,6 @@ function Chips({ items, className }: { items: Chip[]; className?: string }) {
 
 function Empty({ label }: { label: string }) { return <p className="empty">{label}</p>; }
 
-function PagedTable({ t, children, alwaysControls=false }: { t: (key: MessageKey) => string; children: ReactElement<{ children?: ReactNode }>; alwaysControls?:boolean }) {
-  const [size, setSize] = useState<10 | 25 | 50 | "all">(10);
-  const [requestedPage, setRequestedPage] = useState(0);
-  const sections = Children.toArray(children.props.children);
-  const body = sections.find(section => isValidElement<{ children?: ReactNode }>(section) && section.type === "tbody") as ReactElement<{ children?: ReactNode }> | undefined;
-  const rows = body ? Children.toArray(body.props.children) : [];
-  const pageCount = size === "all" ? 1 : Math.max(1, Math.ceil(rows.length / size));
-  const page = Math.min(requestedPage, pageCount - 1);
-  const visible = size === "all" ? rows : rows.slice(page * size, (page + 1) * size);
-  const table = body ? cloneElement(children, undefined, ...sections.map(section => section === body ? cloneElement(body, undefined, ...visible) : section)) : children;
-  return <><div className="table-scroll">{table}</div>{(alwaysControls || rows.length > 10) && <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); setRequestedPage(0); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={page === 0} onClick={() => setRequestedPage(page - 1)}>{t("previous")}</button><span>{page * size + 1}–{Math.min((page + 1) * size, rows.length)} / {rows.length}</span><button className="ghost" disabled={page + 1 >= pageCount} onClick={() => setRequestedPage(page + 1)}>{t("next")}</button></>}</div>}</>;
-}
 
 function RouteLink({ to, onNavigate, children }: { to: string; onNavigate: () => void; children: ReactNode }) {
   return <a className="text-button" href={to} onClick={event => {

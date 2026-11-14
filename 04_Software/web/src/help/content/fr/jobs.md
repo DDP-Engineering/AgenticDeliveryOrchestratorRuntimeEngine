@@ -85,7 +85,7 @@ Si une ancienne tâche supprimée a laissé une branche sans checkpoint enregist
 
 ## Suivre les tâches {#following-jobs}
 
-Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un projet, puis le sous-onglet **Tâches**. Le tableau a ces colonnes :
+Utilisez **Travaux** dans la barre latérale ou l’onglet **Travaux** distinct du projet. Le tableau comporte les colonnes suivantes :
 
 | Colonne | Contenu |
 |---|---|
@@ -99,23 +99,23 @@ Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche d
 
 Le détail remplace sa liste d’origine. Au-dessus du titre : **Activité**, **Sessions de l’agent**, **Artefacts** et **Informations techniques**, puis **Afficher le ticket** et **Fermer** à droite. L’état, l’étape et le workflow enregistrés suivent le titre. Actions, budgets, consommation et commandes de clarification, approbation et revue restent disponibles. **Fermer** restaure la vue, le périmètre, la recherche, les filtres et la pagination.
 
+**Activité** est un tableau paginé avec heure, activité, étape et session. Choisissez 10, 25, 50 ou Tout et utilisez Précédent/Suivant. **Ouvrir la conversation** ouvre la session exacte quand l’étape et la tentative identifient un seul lancement enregistré ; les événements sans lien certain n’ont pas de lien. Le retour conserve la page. Budgets et consommation occupent la colonne droite, sous le contenu sur petit écran.
+
 ## Historique des sessions de l’agent {#agent-sessions}
 
-Dans **Sessions de l’agent**, choisissez une tentative terminée, les plus récentes en premier. Les données viennent de la sortie Pi archivée de cette tâche : consigne envoyée par ADORE, texte de l’assistant, appels et résultats d’outils, tours et jetons. Dépliez un outil pour lire son texte complet. Le raisonnement lisible est replié ; les messages système ne sont jamais affichés. Les deltas et listes finales dupliquées sont omis. **Charger la suite** poursuit la lecture. L’heure de fin d’archivage est affichée ; l’absence d’heure de début est explicite.
+**Sessions de l’agent** ouvre la session actuelle ou la dernière session terminée. La conversation montre la consigne initiale, les réponses de l’agent, les messages utilisateur et les appels/résultats d’outils dépliables. Les réponses utilisent Markdown. Les longues consignes et le raisonnement peuvent être dépliés. La consommation reste dans le panneau droit.
 
-Administrateurs et développeurs affectés au projet voient le texte tel qu’enregistré, y compris ses secrets. Les montants structurés restent réservés aux administrateurs. Les réponses ne sont pas mises en cache. **Voir la dernière sortie de l’exécuteur** reste dans **Informations techniques**. Chaque texte est limité à 16 Kio avec un marqueur ; les enregistrements malformés ou omis deviennent des informations. Au-delà de 64 Mio, une information indique la limite.
+L’historique se charge progressivement sans raccourcir le texte conservé. Les nouveaux messages défilent automatiquement uniquement en bas ; **Nouveaux messages** permet d’y revenir. Le sélecteur conserve les autres tentatives et **Session actuelle** revient au travail en direct.
 
-La tentative actuelle apparaît en premier avec **En direct** pendant l’exécution de l’agent. Cet onglet actualise les messages terminés et les appels/résultats d’outils toutes les trois secondes, uniquement si la tâche est en cours et si cette vue et l’onglet du navigateur sont visibles. **L’agent travaille** indique l’outil inachevé ou la réflexion ; les fragments de texte ne sont pas diffusés. Une ligne partielle attend sa fin. À la fin d’un lancement, son archive finale reste disponible et la vue suit le lancement suivant en direct. Le choix d’une archive antérieure reste conservé lors des actualisations et changements d’onglet. La lecture périodique s’arrête si la tâche quitte l’état en cours ou si la vue ou l’onglet du navigateur est masqué.
+Les nouveaux lancements conservent explicitement les consignes envoyées et l’heure des messages. Les anciennes sessions montrent uniquement ce qui a été enregistré. Les droits des administrateurs et développeurs affectés restent identiques ; les coûts structurés restent réservés aux administrateurs.
 
 ### Envoyer des instructions {#instructions}
 
-Sous la vue en direct dans **Sessions de l’agent**, saisissez une **Instruction pour l’agent**, puis choisissez **Envoyer maintenant** ou **Envoyer à la fin**. Les administrateurs et développeurs affectés au projet peuvent envoyer des instructions pendant le travail, même entre deux sessions ou avant la première. Utilisez 1 à 4000 caractères sans NUL ; chaque tâche conserve au plus 256 instructions.
+Saisissez un **Message à l’agent** au bas de la conversation actuelle. **Envoyer maintenant** soumet le message à la prochaine limite sûre ; **Mettre en attente** attend la fin du travail actuel. Entre les sessions, la mise en attente reste disponible pendant le travail. Les conversations historiques sont en lecture seule.
 
-**En attente** signifie que Pi n’a pas accusé réception. **Transmise** signifie que Pi a accusé réception, sans confirmer la fin du travail. Le texte est conservé exactement. Une instruction refusée ou sans accusé reste en attente pour la prochaine session, après la discussion humaine dans sa consigne. Une instruction malformée reste non envoyée avec une preuve du refus. L’envoi devient indisponible lorsque la tâche ne travaille plus.
+Le message apparaît dans la conversation avec **En attente**, **Reçu par l’agent** ou un échec. Reçu confirme la réception, pas la fin du travail. Les erreurs de saisie sont expliquées à l’envoi : 1 à 4000 caractères sans NUL et au plus 256 instructions conservées par travail.
 
-Chaque transmission est enregistrée dans la tâche et copiée une seule fois sur le ticket en commentaire ADORE. Un échec temporaire du commentaire est réessayé séparément et n’annule pas la transmission à Pi.
-
-> **Envoyer maintenant** attend la fin des outils en cours sans les interrompre. **Envoyer à la fin** attend que l’agent n’ait plus de travail.
+Les instructions non confirmées restent en attente pour une session ultérieure. La réception confirmée est conservée dans le travail et publiée sur le ticket ; les échecs temporaires du commentaire sont réessayés séparément.
 
 ## Budgets du travail {#budgets}
 
@@ -146,7 +146,7 @@ Si **Consommation** ne se charge pas, utilisez **Actualiser la consommation** pr
 
 ## Capacité du projet {#project-capacity}
 
-Le **Résumé** affiche seulement **Limite de tâches en parallèle**, **Libres** et **Tâches en file** dans des rectangles compacts avec les informations opérationnelles. Dans l’onglet **Tâches** du projet, choisissez **Capacité** à côté de **Tickets** et **Tâches**. Chaque projet occupe une ligne avec sa limite, ses places libres, sa file, sa surveillance et les états actuels des tâches. Les tâches terminées, l’historique des opérations et les journaux sont exclus. Choisissez 10, 25, 50 ou Tout dans **Lignes par page**, puis **Précédent** ou **Suivant**.
+**Résumé** affiche la limite de travaux parallèles, les places libres et les travaux en attente avec les faits opérationnels du projet. Travaux et Tickets sont des onglets distincts sans sous-onglet Capacité. La page globale Travaux conserve son tableau Capacité avec limites, places libres, file et surveillance, ainsi que sa pagination.
 
 La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. Les paramètres conservent **Vos dernières opérations** et leurs résultats ; En file et En cours ne signifient pas Confirmé.
 

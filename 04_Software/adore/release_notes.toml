@@ -15,6 +15,12 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Jobs and Tickets are separate; job budgets sit beside paginated activity.", fr = "Travaux et Tickets sont séparés ; les budgets accompagnent l’activité paginée.", de = "Jobs und Tickets sind getrennt; Jobbudgets stehen neben der paginierten Aktivität.", ro = "Lucrări și Tichete sunt separate; bugetele stau lângă activitatea paginată." }
+
 [[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
@@ -38,7 +44,7 @@ text = { en = "Send instructions now or after current work, with queued and ackn
 [[release.entry]]
 category = "improved"
 topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
-text = { en = "Follow live agent activity and unfinished tools; earlier attempts stay available.", fr = "Suivez l’activité et les outils en cours ; les tentatives précédentes restent accessibles.", de = "Live-Agentenaktivität und laufende Werkzeuge verfolgen; frühere Versuche bleiben verfügbar.", ro = "Urmărește activitatea și instrumentele în curs; încercările anterioare rămân disponibile." }
+text = { en = "Read prompts and chat, then send or queue messages directly in the conversation.", fr = "Lisez les consignes et échanges, puis envoyez ou mettez vos messages en attente.", de = "Anweisungen und Chat lesen, Nachrichten direkt senden oder einreihen.", ro = "Citește prompturile și conversația, apoi trimite mesaje direct sau în așteptare." }
 
 [[release.entry]]
 category = "new"

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { ApiError } from "./errors.ts";
 
 export type AgentSession = {id:string;stage:string;attempt:number;start_at:string|null;end_at:string|null;outcome:"succeeded"|"failed"|"timed_out"|null;exit_code:number|null;live?:boolean;archive_id?:string};
-export type SessionItem = {kind:"prompt"|"assistant"|"reasoning"|"tool_call"|"tool_result"|"turn"|"usage"|"notice";text:string;tool?:string;call_id?:string;is_error?:boolean;parts?:SessionItem[];usage?:Record<string,number|Record<string,number>>};
+export type SessionItem = {kind:"prompt"|"assistant"|"reasoning"|"tool_call"|"tool_result"|"turn"|"usage"|"notice";text:string;at?:string;instruction_id?:string;tool?:string;call_id?:string;is_error?:boolean;parts?:SessionItem[];usage?:Record<string,number|Record<string,number>>};
 export type SessionPage = {session:AgentSession;items:SessionItem[];next_cursor:number|null;session_ended?:false;continuity?:string;thinking?:boolean|null;read_bound?:boolean};
 export type EndedSession = {session_ended:true;archive_id:string|null;items:SessionItem[];next_cursor:null};
 export type SessionActivity = {thinking:boolean;tools:Record<string,string>};
@@ -25,7 +25,7 @@ export function applySessionActivity(previous:SessionActivity,page:Pick<SessionP
 
 const attempt = /^(frame|specify|design|build|validate)-attempt-([1-9][0-9]*)-attempt1(?:-([2-9]|[1-9][0-9]+))?$/;
 const liveId = /^live-[a-f0-9]{32}$/;
-const bounded = (value:unknown):value is string => typeof value === "string" && new TextEncoder().encode(value).length <= 16*1024;
+const bounded = (value:unknown):value is string => typeof value === "string" && new TextEncoder().encode(value).length <= 16*1024*1024;
 const invalid = () => new ApiError("unexpected_response");
 
 /** Validate server metadata before rendering an attempt or constructing its path. */
@@ -78,6 +78,8 @@ export function readSessionPage(value:unknown,id:string,cursor:number,admin:bool
   }
   for(const item of flattened) {
     if(!item || !["prompt","assistant","reasoning","tool_call","tool_result","turn","usage","notice"].includes(item.kind) || !bounded(item.text)) throw invalid();
+    if(item.at!==undefined && (typeof item.at!=="string" || !Number.isFinite(Date.parse(item.at))))throw invalid();
+    if(item.instruction_id!==undefined && (item.kind!=="prompt" || !/^[a-f0-9]{32}$/.test(item.instruction_id)))throw invalid();
     if(["tool_call","tool_result"].includes(item.kind) && (!bounded(item.tool) || !bounded(item.call_id))) throw invalid();
     if(item.kind==="tool_result" && typeof item.is_error!=="boolean") throw invalid();
     if(item.kind==="usage") {

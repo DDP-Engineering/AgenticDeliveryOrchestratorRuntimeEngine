@@ -85,7 +85,7 @@ Dacă un job șters anterior a lăsat un branch fără checkpoint înregistrat, 
 
 ## Urmărirea lucrărilor {#following-jobs}
 
-Folosiți **Lucrări** din bara laterală sau fila **Lucrări** a unui proiect, apoi sub-fila **Lucrări**. Tabelul are aceste coloane:
+Folosește **Lucrări** din meniul lateral sau fila separată **Lucrări** a proiectului. Tabelul are următoarele coloane:
 
 | Coloană | Conținut |
 |---|---|
@@ -99,23 +99,23 @@ Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potriveș
 
 Detaliile înlocuiesc lista de origine. Deasupra titlului sunt **Activitate**, **Sesiunile agentului**, **Artefacte** și **Informații tehnice**, apoi **Arată tichetul** și **Închide** în dreapta. Starea salvată, etapa și fluxul apar sub titlu. Acțiunile, bugetele, consumul și comenzile de clarificare, aprobare și revizie rămân disponibile. **Închide** restabilește vizualizarea, domeniul, căutarea, filtrele și pagina.
 
+**Activitate** este un tabel paginat cu ora, activitatea, etapa și sesiunea. Alege 10, 25, 50 sau Toate și folosește Anterior/Următor. **Deschide conversația** deschide sesiunea exactă atunci când etapa și încercarea identifică o singură lansare înregistrată; evenimentele fără o asociere sigură nu au legătură. Revenirea păstrează pagina. Bugetele și consumul sunt în coloana din dreapta, sub conținut pe ecrane înguste.
+
 ## Istoricul sesiunilor agentului {#agent-sessions}
 
-În **Sesiunile agentului**, alegeți o încercare încheiată, cele mai noi primele. Sursa este ieșirea Pi arhivată a lucrării: instrucțiunea trimisă de ADORE, textul asistentului, apelurile și rezultatele instrumentelor, turele și tokenurile. Extindeți un instrument pentru textul complet. Raționamentul lizibil este restrâns; mesajele de sistem nu sunt afișate. Fragmentele intermediare și listele finale duplicate sunt omise. **Încarcă mai mult** continuă înregistrarea. Se afișează finalizarea arhivării, iar lipsa orei de început este explicită.
+**Sesiunile agentului** deschide sesiunea curentă sau ultima sesiune încheiată. Conversația arată promptul inițial, răspunsurile agentului, mesajele utilizatorului și apelurile/rezultatele instrumentelor care pot fi extinse. Răspunsurile folosesc Markdown lizibil. Prompturile lungi și raționamentul pot fi extinse. Consumul rămâne în panoul din dreapta.
 
-Administratorii și dezvoltatorii alocați proiectului văd textul exact cum a fost înregistrat, inclusiv secretele. Sumele structurate sunt rezervate administratorilor. Răspunsurile nu sunt memorate în cache. **Vezi ultima ieșire a executorului** rămâne în **Informații tehnice**. Fiecare text are cel mult 16 KiB cu marcaj vizibil; înregistrările incorecte sau omise devin notificări. Peste 64 MiB apare o notificare de limită.
+Istoricul se încarcă progresiv fără scurtarea textului păstrat. Mesajele noi sunt urmărite automat doar când ești la final; **Mesaje noi** te aduce înapoi. Selectorul păstrează celelalte încercări, iar **Sesiunea curentă** revine la lucrul în direct.
 
-Încercarea curentă apare prima, ca **În direct**, cât timp agentul rulează. Fila actualizează mesajele încheiate și apelurile/rezultatele instrumentelor la fiecare trei secunde, doar când lucrarea este în execuție, iar această vizualizare și fila browserului sunt vizibile. **Agentul lucrează** numește instrumentul neterminat sau raționamentul; fragmentele de text nu sunt transmise continuu. O linie parțială așteaptă completarea. La încheierea unei lansări, arhiva finală rămâne disponibilă, iar vizualizarea urmărește următoarea lansare în direct. Alegerea unei arhive anterioare se păstrează la actualizări și schimbări de filă. Citirea periodică se oprește când lucrarea nu mai este în execuție sau când vizualizarea ori fila browserului este ascunsă.
+Lansările noi păstrează explicit prompturile trimise și ora mesajelor. Sesiunile vechi arată doar ce a fost înregistrat. Drepturile administratorilor și dezvoltatorilor alocați rămân aceleași; costurile structurate rămân doar pentru administratori.
 
 ### Trimiterea instrucțiunilor {#instructions}
 
-Sub vizualizarea live din **Sesiunile agentului**, introdu o **Instrucțiune pentru agent** și alege **Trimite acum** sau **Trimite la final**. Administratorii și dezvoltatorii alocați proiectului pot pune instrucțiuni în așteptare cât timp jobul lucrează, inclusiv între sesiuni sau înaintea primei sesiuni. Folosește 1–4000 de caractere fără NUL; fiecare job păstrează cel mult 256 de instrucțiuni.
+Introdu un **Mesaj pentru agent** la baza conversației curente. **Trimite acum** îl transmite la următorul punct sigur al agentului; **Pune mesajul în așteptare** așteaptă încheierea lucrului curent. Între sesiuni, punerea în așteptare rămâne disponibilă cât timp jobul lucrează. Conversațiile istorice sunt doar pentru citire.
 
-**În așteptare** înseamnă că Pi nu a confirmat primirea. **Livrată** înseamnă că Pi a confirmat primirea, nu finalizarea lucrării. Textul este păstrat exact. O instrucțiune refuzată sau neconfirmată rămâne în așteptare pentru următoarea sesiune, după discuția umană în promptul acesteia. O instrucțiune incorectă rămâne netrimisă, cu dovezi ale refuzului. Trimiterea nu mai este disponibilă după ce jobul nu mai lucrează.
+Mesajul apare în conversație cu **În așteptare**, **Primit de agent** sau eroare. Primit confirmă recepția, nu finalizarea lucrului. Erorile de introducere sunt explicate la trimitere: 1–4000 de caractere fără NUL și cel mult 256 de instrucțiuni păstrate pe job.
 
-Fiecare livrare este înregistrată în job și copiată o singură dată pe tichet, într-un comentariu ADORE. Un eșec temporar al comentariului este reîncercat separat și nu anulează livrarea către Pi.
-
-> **Trimite acum** așteaptă terminarea instrumentelor curente și nu le întrerupe. **Trimite la final** așteaptă până când agentul nu mai are de lucru.
+Instrucțiunile neconfirmate rămân în așteptare pentru o sesiune ulterioară. Primirea confirmată este salvată în job și publicată pe tichet; erorile temporare ale comentariului sunt reîncercate separat.
 
 ## Bugetele jobului {#budgets}
 
@@ -146,7 +146,7 @@ Dacă **Consum** nu se încarcă, folosește **Actualizează consumul** lângă 
 
 ## Capacitatea proiectului {#project-capacity}
 
-**Rezumatul** arată doar **Limita lucrărilor în paralel**, **Libere** și **Lucrări în coadă** ca dreptunghiuri compacte lângă informațiile operaționale. În fila **Lucrări** a proiectului, alege **Capacitate** lângă **Tichete** și **Lucrări**. Fiecare proiect are un rând cu limita, locurile libere, coada, monitorizarea și stările curente ale joburilor. Joburile încheiate, istoricul operațiilor și logurile sunt excluse. Alege 10, 25, 50 sau Toate în **Rânduri pe pagină**, apoi **Anterior** sau **Următor**.
+**Rezumat** arată limita lucrărilor paralele, locurile libere și lucrările în așteptare alături de informațiile operaționale. Lucrări și Tichete sunt file separate în proiect, fără subfilă Capacitate. Pagina globală Lucrări păstrează tabelul Capacitate cu limite, locuri libere, coadă, monitorizare și paginarea existentă.
 
 Coada numără cererile trimise și joburile admise care așteaptă lansarea, nu tichetele necerute. Un proiect ocupat nu blochează alte proiecte. Setările păstrează **Ultimele tale operații** și rezultatele salvate; În coadă și În desfășurare nu înseamnă Confirmat.
 

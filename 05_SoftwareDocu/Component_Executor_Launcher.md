@@ -263,7 +263,7 @@ in depth: the boundary stays that no forge credential is in the container.
   invalid assistant record makes `tokens_reported` False. The orchestrator's
   existing versioned `usage` event (one per launch) carries it.
 - Pi RPC evidence: streaming `message_update` deltas are never persisted,
-  records over 64 KiB are persisted as `{"type", "adore_omitted_bytes"}`
+  records over 16 MiB are persisted as `{"type", "adore_omitted_bytes"}`
   stubs, `output.jsonl` stops at 32 MiB and `stderr.log` at 1 MiB; `GateRun`
   keeps 64 KiB tails.
 
@@ -449,3 +449,16 @@ the publication explanation: ADORE manages publication under the project policy.
 The blocked git/forge command patterns and refusal of project trust are unchanged.
 `test_pi_installation.py::test_managed_pi_ships_the_reviewed_guard` enforces source
 parity; the existing fake-RPC guard fixture verifies blocked and allowed commands.
+
+## Outgoing conversation evidence
+
+The shared native/container RPC client explicitly persists outgoing prompt, steer and
+follow_up commands as adore_prompt records with UTC adore_at and instruction_id.
+They are written before dispatch, so a record alone does not prove delivery; durable
+inbox acknowledgements remain authoritative. These records never enter operational
+stdout tails. Pi user message echoes are omitted, and other retained complete records
+receive UTC timestamps. Assistant/tool content is retained up to the existing 16 MiB
+parse bound rather than the former small persistence bound. Total retention remains
+32 MiB with an explicit truncation notice. Reader responses preserve full retained text;
+no earlier missing evidence is recreated. Cancellation, acknowledgement, budget and
+usage accounting paths remain unchanged.

@@ -37,6 +37,7 @@ from collections import deque
 from collections.abc import Callable, Iterator
 import contextlib
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 import queue
@@ -58,7 +59,7 @@ STATS_GRACE_SECONDS = 5.0
 POLL_SECONDS = 0.2
 
 MAX_RECORD_BYTES = 16 * 1024 * 1024
-PERSIST_RECORD_BYTES = 64 * 1024
+PERSIST_RECORD_BYTES = MAX_RECORD_BYTES
 PERSIST_TOTAL_BYTES = 32 * 1024 * 1024
 STDERR_FILE_BYTES = 1024 * 1024
 TAIL_BYTES = 64 * 1024
@@ -333,6 +334,19 @@ class _Evidence:
         @param[in]  data Sanitized tail line encoded with its LF.
         @param[in]  persisted Bounded literal record bytes for the session file.
         """
+        self._persist(persisted)
+        self.tail.append(line)
+        self.tail_bytes += len(data)
+        while self.tail_bytes > self.tail_limit and self.tail:
+            self.tail_bytes -= len(self.tail.popleft().encode("utf-8")) + 1
+
+    def record(self, record: str) -> None:
+        """@brief Persist a literal outgoing message without altering operational output."""
+        with self.lock:
+            self._persist(record.encode("utf-8") + b"\n")
+
+    def _persist(self, persisted: bytes) -> None:
+        """@brief Write one bounded session record while holding the evidence lock."""
         if self.handle is not None and not self.truncated:
             if self.written + len(persisted) > self.limit:
                 self.truncated = True
@@ -343,10 +357,6 @@ class _Evidence:
             # The web live reader must see each completed record before the
             # RPC launch closes, even when the Python buffer is still small.
             self.handle.flush()
-        self.tail.append(line)
-        self.tail_bytes += len(data)
-        while self.tail_bytes > self.tail_limit and self.tail:
-            self.tail_bytes -= len(self.tail.popleft().encode("utf-8")) + 1
 
     def close(self) -> None:
         """@brief Close the persisted file."""
@@ -404,9 +414,14 @@ def _read_stdout(stream: IO[bytes], sink: queue.Queue, evidence: _Evidence, limi
                 continue
             evidence.add_diagnostics(protocol_diagnostics(record, evidence.clean))
             kind = record.get("type")
-            if kind != "message_update":
+            # Outbound user messages are recorded by the stdin owner, including
+            # the initial prompt. Pi's echo must not duplicate them in the chat.
+            user_echo = (kind == "message_end" and isinstance(record.get("message"), dict)
+                         and record["message"].get("role") == "user")
+            if kind != "message_update" and not user_echo:
+                record["adore_at"] = datetime.now(UTC).isoformat()
                 recorded = (_stub(str(kind), size) if size > evidence.record_limit
-                            else line.decode("utf-8"))
+                            else json.dumps(record, ensure_ascii=False))
                 evidence.add(evidence.clean(recorded), recorded=recorded)
             facts = _facts(record)
             if facts is not None:
@@ -478,6 +493,12 @@ class _Launch:
 
     def send(self, command: dict) -> None:
         """@brief Queue one command as an LF-terminated JSON line."""
+        if command.get("type") in {"prompt", "steer", "follow_up"}:
+            record = json.dumps({"type": "adore_prompt", "text": command["message"],
+                                 "adore_at": datetime.now(UTC).isoformat(),
+                                 "instruction_id": command.get("id", "").removeprefix(
+                                     "adore-instruction-")}, ensure_ascii=False)
+            self.output.record(record)
         self.outbox.put(json.dumps(command, ensure_ascii=False).encode("utf-8") + b"\n")
 
     def next(self, wait: float) -> dict | None:
@@ -601,7 +622,7 @@ def run_pi_rpc(
     try:
         stdout = _Evidence(output_path, PERSIST_TOTAL_BYTES, clean,
                            tail_limit=stdout_tail_bytes,
-                           record_limit=stdout_tail_bytes)
+                           record_limit=PERSIST_RECORD_BYTES)
         stderr = _Evidence(stderr_path, STDERR_FILE_BYTES, clean)
         launch = _Launch(process, stdout, stderr, max_record_bytes)
     except BaseException:

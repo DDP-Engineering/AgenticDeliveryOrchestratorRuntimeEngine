@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { isHelpTopic, type HelpTopic } from "./help/topics.ts";
 
 export type JobsView = "tickets" | "jobs" | "capacity";
-export type ProjectTab = "overview" | "configuration" | "executor" | "prices" | "access" | "jobs" | "statistics" | "history";
+export type ProjectTab = "overview" | "configuration" | "executor" | "prices" | "access" | "jobs" | "tickets" | "statistics" | "history";
 export type MetricsTabRoute = "summary" | "usage" | "quality" | "trends" | "projects";
 type PlainView = "projects" | "createProject" | "administration" | "adminUsers" | "adminAudit" | "settings";
 export type ReportingRoute = { from: string; through: string; timezone: string; granularity: string };
@@ -27,7 +27,7 @@ const PLAIN: Record<string, PlainView> = {
 };
 const PLAIN_PATHS = Object.fromEntries(Object.entries(PLAIN).map(([path, view]) => [view, path])) as Record<PlainView, string>;
 const ADMIN_ONLY = new Set<string>(["createProject", "administration", "adminUsers", "adminAudit"]);
-const PROJECT_TABS: ProjectTab[] = ["overview", "configuration", "executor", "prices", "access", "jobs", "statistics", "history"];
+const PROJECT_TABS: ProjectTab[] = ["overview", "configuration", "executor", "prices", "access", "jobs", "tickets", "statistics", "history"];
 const ADMIN_PROJECT_TABS = new Set<ProjectTab>(["access"]);
 /** Retired tab paths whose content now lives in Settings; links to them open Settings. */
 const SETTINGS_ALIASES = new Set<ProjectTab>(["executor", "prices"]);

@@ -10,7 +10,6 @@ import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
 import { jobCopy, directCopy, workflowStageLabel } from "./jobCopy";
 import { SessionView } from "./SessionView";
-import { InstructionComposer } from "./InstructionComposer";
 import { JobDetails } from "./JobDetails";
 import { commandAllowed, IncompleteJobs, readJobDetail, readJobPage, readExecutorOutput, type ExecutorOutput, type Job, type JobPage } from "./jobModel";
 import { recoveryCopy } from "./recoveryCopy";
@@ -274,11 +273,11 @@ export function JobWorkspace(props: Props) {
     {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}
     {run && state === "changed" && feedback("changed", failure)}
     {visibleDetail && <JobDetails key={detailKey} job={visibleDetail} locale={locale} t={t} admin={props.admin} busy={busy}
-      onClose={onClose} onCommand={(action, job) => void command(action, job)}
+      request={request} onClose={onClose} onCommand={(action, job) => void command(action, job)}
       stageLabel={workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)} stageName={stage => workflowStageLabel(stage, visibleDetail.workflow, t)}
       statusLabel={visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}
       directEvidence={visibleDetail.direct ? <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} /> : null}
-      sessions={active=><div key={detailKey}><SessionView project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} /><InstructionComposer project={visibleDetail.project_id} run={visibleDetail.run_id} locale={locale} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} /></div>}
+      sessions={(active,target)=><SessionView key={detailKey} project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} target={target} />}
       consumption={consumptionView(visibleDetail, true)}
       output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />}
       timeline={<ObservedTimeline key={detailKey} events={visibleDetail.timeline ?? []} workflow={visibleDetail.workflow} date={date} t={t} unknown={copy.unknown} />} />}

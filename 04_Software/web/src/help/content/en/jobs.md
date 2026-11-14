@@ -85,7 +85,7 @@ If an older deleted job left a branch without a recorded checkpoint, ADORE keeps
 
 ## Following jobs {#following-jobs}
 
-Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-tab. The table has these columns:
+Use **Jobs** in the sidebar or the project’s separate **Jobs** tab. The table has these columns:
 
 | Column | Content |
 |---|---|
@@ -99,23 +99,23 @@ Click a column heading to sort. **Search jobs** matches titles, numbers, project
 
 The detail replaces its originating list while open. Above the title are **Activity**, **Agent sessions**, **Artifacts** and **Technical information**, then **Show ticket** and **Close** on the right. Saved status, stage and workflow appear below the title. Job actions, budgets and consumption remain available. Clarification, approval and review controls use saved locations. **Close** restores the originating view, scope, search, filters and pagination.
 
+**Activity** is a paginated table with time, activity, stage and session. Choose 10, 25, 50 or All rows and use Previous/Next. **Open conversation** opens the exact session when the stage and attempt identify one recorded launch; unrelated or ambiguous events have no link. Returning to Activity keeps its page. Job budgets and Consumption occupy the right-hand column, below the content on narrow screens.
+
 ## Agent session history {#agent-sessions}
 
-In **Agent sessions**, choose a completed attempt, newest first. Each attempt comes from the job’s own archived Pi output. Read the prompt ADORE sent, assistant text, tool calls and results, turn boundaries and token usage. Expand a tool row for its full recorded text. Readable reasoning starts collapsed; system messages are never shown. Streaming deltas and duplicate final message lists are omitted. **Load more** follows the recorded cursor. The archive completion time is shown; a missing start time is stated explicitly.
+**Agent sessions** opens the current session, or the latest completed session. The conversation shows the initial prompt, agent replies, user messages and expandable tool calls/results. Agent replies use readable Markdown. Long initial prompts and reasoning can be expanded. Usage remains in the right-hand Consumption panel.
 
-Administrators and developers assigned to this project see text exactly as recorded, including any secrets it contains. Structured cost amounts remain administrator-only. Responses are not cached. The existing **View latest executor output** remains in **Technical information**. Each text item is limited to 16 KiB with a visible truncation marker; malformed or omitted records become notices. Sessions above 64 MiB show a size-bound notice.
+History loads progressively without shortening retained message text. New messages follow automatically only while you are at the bottom; use **New messages** to return after reading earlier messages. The session selector keeps other attempts available, and **Current session** returns to live work.
 
-The current attempt is listed first as **Live** while the agent is running. This tab updates completed messages and tool calls/results every three seconds while the job is working and this view and browser tab are visible. **Agent is working** names the unfinished tool or thinking; text fragments do not stream. A partial record waits until its line is complete. When a launch ends, its final archive remains available and the view follows the next live launch. Selecting an earlier archive keeps your choice during refreshes and tab changes. Polling stops when the job leaves working or the view or browser tab is hidden.
+New launches explicitly retain their outgoing prompts and message times. Earlier sessions show only what was recorded. Administrators and assigned developers retain the same access; structured costs remain administrator-only.
 
 ### Sending instructions {#instructions}
 
-Below the live view in **Agent sessions**, enter an **Instruction for the agent** and choose **Send now** or **Send when finished**. Administrators and developers assigned to the project can queue instructions while the job is working, including between sessions or before any session appears. Use 1–4000 characters without NUL; each job retains at most 256 instructions.
+Enter a **Message to the agent** at the bottom of the current conversation. **Send now** submits it at the next safe agent boundary; **Queue message** waits until current work finishes. Between sessions, Queue message remains available while the job is working. Historical conversations are read-only.
 
-**Queued** means Pi has not acknowledged the instruction. **Delivered** means Pi acknowledged receipt, not that the work is complete. Text is preserved exactly. A rejected or unacknowledged instruction stays queued for the next session, whose prompt includes it after the human discussion. A malformed instruction stays unsent with refusal evidence. Sending is unavailable after the job leaves working.
+Your message appears in the conversation with **Queued**, **Received by agent** or a failure status. Received confirms receipt, not completed work. Invalid input is explained only when sending: 1–4000 characters without NUL, with at most 256 retained instructions per job.
 
-Each delivery is recorded in the job and copied once to the ticket as an ADORE comment. A temporary ticket-comment failure is retried independently and does not undo Pi delivery.
-
-> **Send now** waits for the current tools to finish and does not interrupt them. **Send when finished** waits until the agent has no more work.
+Unacknowledged instructions remain queued for a later session. Acknowledged delivery is saved in the job and posted to the ticket; temporary comment failures retry independently.
 
 ## Job budgets {#budgets}
 
@@ -146,7 +146,7 @@ If **Consumption** cannot load, use **Refresh consumption** beside the error. Jo
 
 ## Project capacity {#project-capacity}
 
-**Summary** shows only **Parallel job limit**, **Free** and **Queued jobs** as compact rectangles alongside the project’s operational facts. In the project’s **Jobs** tab, choose **Capacity** beside **Tickets** and **Jobs**. Each project has one table row with its limit, free places, queue, monitoring and current job states. Finished jobs, operation history and logs are excluded. Choose 10, 25, 50 or All in **Rows per page** and use **Previous** and **Next**.
+**Summary** shows **Parallel job limit**, **Free** and **Queued jobs** beside the project’s operational facts. Project Jobs and Tickets are separate top-level tabs and have no Capacity sub-tab. The global Jobs page retains its Capacity table with per-project limits, free places, queue and monitoring; use its existing pagination.
 
 The queue counts submitted requests and admitted jobs waiting for dispatch, not unrequested forge tickets. A project at capacity does not block other projects. Settings still shows **Your latest operations** with saved Start, Retry, Cancel and settings results; Queued and In progress do not mean Confirmed.
 

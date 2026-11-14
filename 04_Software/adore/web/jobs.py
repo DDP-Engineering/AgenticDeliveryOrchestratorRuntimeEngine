@@ -239,6 +239,9 @@ def _journal(raw: bytes | None) -> list[dict]:
         _text(event["event"], "run_journal_corrupt")
         if _stamp(event.get("ts"), "run_journal_corrupt") is None:
             raise JobReadError("run_journal_corrupt")  # The journal stamps every event.
+        if event["event"] == "stage-launch" and (
+                type(event.get("attempt")) is not int or not 1 <= event["attempt"] <= 2**53 - 1):
+            raise JobReadError("run_journal_corrupt")
         for key in ("questions", "stage"):
             if key in event:
                 _text(event[key], "run_journal_corrupt")
@@ -417,7 +420,9 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
                         if run.execution and run.execution["plan"]["selection"] else None),
         "timeline": [{"ts": _stamp(event["ts"], "run_journal_corrupt"),
                       "event": _text(event["event"], "run_journal_corrupt"),
-                      "stage": _event_stage(event)} for event in events],
+                      "stage": _event_stage(event),
+                      "attempt": (event["attempt"] if event["event"] == "stage-launch" else None)}
+                     for event in events],
         "coverage": {"ticket": "missing" if raw_ticket is None else "present",
                      "journal": "missing" if raw_journal is None else "present",
                      "title": "unknown" if title is None else "observed",

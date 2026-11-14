@@ -1119,13 +1119,13 @@ Close restores the originating page/tab, scope, search, filters and pagination.
 
 ## Compact project and Jobs controls
 
-Global Jobs and Tickets each have a project scope selector; Jobs retains search, status filters and sorting. The project hub retains its fixed scope and Tickets/Jobs/Capacity sub-tabs.
+Global Jobs and Tickets each have a project scope selector; Jobs retains search, status filters and sorting. The project hub has separate fixed-scope Jobs and Tickets tabs; Tickets reads automatically on opening.
 
 Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.
 
 ## Retained project drafts and durable feedback
 
-`ProjectCapacity.tsx` embeds only limit/free/queued rectangles in Summary and retains the detailed panel on other non-Jobs project tabs. `CapacityTable.tsx` owns the paginated Capacity sub-tab, showing project capacity, monitoring and current unfinished job counts without histories or logs; Tickets and Jobs render no capacity cards. Its closed response reader rejects malformed status counts. Capacity routes preserve project scope and keyboard tab navigation. `WorkerStatus` distinguishes server and project roles in System status. Heartbeat is a contact observation; active work and free slots are separate.
+`ProjectCapacity.tsx` embeds only limit/free/queued rectangles in Summary without adding capacity panels to other project tabs. `CapacityTable.tsx` owns the paginated global Jobs Capacity sub-tab, showing project capacity, monitoring and current unfinished job counts without histories or logs; Tickets and Jobs render no capacity cards. Its closed response reader rejects malformed status counts. Capacity routes preserve project scope and keyboard tab navigation. `WorkerStatus` distinguishes server and project roles in System status. Heartbeat is a contact observation; active work and free slots are separate.
 
 `settingsDrafts.ts` retains bounded editable values/base revision per account and immutable project in tab session storage. It stores no full configuration or credentials. Navigation and reload retain unsaved values; stale revisions block Save and corrupt retention requires explicit discard. Save/discard/logout clear drafts. Storage failure retains memory and presents recovery guidance. Ticket submission busy flags are per project; an operation in A cannot disable B.
 
@@ -1141,7 +1141,7 @@ pagination, refresh and selectable all-authorized-project/single-project scope.
 Global `/tickets` opens the existing ticket workspace, automatically reading its scope
 on entry and scope changes; Read tickets remains available. Generation and synchronous
 pending guards prevent duplicate pending reads and stale completions. Project listing,
-hub tabs and project-specific Tickets/Jobs/Capacity controls retain their existing layout.
+project listing stays unchanged. The project hub exposes separate Jobs and Tickets pages; capacity stays in Summary.
 
 Job details place Activity / Agent sessions / Artifacts / Technical information tabs,
 Show ticket and right-aligned Close above the ticket title. The status line uses saved
@@ -1159,8 +1159,8 @@ records only archive completion; exit code and timeout describe the physical lau
 
 The JSONL reader accepts complete LF lines, emits prompt/assistant/readable reasoning,
 tool call/result, turn, usage and notice items, ignores system/delta/agent_end messages,
-and retains literal recorded text including secrets. Each text is at most 16 KiB with
-an explicit truncation marker; records above 256 KiB become notices. Files above 64 MiB
+and retains literal recorded text including secrets. Retained text is returned whole within the 16 MiB item bound; records above
+the 16 MiB plus 64 KiB envelope become notices. Files above 64 MiB
 produce a notice without scanning them. A normal page scans up to 4 MiB between records;
 skipping one oversized line is bounded by the 64 MiB source ceiling. Byte cursors name
 line starts. The requested limit strictly caps source items at at most 200. One assistant item
@@ -1170,13 +1170,12 @@ line is never projected. Structured usage costs are administrator-only; literal 
 text is not redacted. Existing normalized latest executor output stays independent.
 
 `SessionView.tsx` and `sessionModel.ts` own on-demand attempt selection, validated
-transport, stale-response guards, collapsed reasoning and expandable tools plus cursor
-Load more. Live polling uses the launch protocol below; instruction transport is absent. Focused proof lives in
+transport, stale-response guards, collapsed reasoning and expandable tools and automatic progressive cursor loading. Live polling uses the launch protocol below; message delivery uses the durable inbox. Focused proof lives in
 `test_web_executor_session.py`, retained `test_web_jobs.py`, frontend session/routes/job
 model tests and jobs/tickets browser journeys. Real-provider and Linux link acceptance
 remain operator checks; Windows hosts without symlink privilege skip those cases.
 
-Global Jobs retains its Jobs/Capacity sub-tabs; Tickets is its own sidebar page. The project Jobs tab retains Tickets/Jobs/Capacity.
+Global Jobs retains its Jobs/Capacity sub-tabs; Tickets is its own sidebar page. Project Jobs and Tickets are separate tabs without a secondary navigation bar.
 
 ## Live agent sessions
 
@@ -1206,7 +1205,7 @@ launches, the list discovers the next launch every three seconds; explicit histo
 selection stops following and survives ordinary detail/visibility refreshes.
 Agent sessions remains mounted after its first visit so tab changes retain choice.
 Saved lifecycle status and compact job header remain independent of transcript data.
-No instruction transport is implemented. Focused contracts: live cases in
+Instruction transport uses the existing durable inbox. Focused contracts: live cases in
 `test_web_executor_session.py`, marker lifetime cases in `test_pi_rpc.py`, session
 model/helper tests and LA-02 browser journeys in `e2e/jobs.spec.ts`.
 
@@ -1249,3 +1248,35 @@ locales and preserves generic handling for unknown codes. settingKeys.json is th
 lexically sorted complete key inventory; order corrections preserve exact membership
 and do not change settings grouping, help, visibility or controls. Python catalog
 verification and Node settingHelp tests enforce both inventory and localized help.
+
+## Conversation layout and project navigation
+
+Project navigation exposes Summary, Settings, Jobs, Tickets, Statistics, History and
+administrator Access as separate pages. Project Tickets uses automatic entry reads
+and manual Read tickets. Existing global scope selectors and Jobs filters are retained;
+only global Jobs keeps its separate Capacity table. Project capacity remains in Summary.
+
+Job detail retains its command header, with Show ticket and Close grouped on the right.
+Its content uses a wide main column and a 300px vertical budgets/consumption sidebar;
+at 1100px and below the sidebar follows the content. Activity uses the shared
+PagedTable component with 10/25/50/All rows and Previous/Next controls. Raw event names
+stay in Technical information. The typed timeline exports positive attempts for
+stage-launch events. Open conversation requires a unique stage/attempt and launch-time
+interval match in both directions; ambiguous, missing and unrelated events are not linked.
+Activity stays mounted so navigating back retains its page.
+
+SessionView renders one chronological conversation: retained prompts, Markdown agent
+replies, user messages with queue/receipt/error status, collapsed reasoning and paired
+expandable tools. Turn/usage rows do not clutter chat; consumption remains in the sidebar.
+Archived cursor pages load progressively while visible. Scrolling up stops following;
+New messages resumes it. Current session returns from historical attempts. History is
+read-only; the live composer offers Send now and Queue message, with only Queue message
+available between launches. Input limits appear only on an invalid send, with no permanent
+counter or explanatory banners. Backend authorization and delivery semantics are unchanged.
+
+Outgoing RPC prompt/steer/follow_up commands are explicitly retained with timestamps
+and instruction identity, separately from sanitized operational tails. Pi user echoes
+are omitted to prevent duplicates. Recorded messages carry optional at/instruction_id
+fields, validated at the browser boundary. Text is not shortened by the reader within
+its 16 MiB item bound; the existing 32 MiB producer and 64 MiB source ceilings remain.
+Historical evidence is displayed as recorded; missing text is never reconstructed.

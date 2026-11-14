@@ -57,3 +57,9 @@ REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through super
 Initial activation retries brief local admission-lock contention at most 25 times with 20 ms waits outside the project lock. Exhaustion keeps queued dispatch unchanged for a later attempt. Real process-pool overlap and explicit operator-lock refusal/recovery are targeted public regressions.
 
 Handoff-pending cleanup always occupies an initial-start slot, including a job whose executor has not yet started. The pending flag never grants permission to bypass unsafe cleanup.
+
+## Navigation placement
+
+Project Summary owns its existing compact capacity facts. Project Jobs and Tickets
+are independent top-level tabs with no Capacity sub-tab or duplicated capacity panel.
+The global Jobs page retains its scoped Capacity table and existing pagination.
