@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -1095,21 +1093,24 @@ stops immediately at the completed build advance.
 - 2026-11-13 validate: Round-9 independent read-only reviews under RULING-001 completed (both reviewer processes exit 0): specification=changes_required and implementation_quality=changes_required, medium. Both independently reproduce the same impossible analytical bucket-date validation/publication defect at statistics.ts:187 and :209 (correcting approximate line anchors in the preceding parent Log). Specification covers initial and replacement metrics/usage with 2026-02-30 and 2026-99-99, renewed completedAt/fullReportAt and valid intermediate controls; quality confirms valid time 1000 then malformed ready/time 2000. Parent reran both disposable production-API scripts successfully: node /tmp/task77-r9-spec-dates.mjs and node /tmp/task77-r9-quality-bucket-repro.mjs exit 0 asserting unsafe acceptance, not acceptance proof. Visible Usage/Trends/CSV consequence is source-confirmed, not browser-reproduced. Existing negative tests reject impossible revision dates, not analytical buckets. Each reviewer ran 54 focused Statistics/polling/request helpers successfully; parent broader helper/help suite passed 83/83. Reports are ephemeral /tmp/task77-review9/spec.log and quality.log; this append-only finding is the durable record. Fix real bucket-calendar validation without recalculating server attribution; add initial/replacement/refusal/recovery and valid leap-day/day-week-month controls. No product correction or final proof/report attempted.
 - 2026-11-13 validate: Round-9 reconciliation/evidence: re-read all 42 active task requirements, both reporting specs, web-interface knowledge and project/environment context; actual affected and linked-test paths exist and no explicit Manual:/Inspection: verification clause applies to these task records. Ticket source diff inspected against integrated target fb14e06; inherited backend/release/delivery content remains outside authored ticket scope. Current knowledge/context do not justify accepting malformed buckets; established requirements are unchanged. Parent focused Node statistics/metrics/polling/request/errors/help suite exit 0, 83/83; release-note checker since bafae7e55bbcfda18451ee621368204af9dd864b and whitespace check exit 0; independent SHA-256 audit matches all 132 inputs/7 outputs. Advisory check exit 0 has 0 errors, 178 warnings and 28 notes: inherited stale/removed target paths, missing links/legacy journals, frontend coverage heuristics, reviewed fake-fixture/generated-secret flags, target delivery archives and unrecordable review state. Advisory zero exit is not final proof. Final strict/full suite/report deliberately deferred under correct-first/prove-last. No new browser, CI, deployed, live-forge/model/runtime or Windows acceptance was run. Product candidate and governed contracts unchanged; only journal and blocking decision handoff authored.
 - 2026-11-13 validate: DEVIATION validate: installed verdict CLI rejects authorized --round 9 with exit 1 (review round must be 1 through 6) despite RULING-001 - preserve both independent round-9 changes_required verdicts and reproduced findings in append-only Log rather than falsifying an earlier round, hand-editing CLI-owned State or changing installed policy/payload. RULING-001 rounds 7-9 are now exhausted; ADORE_QUESTIONS.md requests explicit authorization for another bounded correction/review. No backward routing or repair is authorized at this last-round boundary; pause blocked, with current candidate preserved and no final proof/report/closure claim.
+- 2026-11-14 validate: Validation resumption after second user authorization: branch matches journal, entry worktree is clean at 25eb7c2, interaction remains autopilot. Read installed task guide, complete durable journal, validate/review steps, project/environment context and relevant reporting contracts/source/tests. RULING-002 extends authorization to independent rounds 10-12; no new review round consumed here. Source and a fresh offline production-helper reproduction confirm the round-9 defect remains: both readStatistics and readConsumption accept 2026-02-30 and 2026-99-99 analytical bucket dates; after valid baseline at time 1000, createReportingRefresh publishes ready, pooled impossible dates and completedAt/fullReportAt=2000. Corrected Node stdin reproduction exits 0 because assertions demonstrate the defect, NOT acceptance proof (initial harness omitted required timer functions and was corrected). git diff --check exit 0. Return only for recorded real-calendar validation in both bucket readers, initial/replacement withholding/error/Retry/recovery proof with no report/exports/success time/pageerror, and valid leap-day/day-week-month controls; do not recalculate server attribution or weaken REQ-SEC-7ee58549, REQ-DATA-d535499a or REQ-UX-cbca5fd9. No product, tests, requirements, policy or payload edited; ADORE_QUESTIONS.md is absent and the clarification is settled by the user ruling. Full validation reconciliation, fresh independent round-10 reviews and final strict proof/report/closure remain after correction; no browser, full suite, CI or live acceptance run in this routing session. Existing installed six-round verdict-recording limitation remains unchanged; authorized actual review history stays append-only in Log.
+- 2026-11-14 validate: returned to build - User RULING-002 authorizes three more review rounds (10-12). Round-9 analytical bucket-date defect remains independently reproduced: metrics/usage accept impossible dates and publish ready with renewed successful times. Validate real calendar bucket dates before publication; add initial/replacement error/Retry and withheld-report/CSV/time regressions, recovery and valid leap-day/day-week-month controls, preserving server attribution. Return for fresh round-10 independent reviews and final strict proof after correction.
 
 ## Rulings
 
 - RULING-001 | date=2026-11-13 | decision=Authorize three additional independent review rounds for this task: rounds 7, 8 and 9 after the exhausted round 6; permit the bounded build corrections and validation needed for those rounds without changing installed AEGIS policy or payload. | reason=User clarification explicitly states: I authorize 3 new review rounds. Installed review step 5 permits a user ruling to extend the bound. Existing acceptance contracts and publication restrictions remain unchanged. | source=user | supersedes=none
+- RULING-002 | date=2026-11-14 | decision=Authorize three additional independent review rounds for this task: rounds 10, 11 and 12 after exhausted round 9, including the bounded build corrections and validation needed for those rounds, without changing installed AEGIS policy or payload. | reason=User clarification explicitly states: I approve 3 more rounds. Installed review step 5 permits a user ruling to extend the bound. Preserve all existing acceptance contracts, append-only review history and publication restrictions; RULING-001 remains the record for rounds 7-9. | source=user | supersedes=none
 
 
 ## State
 
-status: blocked
-reported: validate - blocked
-next: Resolve ADORE_QUESTIONS.md: authorize an additional bounded bucket-calendar correction and fresh independent review after exhausted round 9, or direct another scope/policy decision.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
-changed: Validated round 9 without product edits; recorded both independent changes_required verdicts and reproduced impossible metrics/usage bucket-date acceptance; added blocking decision handoff.
-evidence: 83 parent helper/help tests and 54 helpers per reviewer passed; three production-API reproductions confirm defect; release-note/whitespace/132-input-7-output SHA-256 and 42-requirement path audits passed.
-issues: Impossible analytical bucket dates publish ready and renew freshness instead of failing closed. RULING-001 review bound exhausted; CLI cannot encode round 9. Final strict/full proof, report and closure not run; inherited advisory warnings and no CI/live acceptance remain.
+status: waiting
+reported: build - paused
+next: continue build: User RULING-002 authorizes three more review rounds (10-12). Round-9 analytical bucket-date defect remains independently reproduced: metrics/usage accept impossible dates and publish ready with renewed successful times. Validate real calendar bucket dates before publication; add initial/replacement error/Retry and withheld-report/CSV/time regressions, recovery and valid leap-day/day-week-month controls, preserving server attribution. Return for fresh round-10 independent reviews and final strict proof after correction.
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
+changed: Recorded user authorization as RULING-002 and confirmed the existing bucket-calendar defect; only executor-owned task journal changed.
+evidence: Offline Node production-validator/coordinator reproduction exit 0 demonstrates four unsafe replacement publications; git diff --check exit 0. No acceptance pass claimed.
+issues: Bucket-date acceptance failure still requires build correction. Full reconciliation, independent reviews, strict proof/report and closure not run; installed verdict CLI cannot encode rounds above 6. No browser/CI/live acceptance in this session.
 spec_compliance:
 implementation_quality:
 review_round: 6
