@@ -206,23 +206,4 @@ def test_crashed_preparation_becomes_explicit_interrupted_evidence(tmp_path, mon
     assert len(control["calls"]) == 1 and control["gates"] == 0
 
 
-def test_legacy_retry_keeps_existing_profile_update_contract(tmp_path, monkeypatch):
-    """@brief Profiles without recipes retain ordinary recovery and config updates."""
-    engine, run_id, control, _ = recipe_engine(tmp_path, monkeypatch, "success")
-    engine.config.execution.preparation = ""
-    engine.executor.results.append(
-        GateRun(exit_code=0, has_questions=True, questions="Operator question")
-    )
-    assert engine.retry(run_id)
-    saved = engine.store.load(run_id)
-    saved.lifecycle = "failed"
-    engine.store.save(saved)
-    engine.config.container.runtime_env["PATH"] = "/updated/operator/path"
-    assert engine.retry(run_id)
-    recovered = engine.store.load(run_id)
-    assert recovered.lifecycle == "parked-clarification"
-    assert recovered.execution == {}
-    assert control["gates"] == 2 and control["calls"] == []
-
-
 # END OF FILE

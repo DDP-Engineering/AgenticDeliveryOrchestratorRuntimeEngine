@@ -64,9 +64,8 @@ and Python runtime.
 - supported version: a supported `aegis` version;
 - supported JSON schema: integer `1`;
 - task ids: `TASK-<hex>` and exact `.agentic/tasks/<id>.md` path;
-- repository status-list stages: the six conducted stages, the legacy
-  `deliver` stage AEGIS 0.15.0 still reports for older journals, and the
-  adoption stages `survey`, `components`, and `close`;
+- repository status-list stages: the six conducted stages and the adoption
+  stages `survey`, `components`, and `close`; retired stage names are refused;
 - active ADORE task stages: exactly `frame`, `specify`, `design`, `build`,
   `validate`, or `done`, with the step files AEGIS 0.15.0 names (none for
   `done`); a task at `deliver` fails closed;

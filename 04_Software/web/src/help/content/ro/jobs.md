@@ -73,6 +73,8 @@ Pentru lucrările locale, **Reia** verifică executorul instalat și acceptă ac
 
 Când o comandă în container depășește limita de timp, ADORE oprește containerul înaintea altei comenzi. Următoarea încercare permisă reia același container, cu dependențele și fișierele instalate; accesul la rețea rămâne neschimbat. Dacă oprirea sau repornirea sigură nu poate fi confirmată, lucrarea eșuează și păstrează dovezile pentru verificare înainte de **Reia**. Pregătirea eșuată păstrează procedura sa explicită de recuperare.
 
+Joburile în container păstrează imaginea și resursa alese la pornire, chiar fără pregătire. Dacă resursa este înlocuită, pornește un job nou. Pregătirea rămâne opțională.
+
 ## Renunță și pornește din nou {#restart}
 
 Pentru un job eșuat, **Renunță și pornește din nou** șterge starea salvată, worktree-ul cu lucrul nepublicat și branchul remote propriu nemodificat. Citește avertismentul și confirmă. ADORE verifică proprietatea înainte de curățare și pornește același tichet deschis cu setările curente doar după curățarea completă. Monitorizarea rămâne în pauză dacă era oprită. Administratorii și dezvoltatorii alocați pot folosi acțiunea.

@@ -34,7 +34,7 @@ remain in memory/environment and are excluded from plan policy/fingerprints.
 ## 6. Data Contracts
 
 The closed version-1 grammar, profile limits, source/image precedence and schema-1
-additive recovery record are defined in
+required recovery record are defined in
 [Container preparation](../01_Documentation/Container_Preparation.md).
 Malformed external source, JSON, identity, receipts or persisted evidence fails
 closed. Successful resume requires the original plan, image/container IDs and
@@ -99,7 +99,7 @@ ContainerBackend.authorize_system_packages verifies pinned container/image ident
 ## Verified container timeout recovery
 
 Bound commands inspect authoritative ownership and address the immutable container
-ID, including legacy invocations without durable pins. On an actual runtime
+ID, including bounded prerequisite probes without a persisted job. On an actual runtime
 timeout, the backend rechecks that identity, uses bounded interruption and requires
 the same ID/image in exited state before returning the original CommandResult.
 The original exit, timeout flag and captured streams remain unchanged; an ordinary
@@ -146,3 +146,7 @@ does not infer egress ownership from a name. Native targets retain run-owned
 receipts and isolated Pi temporary settings.
 
 Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
+
+## One pinned execution model
+
+Every admitted container/local job has a plan and explicit resource lifecycle. A container without preparation still resolves a local image ID, verifies an existing pinned resource or records the newly created container/image IDs, and binds commands to that identity. Recipe execution and system-package authorization remain explicit optional operations. Drift, replaced resources and unprovisioned command targets fail closed.

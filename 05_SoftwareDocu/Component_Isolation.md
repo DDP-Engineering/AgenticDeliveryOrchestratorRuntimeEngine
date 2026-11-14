@@ -495,3 +495,7 @@ worktree and IO mounts before reuse and starts its immutable ID. `release_owned`
 returns exact removed executor/proxy/network names after full path/identity proof.
 
 Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
+
+## Uniform progress evidence validation
+
+Both AEGIS and direct progress observations validate command result exit-code type, timeout state, text type, bounded length and replacement characters before hashing. Direct exchange exclusions only select paths; they do not select a weaker or stronger reader.

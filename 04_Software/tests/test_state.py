@@ -47,11 +47,12 @@ def _store(tmp_path: Path) -> StateStore:
 # PUBLIC API / TESTS
 
 
-def test_execution_state_is_additive_and_closed() -> None:
-    """@brief Legacy schema-1 state remains readable; runtime records are strict."""
+def test_execution_state_is_required_and_closed() -> None:
+    """@brief Empty and incomplete execution records are refused without repair."""
     state = RunState(run_id="owned-1", ticket_iid=1)
     assert hasattr(state, "execution"), "state has no durable execution record"
-    assert RunState.from_dict(state.to_dict()).execution == {}
+    with pytest.raises(StateError, match="unsupported empty execution record"):
+        RunState.from_dict(state.to_dict())
     data = state.to_dict()
     data["execution"] = {"status": "success"}
     with pytest.raises(StateError, match="execution"):

@@ -8,8 +8,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Reviewed container preparation
 
 Configure preparation externally in the server profile after creating a project
-with `adore init`. Preparation is optional; existing profiles
-keep their existing container image and gate behavior.
+with `adore init`. Preparation is optional. Every job records a pinned execution
+plan before admission, whether it uses a container or local execution.
 
 ## Select and review
 
@@ -113,15 +113,20 @@ Cancellation interrupts the owned container and retains the existing release
 semantics. Setup does not invent token/cost data; changed dependency files count
 against the existing product file limit.
 
-`state.json` carries optional closed `execution` evidence in run-state schema 1:
-plan, actual container/image IDs, status, attempt count, ordered step outcomes and
-prior attempt history. Missing legacy evidence does not imply preparation success.
+`state.json` requires the closed `execution` record in run-state schema 1:
+plan, resource identity, status, attempt count, ordered step outcomes and prior
+attempt history. An empty record is refused with the affected run directory named
+for explicit removal. The application never creates a plan for a stored job.
 The immutable `execution-plan.json` and timestamped redacted stdout/stderr receipts
 under `preparation/attempt-N/step-M.json` remain outside the mounted exchange
 folder. Each stream is capped at 64 KiB per step; inherited credential values are redacted before file retention. Job details show status, attempts,
 image and authoritative step exits, timestamps, timeouts and cancellation.
 
-Profiles without recipes or enabled system-package permission retain their existing recovery/profile-update contract and do not acquire execution records. Recipe success is reusable only with the same plan, policy, verified container and image
+A job without a recipe records `not-required`, zero preparation attempts and empty
+step/history lists. It still pins its effective image and actual container/image
+identity, or its local resource identity. Commands require the pinned resource.
+Preparation remains optional and is never inferred from a missing record.
+Recipe success is reusable only with the same plan, policy, verified container and image
 IDs and intact evidence. Changed/missing resources, configuration drift, corrupt
 state/receipts and incomplete setup fail closed. Ordinary retry does not replay
 partial setup. Inspect evidence, then explicitly authorize:

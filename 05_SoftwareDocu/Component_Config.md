@@ -247,3 +247,7 @@ Pi thinking is optional; explicit values are validated against the pinned provid
 `delivery.require_human_approval` is a strict boolean, default true. It selects
 whether human candidate approval precedes publication; it does not change
 validation, draft state, guarded publication, or the human merge boundary.
+
+## Preparation selection
+
+An empty execution.preparation disables preparation; it does not select an alternate execution-state model. Every job still pins its execution plan and provisioned resource.

@@ -386,7 +386,7 @@ class ClarificationConfig:
 class ExecutionConfig:
     """
     @brief   [execution] - shared backend and reviewed container preparation.
-    @details Preparation is path#job@full-commit; empty retains legacy behavior.
+    @details Preparation is path#job@full-commit; empty disables preparation.
              Bounds apply to setup independently of the total run budget.
     """
 

@@ -536,3 +536,7 @@ Instruction comment failure does not mark the job failed, block another Pi stage
 delivery or prevent explicit Retry; other required-notification gates remain.
 Component_Instructions.md and the public offline instruction tests in test_orchestrator.py
 describe interruption/replay and posted-but-response-lost duplicate suppression.
+
+## Current execution and validation contracts
+
+Every admission resolves one execution plan before saving the run. Container jobs without recipes use the same policy drift, immutable plan artifact, image/resource identity and command binding as prepared containers; preparation alone remains conditional. The conductor never reconstructs a plan for a persisted job. Automatic AEGIS publication accepts only agent-aegis-journal evidence bound to the active done task and reported checks. Direct validation retains its own current workflow contract.

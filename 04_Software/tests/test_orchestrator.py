@@ -37,6 +37,7 @@ from adore.isolation import ContainerManager, IsolationError
 from adore.metrics import aggregate, load_summaries, profile_stats
 import adore.orchestrator as orchestrator_module
 from adore.orchestrator import Orchestrator
+from adore.preparation import resolve_plan
 from adore.state import RunState, StateError, StateStore, content_hash
 from adore.util import CommandResult, utc_now_iso
 import pytest
@@ -301,6 +302,10 @@ class FakeContainers:
         self.status_value = "running"
         return "created"
 
+    def image_identity(self, image):
+        """@brief Resolve the injected image without external commands."""
+        return "sha256:" + "e" * 64
+
     def resource_identity(self, name):
         """@brief Supply authoritative runtime identity without invoking a CLI."""
         self.observed_name = name
@@ -562,6 +567,12 @@ def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunSt
         ),
         active_started_at=utc_now_iso(),
     )
+    plan = resolve_plan(engine.config, runner=getattr(engine.worktrees, "runner", None))
+    run.execution = {
+        "plan": plan, "resource": {"container_id": "d" * 64, "image_id": "sha256:" + "e" * 64},
+        "status": "pending" if plan["selection"] else "not-required",
+        "attempts": 0, "steps": [], "history": [], "reprepare": False,
+    }
     engine.store.save(run)
     ticket = engine.forge.ticket
     engine.store.save_ticket(run.run_id, {
@@ -604,7 +615,8 @@ def task(stage: str, *, path="full", task_type="feature") -> AegisTask:
 
 def executor_validation_evidence() -> dict:
     """@brief Return saved validation evidence for the fixture task."""
-    return {"source": "executor", "task_id": TASK_ID, "deviations": []}
+    return {"source": "agent-aegis-journal", "stage": "done", "task_id": TASK_ID,
+            "deviations": [], "reported_checks": "Agent reported checks"}
 
 
 def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:

@@ -153,7 +153,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 - `_connect` never alters the table: a `run_summaries` table whose columns
   differ from the current `RunSummary` is refused with `metrics database <path>
   was written by another ADORE build; delete it to start fresh`. The
-  `governance_outcome` value comes only from schema-1 `strict-verification`
+  `governance_outcome` value comes only from current `validation-accepted`
   journal events and is `ok` or `failed`. Without a strict verdict it stays
   empty: direct `verification = not configured` state evidence is not a pass.
 - Journal `usage` event shape: `{event: "usage", event_id: "<run>:<attempt>",
@@ -223,3 +223,7 @@ committed SQLite rows remain authoritative. Concurrent terminal summaries cannot
 overwrite one another's snapshot. The database cannot also be its JSONL mirror.
 
 Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
+
+The sole validation event is `validation-accepted`, shared by summary rebuilding
+and web quality analytics. Retired strict-verification events are not counted
+as current validation evidence.

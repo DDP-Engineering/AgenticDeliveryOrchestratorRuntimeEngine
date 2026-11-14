@@ -101,7 +101,7 @@ def _items(record: dict, include_cost: bool) -> list[dict]:
         return [_notice("Malformed session record omitted by the executor.")]
     if "adore_omitted_bytes" in record:
         return [_notice("Record omitted by the executor (oversize).")]
-    if kind == "adore_output_truncated" or "adore_output_truncated" in record:
+    if kind == "adore_output_truncated":
         return [_notice("Executor output was truncated.")]
     if kind in {"turn_start", "turn_end"}:
         return [{"kind": "turn", "text": kind}]

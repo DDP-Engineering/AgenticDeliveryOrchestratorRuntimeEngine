@@ -75,6 +75,10 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 
 ## Agent-controlled system packages
 
-Enabled container policies carry canonical system_packages=true; disabled policies omit the field, preserving legacy fingerprints. validate_plan rejects noncanonical booleans and unknown fields. Optional recipe parsing and commands retain their contracts. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+Enabled container policies carry canonical system_packages=true; disabled policies omit the field as their canonical representation. validate_plan rejects noncanonical booleans and unknown fields. Optional recipe parsing and commands retain their contracts. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
 
 The execution policy pins the complete non-secret Pi configuration: provider, model, endpoint, internet switch, web search, container command preset and additional secret names. Changing network/provider authority changes the fingerprint and requires a fresh job; stored plans must match the current closed structure. No earlier-plan reader or migration is supplied.
+
+## Plans without preparation
+
+resolve_plan supplies the same closed plan for container jobs with or without a recipe and for local jobs. An empty selection means preparation is disabled, with no source or step evidence. The conductor records the plan for every admission and resource identity after provisioning.

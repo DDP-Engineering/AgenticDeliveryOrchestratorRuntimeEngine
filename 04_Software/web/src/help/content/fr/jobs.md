@@ -73,6 +73,8 @@ Pour les tâches locales, **Relancer** revérifie l’exécuteur installé et ac
 
 Lorsqu’une commande en conteneur dépasse sa limite, ADORE arrête ce conteneur avant toute autre commande. La prochaine tentative autorisée reprend le même conteneur avec ses dépendances et fichiers ; l’accès réseau reste inchangé. Si l’arrêt ou le redémarrage sûr ne peut être confirmé, la tâche échoue et conserve ses preuves à examiner avant de **Relancer**. Une préparation échouée conserve sa procédure de reprise explicite.
 
+Les travaux en conteneur conservent l’image et la ressource choisies au démarrage, même sans préparation. Si cette ressource est remplacée, démarrez un nouveau travail. La préparation reste facultative.
+
 ## Abandonner et recommencer {#restart}
 
 Pour une tâche échouée, **Abandonner et recommencer** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.

@@ -608,7 +608,7 @@ class Orchestrator:
                 or (owned_resources and run.lifecycle not in {"failed", "cancelled"})):
             raise IsolationError("cleanup requires the job's own resources and stopped ownership")
         self.worktrees.verify_removal(run_id, run.branch)
-        native = run.execution.get("plan", {}).get("backend") == "local"
+        native = run.execution["plan"]["backend"] == "local"
         if native:
             resource = run.execution["resource"]
             if not resource:
@@ -815,7 +815,7 @@ class Orchestrator:
         @param[in,out] run Failed job; task, resource, worktree and budgets are retained.
         @exception ExecutionRecoveryError Stable configuration or saved plan changed.
         """
-        if self.config.execution.backend != "local" or not run.execution:
+        if self.config.execution.backend != "local":
             return
         previous = validate_plan(run.execution["plan"])
         try:
@@ -930,7 +930,7 @@ class Orchestrator:
             prefix, set(corrupt), listed or set(), scopes=scopes
         )
         native = {run_id for run_id, run in runs.items()
-                  if run.execution.get("plan", {}).get("backend") == "local"}
+                  if run.execution["plan"]["backend"] == "local"}
         eligible -= native
         protected |= native
 
@@ -1041,7 +1041,7 @@ class Orchestrator:
                         report["worktrees_retained"].append(run.run_id)
                     continue
                 if (self.config.execution.backend != "local"
-                        and run.execution.get("plan", {}).get("backend") == "local"):
+                        and run.execution["plan"]["backend"] == "local"):
                     report["worktrees_retained"].append(run.run_id)
                     continue
                 self._verify_run_resources(run)
@@ -2287,13 +2287,11 @@ class Orchestrator:
                     and isinstance(evidence.get("summary"), str)
                     and type(evidence.get("changed_files")) is int
                     and evidence["changed_files"] >= 0)
-        legacy = (set(evidence) == {"source", "task_id", "deviations"}
-                  and evidence.get("source") == "executor")
         observed = (set(evidence) == {"source", "stage", "task_id", "deviations", "reported_checks"}
                     and evidence.get("source") == "agent-aegis-journal"
                     and evidence.get("stage") == "done"
                     and isinstance(evidence.get("reported_checks"), str))
-        return ((legacy or observed)
+        return (observed
                 and isinstance(run.active_task_id, str) and bool(run.active_task_id)
                 and run.active_task_id in run.task_ids
                 and evidence.get("task_id") == run.active_task_id
@@ -2633,7 +2631,7 @@ class Orchestrator:
         self.store.save(run)
         with contextlib.suppress(IsolationError):
             self.backend.stop(run.container, expected=run.execution.get("resource") or None)
-        backend = run.execution.get("plan", {}).get("backend", self.config.execution.backend)
+        backend = run.execution["plan"]["backend"]
         stopped = ("A stop was requested for local execution" if backend == "local"
                    else "A stop was requested for the container")
         body = (
@@ -3568,11 +3566,12 @@ class Orchestrator:
         packages = self.config.container.system_packages is True
         if packages and local:
             raise ExecutionRecoveryError("system_packages is available only in containers")
-        if run.execution or not (recipe or local or packages):
+        if run.execution:
             return
         try:
             if run.active_task_id:
-                raise PreparationError("active legacy run requires an explicit fresh execution run")
+                raise PreparationError(
+                    "existing run has no execution plan; delete its run directory and start fresh")
             if recipe and not self.worktrees.exists(run.run_id):
                 self.worktrees.fetch()
             plan = resolve_plan(
@@ -3607,51 +3606,44 @@ class Orchestrator:
         recipe = bool(self.config.execution.preparation)
         local = self.config.execution.backend == "local"
         packages = self.config.container.system_packages is True
-        managed_container = recipe or packages
         if packages and local:
             raise ExecutionRecoveryError("system_packages is available only in containers")
         record = run.execution
-        plan = {}
-        if managed_container or local or record:
-            try:
-                if not run.execution:
-                    self._plan_execution(run)
-                    self.store.save(run)
-                record = run.execution
-                plan = record["plan"]
-                if (
-                    plan["policy"] != execution_policy(self.config)
-                    or plan["selection"] != self.config.execution.preparation
-                    or not recipe and not local
-                    and plan["image"] != self.config.container.image
-                ):
-                    raise PreparationError(
-                        "execution profile drift; restore pinned settings or start a fresh run"
-                    )
-                if (
-                    recipe
-                    and self.config.container.image
-                    and (
-                        "image" in self.config.raw.get("container", {})
-                        or self.config.container.image != EXECUTOR_BASE_IMAGE
-                    )
-                    and self.config.container.image != plan["image"]
-                ):
-                    raise PreparationError("container.image conflicts with pinned preparation")
-                plan_file = self.store.run_dir(run.run_id) / "execution-plan.json"
-                serialized = json.dumps(plan, sort_keys=True, ensure_ascii=False, indent=2).encode()
-                if plan_file.exists():
-                    if plan_file.is_symlink():
-                        raise PreparationError("execution plan is linked")
-                    differs = (read_record(plan_file) != plan if local
-                               else plan_file.read_bytes() != serialized)
-                    if differs:
-                        raise PreparationError("immutable execution plan differs from state")
-                else:
-                    with plan_file.open("xb") as handle:
-                        handle.write(serialized)
-            except (PreparationError, OSError, TypeError, ValueError) as exc:
-                raise ExecutionRecoveryError(str(exc)) from exc
+        try:
+            plan = record["plan"]
+            if (
+                plan["policy"] != execution_policy(self.config)
+                or plan["selection"] != self.config.execution.preparation
+                or not recipe and not local
+                and plan["image"] != self.config.container.image
+            ):
+                raise PreparationError(
+                    "execution profile drift; restore pinned settings or start a fresh run"
+                )
+            if (
+                recipe
+                and self.config.container.image
+                and (
+                    "image" in self.config.raw.get("container", {})
+                    or self.config.container.image != EXECUTOR_BASE_IMAGE
+                )
+                and self.config.container.image != plan["image"]
+            ):
+                raise PreparationError("container.image conflicts with pinned preparation")
+            plan_file = self.store.run_dir(run.run_id) / "execution-plan.json"
+            serialized = json.dumps(plan, sort_keys=True, ensure_ascii=False, indent=2).encode()
+            if plan_file.exists():
+                if plan_file.is_symlink():
+                    raise PreparationError("execution plan is linked")
+                differs = (read_record(plan_file) != plan if local
+                           else plan_file.read_bytes() != serialized)
+                if differs:
+                    raise PreparationError("immutable execution plan differs from state")
+            else:
+                with plan_file.open("xb") as handle:
+                    handle.write(serialized)
+        except (PreparationError, OSError, TypeError, ValueError, KeyError) as exc:
+            raise ExecutionRecoveryError(str(exc)) from exc
         if recipe:
             for attempt in [
                 *record["history"],
@@ -3713,7 +3705,7 @@ class Orchestrator:
                 raise ExecutionRecoveryError(
                     "prepared image identity changed; explicit recovery required"
                 )
-        if packages and not recipe:
+        if not local and not recipe:
             image_id = self.backend.image_identity(plan["image"])
             if record["resource"]:
                 observed = self.backend.resource_identity(run.container)
@@ -3721,7 +3713,7 @@ class Orchestrator:
                         for key in ("container_id", "image_id"))
                         or image_id != record["resource"]["image_id"]):
                     raise ExecutionRecoveryError(
-                        "package-enabled environment changed; start a fresh run to reinstall")
+                        "execution resource changed; start a fresh run")
         worktree = self._allocate_worktree(run)
         env = self._container_env(run)
         if local and record["resource"]:
@@ -3732,9 +3724,9 @@ class Orchestrator:
             worktree,
             self._io_dir(run.run_id),
             env,
-            image=plan["image"] if managed_container else None,
+            image=plan["image"] if not local else None,
         )
-        if managed_container:
+        if not local:
             observed = self.backend.resource_identity(run.container)
             resource = {key: observed[key] for key in ("container_id", "image_id")}
             if (observed["status"] != "running" or resource["image_id"] != image_id
@@ -3762,9 +3754,10 @@ class Orchestrator:
 
     def _execute(self, run: RunState):
         """@brief Bind gates and AEGIS commands to verified backend-native paths."""
-        return self.backend.bind(
-            run.container, self._container_env(run), run.execution.get("resource") or None
-        )
+        resource = run.execution["resource"]
+        if not resource:
+            raise ExecutionRecoveryError("execution target has not been provisioned")
+        return self.backend.bind(run.container, self._container_env(run), resource)
 
     def _prepare_execution(self, run: RunState) -> None:
         """@brief Execute sequential bounded setup, with durable fail-closed evidence."""
@@ -3977,7 +3970,7 @@ class Orchestrator:
         body = self.identity.status_comment(
             run.run_id, run.lifecycle, run.stage, utc_now_iso()
         )
-        backend = run.execution.get("plan", {}).get("backend", self.config.execution.backend)
+        backend = run.execution["plan"]["backend"]
         body += f"\nExecution backend: {backend}"
         if (self.config.delivery.publish_checkpoints or run.checkpoint_remote_commit
                 or run.checkpoint_error):
@@ -4073,7 +4066,7 @@ class Orchestrator:
     def _teardown(self, run: RunState, *, remove_worktree: bool) -> None:
         """@brief Remove execution resources while retaining local state evidence."""
         self._verify_run_resources(run)
-        pinned_native = run.execution.get("plan", {}).get("backend") == "local"
+        pinned_native = run.execution["plan"]["backend"] == "local"
         if pinned_native and not run.execution.get("resource"):
             # Admission resolves the native plan before provisioning. Absence
             # of its control directory proves that there is no scope to stop.

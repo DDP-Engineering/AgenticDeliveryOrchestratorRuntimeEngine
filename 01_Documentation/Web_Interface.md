@@ -964,8 +964,7 @@ record estimated token prices under Settings > Agent and model: enter the
 effective date and input/output rates, and ADORE records them for the selected
 coding agent and its configured model (set the model first when none is
 configured). The table below lists the project's prices. Access is Admin-only; History shows terminal project jobs.
-`/configuration` is the Settings address; older `/executor` and `/prices`
-addresses open Settings.
+`/configuration` is the Settings address.
 
 Detail leads with exact lifecycle and saved stage, the observed reason and action
 location. Saved question/candidate/draft references open the forge. Publication

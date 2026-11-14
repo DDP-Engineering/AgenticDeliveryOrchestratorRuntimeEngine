@@ -37,6 +37,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Delete affected `runs/<run-id>/` directories with an empty `execution` record before starting this build.
+- Every job pins one execution plan and resource identity, including containers without preparation.
+
 - Maximize and restore Agent sessions without losing the conversation or draft; align session controls above the chat.
 
 - Compact session controls and message actions; flatten the conversation and keep its viewport height bounded.
@@ -77,6 +80,11 @@ This project follows Keep a Changelog and Semantic Versioning.
   recover only demonstrably dead owners and fence stale results and publication.
 - Confirm Start at durable job admission and Cancel only from the actual saved cancellation result.
 - Delete `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` before starting this build.
+
+### Removed
+
+- Retired validation evidence, event names, route aliases, AEGIS listing stages and session truncation variants.
+- The completed one-off DCP record conversion tool.
 
 ## [0.15.0] - 2026-11-12
 

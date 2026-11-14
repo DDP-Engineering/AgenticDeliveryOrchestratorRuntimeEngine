@@ -303,7 +303,7 @@ class ContainerBackend:
         *,
         image: str | None = None,
     ) -> str:
-        """@brief Provision using the normalized image while retaining legacy defaults."""
+        """@brief Provision the selected image without running preparation implicitly."""
         resumed = name in self._pending_resume
         if resumed or name in self._blocked:
             self._admit_command(name, self._pending_resume.get(name))

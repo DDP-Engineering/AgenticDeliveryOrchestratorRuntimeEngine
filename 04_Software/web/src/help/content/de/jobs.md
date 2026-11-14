@@ -73,6 +73,8 @@ Bei lokalen Aufträgen prüft **Wiederholen** den installierten Executor erneut 
 
 Überschreitet ein Container-Befehl sein Zeitlimit, stoppt ADORE den Container vor dem nächsten Befehl. Der nächste zulässige Versuch startet denselben Container mit installierten Abhängigkeiten und Dateien; der Netzwerkzugriff bleibt unverändert. Lässt sich sicheres Stoppen oder Starten nicht bestätigen, schlägt der Auftrag fehl und bewahrt Nachweise zur Prüfung vor **Wiederholen**. Eine fehlgeschlagene Vorbereitung benötigt weiterhin ihre ausdrückliche Wiederherstellung.
 
+Container-Jobs behalten das beim Start gewählte Image und die Ressource, auch ohne Vorbereitung. Wird die Ressource ersetzt, starten Sie einen neuen Job. Die Vorbereitung bleibt optional.
+
 ## Verwerfen und neu starten {#restart}
 
 Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.

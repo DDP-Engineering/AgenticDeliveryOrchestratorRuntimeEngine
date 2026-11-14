@@ -386,3 +386,7 @@ original question source, direct/preparation evidence and on-demand latest norma
 executor output. Reviews and stage failures are separate counts. Budget/consumption
 stay in the right sidebar. There is no empty file-results block: the saved MR/PR link
 is the current published-code result; execution archives remain operational evidence.
+
+## Current executor truncation marker
+
+The session reader recognizes the typed adore_output_truncated record written by the current Pi output capture. An object with only an adore_output_truncated property is not interpreted as that marker. Current omission markers, optional message timestamps and bounded malformed-record notices retain their existing contracts.

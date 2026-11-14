@@ -1039,12 +1039,12 @@ class WorktreeManager:
                  *(f":(top,literal,exclude){name}" for name in excluded))
 
         def observe(*args: str) -> str:
-            """@brief Preserve legacy observation and validate direct exchange-aware evidence."""
+            """@brief Validate bounded Git evidence for workflow progress."""
             result = self._run_wt(str(wt), *args)
-            if excluded and (type(result.exit_code) is not int or result.timed_out
+            if (type(result.exit_code) is not int or result.timed_out
                              or not isinstance(result.stdout, str)
                              or len(result.stdout) > 4_000_000 or "\ufffd" in result.stdout):
-                raise IsolationError("invalid Git direct progress evidence")
+                raise IsolationError("invalid Git progress evidence")
             return result.stdout
 
         diff = observe("diff", "--binary", "HEAD", "--", *paths)

@@ -15,6 +15,11 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Every job keeps its chosen environment; changed resources require a fresh job.", fr = "Chaque travail garde son environnement ; une ressource modifiée exige un nouveau travail.", de = "Jeder Job behält seine Umgebung; geänderte Ressourcen erfordern einen neuen Job.", ro = "Fiecare job păstrează mediul ales; resursele schimbate cer un job nou." }
+
 
 [[release.entry]]
 category = "fixed"
