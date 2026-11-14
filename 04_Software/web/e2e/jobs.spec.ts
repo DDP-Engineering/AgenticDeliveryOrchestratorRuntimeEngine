@@ -6,6 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
+import { cleanupBrowserPage } from "./lifecycle";
 
 
 const nav = (page: Page) => page.getByRole("navigation", { name: "Primary navigation", exact: true });
@@ -24,31 +25,14 @@ test.beforeEach(async ({ request }) => {
   const response = await request.post("/__e2e__/jobs", { headers: { "X-ADORE-E2E": "local-test" } });
   expect(response.ok()).toBe(true);
 });
-test.afterEach(async ({ request, page }) => {
-  // Only teardown ignores late callbacks: active-body route errors still fail the test.
-  // Waiting for all handlers would hang on deliberately held response fixtures.
-  await page.unrouteAll({ behavior: "ignoreErrors" });
+test.afterEach(async ({ request, page, context }) => {
   try {
-    await page.goto("about:blank", { timeout: 5_000 });
+    await cleanupBrowserPage(context, page);
   } finally {
-    try {
-      const session = await page.request.get("/api/v1/me", { timeout: 5_000 });
-      if (session.status() !== 401) {
-        expect(session.ok()).toBe(true);
-        const me = await session.json();
-        const reset = await page.request.patch("/api/v1/me/preferences", {
-          headers: { "X-CSRF-Token": me.csrf },
-          data: { language: "en", theme: "light" }, timeout: 5_000,
-        });
-        expect(reset.ok()).toBe(true);
-        expect(await reset.json()).toMatchObject({ language: "en", theme: "light" });
-      }
-    } finally {
-      const response = await request.post("/__e2e__/jobs?mode=reset", {
-        headers: { "X-ADORE-E2E": "local-test" }, timeout: 5_000,
-      });
-      expect(response.ok()).toBe(true);
-    }
+    const response = await request.post("/__e2e__/jobs?mode=reset", {
+      headers: { "X-ADORE-E2E": "local-test" }, timeout: 5_000,
+    });
+    expect(response.ok()).toBe(true);
   }
 });
 

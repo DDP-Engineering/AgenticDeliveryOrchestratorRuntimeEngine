@@ -810,11 +810,14 @@ an isolated Vite build in `.e2e-dist` and the Playwright Chromium journeys.
 default 30-second test and 10-second assertion limits, one worker and no retries;
 the eight-way statistics locale/theme journey has a 60-second test budget.
 Locale journeys await the successful preference-save response so their final
-English restore persists before the disposable browser context closes. Jobs
-teardown detaches page routes with ignoreErrors only after the body ends, without
-waiting for intentionally held responses; errors raised during the active body
-remain test failures. Five-second navigation/API deadlines bound page shutdown,
-authenticated CSRF preference restoration to English/light and job-fixture reset.
+English restore persists before the disposable browser context closes. Jobs and
+Tickets afterEach hooks use `e2e/lifecycle.ts` to detach context routes before page
+routes with ignoreErrors. This prevents a cancelled page handler from falling
+through to a live context handler. Detachment begins only after the body and never
+waits for intentionally held responses; active-body errors remain test failures.
+Five-second navigation/API deadlines bound page shutdown and authenticated CSRF
+preference restoration to English/light. Jobs always attempts its bounded fixture
+reset afterward, including when page/account cleanup fails.
 Readiness locale/theme checks await confirmed saves and assert dark theme before
 and after navigation.
 It owns failure

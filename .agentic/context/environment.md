@@ -119,7 +119,9 @@ process (for example `env -u OPENAI_API_KEY`), not copied into fixtures. Native
 machine/account checks require an initialized container/host machine identity;
 Linux uses a nonempty `/etc/machine-id`. Playwright uses its matching installed
 Chromium, including `PLAYWRIGHT_BROWSERS_PATH` when image-provided.
-The serial Chromium suite has a45-minute global cap with unchanged individual deadlines; Jobs teardown restores English/light and safely detaches held routes after the body.
+The serial Chromium suite has a45-minute global cap with unchanged individual
+deadlines. Jobs and Tickets share context-before-page route detachment and bounded
+English/light restoration after the body; active handler errors still fail.
 The final proof for a governed task is
 `python .agentic/aegis.py check --task TASK-<id> --strict --run`. A release
 additionally passes `python 02_Tools/internal/check_release_consistency.py

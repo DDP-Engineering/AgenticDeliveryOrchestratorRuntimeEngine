@@ -6,6 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
+import { cleanupBrowserPage } from "./lifecycle";
 import { ticketCopy } from "../src/ticketCopy";
 
 async function signIn(page: Page, username = "admin", password = "admin") {
@@ -26,6 +27,10 @@ async function setMonitoring(page: Page, project: string, press: string, then: s
 test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin ===
     "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
+});
+
+test.afterEach(async ({ context, page }) => {
+  await cleanupBrowserPage(context, page);
 });
 
 test("LA-01 global tickets auto-read once, fence old scopes and retain manual refresh", async ({page}) => {

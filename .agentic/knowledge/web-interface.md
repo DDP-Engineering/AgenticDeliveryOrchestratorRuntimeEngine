@@ -57,9 +57,11 @@ through bounded CSRF-checked API requests, including after a body timeout;
 suite, navigation, action and assertion limits remain unchanged.
 
 The complete offline Chromium suite has a45-minute total limit; ordinary case,
-action, navigation and assertion limits remain unchanged. Jobs afterEach detaches
-page routes without waiting for intentionally held callbacks, then uses bounded
-navigation/authenticated API cleanup to restore English/light and reset jobs.
+action, navigation and assertion limits remain unchanged. Jobs and Tickets
+share e2e/lifecycle.ts: afterEach detaches context routes before page routes,
+without waiting for intentionally held callbacks. Ignored page failures cannot
+fall through to a live context handler. Bounded navigation/authenticated API
+cleanup restores English/light; Jobs always attempts its bounded fixture reset.
 Only teardown ignores detached-handler errors; active-body errors still fail.
 Readiness locale/theme saves are confirmed before navigation, with dark DOM
 assertions both before and after it. Historical30-minute proof records stay unchanged.
