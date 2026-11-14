@@ -5,110 +5,94 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Web control worker
-
-The worker publishes advisory busy or idle activity around its blocking runner. A recent heartbeat gates this evidence; absent or invalid activity is unknown. The authorized cancellation watcher remains independent of the serialized command queue.
+# Web supervisor and worker processes
 
 ## 1. Purpose
 
-`adore.web.commands.CommandWorker` bridges durable web operations to the
-existing ADORE CLI without giving the API process an executor call path.
+The `adore-web-worker` entry owns one local supervisor per home. Independent
+project workers own admission and their N-place run pools; a separate process
+consumes existing configuration control commands. The API never conducts jobs.
 
 ## 2. Responsibilities
 
-It owns a single-host worker lock, resolves the queued immutable project ID to
-the current profile label, rechecks actor membership and project identity,
-existence before execution, invokes fixed CLI arguments, records bounded
-results, and polls project profiles between queued operations.
+`Supervisor` discovers profiles by immutable project_id, independently restarts
+failed workers with per-scope backoff, and stops owned trees. `ProjectWorker`
+keeps its own polling, quiet hours, backoff, commands and run deadlines. It
+uses the canonical atomic project admission limit for Start/Retry/resumptions.
+`CommandWorker` validates one scoped request/result through fixed CLI arguments.
+Its synchronous scheduling helper remains available for in-process callers;
+production startup routes through the process supervisor.
 
 ## 3. Implementation Overview
 
-`run_pending()` claims one operation atomically. Start uses `run --once
---ticket IID`; retry and cancel use existing run commands. Administrator-only
-pause/resume commands control project ticket pickup. A `delete` operation
-runs `profile delete <name> --force --remove-resources` (plus `--remove-clone`
-when the queued target is `remove-clone`) only when the actor is
-an administrator and the project is still archived with the queued identity;
-it audits `project-deleted` on success. The default runner
-rejects an operation when its project was archived after queueing, and
-periodic pickup skips archived profiles. Named and active-profile CLI `run`
-also refuse pickup until restore. An explicit standalone `-c` config remains
-an operator override outside profile archive control. The default runner
-rechecks cancel targets before invoking the CLI; completed, failed and
-human-owned runs are
-left unchanged when a queued cancel arrives late. A run already cancelled by
-the active conductor resolves the queued operation as succeeded. Around
-every blocking worker command and project poll, a watcher inspects pending
-cancellations across projects, atomically claims each exact execution-domain request,
-rechecks account and immutable project grants, and writes a durable cancellation
-marker only under the current owner/generation. The operation remains running
-until the saved run actually reaches cancelled; a signal alone is not success. It
-has a six-hour subprocess timeout. On restart, only operations belonging to demonstrably dead local owner processes
-become `uncertain`; live and uninspectable owners remain untouched. Heartbeat age
-never grants takeover authority. Recorded process creation identity distinguishes
-a reused PID; an attached live CLI child keeps ownership even if its parent dies. The worker
-uses `ADORE_HOME` for child CLI processes.
-A separate heartbeat thread refreshes the web store while an engine subprocess
-blocks. The worker clears its own supervisor readiness on graceful shutdown; after an abrupt stop,
-the timestamp becomes stale within ten seconds. If heartbeat storage fails,
-readiness fails closed and the worker exits after the current bounded command.
+The supervisor's `tick` only inspects and dispatches; no job duration is awaited.
+Each active profile receives a project process even when monitoring is paused.
+Admission invokes `run --once --admit-only`; accepted queued runs are dispatched
+to `conduct RUN --config-revision SHA256` in separate processes. Existing durable
+run owners and kernel locks prevent duplicate execution. Consumed working and
+publishing states use the conductor's refusal/recovery path, never a fresh agent
+or repeated publication. Initial queued dispatch authority remains explicit.
+
+One separately owned command child per project executes Start/Retry/Restart/Cancel independently
+of the polling and run processes. Starts/Retry/Restart wait in the durable queue
+at capacity; Cancel keeps its control path. Configuration pause/resume/delete
+commands execute in a separate consumer; protected configuration candidates
+remain for their dedicated implementation. No global single-job ceiling exists.
 
 ## 4. Dependencies
 
-Python subprocess, `WebStore`, `ProfileStore`, the existing CLI and project
-container/forge/executor prerequisites.
+Portable Python stdlib, ProfileStore, WebStore, StateStore, PollCadence,
+WorkerContext and the existing conductor CLI. Process containment reuses the
+WindowsJobs adapter; Linux uses owned process sessions.
 
 ## 5. Inputs And Outputs
 
-Inputs are pending SQLite operations and project polling configuration.
-Outputs are CLI effects, operation status/result and audit events.
+Inputs: current profile/config bytes, durable operations, dispatch records and
+run state. Outputs: scoped child trees, heartbeats/activity, command outcomes,
+audit records and conductor-owned run changes. Output capture is continuously drained into a fixed 64 KiB memory tail; wrappers report bounded exit codes separately from logs.
 
 ## 6. Data Contracts
 
-Idempotency applies to queue insertion per actor/key. It does not make the
-external forge or executor side effect exactly-once. An unknown subprocess
-outcome remains `uncertain` and requires an operator to inspect run state.
+Web schema 18 includes a separate command owner role. Ownership generations and process births remain
+canonical; strict bounded `ADORE_WORKER_ANCESTRY` transports distinct PID/birth
+pairs. Every child waits for a launch gate after Windows Job assignment or Linux
+session creation. Child effect authorization rejects dead, reused or unknown
+ancestors with OwnershipError. Heartbeat age never proves death.
 
 ## 7. Workflow Integration
 
-Run `adore-web-worker` beside `adore-web`. It replaces a separate
-`adore run --loop` scheduler for profiles in that home. The existing
-orchestrator still owns state locks, the configured approval and draft or ready publication.
+Start one API and one supervisor per home. The portable launcher owns both;
+new/restored projects need no service setup. Rename retires only the old process
+for the same immutable ID; archive/delete removes that process. Other IDs keep
+their existing processes. The launcher identity is also an ancestor fence.
+
+## 8. Usage
+
+`adore-web-worker --home <absolute-home>`; portable Start/Stop remains the one
+application control. Internal fixed-role entries live in `web.supervisor`.
+Automatic checks use PollCadence after completion; quiet skips retain backoff.
+Invalid config/state blocks dispatch and is rechecked after a bounded delay.
+A failing project never delays another project's polling cadence.
 
 ## 9. Validation And Tests
 
-`tests/test_web_commands.py` covers fixed command vectors, deduplication,
-revoked membership, cross-project signalling during a busy command, and delayed-cancel reconciliation. The full
-CLI/orchestrator suite remains a regression gate.
+`tests/test_web_supervisor.py` proves real conductor/executor overlap through
+injected offline forge/Git/backend collaborators, N+1 deferral, separate actual
+project/configuration PIDs, blocked A with completed B, parent crash/descendant
+death, uncertain claims, malformed evidence and identity discovery. Existing
+command/ownership/run concurrency tests cover CLI result and permission seams.
+Portable tools are inspected and smoke-checked without deployment script tests.
 
-## 10. Limitations And Future Work
+## 10. Limits And Recovery
 
-The worker executes one engine command at a time. A running executor gate can
-be interrupted, while cancellation during other bounded conductor work may
-still wait. There is no global parallel job admission
-cap or multi-host dispatch in this implementation.
-
-## Project image work
-
-The worker does not handle `image-build` operations and recovers no running
-builds on startup; `WebStore.enqueue` accepts only `start`, `retry`, `cancel`,
-`pause`, `resume` and `delete`. Images are managed outside ADORE. See
-Component_Project_Images.md.
-
-## Automatic polling cadence
-
-Automatic web polling and CLI `run --loop` use `PollCadence`: after a round
-finishes, wait `poll_interval_seconds * multiplier + uniform(0, poll_jitter_seconds)`.
-With `poll_backoff = true`, failures double the multiplier from 1 to 2/4/8,
-cap at 8, and success resets it to 1. Disabled backoff uses 1. Quiet rounds retain
-the multiplier and defer automatic work using the same wait. Quiet windows use
-server-local time; explicit web commands remain available.
-The web worker keeps independent in-memory cadence/deadlines per immutable
-project identity and treats nonzero, timed-out, malformed or exceptional CLI
-outcomes as failed checks. Invalid configuration gets a 60-second recheck with
-no engine invocation. Restart resets cadence; serial work on another project
-may delay a due round. `polling.mode` governs standalone CLI startup; the web
-service schedules repeated `run --once` rounds independently of that value.
+Stop requests all children together, allows two seconds grace and five seconds
+forced root drain per boundary. Windows Job drain adds at most five seconds per
+scope; unknown drain keeps ownership records. Commands have a six-hour ceiling,
+while conductors enforce each project's own configured execution budgets.
+A crashed owner is recovered only after all exact participant births are dead.
+Queued requests and recovery evidence remain durable; uncertain effects are never
+replayed automatically. Configuration-candidate execution is owned by its separate
+consumer contract. There is no multi-host dispatch.
 
 ## Manual admission results
 
@@ -243,3 +227,9 @@ exact project/run; it cannot poll, reconcile another run or claim another ticket
 `WebStore.authorize_worker` exposes this exact run action in addition to the
 existing project polling action. Process supervision remains separate from the
 conductor's admission and single-run interfaces.
+
+
+Transient execution commands have their own project-scoped command role, so a
+live project scheduler cannot retain a dead command claim. The command process
+drains up to 32 watcher-claimed cancellation follow-ups before exit; any
+unconfirmed remainder is recovered as uncertain after demonstrated process death.

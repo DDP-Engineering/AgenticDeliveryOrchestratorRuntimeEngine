@@ -5,7 +5,7 @@ Die Verwaltung umfasst Benutzerkonten, Projektzugriff, Systemzustand und das Pro
 > Alles auf dieser Seite erfordert die Rolle Administrator.
 
 
-Ein aktueller Heartbeat zeigt einen verfügbaren Worker. **Beschäftigt** bedeutet einen laufenden Befehl oder Projektlauf; **Aktivität unbekannt** bedeutet fehlenden Nachweis. Ein Worker bearbeitet Projekte und Befehle nacheinander. Ein berechtigtes Abbruchsignal kann einen aktiven Auftrag vorher erreichen.
+Ein aktueller Heartbeat zeigt einen verfügbaren Supervisor. **Beschäftigt** bedeutet einen laufenden Befehl, eine Projektabfrage oder einen Auftrag; **Aktivität unbekannt** bedeutet fehlenden Nachweis. Projekte arbeiten unabhängig und Aufträge parallel bis zur jeweiligen Projektgrenze. Konfigurationsbefehle haben einen eigenen Worker. Starts warten auf Kapazität; ein berechtigtes Abbruchsignal erreicht aktive Arbeit.
 
 ## Benutzer {#users}
 

@@ -61,6 +61,9 @@ class WorkerContext:
 
     def authorize(self) -> dict:
         """@brief Refuse lost ownership and revoked rights before each effect."""
+        from adore.web.processes import assert_ancestry
+
+        assert_ancestry()
         if self.heartbeat_failed.is_set():
             raise OwnershipError("worker ownership heartbeat failed")
         with self.lock:

@@ -146,7 +146,9 @@ each component to its source and tests.
 
 ## Supported operation
 
-Project admission uses short local transactions; independent run conductors
+The web entry supervises independent project and configuration processes, with
+revision-bound run children and bounded owned tree shutdown. Project admission
+uses short local transactions; independent run conductors
 can advance different jobs of the same project on Windows or Linux. Synchronous
 CLI loops/single passes remain available. Each run process owns its conductor,
 executor, backend and bound configuration revision; no project lock spans agent
@@ -453,10 +455,11 @@ Own-password changes, including after reset, offer independent password visibili
 Web queue ownership uses explicit execution/project-configuration/global-configuration
 domains and role/project/run generations bound to process creation identity. Only
 demonstrably dead owners are recovered; stale heartbeat and a dead parent with a live
-attached CLI child do not grant takeover. The CLI bridge retains serial scheduling in
-this step. Start confirms durable admission before conduction; Cancel confirms the saved
-cancelled result. Protected configuration references remain with their dedicated consumer.
-See web-interface.md and test_web_ownership.py.
+attached CLI child do not grant takeover. The CLI bridge runs through one single-home supervisor, independent project
+workers and N-place run pools per project. A separate configuration process
+handles existing control commands. Ancestor PID/birth checks fence effects after
+parent loss, and gated OS process trees provide bounded Stop. Initial dispatch
+reservations remain distinct from consumed or uncertain execution/publication.
 
 Initial queued execution has the required current-state execution_pending flag;
 all readers freeze active work until its durable activation. Admission-only never

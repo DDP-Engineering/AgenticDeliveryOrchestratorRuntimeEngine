@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-e93e4944"
+
+title = "Discover projects by immutable identity without replaying uncertain work"
+
+status = "active"
+
+requirement = """
+When profiles are created, restored, renamed, archived or deleted, the supervisor shall reconcile workers by immutable project_id and preserve queued operation identity including explicit Start with monitoring paused.
+"""
+
+verification = "Discover new/restored profiles; rename and recycle names without transferring commands; verify stopped-monitoring Start is admitted and archive/delete stop the exact worker; uncertain running operations remain uncertain."
+
+affected_paths = ["04_Software/adore/web/supervisor.py", "04_Software/adore/web/processes.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/worker_context.py", "04_Software/adore/web/store.py"]
+
+linked_tests = ["04_Software/tests/test_web_supervisor.py", "04_Software/tests/test_web_commands.py", "04_Software/tests/test_web_ownership.py", "04_Software/tests/test_run_concurrency.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

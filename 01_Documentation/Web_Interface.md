@@ -19,6 +19,24 @@ information, not a readiness gate or an AEGIS version claim. A missing local clo
 stays not inspected until an explicit check can read it. The live pre-pick probe
 remains authoritative for a present AEGIS payload.
 
+## Local worker processes
+
+`adore-web-worker --home <ADORE_HOME>` owns one home lock and supervises
+independent project and configuration processes. Project workers dispatch
+revision-bound single-run conductors. New/restored projects are discovered
+automatically; names are resolved through `project_id`. Renaming retires only
+that project’s old worker before replacement. Archive/delete removes that worker.
+
+Each process tree starts behind a containment gate: Windows uses kill-on-close
+Jobs, Linux uses dedicated sessions. Children verify every ancestor’s PID and
+creation identity before state/Git/forge effects. Stop uses shared two-second
+grace and five-second forced-drain deadlines per supervision boundary. An
+unconfirmed drain retains ownership evidence. Unknown liveness never permits
+takeover, and interrupted execution/publication is not automatically retried.
+
+Use one application Start/Stop through the portable launcher; service hosts
+run the API and one supervisor, with no per-project services.
+
 ## Direct jobs in Jobs
 
 The global and project Jobs tables identify the saved **Workflow** as **AEGIS** or
@@ -94,7 +112,7 @@ checks according to repository instructions. Direct implementation uses the
 
 ## Interface and project settings details
 
-Cancel and ticket Stop require confirmation. Cleanup attempts to remove the runtime and worktree, including unpublished work, and may retain resources on failure; job evidence stays. System status separates heartbeat from busy/idle/unknown activity. One worker handles projects and operations in turn; authorized cancellation signals can reach active work while commands wait. Monitoring refreshes from the actual operation result. Tickets bearing the configured epic label are not eligible, including manual Start; eligible tickets can still start with monitoring paused.
+Cancel and ticket Stop require confirmation. Cleanup attempts to remove the runtime and worktree, including unpublished work, and may retain resources on failure; job evidence stays. System status separates heartbeat from busy/idle/unknown activity. One local supervisor discovers independent project workers and a separate configuration consumer; each project dispatches up to its configured number of run conductors. Authorized cancellation signals can reach active work while commands wait. Monitoring refreshes from the actual operation result. Tickets bearing the configured epic label are not eligible, including manual Start; eligible tickets can still start with monitoring paused.
 
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 
@@ -1297,9 +1315,9 @@ the multiplier and defer automatic work using the same wait. Quiet windows use
 server-local time; explicit web commands remain available.
 The web worker keeps independent in-memory cadence/deadlines per immutable
 project identity and treats nonzero, timed-out, malformed or exceptional CLI
-outcomes as failed checks. Invalid configuration gets a 60-second recheck with
-no engine invocation. Restart resets cadence; serial work on another project
-may delay a due round. `polling.mode` governs standalone CLI startup; the web
+outcomes as failed checks. Invalid configuration gets a bounded two-second recheck with
+no engine invocation. Restart resets cadence. Independent project processes keep
+other projects progressing while a poll or job is blocked. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
 Project Settings exposes interval, jitter and error backoff controls. Standalone
 CLI startup mode is configured in the server TOML; its saved value remains
@@ -1483,5 +1501,10 @@ a stale heartbeat, reused PID or restarted neighbour cannot steal a live worker 
 its attached CLI child. Unknown liveness keeps ownership and requires inspection.
 This build accepts only the current web schema and reports which web database and
 initialization marker to delete when another schema is encountered; it never resets them.
-The worker command bridge still schedules serial CLI passes; independent process
-scheduling is outside this ownership contract.
+The web entry now supervises one process per immutable project identity and
+one process per active run. Each project has independent polling, backoff,
+quiet hours, commands and its canonical `polling.max_concurrent_runs` pool.
+Start remains available with monitoring paused; queued Starts wait for capacity.
+The supervisor does not conduct jobs. A separate configuration consumer handles
+existing pause/resume/delete commands; protected configuration candidates have
+their own consumer contract. No host-wide single-job ceiling is imposed.

@@ -27,6 +27,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 from threading import Event, Lock, Thread
@@ -106,7 +107,11 @@ class CommandWorker:
     """@brief Execute authorized persisted commands through ADORE's CLI."""
 
     def __init__(self, profiles: ProfileStore, web: WebStore,
-                 runner: Runner = _run) -> None:
+                 runner: Runner = _run, *, project_id: str | None = None,
+                 domains: tuple[str, ...] | None = None,
+                 actions: tuple[str, ...] = _COMMAND_ACTIONS,
+                 execution_owner: WorkerOwner | None = None,
+                 admit_only: bool = False) -> None:
         self.profiles = profiles
         self.web = web
         self.runner = runner
@@ -114,25 +119,40 @@ class CommandWorker:
         self._owners_lock = Lock()
         self._supervisor: WorkerOwner | None = None
         self._cancel_claims: dict[int, tuple[dict, WorkerOwner]] = {}
+        self.project_id = project_id
+        self.domains = domains
+        self.actions = actions
+        self.admit_only = admit_only
+        if execution_owner is not None:
+            if (execution_owner.role not in ("project", "command")
+                    or execution_owner.project_id != project_id):
+                raise OwnershipError("command worker project scope mismatch")
+            web.attach_worker(execution_owner)
+            self._owners[("execution", project_id)] = execution_owner
         # Unbuffered UTF-8 output keeps the engine's lines in order and every character printable.
         self.environment = {**os.environ, "ADORE_HOME": str(profiles.home),
                             "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
 
     def run_pending(self) -> int:
         """@brief Execute at most one pending command; return 1 if claimed."""
+        from adore.web.processes import assert_ancestry
+
+        assert_ancestry()
         owner = None
         operation = None
         if self._cancel_claims:
             operation, owner = self._cancel_claims.pop(next(iter(self._cancel_claims)))
         else:
-            for domain, project_id in self.web.pending_domains(actions=_COMMAND_ACTIONS):
-                if domain == "configuration_global":
+            for domain, project_id in self.web.pending_domains(actions=self.actions):
+                if (domain == "configuration_global"
+                        or self.project_id is not None and project_id != self.project_id
+                        or self.domains is not None and domain not in self.domains):
                     continue
                 try:
                     owner = self._owner(domain, project_id)
                     operation = self.web.claim_next(
                         owner, domain=domain,
-                        actions=_COMMAND_ACTIONS)
+                        actions=self.actions)
                 except OwnershipError:
                     continue
                 if operation is not None:
@@ -143,6 +163,7 @@ class CommandWorker:
             return 1
         def finish(operation_id, status, result, *, reason="", detail=""):
             """@brief Finish this exact claim and release completed configuration ownership."""
+            assert_ancestry()
             self.web.finish(operation_id, status, result, owner=owner,
                             generation=operation["generation"], reason=reason, detail=detail)
             if owner.role == "configuration":
@@ -205,6 +226,8 @@ class CommandWorker:
                     "--force", "--remove-resources", *(["--remove-clone"] if target else [])]
         elif action == "start" and target.isdigit() and int(target) > 0:
             argv.extend(["run", "--once", "--ticket", target])
+            if self.admit_only:
+                argv.append("--admit-only")
         elif action == "restart":
             match = re.fullmatch(r"([A-Za-z0-9._-]{1,160})\.([a-f0-9]{64})", target)
             try:
@@ -352,7 +375,14 @@ class CommandWorker:
 
     def _signal_pending_cancels(self) -> None:
         """@brief Claim and authorize before writing any durable cancel signal."""
+        from adore.web.processes import assert_ancestry
+
+        assert_ancestry()
+        if self.domains is not None and "execution" not in self.domains:
+            return
         for pending in self.web.pending_cancels():
+            if self.project_id is not None and pending["project_id"] != self.project_id:
+                continue
             try:
                 owner = self._owner("execution", pending["project_id"])
                 operation = self.web.claim_next(owner, domain="execution", action="cancel")
@@ -504,12 +534,18 @@ class CommandWorker:
 
 
 def main() -> int:
-    """@brief Launch the web control worker."""
+    """@brief Launch the single-home local process supervisor."""
+    from adore.web.supervisor import Supervisor
+
     parser = argparse.ArgumentParser(description="ADORE web control worker")
     parser.add_argument("--home", type=Path, default=None)
     args = parser.parse_args()
     profiles = ProfileStore(args.home)
-    CommandWorker(profiles, WebStore(profiles.home / "web.db")).run_forever()
+    stop = Event()
+    for name in ("SIGTERM", "SIGINT", "SIGBREAK"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), lambda *_: stop.set())
+    Supervisor(profiles, WebStore(profiles.home / "web.db")).run_forever(stop=stop)
     return 0
 
 

@@ -13,6 +13,8 @@ Fiecare proiect are o singură limită de lucrări simultane, comună pornirii, 
 
 Lucrările simultane au dosare de lucru, resurse, credențiale și ieșiri separate. Anularea uneia lasă celelalte lucrări active. Actualizările comune pot aștepta; agenții cu resurse pregătite continuă.
 
+Proiectele progresează independent. La limita de două, două lucrări pot rula împreună, iar următoarea pornire așteaptă un loc. Oprirea aplicației oprește lucrătorii și joburile; munca întreruptă cu rezultat incert cere verificare înainte de o reîncercare explicită.
+
 ## Etape {#stages}
 
 ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.

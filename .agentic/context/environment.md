@@ -304,7 +304,7 @@ Focused History and CLI deletion verification uses temporary home/profile stores
 Factory administrator proof uses isolated temporary identity stores and the serial offline browser fixture on port 18765. Production web source or help changes require a rebuilt and verified committed static bundle.
 
 
-Worker ownership proof uses isolated web schema-17 stores with injectable process births,
+Worker ownership proof uses isolated web schema-18 stores with injectable process births,
 independent SQLite connections and deterministic barriers/events. It never starts DCP,
 contacts a forge/model or executes a target repository check. Linux /proc and Windows
 process creation evidence distinguish PID reuse; unavailable probes retain ownership.
@@ -318,3 +318,11 @@ cleanup boundaries; no target repository checks or DCP operations run.
 
 
 Shared-resource proof uses isolated homes, injected Git/runtime/auth/Node boundaries and deterministic thread barriers. Kernel lock files stay outside deletable profiles. Run targeted component contracts only per umbrella instruction; global validation is deferred to the final umbrella pass.
+
+
+Supervisor proof uses actual Windows process trees and injected offline forge/Git/
+executor collaborators. File barriers prove simultaneous executor entry with
+independent PIDs, N+1 admission deferral and completed B while A is blocked. Parent
+crash proof observes descendant death and uncertain claims. Only targeted Python/
+help checks and the required static bundle build run in WK-04; final umbrella
+validation remains separate. Portable tools receive inspection/smoke only.

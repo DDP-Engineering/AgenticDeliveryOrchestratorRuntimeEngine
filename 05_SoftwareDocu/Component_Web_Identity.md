@@ -29,7 +29,7 @@ both check current membership.
 ## 3. Implementation Overview
 
 Each method opens a short-lived SQLite connection with foreign keys and a ten
-second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 17): a new
+second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 18): a new
 file gets it, and a database in any other version is refused with a message
 naming `web.db` and `web.db.initialized` to delete. There are no migrations
 while ADORE is in development (AGENTS.md "Stored data during development").
@@ -259,3 +259,11 @@ Delayed fresh-file observations and schema-zero waiters re-read under the initia
 lock and release it immediately once another initializer has committed a nonzero schema.
 They then validate existing history without writer ownership. An existing schema-zero
 store is refused without rebuilding, changing bytes or recreating accounts.
+
+
+Transient execution commands use an independent `command` owner per immutable
+project. They consume only execution-domain operations and cannot poll or consume
+configuration. The project worker stays alive independently; demonstrated command
+process death makes only that command incarnation’s unfinished claims uncertain.
+This build accepts web schema 18 only; delete `web.db` and `web.db.initialized`
+if the store is refused and a fresh start is intended.

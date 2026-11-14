@@ -5,7 +5,7 @@ Administration covers user accounts, project access, system health and the recor
 > Everything on this page requires the Administrator role.
 
 
-A recent heartbeat means the worker is available. **Busy** means it is executing a command or project poll; **Activity unknown** means activity evidence is unavailable. One worker handles projects and commands in turn, so queued commands can wait. An authorized cancellation signal can reach an active job before the queued command finishes.
+A recent heartbeat means the supervisor is available. **Busy** means a worker is executing a command, project poll or job; **Activity unknown** means activity evidence is unavailable. Projects progress independently, with parallel jobs up to each project’s limit. Configuration commands have a separate worker. Queued starts wait for capacity; authorized cancellation can reach active work.
 
 ## Users {#users}
 

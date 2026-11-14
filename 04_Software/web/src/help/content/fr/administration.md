@@ -5,7 +5,7 @@ L’Administration couvre les comptes utilisateurs, l’accès aux projets, la s
 > Tout ce qui figure sur cette page exige le rôle Administrateur.
 
 
-Un battement récent indique que le worker est disponible. **Occupé** indique une commande ou vérification en cours ; **Activité inconnue** indique une preuve indisponible. Un seul worker traite projets et commandes à tour de rôle. Un signal d’annulation autorisé peut atteindre une tâche active avant la fin de la commande en file.
+Un battement récent indique que le superviseur est disponible. **Occupé** indique une commande, une vérification ou une tâche en cours ; **Activité inconnue** indique une preuve indisponible. Les projets avancent indépendamment, avec des tâches parallèles selon leur limite. Les commandes de configuration ont un worker distinct. Les démarrages attendent une place ; une annulation autorisée peut atteindre une tâche active.
 
 ## Utilisateurs {#users}
 

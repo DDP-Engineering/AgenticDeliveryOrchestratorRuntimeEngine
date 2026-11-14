@@ -15,7 +15,8 @@ Node.js and Internet access are not needed to start the interface.
 ## Windows 11 x64
 
 Double-click **Start-ADORE.cmd**. Keep its window open while using ADORE.
-The browser opens when both the web server and command worker are ready.
+The browser opens when the web server and local supervisor are ready. The
+supervisor owns independent project workers, run pools and a configuration worker.
 Double-click **Stop-ADORE.cmd**, or press Ctrl+C in the start window, to stop.
 Use Stop-ADORE before closing the console window or updating the application.
 
@@ -54,11 +55,10 @@ use at most approximately 8 MiB. Startup failures show an error and the log
 location. Starting again opens the existing instance for that data folder.
 An unrelated program occupying the port produces an error.
 
-To update, stop ADORE, back up its data, extract the new version into a new
-folder and start it. Your accounts, projects and history remain in the data
-folder. Preserve a backup for rollback; older versions cannot reverse newer
-database migrations. You can move or rename the extracted application folder
-while ADORE is stopped.
+To replace the application, stop ADORE, back up its data and extract into a
+new folder. Each build accepts only its current stored formats; a refused store
+names the database/marker or run directory to delete for a fresh start. Never
+delete live ownership evidence. You can move the application folder while stopped.
 
 ## Optional arguments
 
@@ -67,7 +67,10 @@ The start scripts accept `--no-browser`, `--port 8766`, `--home <data-folder>`,
 (0..10). Use the same `--home` for the stop script if you override it.
 The launcher supervises both services, stops the surviving service after a
 crash, and retries the pair up to three times. Shutdown waits up to fifteen
-seconds before forcing termination. Interrupted jobs retain recovery state.
+seconds before forcing termination. The supervisor stops all project/run
+children with bounded tree shutdown. Parent creation identities fence children
+if the launcher disappears. Interrupted jobs and uncertain operations retain
+recovery evidence and require inspection; they are not automatically restarted.
 
 CLI access uses `ADORE.cmd --help` on Windows or `./adore.sh --help` on Linux.
 See [Documentation](Documentation/README.md) for project configuration and

@@ -28,6 +28,37 @@ not the 3 a.m. service start), and verify/build the configured executor base
 or runtime-project image.
 Re-running after a `git pull` updates the environment in place.
 
+## Web supervisor service
+
+The installers below configure the standalone CLI poller. For web operation,
+run the API and exactly one `adore-web-worker --home <absolute-home>` under the
+same service account and home. The worker command is a local process supervisor:
+it discovers project workers and creates run processes up to each project's
+`polling.max_concurrent_runs`. Monitoring pause leaves explicit Start available.
+A separate configuration consumer handles existing control operations. There is
+no Redis/Celery dependency or per-project service/task installation.
+
+On Linux, a web-worker service uses `ExecStart=<venv>/bin/adore-web-worker --home
+<absolute-home>`, `KillMode=control-group`, `TimeoutStopSec=20` and
+`Restart=on-failure`. Stop the single supervisor unit to stop its project/run
+trees. Keep the API's ordinary service configuration separate. Do not run the
+standalone CLI poller for the same managed profiles.
+
+On Windows, register one long-running `adore-web-worker.exe --home <absolute-home>`
+task beside the API, not a task per project. Its children use gated kill-on-close
+Jobs; a killed supervisor cannot leave conductors with writing authority.
+The portable application's Start/Stop scripts own both services and their
+children as one application on Windows and Linux. No script installation is
+required for newly created or restored projects.
+
+Each supervisor boundary requests Stop for all children together, allows two
+seconds of grace, then forces owned scopes and waits at most five seconds for
+roots. OS Job drain verification can add at most five seconds per scope on
+Windows. Unconfirmed scopes retain durable ownership. Recovery requires proven
+process death and never treats an uncertain publication as permission to repeat
+it. A stuck/crashed project worker is replaced independently with bounded
+backoff; other projects and configuration keep their own processes.
+
 ## Before either script
 
 1. Clone the repository and `cd 04_Software`, or enter an unpacked runtime

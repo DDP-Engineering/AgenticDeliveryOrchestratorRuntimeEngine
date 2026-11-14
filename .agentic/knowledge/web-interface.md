@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
-The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; the CLI bridge schedules commands and polls serially, with explicitly owned cancellation signals reaching active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
+The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; the CLI bridge is dispatched by a single-home supervisor into independent project/run processes, with explicitly owned cancellation signals reaching active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
 
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 
@@ -26,7 +26,7 @@ Technical details displays Durable job state folder (`state.store_root`), Workfl
 
 Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics → Agent and model**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Agent and model groups executor settings in Settings. Interval, jitter and backoff remain visible; standalone CLI startup mode (`polling.mode`) stays in TOML/raw configuration and the effective catalog. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
-Implementation uses shared four-locale names for reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes serial capacity with parked jobs excluded, lifetime launch counts, cumulative active time excluding waits and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
+Implementation uses shared four-locale names for reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes per-project concurrent capacity with parked jobs excluded, lifetime launch counts, cumulative active time excluding waits and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
 
 The revision-round limit belongs to PR/MR and review, with shared default five and localized combined-budget/exhaustion guidance. Acceptance checking defaults false; explicit values remain authoritative. Portable enrollment validates mapping size against the fifteen recognized rule keys.
 
@@ -609,7 +609,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   `detail` tail from `util.output_tail` with `jobs.redact_text` (redacted before
   the 20-line/2000-character cut), and a refused start keeps the CLI's
   not-started code for its own ticket as `reason` (REQ-FUNC-fbb6448c,
-  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 17), never in audit
+  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 18), never in audit
   evidence. The UI localizes `reason` through `operationReason.ts` in Tickets,
   Jobs and the project status, names a refused Start's kept labels only for a
   failure with a known reason, and opens Start/Stop confirmations as a row under their
@@ -1233,7 +1233,7 @@ publication only after validation and freshness checks.
 
 ## Durable worker ownership
 
-WK-01 queue ownership uses web schema 17 with explicit execution, configuration_project
+WK-01 queue ownership uses web schema 18 with explicit execution, configuration_project
 and configuration_global domains, canonical resource keys, operation/owner generations
 and role/project/run process participants. Register/claim/effect/finish calls require
 explicit handles. Revoked actors or immutable project identity fail closed at claim and

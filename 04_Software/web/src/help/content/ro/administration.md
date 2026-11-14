@@ -5,7 +5,7 @@ Administrarea acoperă conturile de utilizator, accesul la proiecte, starea sist
 > Tot ce se află pe această pagină cere rolul de Administrator.
 
 
-Un semnal recent arată că lucrătorul este disponibil. **Ocupat** înseamnă că execută o comandă sau verifică un proiect; **Activitate necunoscută** înseamnă că dovada lipsește. Un singur lucrător tratează proiectele și comenzile pe rând. Un semnal de anulare autorizat poate ajunge mai devreme la o lucrare activă.
+Un semnal recent arată că supervisorul este disponibil. **Ocupat** înseamnă o comandă, o verificare de proiect sau o lucrare în curs; **Activitate necunoscută** înseamnă că dovada lipsește. Proiectele progresează independent, cu lucrări paralele până la limita fiecăruia. Comenzile de configurare au un lucrător separat. Pornirile așteaptă un loc; anularea autorizată poate ajunge la o lucrare activă.
 
 ## Utilizatori {#users}
 

@@ -46,7 +46,7 @@ from adore.web.ownership import OwnershipError, WebStoreError, WorkerOwner, proc
 # CONSTANTS
 _HASHER = PasswordHasher()
 # The only schema this build reads or writes; there are no migrations (AGENTS.md).
-_SCHEMA_VERSION = 17
+_SCHEMA_VERSION = 18
 _SCHEMA = """
 CREATE TABLE users (
     id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE,
@@ -379,7 +379,7 @@ class WebStore:
     def register_worker(self, role: str, *, project_id: str = "",
                         run_id: str = "") -> WorkerOwner:
         """@brief Register one explicit role/project/run process incarnation.
-        @param[in] role Supervisor, project, run or configuration role.
+        @param[in] role Supervisor, project, transient command, run or configuration role.
         @param[in] project_id Immutable project ID; empty only for global roles.
         @param[in] run_id Exact run identity for run workers.
         @return Current server-issued owner handle.
@@ -424,12 +424,12 @@ class WebStore:
     @staticmethod
     def _worker_scope(role: str, project_id: str, run_id: str) -> None:
         """@brief Reject implicit/contradictory owner scope at the storage boundary."""
-        if (role not in ("supervisor", "project", "run", "configuration")
+        if (role not in ("supervisor", "project", "command", "run", "configuration")
                 or not isinstance(project_id, str) or not isinstance(run_id, str)
                 or (project_id and not re.fullmatch(r"[a-f0-9]{32}", project_id))
                 or (run_id and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id))
                 or (role == "supervisor" and (project_id or run_id))
-                or (role == "project" and (not project_id or run_id))
+                or (role in ("project", "command") and (not project_id or run_id))
                 or (role == "run" and (not project_id or not run_id))
                 or (role == "configuration" and run_id)):
             raise OwnershipError("invalid worker ownership scope")
@@ -1688,7 +1688,7 @@ class WebStore:
         """@brief Refuse cross-domain or implicit-project consumption."""
         if not isinstance(owner, WorkerOwner):
             raise OwnershipError("explicit worker ownership required")
-        expected = ("execution" if owner.role in ("project", "run") else
+        expected = ("execution" if owner.role in ("project", "command", "run") else
                     "configuration_project" if owner.role == "configuration" and owner.project_id
                     else "configuration_global" if owner.role == "configuration" else None)
         if domain != expected:

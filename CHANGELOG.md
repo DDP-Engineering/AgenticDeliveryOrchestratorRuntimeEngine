@@ -14,6 +14,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Run the web worker as one local supervisor with independent project workers and
+  per-project run pools, fenced process trees and bounded application shutdown.
+
 - Isolate concurrent job resources by project, serialize short shared mutations,
   preserve concurrent metrics exports and require proven ownership for cleanup.
 - Guard project archive and deletion across every live execution and cleanup reservation.

@@ -13,6 +13,8 @@ Chaque projet a une limite de tâches simultanées, commune au démarrage, aux r
 
 Les tâches simultanées ont leurs propres dossiers de travail, ressources, identifiants et sorties. Annuler une tâche laisse les autres actives. Les mises à jour communes peuvent attendre ; les agents prêts continuent.
 
+Les projets avancent indépendamment. Avec une limite de deux, deux tâches peuvent s’exécuter ensemble et le démarrage suivant attend une place. Arrêter l’application arrête ses workers et tâches ; un résultat interrompu incertain doit être vérifié avant de réessayer explicitement.
+
 ## Étapes {#stages}
 
 ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.

@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Projects progress independently and run jobs in parallel up to each project’s limit.", fr = "Les projets avancent séparément, avec des tâches parallèles selon leur propre limite.", de = "Projekte arbeiten unabhängig und führen Aufträge bis zu ihrer eigenen Grenze parallel aus.", ro = "Proiectele progresează independent și execută lucrări în paralel până la limita fiecăruia." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Start confirms job admission; Cancel confirms the actual stop. Live work survives worker recovery.", fr = "Démarrage et annulation confirment le résultat réel. Les tâches actives survivent à la reprise.", de = "Start bestätigt Aufnahme, Abbruch den Stopp. Aktive Arbeit bleibt bei der Wiederherstellung sicher.", ro = "Pornirea confirmă admiterea, anularea oprirea reală. Recuperarea păstrează lucrările active." }
 

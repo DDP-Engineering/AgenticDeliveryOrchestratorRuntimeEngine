@@ -28,7 +28,7 @@ Die Verwaltung umfasst Benutzerkonten, Projektzugriff, Systemzustand und das Pro
 > Alles auf dieser Seite erfordert die Rolle Administrator.
 
 
-Ein aktueller Heartbeat zeigt einen verfügbaren Worker. **Beschäftigt** bedeutet einen laufenden Befehl oder Projektlauf; **Aktivität unbekannt** bedeutet fehlenden Nachweis. Ein Worker bearbeitet Projekte und Befehle nacheinander. Ein berechtigtes Abbruchsignal kann einen aktiven Auftrag vorher erreichen.
+Ein aktueller Heartbeat zeigt einen verfügbaren Supervisor. **Beschäftigt** bedeutet einen laufenden Befehl, eine Projektabfrage oder einen Auftrag; **Aktivität unbekannt** bedeutet fehlenden Nachweis. Projekte arbeiten unabhängig und Aufträge parallel bis zur jeweiligen Projektgrenze. Konfigurationsbefehle haben einen eigenen Worker. Starts warten auf Kapazität; ein berechtigtes Abbruchsignal erreicht aktive Arbeit.
 
 ## Benutzer {#users}
 
@@ -326,6 +326,8 @@ Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt.
 Jedes Projekt hat eine gemeinsame Grenze für gleichzeitige Aufträge: Start, Wiederholen, Neustart und Fortsetzung. Die Überwachungspause stoppt die automatische Aufnahme und lässt den ausdrücklichen Start zu. Eine niedrigere Grenze lässt bestehende Aufträge weiterlaufen. Wartende Befehle und abgeschlossene Übergänge zur Klärungs-, Freigabe- oder Review-Wartephase nutzen keinen Executor; Initialisierung und Bereinigung behalten ihren Platz bis zur sicheren Freigabe. Warten vor der Ausführung verbraucht keine aktive Arbeitszeit.\r
 \r
 Parallele Aufträge haben eigene Arbeitsordner, Ressourcen, Zugangsdaten und Ausgaben. Wird einer abgebrochen, laufen die anderen weiter. Gemeinsame Aktualisierungen können warten; bereite Agenten arbeiten weiter.\r
+\r
+Projekte arbeiten unabhängig. Bei einer Grenze von zwei laufen zwei Aufträge gleichzeitig; der nächste Start wartet auf einen Platz. Das Beenden der Anwendung stoppt ihre Worker und Aufträge; unklare unterbrochene Arbeit muss vor einem ausdrücklichen Wiederholen geprüft werden.\r
 \r
 ## Phasen {#stages}\r
 \r
@@ -829,7 +831,7 @@ Administration covers user accounts, project access, system health and the recor
 > Everything on this page requires the Administrator role.
 
 
-A recent heartbeat means the worker is available. **Busy** means it is executing a command or project poll; **Activity unknown** means activity evidence is unavailable. One worker handles projects and commands in turn, so queued commands can wait. An authorized cancellation signal can reach an active job before the queued command finishes.
+A recent heartbeat means the supervisor is available. **Busy** means a worker is executing a command, project poll or job; **Activity unknown** means activity evidence is unavailable. Projects progress independently, with parallel jobs up to each project’s limit. Configuration commands have a separate worker. Queued starts wait for capacity; authorized cancellation can reach active work.
 
 ## Users {#users}
 
@@ -1127,6 +1129,8 @@ Start is confirmed after the job is durably admitted and taken by the worker. Th
 Each project has one concurrent-job limit, shared by Start, Retry, fresh restarts and resumed work. Pausing monitoring stops automatic pickup and keeps explicit Start available. Lowering the limit leaves existing jobs running. Queued commands and settled clarification, approval or review waits use no executor; initialization and cleanup keep their place until safe release. Waiting before execution does not consume active work.\r
 \r
 Concurrent jobs have separate working folders, execution resources, credentials and output. Cancelling one leaves the others running. Brief shared updates may wait; agents with ready resources continue.\r
+\r
+Projects progress independently. With a limit of two, two jobs can execute together while the next Start waits for a place. Stopping the application stops its workers and jobs; uncertain interrupted work requires inspection before an explicit Retry.\r
 \r
 ## Stages {#stages}\r
 \r
@@ -1630,7 +1634,7 @@ L’Administration couvre les comptes utilisateurs, l’accès aux projets, la s
 > Tout ce qui figure sur cette page exige le rôle Administrateur.
 
 
-Un battement récent indique que le worker est disponible. **Occupé** indique une commande ou vérification en cours ; **Activité inconnue** indique une preuve indisponible. Un seul worker traite projets et commandes à tour de rôle. Un signal d’annulation autorisé peut atteindre une tâche active avant la fin de la commande en file.
+Un battement récent indique que le superviseur est disponible. **Occupé** indique une commande, une vérification ou une tâche en cours ; **Activité inconnue** indique une preuve indisponible. Les projets avancent indépendamment, avec des tâches parallèles selon leur limite. Les commandes de configuration ont un worker distinct. Les démarrages attendent une place ; une annulation autorisée peut atteindre une tâche active.
 
 ## Utilisateurs {#users}
 
@@ -1928,6 +1932,8 @@ Le démarrage est confirmé après l’enregistrement durable et la prise en cha
 Chaque projet a une limite de tâches simultanées, commune au démarrage, aux reprises, aux nouveaux départs et au travail repris. La pause arrête la prise en charge automatique et conserve le démarrage explicite. Réduire la limite laisse les tâches actives continuer. Les commandes en attente et les attentes stabilisées de réponse, approbation ou revue n’utilisent pas d’exécuteur ; l’initialisation et le nettoyage gardent leur place jusqu’à libération sûre. L’attente avant exécution ne consomme pas de travail actif.\r
 \r
 Les tâches simultanées ont leurs propres dossiers de travail, ressources, identifiants et sorties. Annuler une tâche laisse les autres actives. Les mises à jour communes peuvent attendre ; les agents prêts continuent.\r
+\r
+Les projets avancent indépendamment. Avec une limite de deux, deux tâches peuvent s’exécuter ensemble et le démarrage suivant attend une place. Arrêter l’application arrête ses workers et tâches ; un résultat interrompu incertain doit être vérifié avant de réessayer explicitement.\r
 \r
 ## Étapes {#stages}\r
 \r
@@ -2431,7 +2437,7 @@ Administrarea acoperă conturile de utilizator, accesul la proiecte, starea sist
 > Tot ce se află pe această pagină cere rolul de Administrator.
 
 
-Un semnal recent arată că lucrătorul este disponibil. **Ocupat** înseamnă că execută o comandă sau verifică un proiect; **Activitate necunoscută** înseamnă că dovada lipsește. Un singur lucrător tratează proiectele și comenzile pe rând. Un semnal de anulare autorizat poate ajunge mai devreme la o lucrare activă.
+Un semnal recent arată că supervisorul este disponibil. **Ocupat** înseamnă o comandă, o verificare de proiect sau o lucrare în curs; **Activitate necunoscută** înseamnă că dovada lipsește. Proiectele progresează independent, cu lucrări paralele până la limita fiecăruia. Comenzile de configurare au un lucrător separat. Pornirile așteaptă un loc; anularea autorizată poate ajunge la o lucrare activă.
 
 ## Utilizatori {#users}
 
@@ -2729,6 +2735,8 @@ Pornirea este confirmată după admiterea durabilă și preluarea lucrării de c
 Fiecare proiect are o singură limită de lucrări simultane, comună pornirii, reîncercării, repornirii de la zero și reluării. Pauza monitorizării oprește preluarea automată și păstrează pornirea explicită. Reducerea limitei lasă lucrările existente să continue. Comenzile în coadă și așteptările stabilizate de clarificare, aprobare sau review nu ocupă un executor; inițializarea și curățarea păstrează locul până la eliberarea sigură. Așteptarea înainte de execuție nu consumă timp de lucru activ.\r
 \r
 Lucrările simultane au dosare de lucru, resurse, credențiale și ieșiri separate. Anularea uneia lasă celelalte lucrări active. Actualizările comune pot aștepta; agenții cu resurse pregătite continuă.\r
+\r
+Proiectele progresează independent. La limita de două, două lucrări pot rula împreună, iar următoarea pornire așteaptă un loc. Oprirea aplicației oprește lucrătorii și joburile; munca întreruptă cu rezultat incert cere verificare înainte de o reîncercare explicită.\r
 \r
 ## Etape {#stages}\r
 \r

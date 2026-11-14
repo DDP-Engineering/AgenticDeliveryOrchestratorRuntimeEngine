@@ -225,12 +225,19 @@ def _stop(children: list, service_stop: Path) -> None:
 
 def _service(role: str, home: Path, port: int, service_stop: Path) -> int:
     """@brief Adapt native stop signals to existing API/worker shutdown hooks."""
+    from adore.web.processes import assert_ancestry
+
     stop, done = Event(), Event()
 
     def watch_stop() -> None:
         """@brief Deliver the owner's stop request even without a Windows console."""
         while not done.wait(0.1):
-            if service_stop.exists():
+            try:
+                assert_ancestry()
+                parent_lost = False
+            except RuntimeError:
+                parent_lost = True
+            if parent_lost or service_stop.exists():
                 stop.set()
                 return
 
@@ -238,14 +245,14 @@ def _service(role: str, home: Path, port: int, service_stop: Path) -> int:
     watcher.start()
     if role == "worker":
         from adore.profiles import ProfileStore
-        from adore.web.commands import CommandWorker
+        from adore.web.supervisor import Supervisor
         from adore.web.store import WebStore
         for name in ("SIGINT", "SIGTERM", "SIGBREAK"):
             if hasattr(signal, name):
                 signal.signal(getattr(signal, name), lambda *_: stop.set())
         profiles = ProfileStore(home)
         try:
-            CommandWorker(profiles, WebStore(home / "web.db")).run_forever(stop=stop)
+            Supervisor(profiles, WebStore(home / "web.db")).run_forever(stop=stop)
         finally:
             done.set()
     else:
@@ -380,13 +387,16 @@ def main(argv: list[str] | None = None) -> int:
                 service_stop.unlink(missing_ok=True)
                 children, readers = [], []
                 try:
+                    from adore.web.processes import child_environment
+
                     for role in ("api", "worker"):
                         command = [sys.executable, "-I", "-B", str(BUNDLE / "launch.py"),
                                    "--service", role, "--home", str(home), "--port", str(args.port),
                                    "--service-stop", str(service_stop)]
                         options = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
                                    if os.name == "nt" else {"start_new_session": True})
-                        child = subprocess.Popen(command, cwd=home, env=env, stdout=subprocess.PIPE,
+                        child = subprocess.Popen(command, cwd=home, env=child_environment(env),
+                                                 stdout=subprocess.PIPE,
                                                  stderr=subprocess.STDOUT, text=True,
                                                  encoding="utf-8", errors="replace", **options)
                         children.append(child)

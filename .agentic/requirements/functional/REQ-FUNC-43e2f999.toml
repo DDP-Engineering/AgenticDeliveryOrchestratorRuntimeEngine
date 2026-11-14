@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-43e2f999"
+
+title = "Supervise independent project workers and per-project run pools"
+
+status = "active"
+
+requirement = """
+While the application is running, the local supervisor shall dispatch independent project workers whose run processes obey polling.max_concurrent_runs for each project.
+"""
+
+verification = "Real spawned offline helpers demonstrate A/B N=1 overlap and A N=2 overlap with third admission deferred; a blocked A leaves B progressing."
+
+affected_paths = ["02_Tools/portable/launch.py", "02_Tools/portable/README.md", "02_Tools/deploy/README.md", "04_Software/adore/release_notes.toml", "04_Software/adore/web/static/", "04_Software/web/src/help/content/en/administration.md", "04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/administration.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/administration.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/administration.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/processes.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/worker_context.py", "04_Software/adore/web/store.py"]
+
+linked_tests = ["04_Software/tests/test_web_supervisor.py", "04_Software/tests/test_web_commands.py", "04_Software/tests/test_web_ownership.py", "04_Software/tests/test_run_concurrency.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14
