@@ -162,6 +162,26 @@ the same flags. From `04_Software\` in a checkout, use
 
 ## Operational quick reference
 
+### Authorized DCP record maintenance, 2026-11-14
+
+`dcp_worker_records.py` records the one-off operator action explicitly requested
+for the worker deployment. It runs with the candidate's bundled Python, requires
+both ADORE services stopped, a private backup directory and the explicit
+`--authorize-record-rewrite` flag. It refuses active jobs, unfinished operations
+and any stored shape other than the inspected DCP records.
+
+The tool backs up the stopped home (excluding clones, worktrees and older backup
+trees) and database before writing. Accounts, sessions, memberships, audit,
+prices and usage rows remain identical. It adds the inspected missing run flag,
+records explicit queue scopes and retains completed image-build outcomes in
+protected result records. It is separate from application startup and the
+portable launchers; ADORE still accepts only its current stored formats.
+
+The deployed application, existing TLS configuration and all eight project
+configurations were checked directly after replacement. Deployment/setup tools
+are verified by inspection and bounded operational checks, without automated
+tests for these scripts.
+
 ```bash
 adore status            # health, lock, run counts
 adore runs              # per-run table
