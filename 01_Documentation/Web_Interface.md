@@ -172,6 +172,9 @@ reporting filters; displayed timestamps use the browser/device local timezone.
 
 Projects offers administrators **Enroll new project** for guided setup and
 **Import raw configuration** to select an existing `config.toml` or complete exported ZIP in a dialog.
+Repository and identity shows concise localized hints for the repository URL,
+**Read repository**, the fixed project ID and editable display name. The hints
+are associated with their inputs for assistive technology.
 Enroll new project starts from the repository URL (https or ssh): **Read repository**
 detects the forge (github.com, gitlab.com or a matching server `tea` login), the
 repository, the Gitea login and the default branch, derives the project ID from the

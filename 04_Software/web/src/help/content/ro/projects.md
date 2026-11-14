@@ -21,6 +21,8 @@ Pregătiți următoarele:
 
 ## Înrolarea unui proiect nou {#add-project}
 
+Indicațiile de sub **URL-ul repository-ului** explică adresa și acțiunea **Citește repository-ul**. Ghidul de identitate explică ID-ul fix al proiectului și câmpul editabil **Nume afișat**.
+
 Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul ghidat începe cu Repository și identitate și are cinci pași, iar schimbarea oricărui răspuns face ca validările și verificările anterioare să devină învechite.
 
 Când nu mai există proiecte, Prezentare și Proiecte oferă administratorilor **Înrolează un proiect nou** și **Importă configurația brută**. Ștergerea ultimului proiect vă readuce la Proiecte, unde ambele acțiuni rămân disponibile.

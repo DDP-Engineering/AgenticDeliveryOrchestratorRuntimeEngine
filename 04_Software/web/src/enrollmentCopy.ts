@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import type { Locale } from "./i18n";
 
 const en = {
+  urlHint: "Enter an HTTPS or SSH repository address, then choose Read repository.",
+  identityHint: "The project ID comes from the repository name and stays fixed. You can edit the display name.",
   steps: ["Repository and identity", "Agent and model", "Eligibility, reviewers and limits", "Verification", "Review and create"],
   stepsLabel: "Enrollment steps", identity: "The display name is the label people see (1–120 characters). ADORE derives the project ID from the repository name; the ID names server folders and addresses and cannot change later.",
   login: "For Gitea, enter the existing tea login name configured on the ADORE server; leave blank to use its default login. Other forges use the server CLI's existing authentication.",
@@ -58,6 +60,8 @@ type Copy = { [K in keyof typeof en]: typeof en[K] extends string[] ? string[] :
 export const enrollmentCopy: Record<Locale, Copy> = {
   en,
   fr: {
+    urlHint: "Saisissez l’adresse HTTPS ou SSH du dépôt, puis choisissez Lire le dépôt.",
+    identityHint: "L’identifiant du projet vient du nom du dépôt et reste fixe. Le nom affiché est modifiable.",
     steps: ["Dépôt et identité", "Agent et modèle", "Éligibilité, relecteurs et limites", "Vérification", "Révision et création"],
     stepsLabel: "Étapes d'inscription", identity: "Le nom affiché est le libellé visible (1 à 120 caractères). ADORE déduit l’identifiant du projet du nom du dépôt ; il nomme les dossiers et adresses du serveur et ne peut plus changer.",
     login: "Pour Gitea, indiquez le nom de connexion tea existant sur le serveur ADORE ; vide utilise la connexion par défaut. Les autres forges utilisent l'authentification CLI du serveur.",
@@ -98,6 +102,8 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     },
   },
   de: {
+    urlHint: "Geben Sie die HTTPS- oder SSH-Adresse des Repositorys ein und wählen Sie Repository lesen.",
+    identityHint: "Die Projekt-ID wird aus dem Repository-Namen abgeleitet und bleibt fest. Der Anzeigename ist änderbar.",
     steps: ["Repository und Identität", "Agent und Modell", "Eignung, Prüfer und Grenzen", "Überprüfung", "Prüfen und erstellen"],
     stepsLabel: "Registrierungsschritte", identity: "Der Anzeigename ist die sichtbare Bezeichnung (1–120 Zeichen). ADORE leitet die Projekt-ID aus dem Repository-Namen ab; sie benennt Serverordner und Adressen und lässt sich später nicht ändern.",
     login: "Für Gitea geben Sie den vorhandenen tea-Login auf dem ADORE-Server an; leer verwendet den Standardlogin. Andere Plattformen verwenden die vorhandene Server-CLI-Anmeldung.",
@@ -135,6 +141,8 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     },
   },
   ro: {
+    urlHint: "Introdu adresa HTTPS sau SSH a repository-ului, apoi alege Citește repository-ul.",
+    identityHint: "ID-ul proiectului provine din numele repository-ului și rămâne fix. Poți edita numele afișat.",
     steps: ["Repository și identitate", "Agent și model", "Eligibilitate, recenzori și limite", "Verificare", "Revizuire și creare"],
     stepsLabel: "Pașii înrolării", identity: "Numele afișat este eticheta vizibilă (1–120 caractere). ADORE derivă ID-ul proiectului din numele repository-ului; ID-ul numește dosarele și adresele de pe server și nu se mai poate schimba.",
     login: "Pentru Gitea, introdu numele loginului tea existent pe serverul ADORE; gol folosește loginul implicit. Celelalte platforme folosesc autentificarea CLI existentă pe server.",

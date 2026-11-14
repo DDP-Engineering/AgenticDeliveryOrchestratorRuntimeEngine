@@ -377,7 +377,11 @@ draft. Dirty shell/context/history/cancel/sign-out navigation confirms loss;
 beforeunload uses the browser warning. Only existing language/theme storage remains.
 Local validation and server findings produce an alert summary with corrective-step
 buttons. The alert, matching input or step heading receives keyboard focus.
-Required guidance is associated with controls through aria-describedby.
+Required guidance is associated with controls through aria-describedby. Repository and
+identity keeps two concise hints visible before and after repository detection:
+repository URL/read action and derived fixed ID/editable display name. Four-locale
+copy lives in enrollmentCopy.ts; URL and identity inputs retain their hint
+associations alongside any validation-error descriptions.
 
 setup-preview is structural and never probes. Explicit setup-check explains effects
 first and displays revision/time-bound failed/partial/unverified/current evidence

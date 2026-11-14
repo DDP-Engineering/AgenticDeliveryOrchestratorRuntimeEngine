@@ -21,6 +21,8 @@ Préparez ces éléments :
 
 ## Inscrire un nouveau projet {#add-project}
 
+Les indications sous **URL du dépôt** expliquent l’adresse et l’action **Lire le dépôt**. L’aide sur l’identité décrit l’identifiant fixe du projet et le **Nom affiché** modifiable.
+
 Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assistant guidé commence par Dépôt et identité et comporte cinq étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.
 
 Lorsqu’il ne reste aucun projet, Vue d’ensemble et Projets proposent **Inscrire un nouveau projet** et **Importer la configuration brute** aux administrateurs. La suppression du dernier projet vous ramène à Projets, où ces deux actions restent disponibles.

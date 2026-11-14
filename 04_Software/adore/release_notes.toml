@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "fixed"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Project enrollment explains the repository URL and project identity.", fr = "L’inscription explique l’URL du dépôt et l’identité du projet.", de = "Bei der Projektregistrierung werden Repository-URL und Projektidentität erklärt.", ro = "Înrolarea proiectului explică URL-ul repository-ului și identitatea proiectului." }
+
+[[release.entry]]
+category = "fixed"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
 text = { en = "Brief Windows file contention no longer interrupts saving settings.", fr = "Les conflits brefs d’accès aux fichiers Windows n’interrompent plus l’enregistrement.", de = "Kurze Dateizugriffskonflikte unter Windows unterbrechen das Speichern nicht mehr.", ro = "Conflictele scurte de acces la fișiere în Windows nu mai întrerup salvarea setărilor." }
 

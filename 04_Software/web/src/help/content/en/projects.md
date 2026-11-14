@@ -21,6 +21,8 @@ Have these ready:
 
 ## Enroll new project {#add-project}
 
+Short hints under **Repository URL** explain the address and **Read repository** action. Identity guidance explains the fixed project ID and editable **Display name**.
+
 Choose **Enroll new project** on [Projects](/projects). The guided wizard starts at Repository and identity and takes five steps, and changing any answer makes earlier validation and checks stale.
 
 When no projects remain, Overview and Projects offer **Enroll new project** and **Import raw configuration** to administrators. Deleting the last project returns you to Projects, where both actions remain available.

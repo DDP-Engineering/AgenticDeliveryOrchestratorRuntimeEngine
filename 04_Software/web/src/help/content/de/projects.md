@@ -21,6 +21,8 @@ Halten Sie Folgendes bereit:
 
 ## Neues Projekt registrieren {#add-project}
 
+Kurze Hinweise unter **Repository-URL** erklären die Adresse und **Repository lesen**. Der Identitätshinweis beschreibt die feste Projekt-ID und den änderbaren **Anzeigenamen**.
+
 Wählen Sie unter [Projekte](/projects) **Neues Projekt registrieren**. Der geführte Assistent beginnt mit Repository und Identität und besteht aus fünf Schritten; jede Änderung einer Angabe macht frühere Validierungen und Prüfungen ungültig.
 
 Wenn keine Projekte mehr vorhanden sind, bieten Übersicht und Projekte Administratoren **Neues Projekt registrieren** und **Rohkonfiguration importieren** an. Nach dem Löschen des letzten Projekts kehren Sie zu Projekte zurück, wo beide Aktionen verfügbar bleiben.

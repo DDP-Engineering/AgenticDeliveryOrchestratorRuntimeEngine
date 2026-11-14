@@ -449,7 +449,10 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       endpoint_api: ENDPOINT_APIS, thinking: ["", ...providerThinking(draft.provider, draft.model, catalog)] };
     const error = findings.some(item => fieldFor(item.field) === key);
     const common = { id: "enroll-" + key, value: draft[key],
-      "aria-describedby": error ? "error-" + key : undefined,
+      "aria-describedby": [
+        ["display_name", "description"].includes(key) ? "enrollment-help-identity" : "",
+        error ? "error-" + key : "",
+      ].filter(Boolean).join(" ") || undefined,
       "aria-invalid": error || undefined, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => change(key, event.target.value) };
     return <div className="enrollment-field" key={key}>
       <label htmlFor={common.id}>{labels[key]}{!["description", "login", "local_path", "reviewers", "env_keys", "thinking"].includes(key) && <span aria-hidden="true"> *</span>}</label>
@@ -523,12 +526,15 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
               <div className="inline-field">
                 <input id="enroll-clone_url" value={draft.clone_url} autoComplete="off" maxLength={512}
                   placeholder={t("examplePrefix") + " " + examples.clone_url}
+                  aria-describedby="enrollment-help-url"
                   aria-invalid={findings.some(item => fieldFor(item.field) === "clone_url") || undefined}
                   onChange={event => change("clone_url", event.target.value)}
                   onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void readRepository(); } }} />
                 <button type="button" className={detected ? "ghost" : "primary"} onClick={() => void readRepository()} disabled={detecting} aria-busy={detecting}>{detecting ? c.reading : c.read}</button>
               </div>
+              <p id="enrollment-help-url" className="field-hint">{c.urlHint}</p>
             </div>
+            <p id="enrollment-help-identity" className="field-hint">{c.identityHint}</p>
             {detected && <section className="enrollment-review detected-source" aria-label={c.detected}>
               <h3>{c.detected}</h3>
               <dl>
