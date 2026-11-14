@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "fixed"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Brief Windows file contention no longer interrupts saving settings.", fr = "Les conflits brefs d’accès aux fichiers Windows n’interrompent plus l’enregistrement.", de = "Kurze Dateizugriffskonflikte unter Windows unterbrechen das Speichern nicht mehr.", ro = "Conflictele scurte de acces la fișiere în Windows nu mai întrerup salvarea setărilor." }
+
+[[release.entry]]
+category = "fixed"
 topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
 text = { en = "Instruction errors are explained in your selected language.", fr = "Les erreurs d’instruction sont expliquées dans la langue choisie.", de = "Fehler bei Anweisungen werden in der gewählten Sprache erklärt.", ro = "Erorile instrucțiunilor sunt explicate în limba selectată." }
 

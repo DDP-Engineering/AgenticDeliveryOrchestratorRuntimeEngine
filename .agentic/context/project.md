@@ -188,6 +188,10 @@ protects the worktree from routine cleanup and further autonomous execution.
   contract in `05_SoftwareDocu/` and a page in `.agentic/knowledge/`, updated
   in the same change as the component.
 
+Profile metadata reads use bounded sharing retries, including errno-only access
+denial. Immutable-ID lookup uses one strict metadata scan, rejecting unreadable or
+duplicate identities while genuine absence remains missing; no schema/timestamp change.
+
 ## Implementation orientation
 
 - `04_Software/adore/` is the package; `04_Software/tests/` is the fully

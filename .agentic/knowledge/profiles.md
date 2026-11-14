@@ -41,10 +41,15 @@ Writes are atomic, corrupt metadata fails closed and is reported, and deletion
 clears a matching active pointer. The store deliberately persists metadata
 only, never credentials or `.env` values.
 Metadata replacement uses a unique temporary file and bounded Windows sharing
-retries. A persistent error preserves the previous metadata file. Reads retry only recognized
-Windows sharing errors over five attempts/185 ms scheduled delay; persistent denial
-and malformed/missing data still fail closed. Focused proof is
-`test_profile_read_bounds_windows_sharing_contention` in test_profiles.py.
+retries. A persistent error preserves the previous metadata file. Reads recognize
+winerror5/32/33 and errnoEACCES without winerror over five attempts/185ms scheduled
+delay; persistent denial and malformed/missing data still fail closed. Immutable
+lookup loads every candidate once, propagates read failures rather than skipping
+profiles, rejects duplicates and returns None only when the requested ID is absent.
+Discovery/stat I/O failures propagate as typed profile errors.
+The schema, save timestamps and display-list behavior stay unchanged. Focused proof
+is test_profiles.py and test_web_profile_visibility.py, including retained HTTP503
+storage errors, genuine deleted-project404 and non-admin operation concealment.
 Each profile has an immutable 32-hex `project_id` distinct from its directory
 label: `create()` assigns a random one and `save()` requires one. A rename
 persists that ID, while a malformed ID fails closed. A `profile.json` with
@@ -71,8 +76,8 @@ route set; `test_web_transfer.py` proves the portable route boundary.
 
 This standard-library component uses `adore.util` and the package version.
 `04_Software/tests/test_profiles.py` covers home resolution, CRUD, active
-pointer consistency, resolution precedence, corrupt metadata, and unknown-key
-tolerance offline.
+pointer consistency, resolution precedence, corrupt metadata, and strict stored-field
+validation offline.
 
 Public display/ID boundary coverage also lives in `test_web_enrollment.py`
 (`REQ-DATA-d893df33`, `REQ-FUNC-e8e0e304`).

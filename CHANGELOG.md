@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep project identity visible through brief Windows metadata read contention and refuse unreadable identity scans.
+
 - Complete four-locale instruction API errors, align packaged Pi guard policy text and restore environment-status/catalog verification contracts.
 
 - Remove the redundant project capacity panel from Settings, Statistics, History and Access.

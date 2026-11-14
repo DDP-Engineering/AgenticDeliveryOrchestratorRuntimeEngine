@@ -409,3 +409,10 @@ environment202/grants/candidate preservation and exact settings catalog membersh
 plus Node errors/settingHelp/configurationTasks and selected existing browser journeys.
 It uses isolated fake runners and no live installation/provider/forge/container work.
 The parent owns the fresh full integrated proof and deployment after the repair commit.
+
+Profile visibility proof uses deterministic public load/immutable-ID and accepted-operation
+HTTP tests plus bounded native Windows temporary-home publication probes. Transient
+CRT errnoEACCES without winerror is exercised directly; persistent denial, unrelated
+I/O, corruption, duplicates, missing/deleted IDs and authorization remain explicit.
+Unchanged Settings branch/API-only recovery journeys run in the offline18765 home.
+Full native Linux Python and Windows frontend integration remain parent-owned.

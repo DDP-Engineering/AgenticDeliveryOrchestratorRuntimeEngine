@@ -160,9 +160,16 @@ keep membership, operations and paths, corrupt labels, portable IDs, incomplete 
 
 ## Concurrent configuration reads
 
-Profile metadata reads tolerate only recognized transient Windows sharing errors
-from concurrent atomic replacement, with five attempts and at most 185 ms scheduled
-delay. Persistent permission errors and malformed/missing metadata still raise
-ProfileError; no data is repaired or replaced. This keeps a fast B publication from
-being misclassified as corrupt registry data by independent A/control readers.
-Focused happy/persistent-denial proof is test_profile_read_bounds_windows_sharing_contention.
+Profile metadata reads recognize Windows sharing codes5/32/33 and permission denial
+with errnoEACCES when no winerror is supplied (the Windows CRT open shape). Both use
+five attempts and at most185ms scheduled delay. Persistent denial, other I/O errors
+and malformed/missing metadata raise ProfileError; reads never repair stored data.
+Immutable-ID lookup loads each metadata candidate once in a strict scan. A failed
+read raises the existing corrupt-metadata error instead of being silently skipped;
+duplicate identities are refused, while genuinely absent or deleted IDs return None.
+Metadata discovery/stat I/O errors remain typed refusals.
+Display listing continues to skip corrupt entries and invalid_profiles reports them.
+Metadata fields, save timestamps and atomic write/retry behavior are unchanged.
+Focused proof is test_profiles.py and test_web_profile_visibility.py: transient and
+persistent reads, unrelated errors, corrupt JSON, duplicate/malformed IDs, deletion,
+accepted-operation identity and retained service-error/authorization boundaries.

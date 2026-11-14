@@ -11,11 +11,13 @@
 @file test_profiles.py
 @brief Tests for the runtime-project profile store (config home, CRUD, active
        pointer, config-path resolution) - all offline in a tmp ADORE home.
+@details Public persistence and identity boundaries cover contention and corrupt data.
 """
 
 from __future__ import annotations
 
 # IMPORTS
+import errno
 import json
 from pathlib import Path
 
@@ -340,35 +342,183 @@ def test_profile_identity_survives_rename_and_bad_ids_fail(tmp_path: Path) -> No
         store.load("new")
 
 
-# END OF FILE
 
 
 @pytest.mark.parametrize("persistent", [False, True])
-def test_profile_read_bounds_windows_sharing_contention(tmp_path, monkeypatch, persistent):
+@pytest.mark.parametrize("winerror", [5, 32, 33, None])
+def test_profile_read_bounds_windows_sharing_contention(
+    tmp_path, monkeypatch, persistent, winerror,
+):
     """@brief Retry transient metadata replacement sharing; persistent denial fails closed."""
     store = ProfileStore(tmp_path)
     expected = store.create("alpha")
     target = store.profile_dir("alpha") / "profile.json"
     original_open = Path.open
     calls = []
+    delays = []
 
     def contended(path, *args, **kwargs):
         if path == target:
             calls.append(True)
             if persistent or len(calls) <= 2:
-                error = PermissionError("simulated metadata replacement sharing")
-                error.winerror = 32
+                error = PermissionError(errno.EACCES, "simulated metadata replacement sharing")
+                if winerror is not None:
+                    error.winerror = winerror
                 raise error
         return original_open(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "open", contended)
-    monkeypatch.setattr("adore.profiles.sleep", lambda seconds: None)
+    monkeypatch.setattr("adore.profiles.sleep", delays.append)
     if persistent:
         with pytest.raises(ProfileError):
             store.load("alpha")
         assert len(calls) == 5
+        assert sum(delays) == pytest.approx(0.185)
     else:
         assert store.load("alpha").project_id == expected.project_id
         assert len(calls) == 3
+        assert sum(delays) <= 0.185
     with original_open(target, encoding="utf-8") as stream:
         assert json.load(stream)["project_id"] == expected.project_id
+
+
+@pytest.mark.parametrize("error_kind", ["permission", "unrelated", "corrupt"])
+def test_identity_lookup_never_silently_omits_a_failed_read(tmp_path, monkeypatch, error_kind):
+    """@brief Return a coherent identity or typed refusal, never missing for a failed read."""
+    store = ProfileStore(tmp_path)
+    expected = store.create("alpha")
+    target = store.profile_dir("alpha") / "profile.json"
+    original_open = Path.open
+    reads = 0
+
+    def changes_after_read(path, *args, **kwargs):
+        """@brief Permit a complete read, then expose a boundary failure on any rescan."""
+        nonlocal reads
+        if path == target:
+            reads += 1
+            if reads > 1:
+                if error_kind == "permission":
+                    raise PermissionError(errno.EACCES, "metadata temporarily unreadable")
+                if error_kind == "unrelated":
+                    raise OSError(errno.EIO, "metadata read failed")
+                raise json.JSONDecodeError("corrupt metadata", "{", 0)
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", changes_after_read)
+    monkeypatch.setattr("adore.profiles.sleep", lambda seconds: None)
+    try:
+        observed = store.find_by_id(expected.project_id)
+    except ProfileError:
+        return
+    assert observed is not None and observed.project_id == expected.project_id
+
+
+@pytest.mark.parametrize(
+    "boundary", ["persistent", "stat_denied", "unrelated", "corrupt", "duplicate"],
+)
+def test_identity_lookup_fails_closed_on_bad_metadata(tmp_path, monkeypatch, boundary):
+    """@brief Persistent denial, unrelated I/O, corrupt JSON and duplicate IDs cannot disappear."""
+    store = ProfileStore(tmp_path)
+    expected = store.create("alpha")
+    target = store.profile_dir("alpha") / "profile.json"
+    original_open = Path.open
+    original = target.read_bytes()
+    attempts = []
+    if boundary == "stat_denied":
+        original_stat = Path.stat
+
+        def denied_stat(path, *args, **kwargs):
+            """@brief A denied metadata stat cannot turn an existing identity into absence."""
+            if path == target:
+                raise PermissionError(errno.EACCES, "metadata stat denied")
+            return original_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "stat", denied_stat)
+    elif boundary == "duplicate":
+        duplicate = store.create("beta")
+        duplicate.project_id = expected.project_id
+        store.save(duplicate)
+    elif boundary == "corrupt":
+        target.write_text("{corrupt", encoding="utf-8")
+    else:
+        def denied(path, *args, **kwargs):
+            """@brief Keep physical bytes while refusing one metadata read boundary."""
+            if path == target:
+                attempts.append(True)
+                if boundary == "persistent":
+                    raise PermissionError(errno.EACCES, "persistent denial")
+                raise OSError(errno.EIO, "unrelated failure")
+            return original_open(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "open", denied)
+        monkeypatch.setattr("adore.profiles.sleep", lambda seconds: None)
+    with pytest.raises(ProfileError):
+        store.find_by_id(expected.project_id)
+    if boundary in ("persistent", "unrelated"):
+        assert len(attempts) == (5 if boundary == "persistent" else 1)
+        with original_open(target, "rb") as handle:
+            assert handle.read() == original
+
+
+def test_identity_lookup_distinguishes_present_unknown_and_deleted(tmp_path):
+    """@brief Resolve valid IDs exactly; absent IDs return None without recreating metadata."""
+    store = ProfileStore(tmp_path)
+    profile = store.create("alpha", repo="synthetic/repo")
+    assert store.find_by_id(profile.project_id) == profile
+    assert store.find_by_id("0" * 32) is None
+    store.delete("alpha")
+    assert store.find_by_id(profile.project_id) is None
+    assert not store.profile_dir("alpha").exists()
+
+
+@pytest.mark.parametrize("error_kind", ["permission", "unknown_windows", "corrupt", "stat"])
+def test_profile_read_does_not_retry_unrelated_failures(tmp_path, monkeypatch, error_kind):
+    """@brief Retry only recognized denials; malformed bytes and other errors fail closed."""
+    store = ProfileStore(tmp_path)
+    store.create("alpha")
+    target = store.profile_dir("alpha") / "profile.json"
+    original_open = Path.open
+    attempts = []
+    delays = []
+
+    def failed_read(path, *args, **kwargs):
+        """@brief Fail one metadata boundary without changing the physical file."""
+        if path == target:
+            attempts.append(True)
+            if error_kind == "corrupt":
+                raise json.JSONDecodeError("bad metadata", "{", 0)
+            error = PermissionError(errno.EPERM if error_kind == "permission" else errno.EACCES,
+                                    "unrelated access failure")
+            if error_kind == "unknown_windows":
+                error.winerror = 87
+            raise error
+        return original_open(path, *args, **kwargs)
+
+    if error_kind == "stat":
+        original_stat = Path.stat
+
+        def failed_stat(path, *args, **kwargs):
+            """@brief Refuse metadata discovery with a typed I/O boundary."""
+            if path == target:
+                attempts.append(True)
+                raise PermissionError(errno.EACCES, "stat denied")
+            return original_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "stat", failed_stat)
+    monkeypatch.setattr(Path, "open", failed_read)
+    monkeypatch.setattr("adore.profiles.sleep", delays.append)
+    with pytest.raises(ProfileError):
+        store.load("alpha")
+    assert len(attempts) == 1 and delays == []
+
+
+@pytest.mark.parametrize("identity", [None, "not-an-id", "F" * 32, 17])
+def test_identity_lookup_rejects_malformed_requested_ids(tmp_path, identity):
+    """@brief An invalid external identity is refused without recreating profile storage."""
+    store = ProfileStore(tmp_path)
+    with pytest.raises(ProfileError, match="invalid project ID"):
+        store.find_by_id(identity)
+    assert not store.profiles_dir.exists()
+
+
+# END OF FILE

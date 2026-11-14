@@ -28,6 +28,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, fields
+import errno
 import json
 import os
 from pathlib import Path
@@ -389,9 +390,9 @@ class ProfileStore:
                     closed: reported, never reinitialized).
         """
         path = self._metadata_path(name)
-        if not path.is_file():
-            raise ProfileError(f"no such profile: {name!r}")
         try:
+            if not path.is_file():
+                raise ProfileError(f"no such profile: {name!r}")
             for attempt, delay in enumerate((0.0, 0.01, 0.025, 0.05, 0.1)):
                 if delay:
                     sleep(delay)
@@ -400,9 +401,12 @@ class ProfileStore:
                         data = json.load(handle)
                     break
                 except PermissionError as exc:
-                    # Atomic replacement may briefly deny a Windows reader. Retry
-                    # only recognized sharing errors; malformed data never retries.
-                    if getattr(exc, "winerror", None) not in (5, 32, 33) or attempt == 4:
+                    # Windows CRT reads can report EACCES without winerror during
+                    # replacement. Bound that denial like explicit sharing errors.
+                    winerror = getattr(exc, "winerror", None)
+                    sharing = winerror in (5, 32, 33) or (
+                        winerror is None and exc.errno == errno.EACCES)
+                    if not sharing or attempt == 4:
                         raise
         except (json.JSONDecodeError, OSError) as exc:
             raise ProfileError(f"corrupt profile.json for {name!r}: {exc}") from exc
@@ -425,13 +429,20 @@ class ProfileStore:
         return sorted(profiles, key=lambda profile: profile.name)
 
     def find_by_id(self, project_id: str) -> Profile | None:
-        """@brief Resolve one immutable project ID, rejecting corrupt collisions."""
+        """
+        @brief Resolve an immutable ID from one strict metadata scan.
+        @param[in] project_id Valid 32-hex project identity.
+        @return Matching profile, or None when no stored profile has that ID.
+        @exception ProfileError Invalid identity, unreadable metadata or duplicate ID.
+        @note Unlike display listings, identity lookup never skips a failed read.
+        """
         if not isinstance(project_id, str) or not re.fullmatch(r"[0-9a-f]{32}", project_id):
             raise ProfileError("invalid project ID")
-        if self.invalid_profiles():
-            raise ProfileError("project metadata is corrupt")
-        matches = [item for item in self.list_profiles()
-                   if item.project_id == project_id]
+        try:
+            profiles = [self.load(name) for name in self._profile_names()]
+        except (ProfileError, OSError) as exc:
+            raise ProfileError("project metadata is corrupt") from exc
+        matches = [item for item in profiles if item.project_id == project_id]
         if len(matches) > 1:
             raise ProfileError("duplicate project ID")
         return matches[0] if matches else None

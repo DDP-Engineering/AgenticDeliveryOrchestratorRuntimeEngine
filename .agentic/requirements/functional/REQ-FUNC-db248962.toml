@@ -49,14 +49,14 @@ The profile store shall resolve configuration in explicit-path, named-profile, a
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated profile tests verify the complete precedence matrix and reject corrupt profile JSON."
+verification = "Automated profile tests verify precedence and a strict immutable-ID scan: complete identity or typed refusal after a failed rescan; duplicate/malformed IDs, metadata stat failures, corrupt JSON and persistent/unrelated read failures fail closed. Missing/deleted IDs return None. Offline accepted-operation polls recover transient errno-only access denial while retaining typed persistent/corrupt503, genuine deletion404 and non-admin operation concealment."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/profiles.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_profiles.py::test_resolve_config_path_precedence", "04_Software/tests/test_profiles.py::test_corrupt_profile_json_fails_closed"]
+linked_tests = ["04_Software/tests/test_profiles.py::test_resolve_config_path_precedence", "04_Software/tests/test_profiles.py::test_corrupt_profile_json_fails_closed", "04_Software/tests/test_profiles.py::test_identity_lookup_never_silently_omits_a_failed_read", "04_Software/tests/test_profiles.py::test_identity_lookup_fails_closed_on_bad_metadata", "04_Software/tests/test_profiles.py::test_identity_lookup_distinguishes_present_unknown_and_deleted", "04_Software/tests/test_profiles.py::test_identity_lookup_rejects_malformed_requested_ids", "04_Software/tests/test_web_profile_visibility.py"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Several projects can share one installation only when their selection and metadata are unambiguous."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-11-14

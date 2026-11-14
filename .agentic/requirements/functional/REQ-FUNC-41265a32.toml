@@ -49,14 +49,14 @@ When profile metadata changes, the profile store shall atomically persist non-se
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Offline profile tests cover CRUD, duplicate refusal, rename/delete, active pointer lifecycle, refusal of unknown or missing stored keys, recovery after brief Windows sharing errors and preservation of the prior file after a persistent or unrelated error."
+verification = "Offline profile tests cover CRUD, duplicate refusal, rename/delete, active pointer lifecycle, refusal of unknown or missing stored keys, recovery after brief Windows sharing errors including errno-only EACCES reads, bounded persistent read refusal, immediate unrelated/malformed read refusal and preservation of the prior file after a persistent or unrelated error."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
-affected_paths = ["04_Software/adore/profiles.py"]
+affected_paths = ["04_Software/adore/profiles.py", "04_Software/adore/release_notes.toml"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_profiles.py::test_profile_crud_round_trip", "04_Software/tests/test_profiles.py::test_profile_rename_and_delete", "04_Software/tests/test_profiles.py::test_active_pointer_lifecycle", "04_Software/tests/test_profiles.py::test_profile_json_of_another_build_is_refused", "04_Software/tests/test_profiles.py::test_profile_directory_name_overrides_the_stored_name", "04_Software/tests/test_profiles.py::test_profile_save_keeps_metadata_atomic_during_sharing_errors"]
+linked_tests = ["04_Software/tests/test_profiles.py::test_profile_crud_round_trip", "04_Software/tests/test_profiles.py::test_profile_rename_and_delete", "04_Software/tests/test_profiles.py::test_active_pointer_lifecycle", "04_Software/tests/test_profiles.py::test_profile_json_of_another_build_is_refused", "04_Software/tests/test_profiles.py::test_profile_directory_name_overrides_the_stored_name", "04_Software/tests/test_profiles.py::test_profile_save_keeps_metadata_atomic_during_sharing_errors", "04_Software/tests/test_profiles.py::test_profile_read_bounds_windows_sharing_contention", "04_Software/tests/test_profiles.py::test_profile_read_does_not_retry_unrelated_failures", "04_Software/tests/test_release_notes.py"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Profile data is operator-owned state and cannot silently point at a different project."
 
 created = 2026-08-15
-updated = 2026-11-10
+updated = 2026-11-14

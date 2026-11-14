@@ -1370,6 +1370,13 @@ location. Clone validation and creation remain at the final reviewed action.
 
 Reviewed configuration apply retries only Windows replace errors 5/32/33, at most six attempts with 50ms between attempts (250ms maximum scheduled delay). Persistent or other OS write failures return `config_write_failed` (HTTP 503), keep the active configuration and pending review, and clean the temporary candidate. Existing state/config locks and revision checks remain in force.
 
+Concurrent profile metadata reads also tolerate brief sharing denial, including
+Windows reads that report only access-denied errno. Reads use five attempts with
+at most185ms scheduled delay. Unreadable or corrupt identity metadata remains a
+typed service error; genuinely deleted projects remain not found. No stored profile
+is repaired or recreated automatically.
+
+
 ### Compact host folder and executor selection
 
 Custom clone location opens a compact web folder chooser on the ADORE host.
