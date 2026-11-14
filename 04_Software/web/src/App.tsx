@@ -46,7 +46,7 @@ import { EnrollmentWizard } from "./EnrollmentWizard";
 import { readStatistics, readConsumption } from "./statistics";
 import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
 import { statisticsCopy } from "./statisticsCopy";
-import { JobWorkspace } from "./JobWorkspace";
+import { JobWorkspace, type Filters } from "./JobWorkspace";
 import { SortHeader } from "./SortHeader";
 import { jobCopy } from "./jobCopy";
 import { outcomeText } from "./operationReason";
@@ -83,7 +83,7 @@ function readOperation(value: unknown, expected?: number): Operation {
 }
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type SettingsBlocker = "settings" | "prices" | "credentials" | "chatgpt";
-type Page = "overview" | "projects" | "createProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
+type Page = "tickets" | "overview" | "projects" | "createProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
 type ProjectSortKey = "name" | "repo" | "readiness" | "runs" | "last_activity";
 const metricsTabLabels: Record<MetricsTab, MessageKey> = {
@@ -216,6 +216,9 @@ export default function App() {
   const [usersState, setUsersState] = useState<DataState>("loading");
   const [jobScope, setJobScope] = useState("");
   const [requestedRun, setRequestedRun] = useState("");
+  const jobListState=useRef<Record<string,Filters>>({});
+  const jobListRevisions=useRef<Record<string,{key:string;snapshot:string}>>({});
+  const jobOrigin=useRef<{page:Page;scope:string;selected:string;tab:ProjectTab;jobsView:JobsView}|null>(null);
   const [projectsState, setProjectsState] = useState<DataState>("loading");
   const [selectedState, setSelectedState] = useState<ScopedState>({ key: "", state: "loading" });
   const [globalState, setGlobalState] = useState<ScopedState>({ key: "", state: "loading" });
@@ -780,6 +783,7 @@ export default function App() {
 
 
   const openProject = (id: string) => {
+    jobOrigin.current=null;
     if (enrollmentGuard.current && !enrollmentGuard.current()) return;
     setRequestedRun("");
     setSelected(id); setProjectTab("overview"); setPage("projectDetails");
@@ -788,11 +792,12 @@ export default function App() {
   const reportingRoute = metricFrom || metricTo || metricTimezone !== "UTC" || metricGranularity !== "day" ? { reporting: { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity } } : {};
   const currentRoute = (): Route => {
     switch (page) {
+      case "tickets": return {view:"tickets", ...(jobScope ? {project:jobScope} : {})};
       case "overview": return jobScope ? { view: "overview", project: jobScope } : { view: "overview" };
       case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab,
         ...(projectTab === "jobs" ? requestedRun ? { run: requestedRun } : jobsView !== "tickets" ? { jobsView } : {} : {}),
         ...(projectTab === "statistics" ? { ...reportingRoute, ...(metricsTab !== "summary" && metricsTab !== "projects" ? { metricsTab } : {}) } : {}) } : { view: "projects" };
-      case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : jobsView !== "tickets" ? { jobsView } : {}) };
+      case "jobs": return { view: "jobs", ...reportingRoute, ...(requestedRun ? {project:selected,run:requestedRun} : jobScope ? {project:jobScope} : {}), ...(jobsView === "capacity" ? {jobsView} : {}) };
       case "metrics": return { view: "metrics", ...reportingRoute, ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
       case "help": return helpTopic ? { view: "help", topic: helpTopic } : { view: "help" };
       default: return { view: page };
@@ -800,14 +805,15 @@ export default function App() {
   };
 
   const applyRoute = (route: Route) => {
+    jobOrigin.current=null;
     setImportOpen(false);
     setRequestedRun(route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs" ? route.run || "" : "");
     setPage(route.view); setMenuOpen(false);
-    if (route.view === "jobs" || route.view === "overview") setJobScope(route.project || "");
+    if (route.view === "jobs" || route.view === "tickets" || route.view === "overview") setJobScope(route.project || "");
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
     if (route.view === "help") setHelpTopic(route.topic);
-    if (route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run ? "jobs" : route.jobsView || "tickets");
+    if (route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run || route.view === "jobs" && !route.jobsView ? "jobs" : route.jobsView || "tickets");
     if (route.view === "metrics" || route.view === "jobs" || route.view === "projectDetails" && route.tab === "statistics") {
       setMetricFrom(route.reporting?.from ?? ""); setMetricTo(route.reporting?.through ?? "");
       setMetricTimezone(route.reporting?.timezone ?? "UTC"); setMetricGranularity((route.reporting?.granularity ?? "day") as "day" | "week" | "month");
@@ -853,8 +859,8 @@ export default function App() {
     if (!wanted || !projectsLoaded) return;
     routedProject.current = null;
     const match = projects.find(item => item.id === wanted || item.name === wanted);
-    if (match) { setSelected(match.id); if (page === "jobs" || page === "overview") setJobScope(match.id); return; }
-    preserveError.current = ["projectDetails", "jobs", "overview"].includes(page);
+    if (match) { setSelected(match.id); if (page === "jobs" || page === "tickets" || page === "overview") setJobScope(match.id); return; }
+    preserveError.current = ["projectDetails", "jobs", "tickets", "overview"].includes(page);
     setRequestedRun(""); setJobScope("");
     setSelected(projects[0]?.id || "");
     if (page === "projectDetails") { setPage("projects"); window.history.replaceState(null, "", "/projects"); }
@@ -878,6 +884,7 @@ export default function App() {
     configRequest.current += 1;
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
+    jobListState.current={};jobListRevisions.current={};jobOrigin.current=null;
     setProjects([]); setSelected(""); setRequestedRun(""); setUsersState("loading"); setConfigState({ key: "", state: "loading" });
     projectsRequest.current += 1;
     setProjectsState("loading"); setSelectedState({ key: "", state: "loading" }); setGlobalState({ key: "", state: "loading" });
@@ -1192,14 +1199,24 @@ export default function App() {
     </section>
   </main>;
 
-  const workspaceProps = { locale, projects, scope: jobScope, csrf: session.csrf, request, t, refresh: viewRefresh,
-    onScope: (id: string) => { setJobScope(id); if (id) setSelected(id); setRequestedRun(""); },
-    onOpen: (id: string, runId: string) => { setSelected(id); setJobScope(id); setRequestedRun(runId); setJobsView("jobs"); setPage("jobs"); },
-    onClose: () => setRequestedRun("") };
-  const hubWorkspaceProps = { ...workspaceProps, scope: selected,
-    onOpen: (id: string, runId: string) => { setSelected(id); setRequestedRun(runId); setJobsView("jobs"); setProjectTab("jobs"); } };
+  const openJob=(id:string,runId:string)=>{
+    if(!requestedRun)jobOrigin.current={page,scope:jobScope,selected,tab:projectTab,jobsView};
+    setSelected(id);setRequestedRun(runId);setJobsView("jobs");
+    if(page==="projectDetails")setProjectTab("jobs");else setPage("jobs");
+  };
+  const closeJob=()=>{
+    setRequestedRun("");
+    const origin=jobOrigin.current;jobOrigin.current=null;
+    if(origin){setPage(origin.page);setJobScope(origin.scope);setSelected(origin.selected);setProjectTab(origin.tab);setJobsView(origin.jobsView);}
+  };
+  const workspaceProps = { locale, projects, scope: jobScope, run:requestedRun, runProject:selected, viewState:jobListState.current,viewRevisions:jobListRevisions.current,viewKey:`${session.user.id}:${page}`,
+ csrf: session.csrf, request, t, refresh: viewRefresh,
+    onScope: (id: string) => { jobOrigin.current=null; setJobScope(id); if (id) setSelected(id); setRequestedRun(""); },
+    onOpen: openJob,
+    onClose: closeJob };
+  const hubWorkspaceProps = { ...workspaceProps, scope: selected,viewKey:`${session.user.id}:${selected}:${projectTab}`,onOpen:openJob };
   const manualRefresh = page === "adminUsers";
-  const nav: Page[] = ["overview", "projects", "jobs", "metrics"];
+  const nav: Page[] = ["overview", "projects", "jobs", "tickets", "metrics"];
   const adminPages: Page[] = ["administration", "adminUsers", "adminAudit"];
 
 
@@ -1210,19 +1227,20 @@ export default function App() {
     applyRoute(normalizeRoute(parseRoute(url.pathname, url.search), { isAdmin }).route);
   };
   const navigatePage = (target: Page) => {
+    jobOrigin.current=null;
     if (target !== page && enrollmentGuard.current && !enrollmentGuard.current()) return;
     setRequestedRun("");
     if (target !== page) setMetricsTab("summary");
     if (target === "overview") { routedProject.current = null; setJobScope(""); }
-    if (target === "jobs" && ["projectDetails", "metrics"].includes(page)) setJobScope(selected);
-    if (target === "jobs" && page !== "jobs") setJobsView("tickets");
+    if (["jobs","tickets"].includes(target) && ["projectDetails", "metrics"].includes(page)) setJobScope(selected);
+    if (target === "jobs" && page !== "jobs") setJobsView("jobs");
     setPage(target); setMenuOpen(false);
     if (target === "metrics") setMetricAllProjects(false);
   };
   const shellLink = (target: Page): ShellLink => ({
     id: target, label: t(target === "settings" ? "myAccount" : target === "administration" ? "systemStatus" : target),
-    href: target === "overview" ? formatRoute({ view: "overview" }) : formatRoute(target === "jobs" || target === "metrics" ?
-      { view: target, ...(target === "jobs" ? (jobScope ? { project: jobScope } : ["projectDetails", "metrics"].includes(page) && selectedProject ? { project: selectedProject.id } : {}) : selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "metrics" | "projectDetails"> }),
+    href: target === "overview" ? formatRoute({ view: "overview" }) : formatRoute(target === "jobs" || target === "tickets" || target === "metrics" ?
+      { view: target, ...(target !== "metrics" ? (jobScope ? { project: jobScope } : ["projectDetails", "metrics"].includes(page) && selectedProject ? { project: selectedProject.id } : {}) : selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "tickets" | "metrics" | "projectDetails"> }),
     active: target === page || (target === "projects" && ["createProject", "projectDetails"].includes(page)),
     onNavigate: () => navigatePage(target),
   });
@@ -1364,8 +1382,8 @@ export default function App() {
           {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && operation.result !== "completed" ? ` · ${(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}` : ""}{operation.status === "pending" && <small>{t("workerQueueHelp")}</small>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}</>)}
           <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
         </div>}
-        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
-        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t}
+        {["overview", "projects", "projectDetails", "jobs", "tickets", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
+        {["overview", "projects", "projectDetails", "jobs", "tickets", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t}
           onEnroll={() => { setError(""); setPage("createProject"); }}
           onImport={() => { setError(""); setPage("projects"); setImportOpen(true); }} />}
         {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace admin={isAdmin} {...workspaceProps} mode="overview" />}
@@ -1463,15 +1481,20 @@ export default function App() {
           </div>
         </>}
 
-        {page === "jobs" && projectsState === "ready" && projects.length > 0 && <>
+        {(page === "jobs" || page === "tickets") && projectsState === "ready" && projects.length > 0 && <>
           <div className="jobs-toolbar">
-            {jobsSubtabs}
+            {page === "jobs" && <div className="metrics-tabs jobs-subtabs" role="tablist" aria-label={ticketCopy[locale].sections}>
+              {(["jobs","capacity"] as const).map(view=><button key={view} id={`jobs-subtab-${view}`} role="tab" aria-selected={jobsView===view} tabIndex={jobsView===view?0:-1} onClick={()=>selectJobsView(view)} onKeyDown={event=>{
+                if(["ArrowLeft","ArrowRight","Home","End"].includes(event.key)){
+                  event.preventDefault();const next=event.key==="Home"?"jobs":event.key==="End"?"capacity":view==="jobs"?"capacity":"jobs";
+                  selectJobsView(next);document.getElementById(`jobs-subtab-${next}`)?.focus();
+                }
+              }}>{view==="jobs"?t("jobs"):capacityCopy[locale].tab}</button>)}
+            </div>}
             <label className="jobs-scope" htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>
           </div>
-            <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "capacity" ? <CapacityTable projects={jobScopeProject?[jobScopeProject]:projects} locale={locale} request={request} t={t} refresh={viewRefresh} paginate={table=><PagedTable alwaysControls t={t}>{table}</PagedTable>}/> : jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
-                : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
-            </div>
+          {page === "tickets" ? <TicketWorkspace key={session.user.id} automatic projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
+            : jobsView === "capacity" ? <CapacityTable projects={jobScopeProject?[jobScopeProject]:projects} locale={locale} request={request} t={t} refresh={viewRefresh} paginate={table=><PagedTable alwaysControls t={t}>{table}</PagedTable>}/> : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" />}
         </>}
 
         {page === "metrics" && projectsState === "ready" && projects.length > 0 && statisticsView(false)}

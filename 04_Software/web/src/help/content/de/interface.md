@@ -8,7 +8,8 @@ Die Oberfläche hat eine dunkle Seitenleiste zum Wechseln zwischen den Seiten un
 |---|---|
 | Übersicht | **Handlungsbedarf** und **Aktive Aufträge** für die Projekte sehen, auf die Sie Zugriff haben. **Details** öffnet einen Auftrag unter Aufträge. |
 | [Projekte](/projects) | Eingerichtete Projekte mit Repository, Forge, Überwachungsstatus, Anzahl der Aufträge und letzter Aktivität durchsuchen. Ein Projekt öffnen, um seine Zentrale zu erreichen. Administratoren sehen außerdem **Neues Projekt registrieren** oder **Originalkonfiguration importieren**. |
-| [Aufträge](/jobs) | Einen **Jobbereich** wählen und dann im Unterreiter **Tickets** Forge-Tickets lesen und starten oder im Unterreiter **Aufträge** Aufträge suchen und ihre Details öffnen. |
+| [Aufträge](/jobs) | Aufträge aller berechtigten Projekte oder eines Projekts suchen, filtern, sortieren und seitenweise lesen. |
+| [Tickets](/tickets) | Offene Forge-Tickets des Bereichs automatisch lesen; manuelle Aktualisierung und Aktionen bleiben. |
 | [Statistiken](/metrics) | Nutzung, Qualität und Trends für einen Berichtszeitraum lesen. Siehe [Statistiken und Kosten](/help/statistics). |
 | Verwaltung | Nur für Administratoren. Sie öffnet drei Seiten: [Systemstatus](/admin/status), [Benutzer](/admin/users) und [Änderungsverlauf](/admin/audit). Siehe [Verwaltung](/help/administration). |
 | [Mein Konto](/account) | Sprache und Design wählen und das Passwort ändern. |
@@ -26,8 +27,7 @@ Die obere Leiste zeigt den Seitentitel und diese Bedienelemente.
 - **Über ADORE**: die ADORE-Version mit **Neuigkeiten** (Versionshinweise je Version, die neueste zuerst, gruppiert nach Neu, Verbessert und Behoben), **Lizenz** und **Hinweise zu Drittanbietern**.
 - **So funktioniert ADORE**: öffnet dieses Hilfezentrum.
 
-Unter Aufträge steht die Bereichsauswahl auf breiten Bildschirmen rechts neben **Tickets** und **Aufträge**. Auf schmalen Bildschirmen steht sie unter den Reitern.
-
+Aufträge und Tickets haben jeweils eine Auswahl **Jobbereich** für alle berechtigten Projekte oder ein Projekt.
 ## Projektzentrale {#project-hub}
 
 Wenn Sie ein Projekt unter Projekte öffnen, sehen Sie seinen Namen und den Repository-Pfad über diesen Reitern.

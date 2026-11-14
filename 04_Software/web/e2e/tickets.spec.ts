@@ -28,6 +28,77 @@ test.beforeEach(async ({ context }) => {
     "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
 });
 
+test("LA-01 global tickets auto-read once, fence old scopes and retain manual refresh", async ({page}) => {
+  await signIn(page);
+  const projects=await (await page.request.get("/api/v1/projects")).json();
+  const alpha=projects.find((row:{name:string})=>row.name==="alpha").id;
+  const beta=projects.find((row:{name:string})=>row.name==="beta").id;
+  const calls:Record<string,number>={};
+  let release:()=>void=()=>{};
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  let pending=false;
+  await page.route("**/api/v1/projects/*/tickets",async route=>{
+    const id=new URL(route.request().url()).pathname.split("/")[4];
+    calls[id]=(calls[id]||0)+1;
+    if(id===alpha && calls[id]===1){pending=true;await held;}
+    const response=await route.fetch();
+    const data=await response.json();
+    data.tickets=data.tickets.map((ticket:{title:string})=>({...ticket,title:`${id===alpha?"alpha":"beta"} ${ticket.title}`}));
+    await route.fulfill({response,json:data});
+  });
+  await page.goto(`/tickets?project=${alpha}`);
+  await expect.poll(()=>pending).toBe(true);
+  await expect(page.locator(".ticket-toolbar button").first()).toBeDisabled();
+  expect(calls[alpha]).toBe(1);
+  await page.locator("#jobs-project").selectOption(beta);
+  await expect(page.locator(".ticket-row").first()).toBeVisible();
+  await page.locator("#jobs-project").selectOption(alpha);
+  await expect(page.locator(".ticket-toolbar button").first()).toBeDisabled();
+  expect(calls[alpha]).toBe(1);
+  await page.locator("#jobs-project").selectOption(beta);
+  await expect(page.locator(".ticket-row").first()).toBeVisible();
+  release();
+  await expect(page.locator("#jobs-project")).toHaveValue(beta);
+  await expect(page.locator(".ticket-row").first()).toContainText("beta");
+  await page.getByRole("button",{name:"Read tickets",exact:true}).click();
+  await expect.poll(()=>calls[beta]).toBe(3);
+  await page.route(`**/api/v1/projects/${alpha}/tickets`,route=>route.fulfill({status:503,json:{detail:{code:"forge_unavailable"}}}));
+  await page.locator("#jobs-project").selectOption(alpha);
+  await expect(page.locator(".ticket-workspace [role=alert]")).toBeVisible();
+  await expect(page.locator(".ticket-row")).toHaveCount(0);
+  await expect(page.getByText("No open tickets",{exact:false})).toHaveCount(0);
+});
+
+for(const completion of ["success","error","poll"] as const) {
+  test(`LA-01 ticket ${completion} from an earlier scope cannot appear in the new scope`,async({page})=>{
+    await signIn(page);
+    const projects=await(await page.request.get("/api/v1/projects")).json();
+    const alpha=projects.find((row:{name:string})=>row.name==="alpha").id;
+    const beta=projects.find((row:{name:string})=>row.name==="beta").id;
+    let release:()=>void=()=>{};
+    const held=new Promise<void>(resolve=>{release=resolve;});
+    let entered=false;
+    await page.route(`**/api/v1/projects/${alpha}/tickets/21/stop`,async route=>{
+      if(completion!=="poll"){entered=true;await held;}
+      await route.fulfill(completion==="error"?{status:503,json:{detail:{code:"forge_unavailable"}}}:{json:{cancel_operation_id:90001,ready_label:"removed",ready_label_error:null}});
+    });
+    await page.route("**/api/v1/operations/90001",async route=>{
+      if(completion==="poll"){entered=true;await held;}
+      await route.fulfill({json:{id:90001,status:"failed",detail:"OLD_SCOPE_RESULT"}});
+    });
+    await page.goto(`/tickets?project=${alpha}`);
+    await page.locator(".ticket-row").filter({hasText:"#21"}).getByRole("button",{name:"Stop",exact:true}).click();
+    await page.getByRole("button",{name:"Stop ticket",exact:true}).click();
+    await expect.poll(()=>entered).toBe(true);
+    await page.locator("#jobs-project").selectOption(beta);
+    await expect(page.locator(".ticket-row").first()).toBeVisible();
+    release();
+    await expect(page.locator(".ticket-notice,.ticket-stop-confirm,.ticket-start-confirm")).toHaveCount(0);
+    await expect(page.locator(".ticket-workspace [role=alert]")).toHaveCount(0);
+    await expect(page.getByText("OLD_SCOPE_RESULT",{exact:true})).toHaveCount(0);
+  });
+}
+
 test("the ticket number column leaves room for content in both scopes", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await signIn(page);
@@ -36,9 +107,10 @@ test("the ticket number column leaves room for content in both scopes", async ({
   const table = page.locator(".ticket-table");
   const number = table.getByRole("columnheader", { name: "#", exact: true });
   const title = table.getByRole("columnheader", { name: "Title", exact: true });
-  for (const url of ["/jobs", `/projects/${alpha}/jobs`]) {
+  for (const url of ["/tickets", `/projects/${alpha}/jobs`]) {
     await page.goto(url);
     await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeEnabled();
     await expect(number).toBeVisible();
     const numberWidth = await number.evaluate(cell => cell.getBoundingClientRect().width);
     const titleWidth = await title.evaluate(cell => cell.getBoundingClientRect().width);
@@ -68,9 +140,10 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
     try {
       for(const width of [1440,1600]) {
         await page.setViewportSize({width,height:900});
-        for(const url of ["/jobs",`/projects/${alpha}/jobs`]) {
+        for(const url of ["/tickets",`/projects/${alpha}/jobs`]) {
           await page.goto(url);
           await page.getByRole("button",{name:copy.read,exact:true}).click();
+          await expect(page.getByRole("button",{name:copy.read,exact:true})).toBeEnabled();
           const row=page.locator(".ticket-row").first();
           const rightEdge = async () => row.locator(".ticket-actions").evaluate(el => {
             const last = el.lastElementChild!;
@@ -93,7 +166,7 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
           expect(Math.max(...bounds.map(box=>box.top))-Math.min(...bounds.map(box=>box.top))).toBeLessThan(1);
           for(const box of bounds) expect(box.scroll).toBeLessThanOrEqual(box.client);
           expect(Math.max(...bounds.map(box=>box.right))).toBeLessThanOrEqual(width);
-          if(width===1440 && url!=="/jobs") await page.screenshot({path:info.outputPath(`expanded-actions-${locale}.png`),fullPage:true});
+          if(width===1440 && url!=="/tickets") await page.screenshot({path:info.outputPath(`expanded-actions-${locale}.png`),fullPage:true});
           await row.getByRole("button",{name:copy.hide,exact:true}).click();
           expect(Math.abs((await rightEdge()).button - collapsed.button)).toBeLessThan(1);
         }
@@ -512,8 +585,9 @@ test("late old-account ticket save cannot change the next account or its pending
   await page.getByLabel("Password", { exact: false }).fill("test-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
-  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Tickets", exact: true }).click();
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeEnabled();
   await page.locator("tr.ticket-row").filter({ hasText: "#21" }).getByRole("button", { name: "Details", exact: true }).click();
   const delivered = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() === "PATCH");
   release(); await delivered;

@@ -97,7 +97,13 @@ Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** ei
 
 Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.
 
-Die Details ersetzen die Jobliste, solange sie geöffnet sind. Die kompakte Überschrift vereint Ticketnummer und Titel. **Was gerade geschieht** zeigt Status, Zuständigkeit und **Nächster Schritt**. Budgets und Verbrauch stehen auf breiten Bildschirmen daneben, auf schmalen darunter. **Aktivität** listet gespeicherte Ereignisse vom neuesten zum ältesten. **Frage des Agenten** enthält die aktive Rückfrage; andere Zustände zeigen **Nachweise und Artefakte**. **Technische Details** enthält Kennungen, Executor-Ausgabe und aufklappbare **Gespeicherte Originalereignisse**. **Schließen** kehrt zur Liste mit ihren Filtern zurück. Frühere Ereignisse werden nicht zu aktuellen Handlungsaufforderungen.
+Die Details ersetzen ihre Ursprungsliste. Über dem Titel stehen **Aktivität**, **Agentensitzungen**, **Artefakte** und **Technische Informationen**, dann **Ticket anzeigen** und rechts **Schließen**. Gespeicherter Status, Phase und Workflow folgen unter dem Titel. Aktionen, Budgets, Verbrauch sowie Rückfrage-, Freigabe- und Prüfaktionen bleiben erreichbar. **Schließen** stellt Ansicht, Bereich, Suche, Filter und Seitenauswahl wieder her.
+
+## Verlauf der Agentensitzungen {#agent-sessions}
+
+Unter **Agentensitzungen** wählen Sie einen abgeschlossenen Versuch, neueste zuerst. Quelle ist die archivierte Pi-Ausgabe dieses Auftrags: ADORE-Anweisung, Assistententext, Werkzeugaufrufe und Ergebnisse, Runden und Tokenverbrauch. Klappen Sie ein Werkzeug für den vollständigen Text auf. Lesbare Überlegungen sind eingeklappt; Systemnachrichten werden nie angezeigt. Deltas und doppelte Abschlusslisten entfallen. **Mehr laden** setzt die Aufzeichnung fort. Angezeigt wird der Archivierungsabschluss; eine fehlende Startzeit wird benannt.
+
+Administratoren und zugewiesene Entwickler sehen den Text wie aufgezeichnet, einschließlich enthaltenen Geheimnissen. Strukturierte Kostenbeträge sehen nur Administratoren. Antworten werden nicht zwischengespeichert. **Letzte Executor-Ausgabe anzeigen** bleibt unter **Technische Informationen**. Texte sind auf 16 KiB begrenzt und sichtbar markiert; fehlerhafte oder ausgelassene Einträge werden Hinweise. Über 64 MiB erscheint ein Größenhinweis. Der Verlauf aktualisiert sich nicht live.
 
 ## Jobbudgets {#budgets}
 
@@ -117,7 +123,7 @@ Fragen erscheinen unter **Frage des Agenten** als Markdown mit Listen, Tabellen 
 
 Zeitleistenphasen stammen aus der gespeicherten Phase, dem Phasenkontext oder dem Übergangsziel des Ereignisses; andere Ereignisse bleiben unbekannt. Jobzeiten enthalten Sekunden. Ein Ereignis ist ein gespeicherter Nachweis, kein Live-Fortschritt.
 
-Unter **Technische Details** wählen Sie **Letzte Executor-Ausgabe anzeigen**. Operative Ausgaben des letzten abgeschlossenen Starts werden vom Host erfasst, einschließlich fehlender Module und Testsummen. Prompts, Gedankengänge, Skripte, Konfiguration, Pfade, Zugangsdaten und Finanzdaten bleiben verborgen. Unbekannte Ausgaben werden durch einen Hinweis oder eine Diagnosekategorie ersetzt. Höchstens die letzten 500 Diagnoseeinträge je Stream innerhalb von 64 KiB bleiben erhalten.
+Unter **Technische Informationen** wählen Sie **Letzte Executor-Ausgabe anzeigen**. Operative Ausgaben des letzten abgeschlossenen Starts werden vom Host erfasst, einschließlich fehlender Module und Testsummen. Prompts, Gedankengänge, Skripte, Konfiguration, Pfade, Zugangsdaten und Finanzdaten bleiben verborgen. Unbekannte Ausgaben werden durch einen Hinweis oder eine Diagnosekategorie ersetzt. Höchstens die letzten 500 Diagnoseeinträge je Stream innerhalb von 64 KiB bleiben erhalten.
 
 Die Zusammenfassung zeigt Versuch, Aufzeichnungszeit, Ergebnis und Exitcode. Klappen Sie **stdout** oder **stderr** bei vorhandenen Einträgen auf. Einen laufenden Start zeigt die Ansicht zusammen mit der letzten abgeschlossenen Ausgabe. Ändert sich das Journal beim Lesen, wählen Sie **Wiederholen**. Der letzte geprüfte Stand ist als möglicherweise veraltet gekennzeichnet.
 
@@ -128,7 +134,7 @@ Wenn **Verbrauch** nicht lädt, nutzen Sie **Verbrauch aktualisieren** neben dem
 
 ## Projektkapazität {#project-capacity}
 
-Die Projektübersicht zeigt nur **Limit paralleler Aufträge**, **Frei** und **Aufträge in Warteschlange** als kompakte Rechtecke neben den Betriebsangaben. Wählen Sie auf der projektbezogenen oder globalen Seite **Aufträge** den Unterreiter **Kapazität** neben **Tickets** und **Aufträge**. Eine Zeile je Projekt zeigt Limit, freie Plätze, Warteschlange, Überwachung und aktuelle Auftragszustände. Beendete Aufträge, Vorgangsverlauf und Logs sind ausgeschlossen. Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**.
+Die Projektübersicht zeigt nur **Limit paralleler Aufträge**, **Frei** und **Aufträge in Warteschlange** als kompakte Rechtecke neben den Betriebsangaben. Wählen Sie im Reiter **Aufträge** des Projekts den Unterreiter **Kapazität** neben **Tickets** und **Aufträge**. Eine Zeile je Projekt zeigt Limit, freie Plätze, Warteschlange, Überwachung und aktuelle Auftragszustände. Beendete Aufträge, Vorgangsverlauf und Logs sind ausgeschlossen. Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**.
 
 Die Warteschlange zählt eingereichte Anfragen und aufgenommene Aufträge vor ihrem Start, keine nicht angeforderten Tickets. Ein volles Projekt blockiert keine anderen. Einstellungen zeigt weiterhin **Ihre letzten Vorgänge** und gespeicherte Ergebnisse; Eingereiht und In Bearbeitung bedeuten nicht Bestätigt.
 

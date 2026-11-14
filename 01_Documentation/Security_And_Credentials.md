@@ -340,3 +340,13 @@ delivery archives contain no user credentials or machine-specific auth paths.
 ## Agent package installation authority
 
 Explicit `container.system_packages = true` authorizes direct package-manager sudo for the measured non-root container user. Package scripts have effective container-root authority, including access to existing mounted repo/worktree/IO/cache and credentials already available there. The mode refuses host-oriented runtime overrides and never adds forge credentials or changes egress. Disabled means ADORE grants no sudo authority; custom-image privileges remain operator-owned. See [Agent dependency installation](Agent_Dependency_Installation.md).
+
+
+## Recorded agent session visibility
+
+Job administrators and developers assigned to the owning project can read completed
+agent sessions exactly as recorded, including any secret values in prompts or tool
+output. The session reader adds no redaction. Pi system messages and files outside
+the selected run are excluded. Structured cost amounts retain administrator-only
+visibility. These authenticated API responses use Cache-Control: no-store; serve the
+web interface over TLS. The normalized latest executor-output view remains separate.

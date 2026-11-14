@@ -16,6 +16,16 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "new"
+topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
+text = { en = "Read recorded prompts, agent text, tools and usage from completed attempts.", fr = "Consultez consignes, textes, outils et jetons des tentatives terminées.", de = "Anweisungen, Agententext, Werkzeuge und Verbrauch abgeschlossener Versuche lesen.", ro = "Citește instrucțiunile, textul, instrumentele și consumul încercărilor încheiate." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs and Tickets", fr = "Tâches et Tickets", de = "Aufträge und Tickets", ro = "Lucrări și Tichete" }
+text = { en = "Separate scoped pages, automatic ticket reads and four compact job-detail tabs.", fr = "Pages séparées par périmètre, lecture automatique des tickets et quatre onglets de tâche.", de = "Getrennte Bereichsseiten, automatisches Ticketlesen und vier kompakte Auftragsreiter.", ro = "Pagini separate cu domenii, citirea automată a tichetelor și patru file compacte ale lucrării." }
+
+[[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "Capacity appears only in Summary and the Capacity tab.", fr = "La capacité apparaît uniquement dans le résumé et l’onglet Capacité.", de = "Kapazität erscheint nur in der Übersicht und im Tab Kapazität.", ro = "Capacitatea apare doar în Rezumat și în tab-ul Capacitate." }

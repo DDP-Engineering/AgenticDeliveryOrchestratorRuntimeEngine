@@ -128,6 +128,7 @@ from adore.web.executor_configuration import (
     valid_connection,
 )
 from adore.web.executor_evidence import read_executor_output
+from adore.web.executor_session import list_sessions, read_session
 from adore.web.executor_settings import (
     PROVIDER_KEYS,
     ExecutorSettingsError,
@@ -5281,6 +5282,40 @@ def create_app(home: str | Path | None = None,
         if item not in job_projects(user, project_id):
             raise JobReadError("job_snapshot_changed", 409)
         return result
+
+    def session_run(project_id: str, run_id: str, user: dict):
+        """@brief Resolve session ownership through the existing strict job snapshot."""
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
+            raise _error(404, "run_not_found")
+        rows, _, _ = job_snapshot(user, project_id)
+        if not any(row["run_id"] == run_id for row in rows):
+            raise _error(404, "run_not_found")
+        item = next(item for item in job_projects(user, project_id)
+                    if item.project_id == project_id)
+        root = Path(item.store_root or profiles.default_store_root(item.name)) / "runs" / run_id
+        return item, root
+
+    @app.get("/api/v1/jobs/{project_id}/{run_id}/sessions")
+    def job_sessions(project_id: str, run_id: str,
+                     user: Annotated[dict, Depends(principal)]) -> JSONResponse:
+        """@brief List completed sessions for an authenticated job reader."""
+        item, root = session_run(project_id, run_id, user)
+        result = list_sessions(root)
+        if item not in job_projects(user, project_id):
+            raise JobReadError("job_snapshot_changed", 409)
+        return JSONResponse({"sessions": result}, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/v1/jobs/{project_id}/{run_id}/sessions/{attempt_id}")
+    def job_session(project_id: str, run_id: str, attempt_id: str,
+                    user: Annotated[dict, Depends(principal)],
+                    cursor: Annotated[int, Query(ge=0, le=2**53 - 1)] = 0,
+                    limit: Annotated[int, Query(ge=1, le=200)] = 200) -> JSONResponse:
+        """@brief Return literal recorded session text with role-bound usage."""
+        item, root = session_run(project_id, run_id, user)
+        result = read_session(root, attempt_id, cursor, limit, include_cost=user["role"] == "admin")
+        if item not in job_projects(user, project_id):
+            raise JobReadError("job_snapshot_changed", 409)
+        return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
     @app.get("/api/v1/projects/{name}/runs")
     def runs(name: str, user: Annotated[dict, Depends(principal)]) -> list[dict]:

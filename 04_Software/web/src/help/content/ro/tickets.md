@@ -49,9 +49,9 @@ Etichetele opționale modelează lucrarea: `bug` sau `fix` produce o sarcină de
 
 ## Revizuirea și pornirea tichetelor {#tickets-view}
 
-Deschideți un proiect din Proiecte, alegeți fila **Lucrări** și rămâneți pe sub-fila **Tichete**. Pagina globală **Lucrări** din bara laterală are aceleași trei sub-file: Tichete, Lucrări și Capacitate și un selector **Domeniul joburilor**. Cu **Toate proiectele**, tabelul primește o coloană Proiect, iar fiecare rând acționează asupra propriului proiect.
+Folosiți **Tichete** din bara laterală pentru pagina globală separată. Citește automat la deschidere și la schimbarea domeniului; **Citește tichetele** reîmprospătează manual. Tichete și Lucrări oferă toate proiectele autorizate sau unul singur. O citire eșuată afișează o eroare. Pagina proiectului păstrează sub-filele Tichete, Lucrări și Capacitate; Tichete se citește în continuare la cerere.
 
-Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:
+În pagina proiectului apăsați **Citește tichetele**. Pagina globală Tichete citește automat la deschidere și la schimbarea domeniului; **Citește tichetele** păstrează reîmprospătarea manuală. Încarcă până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:
 
 | Stare | Semnificație |
 |---|---|

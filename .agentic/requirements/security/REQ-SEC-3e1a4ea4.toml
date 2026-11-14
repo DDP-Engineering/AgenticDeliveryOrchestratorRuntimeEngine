@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-3e1a4ea4"
+title = "Confine session file reads"
+status = "active"
+requirement = "If a session request has an unauthorized project, unknown attempt, unsafe path, linked archive or invalid cursor, the service shall refuse it through the existing authorization or evidence error."
+verification = "Offline HTTP tests for membership, traversal, symlinks, hardlinks and middle-of-line/out-of-range cursors."
+affected_paths = ["04_Software/adore/web/executor_session.py", "04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_executor_session.py", "04_Software/tests/test_web_jobs.py"]
+created = 2026-11-14
+updated = 2026-11-14

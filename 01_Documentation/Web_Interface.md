@@ -510,9 +510,7 @@ with Uvicorn's SSL certificate and key arguments and `proxy_headers=False`.
 Bind only a trusted LAN/VPN address, restrict its firewall port to those
 networks, and verify the HTTPS login cookie is `Secure`. The host supplies and
 rotates its certificate and key; the offline bundle does not fetch them.
-The global **Jobs** page starts with one compact **Job scope** selector and the
-same **Tickets** (default) and **Jobs** (`view=jobs`) sub-tabs as the project hub;
-a job link opens the Jobs sub-tab. With **All projects**, Read tickets reads the
+The global **Jobs** and **Tickets** pages each have a compact **Job scope** selector. Jobs opens the job list; Tickets automatically reads the selected scope and keeps **Read tickets** for manual refresh. With **All projects**, Read tickets reads the
 open tickets of every authorized active project into one table with a Project
 column; each row's actions act on its project, and a project whose forge read
 fails shows its own error. Worker status appears
@@ -1485,28 +1483,21 @@ independent and only a human decides whether to merge.
 
 ## Job details presentation
 
-Opening a job replaces its list with a dedicated detail. The compact heading
-combines ticket number and title; **Job actions** shares the current-stage row.
-It contains only commands allowed for the selected job, including Retry, Cancel
-or confirmed fresh-run recovery. Existing confirmations and worker permissions
-still apply. **Close** restores the list with its filters.
-
-The current state, responsible actor and **Next step** come first. Budgets and
-Consumption sit beside them on wide screens and below on narrow screens; missing
-values never mean zero or guessed progress. **Activity** lists saved events
-newest first. **Agent question** contains the active clarification; other states
-show **Evidence and artifacts**. Leading HTML comments are omitted from the
-readable question and retained under **Original question and evidence**. Other
-HTML stays inert text and images do not load automatically. Once the job resumes,
-its earlier clarification events remain history, not current requests.
-
-**Technical details** holds identifiers, on-demand executor output, recovery
-diagnosis and expandable **Original recorded events**. The tabs support arrow
-keys, Home and End. These views never approve a candidate or start an executor.
+Opening a job navigates to Jobs and replaces the originating list with a dedicated detail.
+Activity / Agent sessions / Artifacts / Technical information, Show ticket and a
+right-aligned Close appear above the ticket title. Saved status, stage and workflow
+appear below it; no transcript event is used to infer job status. Job actions retain
+Retry, Cancel and confirmed recovery when allowed. Budgets, consumption and saved
+clarification/approval/review controls remain available. Artifacts holds questions,
+preparation results and saved delivery evidence. Leading editorial HTML comments
+are omitted only from the readable question; the original source remains available.
+Technical information holds identifiers, operational executor output, recovery
+diagnosis and Original recorded events. Tabs support arrow keys, Home and End.
+Close restores the originating page/tab, scope, search, filters and pagination.
 
 ## Compact project and Jobs controls
 
-The global Jobs page places its project scope selector at the right of the Tickets/Jobs/Capacity tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+Global Jobs and Tickets each have a project scope selector; Jobs retains search, status filters and sorting. The project hub retains its fixed scope and Tickets/Jobs/Capacity sub-tabs.
 
 Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.
 
@@ -1536,7 +1527,7 @@ their own consumer contract. No host-wide single-job ceiling is imposed.
 
 ## Project capacity and retained work
 
-Project Summary places only Parallel job limit, Free and Queued jobs in the operational rectangles, in two rows on wide screens and wrapped on smaller screens. The project and global Jobs workspaces offer Tickets, Jobs and Capacity. Capacity shows one row per authorized project with limit, free places, queue, monitoring and current unfinished job states. Rows per page offers 10, 25, 50 and All, with Previous/Next controls; finished history, operation history and logs are excluded. Settings, Statistics, History and Access do not display a separate capacity panel. Failed project reads stay explicit instead of becoming zero counts. Queued counts include submitted requests and admitted jobs awaiting dispatch, not unread forge tickets. A busy project does not block another project's Start or settings.
+Project Summary places only Parallel job limit, Free and Queued jobs in the operational rectangles, in two rows on wide screens and wrapped on smaller screens. The project Jobs workspace offers Tickets, Jobs and Capacity; the separate global Jobs and Tickets entries retain scope selection. Capacity shows one row per authorized project with limit, free places, queue, monitoring and current unfinished job states. Rows per page offers 10, 25, 50 and All, with Previous/Next controls; finished history, operation history and logs are excluded. Settings, Statistics, History and Access do not display a separate capacity panel. Failed project reads stay explicit instead of becoming zero counts. Queued counts include submitted requests and admitted jobs awaiting dispatch, not unread forge tickets. A busy project does not block another project's Start or settings.
 
 Implementation retains one canonical `polling.max_concurrent_runs`, default 1. A staged lower N already fences Start/Retry/resume admission without cancelling existing admitted jobs. Safe apply still waits for unfinished work; reductions below occupancy explain the conflict and keep the candidate. Staged increases wait for safe application. Discard removes the staged ceiling.
 
@@ -1545,3 +1536,48 @@ Ordinary unsaved editable Settings values survive navigation and refresh in the 
 System status separates supervisor, configuration, project, job and control roles. Heartbeat freshness, observed activity and free slots are distinct. Server readiness requires supervisor and configuration contact and names unavailable server components; missing project workers remain local. Settings for monitoring, backend, runtime, image/preparation, agent/model, budgets and policies remain project-owned.
 
 After a lower N, already-started executors continue, while queued initial reservations wait for actual start capacity. Pending reservations retain their dispatch evidence; they do not block each other indefinitely. Initial activation rechecks current N atomically in the conductor as well as limiting supervisor dispatch.
+
+
+## Recorded agent sessions and global navigation
+
+Global `/jobs` opens the existing job list with search, status filters, server sorting,
+pagination, refresh and selectable all-authorized-project/single-project scope.
+Global `/tickets` opens the existing ticket workspace, automatically reading its scope
+on entry and scope changes; Read tickets remains available. Generation and synchronous
+pending guards prevent duplicate pending reads and stale completions. Project listing,
+hub tabs and project-specific Tickets/Jobs/Capacity controls retain their existing layout.
+
+Job details place Activity / Agent sessions / Artifacts / Technical information tabs,
+Show ticket and right-aligned Close above the ticket title. The status line uses saved
+status, stage and workflow. Actions, budgets, consumption, clarification, approval and
+review remain available; closing restores the originating list state.
+
+`adore/web/executor_session.py` supplies `list_sessions(run)` and
+`read_session(run, attempt_id, cursor=0, limit=200, include_cost=False)`. Authenticated
+GET `/api/v1/jobs/{project_id}/{run_id}/sessions` and its `/{attempt_id}` child resolve
+ownership through the strict existing job snapshot and recheck grants before release.
+Both return Cache-Control: no-store. Only the run's own exact archive folders are read,
+with regular-file, hardlink, symlink/reparse and parent identity checks. No migration
+or alternative stored format is introduced. Start time is null because current metadata
+records only archive completion; exit code and timeout describe the physical launch.
+
+The JSONL reader accepts complete LF lines, emits prompt/assistant/readable reasoning,
+tool call/result, turn, usage and notice items, ignores system/delta/agent_end messages,
+and retains literal recorded text including secrets. Each text is at most 16 KiB with
+an explicit truncation marker; records above 256 KiB become notices. Files above 64 MiB
+produce a notice without scanning them. A normal page scans up to 4 MiB between records;
+skipping one oversized line is bounded by the 64 MiB source ceiling. Byte cursors name
+line starts. The requested limit strictly caps source items at at most 200. One assistant item
+can contain up to three typed parts (assistant text, reasoning and usage), each
+with its own text bound, preserving all message evidence at a line-start cursor. A pending partial
+line is never projected. Structured usage costs are administrator-only; literal agent
+text is not redacted. Existing normalized latest executor output stays independent.
+
+`SessionView.tsx` and `sessionModel.ts` own on-demand attempt selection, validated
+transport, stale-response guards, collapsed reasoning and expandable tools plus cursor
+Load more. No live polling or instructions are added. Focused proof lives in
+`test_web_executor_session.py`, retained `test_web_jobs.py`, frontend session/routes/job
+model tests and jobs/tickets browser journeys. Real-provider and Linux link acceptance
+remain operator checks; Windows hosts without symlink privilege skip those cases.
+
+Global Jobs retains its Jobs/Capacity sub-tabs; Tickets is its own sidebar page. The project Jobs tab retains Tickets/Jobs/Capacity.

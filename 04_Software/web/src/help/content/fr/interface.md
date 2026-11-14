@@ -8,7 +8,8 @@ L’interface comprend une barre latérale sombre pour passer d’une page à l�
 |---|---|
 | Vue d'ensemble | Consulter **À traiter** et **Tâches actives** pour les projets auxquels vous avez accès. **Détails** ouvre une tâche dans Tâches. |
 | [Projets](/projects) | Parcourir les projets inscrits avec leur dépôt, leur forge, l’état de la surveillance, le nombre de tâches et la dernière activité. Ouvrez un projet pour accéder à son hub. Les administrateurs voient aussi **Inscrire un nouveau projet** ou **Importer la configuration brute**. |
-| [Tâches](/jobs) | Choisir un **Périmètre des travaux**, puis utiliser le sous-onglet **Tickets** pour lire les tickets de la forge et les démarrer, ou le sous-onglet **Tâches** pour rechercher des tâches et ouvrir leurs détails. |
+| [Tâches](/jobs) | Rechercher, filtrer, trier et paginer les tâches de tous les projets autorisés ou d’un seul. |
+| [Tickets](/tickets) | Lire automatiquement les tickets du périmètre choisi ; conserver l’actualisation et les actions manuelles. |
 | [Statistiques](/metrics) | Consulter l’utilisation, la qualité et les tendances sur une période de rapport. Voir [Statistiques et coûts](/help/statistics). |
 | Administration | Réservée aux administrateurs. Elle ouvre trois pages : [État du système](/admin/status), [Utilisateurs](/admin/users) et [Historique des changements](/admin/audit). Voir [Administration](/help/administration). |
 | [Mon compte](/account) | Choisir votre langue et votre thème, et changer votre mot de passe. |
@@ -26,8 +27,7 @@ La barre supérieure affiche le titre de la page et ces commandes.
 - **À propos** : la version d’ADORE, avec **Nouveautés** (notes de version par version, de la plus récente à la plus ancienne, regroupées en Nouveau, Amélioré et Corrigé), **Licence** et **Mentions des composants tiers**.
 - **Comment fonctionne ADORE** : ouvre ce centre d’aide.
 
-Dans Tâches, le sélecteur de périmètre se trouve à droite de **Tickets** et **Tâches** sur grand écran. Sur petit écran, il passe sous les onglets.
-
+Tâches et Tickets ont chacun un sélecteur **Périmètre des travaux** : tous les projets autorisés ou un seul.
 ## Hub du projet {#project-hub}
 
 L’ouverture d’un projet depuis Projets affiche son nom et le chemin de son dépôt au-dessus de ces onglets.

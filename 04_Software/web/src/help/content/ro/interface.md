@@ -8,7 +8,8 @@ Interfața are o bară laterală întunecată pentru navigarea între pagini și
 |---|---|
 | Prezentare generală | Vedeți **Necesită intervenție** și **Lucrări active** pentru proiectele la care aveți acces. **Detalii** deschide o lucrare în Lucrări. |
 | [Proiecte](/projects) | Parcurgeți proiectele înrolate cu repository-ul, forge-ul, starea monitorizării, numărul de lucrări și ultima activitate. Deschideți un proiect pentru a ajunge la pagina lui. Administratorii văd și **Înrolează un proiect nou** sau **Importă configurația brută**. |
-| [Lucrări](/jobs) | Alegeți din **Domeniul joburilor**, apoi folosiți sub-fila **Tichete** pentru a citi tichetele de pe forge și a le porni, sau sub-fila **Lucrări** pentru a căuta lucrări și a deschide detaliile lor. |
+| [Lucrări](/jobs) | Căutați, filtrați, sortați și paginați lucrările tuturor proiectelor autorizate sau ale unui proiect. |
+| [Tichete](/tickets) | Citiți automat tichetele din domeniul ales; păstrați reîmprospătarea manuală și acțiunile. |
 | [Statistici](/metrics) | Citiți utilizarea, calitatea și tendințele pentru o perioadă de raportare. Vezi [Statistici și costuri](/help/statistics). |
 | Administrare | Doar pentru administratori. Deschide trei pagini: [Starea sistemului](/admin/status), [Utilizatori](/admin/users) și [Istoricul modificărilor](/admin/audit). Vezi [Administrare](/help/administration). |
 | [Contul meu](/account) | Alegeți limba și tema și schimbați parola. |
@@ -26,8 +27,7 @@ Bara de sus afișează titlul paginii și aceste comenzi.
 - **Despre**: versiunea ADORE, cu **Noutăți** (notele de versiune pe versiuni, cele mai noi primele, grupate în Nou, Îmbunătățit și Corectat), **Licență** și **Notificări despre componente terțe**.
 - **Cum funcționează ADORE**: deschide acest centru de ajutor.
 
-În Lucrări, filtrul de proiect se află în dreapta filelor **Tichete** și **Lucrări** pe ecrane late. Pe ecrane înguste trece sub file.
-
+Lucrări și Tichete au fiecare selectorul **Domeniul joburilor** pentru toate proiectele autorizate sau unul singur.
 ## Pagina proiectului {#project-hub}
 
 Deschiderea unui proiect din Proiecte afișează numele și calea repository-ului deasupra acestor file.

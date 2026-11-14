@@ -30,6 +30,97 @@ test.afterEach(async ({ request, page }) => {
   expect(response.ok()).toBe(true);
 });
 
+test("LA-01 compact detail preserves global list and reads recorded sessions", async ({page}, info) => {
+  await signIn(page);
+  await nav(page).getByRole("link", {name:"Jobs",exact:true}).click();
+  await page.getByLabel("Search jobs",{exact:true}).fill("Actual");
+  await page.locator(".job-basic-filters").getByLabel("Status",{exact:true}).selectOption("active");
+  const scope = await page.locator("#jobs-project").inputValue();
+  await page.locator(".action-jobs-table a.strong").first().click();
+  const detail = page.locator(".job-details");
+  await expect(detail.getByRole("tab")).toHaveText(["Activity","Agent sessions","Artifacts","Technical information"]);
+  await expect(detail.getByText("What is happening now",{exact:true})).toHaveCount(0);
+  const commands = await detail.locator(".job-detail-commands").boundingBox();
+  const title = await detail.locator(".job-detail-title h2").boundingBox();
+  expect(commands!.y).toBeLessThan(title!.y);
+  await expect(detail.locator(".job-detail-meta")).toContainText("Stage:");
+  await expect(detail.locator(".job-detail-meta")).toContainText("Workflow:");
+  await page.route("**/sessions", route => route.fulfill({json:{sessions:[{
+    id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0,
+  }]}}));
+  let reads=0;
+  await page.route("**/sessions/build-attempt-1-attempt1?*", route => {
+    reads++;
+    return route.fulfill({json:{session:{id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0},items:reads===1?[
+      {kind:"prompt",text:"recorded prompt"},{kind:"assistant",text:"recorded answer"},
+      {kind:"reasoning",text:"collapsed reasoning"},{kind:"tool_call",tool:"bash",call_id:"x",text:'{"command":"echo fake-key-EXACT"}'},
+      {kind:"tool_result",tool:"bash",call_id:"x",is_error:false,text:"fake-key-EXACT"},
+      {kind:"turn",text:"turn_end"},{kind:"usage",text:"",usage:{input:7,output:9}},
+    ]:[{kind:"notice",text:"last page"}],next_cursor:reads===1?10:null}});
+  });
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(detail.getByText("recorded prompt",{exact:true})).toBeVisible();
+  await expect(detail.getByText("collapsed reasoning",{exact:true})).toBeHidden();
+  await detail.locator("details.session-tool").first().locator("summary").click();
+  await expect(detail.locator(".session-tool pre").first()).toContainText("fake-key-EXACT");
+  await detail.getByRole("button",{name:"Load more",exact:true}).click();
+  await expect(detail.getByText("last page",{exact:true})).toBeVisible();
+  await page.screenshot({path:info.outputPath("agent-sessions.png"),fullPage:true});
+  await detail.getByRole("button",{name:"Close",exact:true}).click();
+  await expect(page.getByLabel("Search jobs",{exact:true})).toHaveValue("Actual");
+  await expect(page.locator(".job-basic-filters").getByLabel("Status",{exact:true})).toHaveValue("active");
+  await expect(page.locator("#jobs-project")).toHaveValue(scope);
+});
+
+test("LA-01 finished job replays real archived Pi fixtures through authenticated API",async({page})=>{
+  await signIn(page);
+  await page.goto("/jobs?project=alpha&run=ux-done");
+  const detail=page.locator(".job-details");
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  const history=detail.locator(".agent-sessions");
+  await expect(history.getByLabel("Attempt",{exact:true}).locator("option")).toHaveCount(2);
+  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue("build-attempt-2-attempt1");
+  await expect(history.locator(".session-prompt")).toBeVisible();
+  await expect(history.locator(".session-assistant").first()).toBeVisible();
+  await expect(history.locator(".session-usage").first()).toBeVisible();
+  await expect(history).not.toContainText("SYSTEM_SESSION_NEVER_VISIBLE");
+  const tool=history.locator("details.session-tool").filter({hasText:"fake-exact"});
+  await tool.locator("summary").click();
+  await expect(tool.locator("pre")).toHaveText("API_KEY=fake-exact");
+  await history.getByLabel("Attempt",{exact:true}).selectOption("build-attempt-1-attempt1");
+  await expect(history.locator(".session-prompt")).toBeVisible();
+});
+
+test("LA-01 project History page two survives Jobs detail and Close",async({page})=>{
+  await signIn(page);
+  const offsets:number[]=[];
+  let original:{evidence_url:string;[key:string]:unknown}|undefined;
+  await page.route("**/api/v1/jobs-page?*",async route=>{
+    const url=new URL(route.request().url());
+    if(url.searchParams.get("status_group")!=="terminal")return route.continue();
+    const response=await route.fetch(),data=await response.json();
+    const offset=Number(url.searchParams.get("offset")||0);offsets.push(offset);
+    original=data.items.find((row:{run_id:string})=>row.run_id==="ux-done") || original;
+    if(!original)throw new Error("History fixture lacks the completed job");
+    const template=original;
+    const rows=Array.from({length:12},(_,index)=>{
+      const id=index===10?"ux-done":`history-${index}`;
+      return {...template,run_id:id,ticket_title:`History row ${index+1}`,evidence_url:template.evidence_url.replace(/[^/]+$/,id)};
+    });
+    await route.fulfill({response,json:{...data,items:rows.slice(offset,offset+10),total:12,limit:10,offset,counts:{done:12},groups:{active:0,waiting:0,review:0,terminal:12}}});
+  });
+  await page.goto("/projects/alpha/history");
+  await page.locator(".job-workspace").getByRole("button",{name:"Next",exact:true}).click();
+  await expect(page.locator(".action-jobs-table tbody tr").first()).toContainText("History row 11");
+  await page.locator(".action-jobs-table a.strong").first().click();
+  await expect(page.locator(".project-tabs").getByRole("tab",{name:"Jobs",exact:true})).toHaveAttribute("aria-selected","true");
+  await expect(page.locator(".job-details")).toBeVisible();
+  await page.locator(".job-details").getByRole("button",{name:"Close",exact:true}).click();
+  await expect(page.locator(".project-tabs").getByRole("tab",{name:"History",exact:true})).toHaveAttribute("aria-selected","true");
+  await expect(page.locator(".action-jobs-table tbody tr").first()).toContainText("History row 11");
+  expect(offsets.at(-1)).toBe(10);
+});
+
 test.describe("Direct job evidence", () => {
   test.beforeEach(async ({request}) => {
     expect((await request.post("/__e2e__/jobs?mode=direct", {headers: {"X-ADORE-E2E": "local-test"}})).ok()).toBe(true);
@@ -46,7 +137,7 @@ test.describe("Direct job evidence", () => {
     for (const suffix of ["whitespace", "publication-reset", "retried"]) {
       await page.goto(`/jobs?project=alpha&run=ux-direct-${suffix}`);
       const detail = page.locator(".detail-panel"), evidence = detail.locator(".direct-evidence");
-      await detail.getByRole("tab", {name:"Evidence and artifacts",exact:true}).click();
+      await detail.getByRole("tab", {name:"Artifacts",exact:true}).click();
       await expect(evidence).toBeVisible();
       await expect(evidence).toContainText("Latest recorded attempt");
       await expect(detail.locator(".job-detail-meta")).toContainText(
@@ -151,7 +242,8 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   const facts = page.locator(".project-summary");
   await expect(facts.locator(".summary-fact").filter({ hasText: "Container type" })).toContainText("Docker");
   await expect(facts.locator(".summary-fact").filter({ hasText: "Executor" })).toHaveCount(0);
-  await expect(facts.locator(".summary-fact")).toHaveCount(7);
+  await expect(facts.locator(".summary-fact:not([data-capacity-fact])")).toHaveCount(7);
+  await expect(facts.locator("[data-capacity-fact] dt")).toHaveText(["Parallel job limit","Free","Queued jobs"]);
   await expect(facts.locator(".summary-fact").filter({ hasText: "Active jobs" })).toContainText("3");
   await expect(page.locator(".statistics-job-scope, .job-workspace .scope-note")).toHaveCount(0);
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
@@ -173,7 +265,8 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.getByRole("tab", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "History", exact: true })).toBeVisible();
   expect(checks).toBe(0);
-  expect((await facts.boundingBox())!.height).toBeLessThan(180);
+  const factTops=await facts.locator(".summary-fact").evaluateAll(items=>items.map(item=>Math.round(item.getBoundingClientRect().top)));
+  expect(new Set(factTops).size).toBe(2);
   await page.screenshot({path:info.outputPath("compact-project-summary.png"),fullPage:true});
   await facts.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   await expect(facts.locator(".readiness-verdict")).toHaveCount(0);
@@ -231,7 +324,7 @@ test("jobs table shows compact columns and sorts on the server", async ({ page }
 
 test("manual start from Tickets reports queueing and the asynchronous worker failure", async ({ page }) => {
   await signIn(page);
-  await page.goto("/jobs?project=alpha");
+  await page.goto("/tickets?project=alpha");
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#43" }).getByRole("button", { name: "Start", exact: true }).click();
   const notice = page.locator(".ticket-notice");
@@ -241,65 +334,26 @@ test("manual start from Tickets reports queueing and the asynchronous worker fai
   await expect(notice).not.toContainText("finished");
 });
 
-test("global Jobs mirrors the project hub with a compact scope and Tickets/Jobs sub-tabs", async ({ page }) => {
-  // Start needs active pickup; the fixture keeps it stopped for the other specs.
-  await setPickup("beta", true);
-  try {
-    await signIn(page);
-    await page.goto("/jobs");
-    await expect(page.locator("#jobs-project")).toHaveValue("");
-    const tabs = page.locator(".jobs-subtabs");
-    await expect(tabs.getByRole("tab", { name: "Tickets", exact: true })).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator("#job-ticket-number")).toHaveCount(0);
-    await expect(page.getByText("Worker available", { exact: true })).toHaveCount(0);
-    await expect(page.getByText(/Jobs shown here belong|The heartbeat describes/)).toHaveCount(0);
-    const projects = await (await page.request.get("/api/v1/projects")).json();
-    const alpha = projects.find((item: { name: string }) => item.name === "alpha").id, beta = projects.find((item: { name: string }) => item.name === "beta").id;
-    // All projects reads every authorized project's tickets into one table with a Project column;
-    // a failed project read reports only that project and keeps the others.
-    const betaTickets = `**/api/v1/projects/${beta}/tickets`;
-    await page.route(betaTickets, route => route.abort());
-    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-    const rows = page.locator(".ticket-table tbody tr.ticket-row");
-    // Other specs may add projects whose forge reads fail too, so alerts are matched per project.
-    const alerts = page.locator(".ticket-workspace .alert");
-    const projectRows = (name: string) => rows.filter({ has: page.getByRole("cell", { name, exact: true }) });
-    await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toBeVisible();
-    await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(1);
-    await expect(alerts.filter({ hasText: /^alpha: / })).toHaveCount(0);
-    await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
-    await expect(projectRows("beta")).toHaveCount(0);
-    await page.unroute(betaTickets);
-    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-    await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(0);
-    // Both projects' tickets exceed one page of 10; show them all.
-    await page.locator(".ticket-pagination").getByLabel("Rows per page").selectOption("all");
-    await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
-    const betaRow = projectRows("beta").filter({ hasText: "#44" });
-    await expect(betaRow).toHaveCount(1);
-    const started = page.waitForRequest(request => request.method() === "POST" && new URL(request.url()).pathname === `/api/v1/projects/${beta}/tickets/44/start`);
-    await betaRow.getByRole("button", { name: "Start", exact: true }).click();
-    await started;
-    await expect(page.locator(".ticket-notice")).toContainText("beta · Start for #44 queued");
-    await tabs.getByRole("tab", { name: "Jobs", exact: true }).click();
-    await expect(page).toHaveURL(/view=jobs/);
-    await expect(page.locator(".action-jobs-table")).toBeVisible();
-    await page.locator("#jobs-project").selectOption(alpha);
-    await tabs.getByRole("tab", { name: "Tickets", exact: true }).click();
-    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-    await expect(rows.first()).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toHaveCount(0);
-    await tabs.getByRole("tab", { name: "Jobs", exact: true }).click();
-    await expect(page).toHaveURL(/view=jobs/);
-    await expect(page.locator(".action-jobs-table")).toBeVisible();
-    await page.reload();
-    await expect(tabs.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
-    await page.goto(`/jobs?project=${alpha}&run=ux-working`);
-    await expect(tabs.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator(".detail-panel")).toBeVisible();
-  } finally {
-    await setPickup("beta", false);
-  }
+test("global Jobs and Tickets retain scope and leave the project hub intact", async ({page}) => {
+  await signIn(page);
+  const projects=await (await page.request.get("/api/v1/projects")).json();
+  const alpha=projects.find((item:{name:string})=>item.name==="alpha").id;
+  await nav(page).getByRole("link",{name:"Jobs",exact:true}).click();
+  await expect(page.locator("#jobs-project")).toHaveValue("");
+  await expect(page.getByLabel("Search jobs",{exact:true})).toBeVisible();
+  await expect(page.locator(".jobs-subtabs").getByRole("tab")).toHaveText(["Jobs","Capacity"]);
+  await page.locator("#jobs-project").selectOption(alpha);
+  await nav(page).getByRole("link",{name:"Tickets",exact:true}).click();
+  await expect(page.locator("#jobs-project")).toHaveValue(alpha);
+  await expect(page.locator(".ticket-row").first()).toBeVisible();
+  await page.locator("#jobs-project").selectOption("");
+  await expect(page.locator(".ticket-table").getByRole("columnheader",{name:"Project",exact:true})).toBeVisible();
+  await nav(page).getByRole("link",{name:"Projects",exact:true}).click();
+  await expect(page.locator(".projects-table")).toBeVisible();
+  await page.getByRole("link",{name:"alpha",exact:true}).click();
+  await expect(page.locator(".project-tabs").getByRole("tab")).toHaveText(["Summary","Settings","Jobs","Statistics","History","Access"]);
+  await page.locator(".project-tabs").getByRole("tab",{name:"Jobs",exact:true}).click();
+  await expect(page.locator(".jobs-subtabs").getByRole("tab")).toHaveText(["Tickets","Jobs","Capacity"]);
 });
 
 test("all real lifecycle groups explain exact stage evidence and protected handoffs", async ({ page }) => {
@@ -318,18 +372,18 @@ test("all real lifecycle groups explain exact stage evidence and protected hando
   for (const [suffix, _status, _stage, cancellable] of cases) {
     await page.goto(`/jobs?project=${id}&run=ux-${suffix}`);
     const detail = page.locator(".detail-panel");
-    await expect(detail.getByRole("heading", { name: "What is happening now" })).toBeVisible();
-    await expect(detail.locator(".next-action-panel .status")).toContainText(_status);
+    await expect(detail.getByRole("heading", { name: "What is happening now" })).toHaveCount(0);
+    await expect(detail.locator(".job-detail-meta .status")).toContainText(_status);
     await expect(detail.locator(".job-detail-meta")).toContainText(`Stage: ${_stage}`);
-    await expect(detail.getByText("Next step", { exact: true })).toBeVisible();
+    await expect(detail.getByText("Next step", { exact: true })).toHaveCount(0);
     await expect(detail.getByRole("tab", {name:"Activity",exact:true})).toHaveAttribute("aria-selected", "true");
     if (await detail.locator(".job-actions").count()) await detail.locator(".job-actions summary").click();
     await expect(detail.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(cancellable ? 1 : 0);
     await expect(detail.getByRole("button", { name: "Retry", exact: true })).toHaveCount(suffix === "failed" ? 1 : 0);
     await expect(detail.getByRole("button", { name: /merge|approve|pause|resume/i })).toHaveCount(0);
     await expect(detail).not.toContainText(/\d+%/);
-    if (suffix === "done") await expect(detail).toContainText("does not establish a human merge");
-    if (suffix === "handed-off") await expect(detail).toContainText("retained worktree is protected");
+    if (suffix === "done") await expect(detail.locator(".job-detail-meta")).toContainText("Completed");
+    if (suffix === "handed-off") await expect(detail.locator(".job-detail-meta")).toContainText("Handed off");
   }
   expect(errors).toEqual([]);
 });
@@ -351,7 +405,7 @@ test("clarification candidate and draft actions open actual saved locations and 
       await expect(detail).not.toContainText("fixture-secret");
     }
     if (run === "ux-approval") {
-      await detail.getByRole("tab", {name:"Technical details",exact:true}).click();
+      await detail.getByRole("tab", {name:"Technical information",exact:true}).click();
       await detail.getByText("Original recorded events", {exact:true}).click();
       const timeline = detail.getByRole("table", { name: "Timeline" });
       await expect(timeline).toContainText("Frame"); await expect(timeline).toContainText("Build"); await expect(timeline).toContainText("Validate");
@@ -369,12 +423,12 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await expect(page.getByText("Supervisor · No heartbeat", { exact: true })).toBeVisible();
   const detail = page.locator(".detail-panel");
   await expect(detail.getByRole("heading", { name: /Ticket title not recorded/ })).toBeVisible();
-  await expect(detail).toContainText("no human intervention is currently requested");
-  await expect(detail.locator(".next-action-panel a")).toHaveCount(0);
+  await expect(detail.locator(".job-detail-meta .status")).toContainText("Working");
+  await expect(detail.locator(".job-human-actions a")).toHaveCount(0);
   await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —");
   await expect(detail.locator(".job-consumption").first()).not.toContainText("Not available");
   await page.goto("/jobs?project=alpha&run=ux-working");
-  await expect(page.locator(".detail-panel")).toContainText("over 15 minutes old");
+  await expect(page.locator(".detail-panel .job-detail-meta .status")).toContainText("Working");
 });
 
 test("global complete search paging basic filters and source revision conflicts", async ({ page }) => {
@@ -413,7 +467,7 @@ test("composite colliding IDs and reload preserve the owning project", async ({ 
   await page.getByRole("link", { name: /Actual beta collision/ }).click();
   await expect(page.locator(".detail-panel .job-detail-title h2")).toContainText("Actual beta collision");
   await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
-  await expect(page.locator("#jobs-project option:checked")).toHaveText("beta");
+  await expect(page.locator("#jobs-project")).toHaveValue("");
   await page.reload();
   await expect(page.locator(".detail-panel .job-detail-title h2")).toContainText("Actual beta collision");
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
@@ -477,7 +531,7 @@ test("queued pending and final successful commands do not predict job outcome", 
   // Start needs active pickup; the fixture keeps it stopped for the other specs.
   await setPickup("alpha", true);
   try {
-    await signIn(page); await page.goto("/jobs?project=alpha");
+    await signIn(page); await page.goto("/tickets?project=alpha");
     let release!: () => void; const pending = new Promise<void>(resolve => { release = resolve; });
     await page.route("**/api/v1/operations/*", async route => { const response = await route.fetch(); await pending; await route.fulfill({ response }); });
     let submits = 0; page.on("request", request => { if (request.method() === "POST" && request.url().endsWith("/tickets/44/start")) submits++; });
@@ -523,7 +577,7 @@ test.describe("Keyboard and localized job evidence", () => {
     await page.screenshot({ path: info.outputPath(`overview-${theme}-390.png`), fullPage: true });
     await page.goto("/jobs?project=alpha&run=ux-approval");
     await expect(page.locator(".detail-panel")).toBeVisible();
-    const link = page.locator(".detail-panel .next-action-panel a");
+    const link = page.locator(".detail-panel .job-human-actions a");
     await link.focus(); await expect(link).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.screenshot({ path: info.outputPath(`job-${theme}-390.png`), fullPage: true });
@@ -537,7 +591,7 @@ test.describe("Keyboard and localized job evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     });
   }
-  for (const [locale, heading] of [["fr", "Que se passe-t-il maintenant"], ["de", "Was gerade geschieht"], ["ro", "Ce se întâmplă acum"], ["en", "What is happening now"]]) {
+  for (const [locale, heading] of [["fr", "Sessions de l’agent"], ["de", "Agentensitzungen"], ["ro", "Sesiunile agentului"], ["en", "Agent sessions"]]) {
     test(`localized job evidence remains usable in ${locale}`, async ({page}, info) => {
       await signIn(page);
     await page.goto("/account");
@@ -547,7 +601,7 @@ test.describe("Keyboard and localized job evidence", () => {
     await expect(page.locator(".overview-jobs-table").first()).toBeVisible();
     await expect(page.locator(".overview-header-scope select")).toHaveValue("");
     await page.goto("/jobs?project=alpha&run=ux-approval");
-    await expect(page.locator(".detail-panel").getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await expect(page.locator(".detail-panel").getByRole("tab", { name: heading, exact: true })).toBeVisible();
       await page.screenshot({path:info.outputPath("job-desktop-dark.png"),fullPage:true});
     });
   }
@@ -562,7 +616,7 @@ test("observed timeline retains paging and rejects unsafe action locations", asy
     await route.fulfill({ response, json: data });
   });
   await page.goto("/jobs?project=alpha&run=ux-working");
-  await page.getByRole("tab",{name:"Technical details",exact:true}).click();
+  await page.getByRole("tab",{name:"Technical information",exact:true}).click();
   await page.getByText("Original recorded events",{exact:true}).click();
   const timeline = page.getByRole("table", { name: "Timeline", exact: true });
   await expect(timeline.getByRole("row")).toHaveCount(11);
@@ -1182,7 +1236,7 @@ test("executor output retains verified evidence across a live journal conflict",
     }});
   });
   await page.goto("/jobs?project=alpha&run=ux-working");
-  await page.getByRole("tab",{name:"Technical details",exact:true}).click();
+  await page.getByRole("tab",{name:"Technical information",exact:true}).click();
   const output = page.locator(".executor-output");
   const read = output.getByRole("button",{name:"View latest executor output",exact:true});
   await read.click();
@@ -1221,10 +1275,10 @@ test("issue35 job diagnostics clarify status, safe questions, seconds and consum
     stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",stderr:"diagnostic: credential",exit_code:1,timed_out:false,
     state_revision:"a".repeat(64),in_progress:false,attempt:1,stage:"build",recorded_at:"2026-11-05T10:12:34Z"}}));
   await page.goto("/jobs?project=alpha&run=ux-working");
-  const card=page.locator(".next-action-panel"),detail=page.locator(".detail-panel");
+  const card=page.locator(".job-human-actions"),detail=page.locator(".detail-panel");
   await expect(card).toContainText("Failed attempts in this stage: 1");
   await expect(card).not.toContainText(/Reason not recorded|Unknown — no recorded evidence|does not identify/);
-  await detail.getByRole("tab",{name:"Technical details",exact:true}).click();
+  await detail.getByRole("tab",{name:"Technical information",exact:true}).click();
   await detail.getByText("Original recorded events",{exact:true}).click();
   await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText(/:34/);
   await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText("Build");
@@ -1250,7 +1304,7 @@ test("issue35 job diagnostics clarify status, safe questions, seconds and consum
   await card.getByRole("button",{name:"Read the question",exact:true}).click();
   const question = detail.locator(".job-question");
   await expect(question.getByRole("heading",{name:"Choose a format"})).toBeVisible();
-  await expect(card).toContainText("Human responder");
+  await expect(question.getByRole("heading",{name:"Agent question",exact:true})).toBeVisible();
   await expect(card).not.toContainText("Unknown — no recorded evidence");
   await expect(question.locator("ul li")).toHaveCount(2);
   await expect(question.locator("code")).toHaveText("code");
@@ -1268,20 +1322,18 @@ test("issue35 normal lifecycle copy in four locales and safe Markdown scroll on 
     expect((await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language,theme}})).ok()).toBe(true);
   };
   try {
-    for (const [locale,working,failed,parked] of [
+    for (const [locale] of [
       ["en","no human intervention is currently requested","Autonomous work has stopped","After an accepted answer"],
       ["fr","aucune intervention humaine","Le travail autonome est arrêté","Après une réponse acceptée"],
       ["de","kein menschlicher Eingriff","Autonome Arbeit wurde angehalten","Nach einer angenommenen Antwort"],
       ["ro","nu se cere intervenția unui om","Lucrul autonom s-a oprit","După un răspuns acceptat"],
     ]) {
       await preferences(locale,"dark");
-      for (const [suffix,text] of [["working",working],["failed",failed],["clarification",parked]]) {
+      for (const suffix of ["working","failed","clarification"]) {
         await page.goto(`/jobs?project=alpha&run=ux-${suffix}`);
-        const card=page.locator(".next-action-panel");
-        // Saved failed outcomes remain visible; the lifecycle explanation is separately localized.
-        if(suffix==="failed") await expect(card).toContainText(/failed|échoué|fehlgeschlagen|eșuat/);
-        else if(suffix==="clarification") await expect(card).toContainText(/clarification|Klärung|clarificare/);
-        else await expect(card).toContainText(text);
+        await expect(page.locator(".job-detail-meta .status")).toBeVisible();
+        await expect(page.locator(".next-action-panel")).toHaveCount(0);
+        if(suffix==="clarification") await expect(page.locator(".job-human-actions button")).toBeVisible();
       }
     }
     await preferences("en","dark");
@@ -1312,10 +1364,11 @@ test("compact summary and Jobs toolbar fit desktop and narrow screens", async ({
   await signIn(page);
   await page.goto("/projects/beta");
   const summary=page.locator(".project-summary-window");
-  await expect(summary.locator(".summary-fact")).toHaveCount(7);
+  await expect(summary.locator(".summary-fact:not([data-capacity-fact])")).toHaveCount(7);
+  await expect(summary.locator("[data-capacity-fact] dt")).toHaveText(["Parallel job limit","Free","Queued jobs"]);
   await expect(summary.locator(".summary-job-window")).toContainText("Actual beta collision");
   // The capacity panel precedes this panel; prove the summary itself fits one viewport.
-  await expect(page.locator(".project-capacity .capacity-facts")).toBeVisible();
+  await expect(summary.locator("[data-capacity-fact]")).toHaveCount(3);
   await summary.scrollIntoViewIfNeeded();
   const summaryBox=(await summary.boundingBox())!;
   expect(summaryBox.height).toBeLessThanOrEqual(768);
@@ -1338,8 +1391,9 @@ test("compact summary and Jobs toolbar fit desktop and narrow screens", async ({
   await toolbar.locator("#jobs-project").selectOption(beta);
   await expect(page.locator(".action-jobs-table")).toContainText("Actual beta collision");
   await expect(page.locator("#job-search-help")).toHaveCount(0);
-  await toolbar.getByRole("tab",{name:"Tickets",exact:true}).click();
-  await expect(toolbar.locator("#jobs-project")).toHaveValue(beta);
+  if(await page.locator(".mobile-menu").isVisible())await page.locator(".mobile-menu").click();
+  await nav(page).getByRole("link",{name:"Tickets",exact:true}).click();
+  await expect(page.locator("#jobs-project")).toHaveValue(beta);
   await expect(page.getByRole("button",{name:"Read tickets",exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath("jobs-toolbar-mobile.png")});
 

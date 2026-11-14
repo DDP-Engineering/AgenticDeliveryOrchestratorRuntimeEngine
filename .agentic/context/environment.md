@@ -360,3 +360,10 @@ failed/unrun selection completed (128 pass,12 fail), followed by focused12-case
 suite. That help test and rendering are unchanged at the baseline; its assertions
 and active guidance requirements remain explicit. See
 01_Documentation/Worker_Acceptance.md for final counts and limitations.
+
+
+Archived-session proof uses recorded Pi stdout fixtures, temporary current run/profile
+stores and fake HTTP/browser collaborators. Windows without link creation privilege
+skips symlink creation cases; hardlinks are still verified. No Pi/provider/forge/runtime
+job is run. This child uses targeted validation; the parent runs integrated suites after
+the final activity child. Source/help changes require the committed production build.

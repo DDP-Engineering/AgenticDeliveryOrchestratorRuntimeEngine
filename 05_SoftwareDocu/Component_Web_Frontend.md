@@ -346,9 +346,7 @@ remain unknown when the projection does not provide them. Old recorded activity 
 separate from the control worker heartbeat. Completed never implies human merge.
 The observed timeline marks only actual events, including quick paths.
 
-The global Jobs page renders its own compact `#jobs-project` selector and the hub's
-shared `jobsSubtabs` (Tickets via `TicketWorkspace`, Jobs via `JobWorkspace`);
-`routes.ts` carries `view=jobs`. `TicketWorkspace` takes `projects`: for All
+The separate global Jobs and Tickets pages each render a compact `#jobs-project` selector. Jobs uses `JobWorkspace`; `/tickets` uses `TicketWorkspace` with automatic scoped reads. `TicketWorkspace` takes `projects`: for All
 projects it reads each active project with `Promise.allSettled`, keys rows by
 project and ticket, adds a Project column and reports read failures per project. `JobWorkspace` has no
 scope panel or ticket-number form and shows worker status only as an alert.
@@ -1087,33 +1085,21 @@ administrator confirmation and idle-project mutation boundary.
 
 ## Job details presentation
 
-`JobDetails.tsx` presents the verified detail separately from the job list. The
-header combines ticket number and title; Job actions shares the current-stage
-metadata row and exposes only commands allowed by the existing command policy.
-Retry, cancel and confirmed fresh-run recovery keep worker authorization, CSRF,
-revision binding and confirmation behavior. Close restores the existing list filters.
-
-The current lifecycle, responsible actor and Next step precede secondary budgets
-and consumption. Missing usage or limits remain explicitly unavailable, never
-zero or guessed progress. Activity lists saved events newest first with localized
-names for recognized events and the original event code. Unrecognized events use
-a neutral title. An older clarification event is historical, not a current action.
-
-Three keyboard-accessible tabs separate Activity, Agent question (only while
-clarification is active) or Evidence and artifacts, and Technical details. The
-question uses the existing safe Markdown renderer. Leading editorial HTML comments
-are omitted from its readable view; an expandable Original question and evidence
-retains the exact source. Other HTML stays inert text and images are never loaded.
-No historical question content is inferred when the API no longer provides it.
-Technical details retains identifiers, on-demand verified executor output, recovery
-diagnosis and the paged original timeline. All tabs use the same saved evidence;
-none starts an executor or grants candidate approval. Copy and help cover all four
-locales. The layout uses the application's light/dark tokens and stacks on narrow
-screens. No API, stored format or dependency change is required.
+Opening a job navigates to Jobs and replaces the originating list with a dedicated detail.
+Activity / Agent sessions / Artifacts / Technical information, Show ticket and a
+right-aligned Close appear above the ticket title. Saved status, stage and workflow
+appear below it; no transcript event is used to infer job status. Job actions retain
+Retry, Cancel and confirmed recovery when allowed. Budgets, consumption and saved
+clarification/approval/review controls remain available. Artifacts holds questions,
+preparation results and saved delivery evidence. Leading editorial HTML comments
+are omitted only from the readable question; the original source remains available.
+Technical information holds identifiers, operational executor output, recovery
+diagnosis and Original recorded events. Tabs support arrow keys, Home and End.
+Close restores the originating page/tab, scope, search, filters and pagination.
 
 ## Compact project and Jobs controls
 
-The global Jobs page places its project scope selector at the right of the Tickets/Jobs/Capacity tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+Global Jobs and Tickets each have a project scope selector; Jobs retains search, status filters and sorting. The project hub retains its fixed scope and Tickets/Jobs/Capacity sub-tabs.
 
 Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.
 
@@ -1126,3 +1112,48 @@ Project Settings hides the Save/Discard bar when the draft is clean, including w
 See [Project capacity](Component_Project_Capacity.md). Proof: `web/tests/projectStatus.test.mjs`, `web/e2e/projectCapacity.spec.ts` and targeted settings/help regressions. All new copy and help ship in en/fr/de/ro.
 
 Project capacity appears only in Summary facts and the Jobs Capacity table; Settings, Statistics, History and Access have no separate capacity panel.
+
+
+## Recorded agent sessions and global navigation
+
+Global `/jobs` opens the existing job list with search, status filters, server sorting,
+pagination, refresh and selectable all-authorized-project/single-project scope.
+Global `/tickets` opens the existing ticket workspace, automatically reading its scope
+on entry and scope changes; Read tickets remains available. Generation and synchronous
+pending guards prevent duplicate pending reads and stale completions. Project listing,
+hub tabs and project-specific Tickets/Jobs/Capacity controls retain their existing layout.
+
+Job details place Activity / Agent sessions / Artifacts / Technical information tabs,
+Show ticket and right-aligned Close above the ticket title. The status line uses saved
+status, stage and workflow. Actions, budgets, consumption, clarification, approval and
+review remain available; closing restores the originating list state.
+
+`adore/web/executor_session.py` supplies `list_sessions(run)` and
+`read_session(run, attempt_id, cursor=0, limit=200, include_cost=False)`. Authenticated
+GET `/api/v1/jobs/{project_id}/{run_id}/sessions` and its `/{attempt_id}` child resolve
+ownership through the strict existing job snapshot and recheck grants before release.
+Both return Cache-Control: no-store. Only the run's own exact archive folders are read,
+with regular-file, hardlink, symlink/reparse and parent identity checks. No migration
+or alternative stored format is introduced. Start time is null because current metadata
+records only archive completion; exit code and timeout describe the physical launch.
+
+The JSONL reader accepts complete LF lines, emits prompt/assistant/readable reasoning,
+tool call/result, turn, usage and notice items, ignores system/delta/agent_end messages,
+and retains literal recorded text including secrets. Each text is at most 16 KiB with
+an explicit truncation marker; records above 256 KiB become notices. Files above 64 MiB
+produce a notice without scanning them. A normal page scans up to 4 MiB between records;
+skipping one oversized line is bounded by the 64 MiB source ceiling. Byte cursors name
+line starts. The requested limit strictly caps source items at at most 200. One assistant item
+can contain up to three typed parts (assistant text, reasoning and usage), each
+with its own text bound, preserving all message evidence at a line-start cursor. A pending partial
+line is never projected. Structured usage costs are administrator-only; literal agent
+text is not redacted. Existing normalized latest executor output stays independent.
+
+`SessionView.tsx` and `sessionModel.ts` own on-demand attempt selection, validated
+transport, stale-response guards, collapsed reasoning and expandable tools plus cursor
+Load more. No live polling or instructions are added. Focused proof lives in
+`test_web_executor_session.py`, retained `test_web_jobs.py`, frontend session/routes/job
+model tests and jobs/tickets browser journeys. Real-provider and Linux link acceptance
+remain operator checks; Windows hosts without symlink privilege skip those cases.
+
+Global Jobs retains its Jobs/Capacity sub-tabs; Tickets is its own sidebar page. The project Jobs tab retains Tickets/Jobs/Capacity.

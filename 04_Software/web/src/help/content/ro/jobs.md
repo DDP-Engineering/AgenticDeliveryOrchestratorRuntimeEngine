@@ -97,7 +97,13 @@ Folosiți **Lucrări** din bara laterală sau fila **Lucrări** a unui proiect, 
 
 Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potrivește titluri, numere, proiecte, ID-uri de lucrare, stare, etapă sau rezultat. Filtrul **Stare** oferă Lucrări active, În așteptare, Revizie umană și Joburi încheiate. Pagina se reîmprospătează singură cât timp este vizibilă.
 
-Detaliile înlocuiesc lista cât timp sunt deschise. Antetul compact reunește numărul și numele tichetului. **Ce se întâmplă acum** arată starea, cine acționează și **Pasul următor**. Bugetele și Consumul sunt alături pe ecrane late și dedesubt pe ecrane înguste. **Activitate** listează evenimentele salvate de la cel mai recent. **Întrebarea agentului** conține clarificarea activă; celelalte stări arată **Dovezi și artefacte**. **Detalii tehnice** conține identificatori, ieșirea executorului și **Evenimentele originale înregistrate**, care pot fi extinse. **Închide** revine la listă cu filtrele păstrate. Evenimentele trecute nu devin cereri curente de acțiune.
+Detaliile înlocuiesc lista de origine. Deasupra titlului sunt **Activitate**, **Sesiunile agentului**, **Artefacte** și **Informații tehnice**, apoi **Arată tichetul** și **Închide** în dreapta. Starea salvată, etapa și fluxul apar sub titlu. Acțiunile, bugetele, consumul și comenzile de clarificare, aprobare și revizie rămân disponibile. **Închide** restabilește vizualizarea, domeniul, căutarea, filtrele și pagina.
+
+## Istoricul sesiunilor agentului {#agent-sessions}
+
+În **Sesiunile agentului**, alegeți o încercare încheiată, cele mai noi primele. Sursa este ieșirea Pi arhivată a lucrării: instrucțiunea trimisă de ADORE, textul asistentului, apelurile și rezultatele instrumentelor, turele și tokenurile. Extindeți un instrument pentru textul complet. Raționamentul lizibil este restrâns; mesajele de sistem nu sunt afișate. Fragmentele intermediare și listele finale duplicate sunt omise. **Încarcă mai mult** continuă înregistrarea. Se afișează finalizarea arhivării, iar lipsa orei de început este explicită.
+
+Administratorii și dezvoltatorii alocați proiectului văd textul exact cum a fost înregistrat, inclusiv secretele. Sumele structurate sunt rezervate administratorilor. Răspunsurile nu sunt memorate în cache. **Vezi ultima ieșire a executorului** rămâne în **Informații tehnice**. Fiecare text are cel mult 16 KiB cu marcaj vizibil; înregistrările incorecte sau omise devin notificări. Peste 64 MiB apare o notificare de limită. Istoricul nu se actualizează în direct.
 
 ## Bugetele jobului {#budgets}
 
@@ -117,7 +123,7 @@ Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, 
 
 Etapele cronologiei provin din etapa, contextul de etapă sau destinația tranziției salvate în fiecare eveniment; evenimentele fără legătură rămân necunoscute. Orele includ secunde. Un eveniment este o dovadă salvată, nu progres în timp real.
 
-În **Detalii tehnice**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
+În **Informații tehnice**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
 
 Rezumatul arată încercarea, ora înregistrării, rezultatul și codul de ieșire. Extinde **stdout** sau **stderr** când au înregistrări. Dacă o lansare este în curs, panoul o semnalează și păstrează ultima ieșire finalizată. Dacă jurnalul se schimbă în timpul citirii, alege **Reîncearcă**. Ultima ieșire verificată este marcată ca posibil neactualizată.
 
@@ -128,7 +134,7 @@ Dacă **Consum** nu se încarcă, folosește **Actualizează consumul** lângă 
 
 ## Capacitatea proiectului {#project-capacity}
 
-**Rezumatul** arată doar **Limita lucrărilor în paralel**, **Libere** și **Lucrări în coadă** ca dreptunghiuri compacte lângă informațiile operaționale. În pagina **Lucrări** a proiectului sau globală, alege **Capacitate** lângă **Tichete** și **Lucrări**. Fiecare proiect are un rând cu limita, locurile libere, coada, monitorizarea și stările curente ale joburilor. Joburile încheiate, istoricul operațiilor și logurile sunt excluse. Alege 10, 25, 50 sau Toate în **Rânduri pe pagină**, apoi **Anterior** sau **Următor**.
+**Rezumatul** arată doar **Limita lucrărilor în paralel**, **Libere** și **Lucrări în coadă** ca dreptunghiuri compacte lângă informațiile operaționale. În fila **Lucrări** a proiectului, alege **Capacitate** lângă **Tichete** și **Lucrări**. Fiecare proiect are un rând cu limita, locurile libere, coada, monitorizarea și stările curente ale joburilor. Joburile încheiate, istoricul operațiilor și logurile sunt excluse. Alege 10, 25, 50 sau Toate în **Rânduri pe pagină**, apoi **Anterior** sau **Următor**.
 
 Coada numără cererile trimise și joburile admise care așteaptă lansarea, nu tichetele necerute. Un proiect ocupat nu blochează alte proiecte. Setările păstrează **Ultimele tale operații** și rezultatele salvate; În coadă și În desfășurare nu înseamnă Confirmat.
 

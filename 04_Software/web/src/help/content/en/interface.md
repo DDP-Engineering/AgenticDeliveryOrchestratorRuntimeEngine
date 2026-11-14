@@ -8,7 +8,8 @@ The interface has a dark sidebar for moving between pages and a top bar that nam
 |---|---|
 | Overview | See **Needs attention** and **Active jobs** for the projects you can access. **Details** opens a job in Jobs. |
 | [Projects](/projects) | Browse enrolled projects with their repository, forge, Monitoring state, job count and last activity. Open a project to reach its hub. Administrators also see **Enroll new project** or **Import raw configuration**. |
-| [Jobs](/jobs) | Pick a **Job scope**, then use the **Tickets** sub-tab to read forge tickets and start them, or the **Jobs** sub-tab to search jobs and open their details. |
+| [Jobs](/jobs) | Search, filter, sort and page jobs for all authorized projects or one selected project. |
+| [Tickets](/tickets) | Read open forge tickets automatically for the selected scope; keep manual refresh and ticket actions. |
 | [Statistics](/metrics) | Read usage, quality and trends for a reporting period. See [Statistics and costs](/help/statistics). |
 | Administration | Administrators only. It opens three pages: [System status](/admin/status), [Users](/admin/users) and [Change history](/admin/audit). See [Administration](/help/administration). |
 | [My account](/account) | Choose your language and theme and change your password. |
@@ -26,8 +27,7 @@ The top bar shows the page title and these controls.
 - **About**: the ADORE version, with **What's new** (release notes by release, newest first, grouped New, Improved and Fixed), **License** and **Third-party notices**.
 - **How ADORE works**: opens this help center.
 
-On Jobs, **Job scope** sits to the right of **Tickets** and **Jobs** on wide screens. On narrow screens it wraps below the tabs.
-
+Jobs and Tickets each have a **Job scope** selector for all authorized projects or one project.
 ## Project hub {#project-hub}
 
 Opening a project from Projects shows its name and repository path above these tabs.

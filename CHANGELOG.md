@@ -12,6 +12,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Browse completed agent sessions with literal recorded prompts, tool calls/results, reasoning and usage through authorized no-store reads.
+
 ### Fixed
 
 - Remove the redundant project capacity panel from Settings, Statistics, History and Access.
@@ -20,6 +24,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Bound transient Windows run-state sharing contention so concurrent readers do not interrupt jobs; persistent failures preserve evidence and current ownership fences.
 
 ### Changed
+
+- Separate global Jobs and Tickets with retained scopes and list controls; automatically read global tickets and compact job details into four tabs above the saved status.
 
 - Compact Summary capacity into operational tiles and move cross-project capacity/current job states into a paginated Capacity tab.
 

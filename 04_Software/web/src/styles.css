@@ -1019,3 +1019,21 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .capacity-job-states { display:flex; flex-wrap:wrap; gap:6px; }
 .capacity-table th[scope="row"] { text-align:left; text-transform:none; letter-spacing:normal; background:transparent; min-width:140px; font-size:.9rem; font-weight:600; border-bottom:1px solid var(--border); }
 .capacity-table td:last-child { min-width:220px; max-width:420px; white-space:normal; }
+
+/* Recorded agent history shares the compact job command header. */
+.job-detail-commands { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.job-detail-commands .job-detail-tabs { margin-top: 0; flex: 0 1 auto; min-width: 0; gap: 18px; }
+.job-detail-close { margin-left: auto; flex: none; }
+.job-detail-commands > a { white-space: nowrap; font-size: .88rem; }
+.job-detail-grid { display: block; }
+.job-resources { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin-top: 16px; }
+.job-human-actions:empty { display: none; }
+.agent-sessions > label { display: grid; gap: 6px; max-width: 100%; }
+.agent-sessions select { max-width: 100%; }
+.session-timeline { list-style: none; padding: 0; display: grid; gap: 14px; }
+.session-timeline li { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.session-timeline pre { white-space: pre-wrap; overflow-wrap: anywhere; font: .875rem/1.5 var(--font-mono,monospace); max-height: 32rem; overflow-y: auto; }
+.session-timeline summary { cursor: pointer; overflow-wrap: anywhere; }
+.session-usage { display: flex; gap: 16px; flex-wrap: wrap; }
+.session-usage dd { margin: 0; }
+@media (max-width: 640px) { .job-resources { grid-template-columns: minmax(0,1fr); } .job-detail-commands { gap: 10px; } .job-detail-commands .job-detail-tabs { flex-basis: 100%; gap: 14px; } }

@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 export const messages = {
   en: {
+    tickets: "Tickets",
     resetPasswordFor: "Reset password for {user}",
     resetPasswordEffect: "Saving ends this account’s existing sessions. At the next sign-in, the user must choose a new password.",
     repeatNewPassword: "Repeat new password", showCurrentPassword: "Show current password", hideCurrentPassword: "Hide current password", showNewPassword: "Show new password", hideNewPassword: "Hide new password", showRepeatPassword: "Show repeated password", hideRepeatPassword: "Hide repeated password", passwordMismatch: "Passwords do not match.",
@@ -92,6 +93,7 @@ export const messages = {
     cancelled: "Cancelled", working: "Working", parked: "Parked", review: "In review", done: "Done", pause: "Stop pickup", resume: "Start pickup", paused: "Pickup stopped", pickupEnabled: "Pickup enabled",
   },
   fr: {
+    tickets: "Tickets",
     resetPasswordFor: "Réinitialiser le mot de passe de {user}",
     resetPasswordEffect: "L’enregistrement ferme les sessions de ce compte. À la prochaine connexion, l’utilisateur devra choisir un nouveau mot de passe.",
     repeatNewPassword: "Confirmer le nouveau mot de passe", showCurrentPassword: "Afficher le mot de passe actuel", hideCurrentPassword: "Masquer le mot de passe actuel", showNewPassword: "Afficher le nouveau mot de passe", hideNewPassword: "Masquer le nouveau mot de passe", showRepeatPassword: "Afficher la confirmation", hideRepeatPassword: "Masquer la confirmation", passwordMismatch: "Les mots de passe ne correspondent pas.",
@@ -177,6 +179,7 @@ export const messages = {
     cancelled: "Annulée", working: "En cours", parked: "En pause", review: "En revue", done: "Terminée", pause: "Suspendre la sélection", resume: "Reprendre la sélection", paused: "Prise en charge arrêtée", pickupEnabled: "Sélection active",
   },
   de: {
+    tickets: "Tickets",
     resetPasswordFor: "Passwort für {user} zurücksetzen",
     resetPasswordEffect: "Beim Speichern enden die bestehenden Sitzungen dieses Kontos. Bei der nächsten Anmeldung muss ein neues Passwort gewählt werden.",
     repeatNewPassword: "Neues Passwort wiederholen", showCurrentPassword: "Aktuelles Passwort anzeigen", hideCurrentPassword: "Aktuelles Passwort verbergen", showNewPassword: "Neues Passwort anzeigen", hideNewPassword: "Neues Passwort verbergen", showRepeatPassword: "Wiederholung anzeigen", hideRepeatPassword: "Wiederholung verbergen", passwordMismatch: "Die Passwörter stimmen nicht überein.",
@@ -262,6 +265,7 @@ export const messages = {
     cancelled: "Abgebrochen", working: "In Arbeit", parked: "Pausiert", review: "In Prüfung", done: "Fertig", pause: "Aufnahme pausieren", resume: "Aufnahme fortsetzen", paused: "Übernahme gestoppt", pickupEnabled: "Aufnahme aktiv",
   },
   ro: {
+    tickets: "Tichete",
     resetPasswordFor: "Resetează parola pentru {user}",
     resetPasswordEffect: "Salvarea închide sesiunile acestui cont. La următoarea autentificare, utilizatorul trebuie să aleagă o parolă nouă.",
     repeatNewPassword: "Repetă parola nouă", showCurrentPassword: "Arată parola curentă", hideCurrentPassword: "Ascunde parola curentă", showNewPassword: "Arată parola nouă", hideNewPassword: "Ascunde parola nouă", showRepeatPassword: "Arată parola repetată", hideRepeatPassword: "Ascunde parola repetată", passwordMismatch: "Parolele nu coincid.",

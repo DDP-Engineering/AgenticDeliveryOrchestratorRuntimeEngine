@@ -467,3 +467,13 @@ Project Summary/Settings/Jobs now expose scoped effective/saved N, occupied/free
 
 
 REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
+
+
+Global Jobs and Tickets are separate pages with selectable authorized scopes. Jobs
+retains search/status/sorting/paging; Tickets reads automatically and manually, fences
+stale scope completions and reuses pending scope reads. Project-specific navigation and
+capacity retain their current layout. Job details have Activity, Agent sessions,
+Artifacts and Technical information above title and saved status/stage/workflow. Origin
+and list state survive Close. Authenticated no-store session reads expose exact archived
+text including secrets to job readers, omit system messages, and restrict structured
+costs to administrators. History is on-demand only; current metadata has no start time.

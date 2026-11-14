@@ -453,6 +453,30 @@ def main() -> None:
                         roots[0].journal(run_id, "gate-passed", stage=observed, ts=stamp)
                 else:
                     roots[0].journal(run_id, "gate-started", stage=stage, executor="pi", ts=stamp)
+            # Completed session history replays real recorded Pi stdout offline.
+            fixture = (SOFTWARE.parent / "00_Planning" /
+                       "2026-11-01_Pi_Single_Executor/fixtures/run_tool_calls_chatgpt.jsonl")
+            records = [item["record"]
+                       for line in fixture.read_text(encoding="utf-8").splitlines()
+                       if (item := json.loads(line))["dir"] == "stdout"]
+            records.extend([
+                {"type": "message_end", "message": {
+                    "role": "system", "content": "SYSTEM_SESSION_NEVER_VISIBLE"}},
+                {"type": "tool_execution_end", "toolCallId": "fake-key-proof",
+                 "toolName": "bash", "isError": False,
+                 "result": {"content": [{"type": "text", "text": "API_KEY=fake-exact"}]}},
+            ])
+            for attempt in (1, 2):
+                stem = f"build-attempt-{attempt}"
+                folder = roots[0].run_dir("ux-done") / "io" / "archive" / f"{stem}-attempt1"
+                folder.mkdir(parents=True)
+                (folder / "meta.json").write_text(json.dumps({
+                    "created_at": f"2026-11-14T10:0{attempt}:00Z", "archive_stem": stem,
+                    "exit_code": 0, "timed_out": False,
+                }), encoding="utf-8")
+                (folder / "output.jsonl").write_bytes(b"".join(
+                    (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8")
+                    for record in records))
             # Cross-project collision, and a run with no saved ticket or journal.
             roots[1].save(RunState(run_id="ux-working", ticket_iid=42, lifecycle="working",
                                    stage="build", updated_at=stamp))

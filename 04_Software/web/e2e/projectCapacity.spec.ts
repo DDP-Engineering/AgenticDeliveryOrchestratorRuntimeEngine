@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import {test,expect,type Page} from "@playwright/test";
 import {settingsSave,discardSettings} from "./settings-actions";
 import {capacityCopy} from "../src/projectStatus";
-import type {Locale} from "../src/i18n";
+import {messages,type Locale} from "../src/i18n";
 import {jobCopy} from "../src/jobCopy";
 
 async function login(page:Page) {
@@ -145,7 +145,7 @@ test("Summary folds only three capacity facts into two rows",async({page},info)=
 test("Capacity is a paginated current-state table, separate from Tickets and Jobs",async({page},info)=>{
   test.setTimeout(90_000);
   const projects=await login(page),template=projects.find(item=>item.name==="alpha")!;
-  const rows=Array.from({length:12},(_,index)=>({...template,id:(index+1).toString(16).padStart(32,"0"),name:`capacity-${index+1}`,display_name:`Project ${String(index+1).padStart(2,"0")}`,archived:false}));
+  const rows=Array.from({length:12},(_,index)=>({...template,id:(index+1).toString(16).padStart(32,"0"),name:`capacity-${index+1}`,display_name:`Project ${String(index+1).padStart(2,"0")}`,archived:false,verification:{status:"unverified",checked_at:null,revision:null}}));
   await page.route("**/api/v1/projects",route=>route.fulfill({json:rows}));
   await page.route("**/api/v1/projects/*/capacity",route=>{
     const id=new URL(route.request().url()).pathname.split("/").at(-2)!;
@@ -176,8 +176,11 @@ test("Capacity is a paginated current-state table, separate from Tickets and Job
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
   await page.locator("#jobs-subtab-jobs").click();
   await expect(page.locator(".project-capacity,.capacity-table")).toHaveCount(0);
-  await page.locator("#jobs-subtab-tickets").click();
+  await page.locator(".mobile-menu").click();
+  await page.getByRole("navigation",{name:messages["ro"].primaryNavigation,exact:true}).getByRole("link",{name:messages["ro"].tickets,exact:true}).click();
   await expect(page.locator(".project-capacity,.capacity-table")).toHaveCount(0);
-  await page.locator("#jobs-subtab-tickets").press("End");
+  await page.locator(".mobile-menu").click();
+  await page.getByRole("navigation",{name:messages["ro"].primaryNavigation,exact:true}).getByRole("link",{name:messages["ro"].jobs,exact:true}).click();
+  await page.locator("#jobs-subtab-jobs").press("End");
   await expect(page.locator("#jobs-subtab-capacity")).toHaveAttribute("aria-selected","true");
 });

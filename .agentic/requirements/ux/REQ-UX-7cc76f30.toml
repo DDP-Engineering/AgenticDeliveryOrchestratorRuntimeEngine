@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-7cc76f30"
+title = "Read global tickets on entry and scope change"
+status = "active"
+requirement = "When global Tickets opens or its project scope changes, the interface shall automatically read that scope through the existing read path while retaining manual Read tickets and all ticket actions and presentation."
+verification = "Browser journeys assert initial and changed-scope reads, manual refresh, table details/comments and preferences."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/JobDetails.tsx", "04_Software/web/e2e/tickets.spec.ts", "04_Software/web/src/help/content/en/tickets.md", "04_Software/web/src/help/content/fr/tickets.md", "04_Software/web/src/help/content/de/tickets.md", "04_Software/web/src/help/content/ro/tickets.md"]
+linked_tests = ["04_Software/web/tests/routes.test.mjs", "04_Software/web/tests/sessions.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/tickets.spec.ts", "04_Software/web/e2e/projectCapacity.spec.ts"]
+created = 2026-11-14
+updated = 2026-11-14

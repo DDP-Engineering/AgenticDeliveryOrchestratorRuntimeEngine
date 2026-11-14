@@ -97,7 +97,13 @@ Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un pr
 
 Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.
 
-Le détail remplace la liste tant qu’il est ouvert. Son titre compact réunit le numéro et le titre du ticket. **Que se passe-t-il maintenant** indique l’état, qui intervient et la **Prochaine action**. Budgets et Consommation sont à côté sur grand écran et en dessous sur écran étroit. **Activité** liste les événements enregistrés du plus récent au plus ancien. **Question de l’agent** contient la clarification active ; les autres états affichent **Preuves et artefacts**. **Détails techniques** contient identifiants, sortie de l’exécuteur et **Événements originaux enregistrés** à déplier. **Fermer** revient à la liste avec ses filtres. Les événements passés ne deviennent pas des demandes actuelles.
+Le détail remplace sa liste d’origine. Au-dessus du titre : **Activité**, **Sessions de l’agent**, **Artefacts** et **Informations techniques**, puis **Afficher le ticket** et **Fermer** à droite. L’état, l’étape et le workflow enregistrés suivent le titre. Actions, budgets, consommation et commandes de clarification, approbation et revue restent disponibles. **Fermer** restaure la vue, le périmètre, la recherche, les filtres et la pagination.
+
+## Historique des sessions de l’agent {#agent-sessions}
+
+Dans **Sessions de l’agent**, choisissez une tentative terminée, les plus récentes en premier. Les données viennent de la sortie Pi archivée de cette tâche : consigne envoyée par ADORE, texte de l’assistant, appels et résultats d’outils, tours et jetons. Dépliez un outil pour lire son texte complet. Le raisonnement lisible est replié ; les messages système ne sont jamais affichés. Les deltas et listes finales dupliquées sont omis. **Charger la suite** poursuit la lecture. L’heure de fin d’archivage est affichée ; l’absence d’heure de début est explicite.
+
+Administrateurs et développeurs affectés au projet voient le texte tel qu’enregistré, y compris ses secrets. Les montants structurés restent réservés aux administrateurs. Les réponses ne sont pas mises en cache. **Voir la dernière sortie de l’exécuteur** reste dans **Informations techniques**. Chaque texte est limité à 16 Kio avec un marqueur ; les enregistrements malformés ou omis deviennent des informations. Au-delà de 64 Mio, une information indique la limite. L’historique ne se met pas à jour en direct.
 
 ## Budgets du travail {#budgets}
 
@@ -117,7 +123,7 @@ Les questions apparaissent dans **Question de l’agent** en Markdown avec liste
 
 Les étapes de la chronologie viennent de l’étape, du contexte d’étape ou de la destination de transition enregistrés dans chaque événement ; les événements sans rapport restent inconnus. Les heures incluent les secondes. Un événement est une preuve enregistrée, pas une progression en direct.
 
-Dans **Détails techniques**, choisissez **Voir la dernière sortie de l’exécuteur**. Les sorties opérationnelles capturées par l’hôte du dernier lancement terminé sont affichées, avec modules absents et totaux des tests. Prompts, raisonnement, scripts, configuration, chemins, identifiants et données financières sont masqués. Les sorties inconnues deviennent un avis ou une catégorie de diagnostic. Seuls les 500 derniers diagnostics par flux, dans 64 Kio, sont conservés.
+Dans **Informations techniques**, choisissez **Voir la dernière sortie de l’exécuteur**. Les sorties opérationnelles capturées par l’hôte du dernier lancement terminé sont affichées, avec modules absents et totaux des tests. Prompts, raisonnement, scripts, configuration, chemins, identifiants et données financières sont masqués. Les sorties inconnues deviennent un avis ou une catégorie de diagnostic. Seuls les 500 derniers diagnostics par flux, dans 64 Kio, sont conservés.
 
 Le résumé affiche la tentative, son heure, le résultat et le code de sortie. Dépliez **stdout** ou **stderr** si des données sont présentes. Si un lancement est en cours, le panneau le signale et conserve la dernière sortie terminée. Si le journal change pendant la lecture, choisissez **Réessayer**. La dernière sortie vérifiée est signalée comme potentiellement périmée.
 
@@ -128,7 +134,7 @@ Si **Consommation** ne se charge pas, utilisez **Actualiser la consommation** pr
 
 ## Capacité du projet {#project-capacity}
 
-Le **Résumé** affiche seulement **Limite de tâches en parallèle**, **Libres** et **Tâches en file** dans des rectangles compacts avec les informations opérationnelles. Dans la page **Tâches** du projet ou globale, choisissez **Capacité** à côté de **Tickets** et **Tâches**. Chaque projet occupe une ligne avec sa limite, ses places libres, sa file, sa surveillance et les états actuels des tâches. Les tâches terminées, l’historique des opérations et les journaux sont exclus. Choisissez 10, 25, 50 ou Tout dans **Lignes par page**, puis **Précédent** ou **Suivant**.
+Le **Résumé** affiche seulement **Limite de tâches en parallèle**, **Libres** et **Tâches en file** dans des rectangles compacts avec les informations opérationnelles. Dans l’onglet **Tâches** du projet, choisissez **Capacité** à côté de **Tickets** et **Tâches**. Chaque projet occupe une ligne avec sa limite, ses places libres, sa file, sa surveillance et les états actuels des tâches. Les tâches terminées, l’historique des opérations et les journaux sont exclus. Choisissez 10, 25, 50 ou Tout dans **Lignes par page**, puis **Précédent** ou **Suivant**.
 
 La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. Les paramètres conservent **Vos dernières opérations** et leurs résultats ; En file et En cours ne signifient pas Confirmé.
 

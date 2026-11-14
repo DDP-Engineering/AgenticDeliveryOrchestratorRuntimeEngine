@@ -15,6 +15,7 @@ export type Route =
   | { view: "overview"; project?: string }
   | { view: PlainView }
   | { view: "projectDetails"; project: string; tab: ProjectTab; run?: string; jobsView?: Exclude<JobsView,"tickets">; metricsTab?: MetricsTabRoute; reporting?: ReportingRoute }
+  | { view: "tickets"; project?: string }
   | { view: "jobs"; project?: string; run?: string; jobsView?: Exclude<JobsView,"tickets">; reporting?: ReportingRoute }
   | { view: "metrics"; project?: string; tab?: MetricsTabRoute; reporting?: ReportingRoute }
   | { view: "help"; topic?: HelpTopic };
@@ -56,6 +57,7 @@ export function parseRoute(pathname: string, search = ""): Route | null {
   if (path === "/help") return { view: "help" };
   const help = /^\/help\/([^/]+)$/.exec(path);
   if (help) return isHelpTopic(help[1]) ? { view: "help", topic: help[1] } : null;
+  if (path === "/tickets") return {view:"tickets", ...(project ? {project} : {})};
   if (path === "/jobs") {
     const run = identifier(query.get("run"));
     return { view: "jobs", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(project && run ? { run } : ["jobs","capacity"].includes(query.get("view") || "") ? { jobsView: query.get("view") as Exclude<JobsView,"tickets"> } : {}) };
@@ -106,6 +108,7 @@ export function formatRoute(route: Route): string {
       if (route.tab === "statistics") return withQuery(path, { tab: route.metricsTab, ...reportingParams });
       return path;
     }
+    case "tickets": return withQuery("/tickets", {project:route.project});
     case "jobs": return withQuery("/jobs", { project: route.project, run: route.project ? route.run : undefined, view: route.project && route.run ? undefined : route.jobsView, ...reportingParams });
     case "metrics": return withQuery("/metrics", { project: route.project, tab: route.tab, ...reportingParams });
     case "help": return route.topic ? `/help/${route.topic}` : "/help";

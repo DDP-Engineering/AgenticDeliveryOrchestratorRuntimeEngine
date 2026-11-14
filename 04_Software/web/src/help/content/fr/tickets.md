@@ -49,9 +49,9 @@ Des étiquettes facultatives orientent la tâche : `bug` ou `fix` donne une tâc
 
 ## Examiner et démarrer les tickets {#tickets-view}
 
-Ouvrez un projet depuis Projets, choisissez son onglet **Tâches** et restez dans le sous-onglet **Tickets**. La page globale **Tâches** de la barre latérale a les mêmes trois sous-onglets : Tickets, Tâches et Capacité et un sélecteur **Périmètre des travaux**. Avec **Tous les projets**, le tableau gagne une colonne Projet et chaque ligne agit sur son propre projet.
+Utilisez **Tickets** dans la barre latérale pour la page globale séparée. Elle lit à l’ouverture et au changement de périmètre ; **Lire les tickets** actualise manuellement. Tickets et Tâches proposent tous les projets autorisés ou un seul. Une lecture échouée affiche une erreur. Le hub conserve ses sous-onglets Tickets, Tâches et Capacité ; son sous-onglet Tickets se lit sur demande.
 
-Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela charge jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :
+Dans le hub, appuyez sur **Lire les tickets**. La page globale Tickets lit à l’ouverture et au changement de périmètre ; **Lire les tickets** reste une actualisation manuelle. Cela charge jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :
 
 | État | Signification |
 |---|---|

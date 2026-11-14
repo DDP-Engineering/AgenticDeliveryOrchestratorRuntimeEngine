@@ -10,6 +10,16 @@ import { formatRoute, normalizeRoute, parseRoute } from "../src/routes.ts";
 
 const ID = "88efed3d79945faab27a52d1a11f219b";
 
+test("global Tickets retains selectable project scope independently of Jobs", () => {
+  for (const route of [{view:"tickets"}, {view:"tickets",project:ID}]) {
+    const url = new URL(formatRoute(route), "http://localhost");
+    assert.equal(url.pathname, "/tickets");
+    assert.deepEqual(parseRoute(url.pathname,url.search), route);
+    assert.deepEqual(normalizeRoute(route,{isAdmin:false}),{route,replaced:false});
+  }
+  assert.equal(parseRoute("/tickets/unknown"),null);
+});
+
 test("reporting selections survive statistics and job deep links", () => {
   const reporting = { from: "2026-10-25", through: "2026-10-25", timezone: "Europe/Bucharest", granularity: "week" };
   for (const view of ["metrics", "jobs"]) {

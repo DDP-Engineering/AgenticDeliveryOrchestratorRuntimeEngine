@@ -497,14 +497,12 @@ See project-images.md, test_web_executor_recipes.py and portable.spec.ts.
   reporting/technical evidence belong to dedicated views.
   Jobs keeps search/project/status group visible and advanced exact filters
   disclosed. Ten-row server pages carry source revisions on continuation.
-  Detail leads with lifecycle, actual stage, reason, role/location and conditional
-  following action. Missing names/duration/consumption remain unknown. Old saved
+  Detail leads with four tabs above ticket title and saved status/stage/workflow.
+  Actions, resources and saved human handoffs remain available. Missing names/duration/consumption remain unknown. Old saved
   activity and the separately polled control-worker heartbeat express different
   evidence. Timeline contains only redacted saved events, locally reverse-paged
   at 10/25/50/All without inferring unvisited stages.
-- Global Jobs mirrors the hub: compact project selector and Tickets/Jobs sub-tabs
-  (`view=jobs`); All projects Tickets reads every active project into one table with
-  a Project column and per-project errors; manual start goes through Tickets Start. Retry/cancel mirror conservative existing lifecycle guards, excluding
+- Global Jobs and Tickets are separate scoped pages. Jobs retains complete-history search, status, server sorting and pagination; Tickets automatically reads on entry/scope changes with scope-keyed pending promises, fenced completions and explicit per-project errors. Manual Read tickets and existing ticket actions remain available. Retry/cancel mirror conservative existing lifecycle guards, excluding
   pending/completed handoff cancellation. A ref lock prevents repeated submission;
   the existing queue is polled for pending/running/succeeded/failed/uncertain.
   Unreadable status leaves completion unknown; server/worker authority remains
@@ -1359,3 +1357,28 @@ image reservations, storage/refusal and browser/test integration.
 
 
 Project tabs and named global Jobs cards show scoped slots, queued causes, staged limits and latest own durable operations. SettingsList retains ordinary drafts in per-account/project sessionStorage, bound to base revision, through navigation/reload. Explicit save/discard/logout clear retention; stale/corrupt drafts cannot save. System status lists separate roles and component-named readiness keeps missing project workers local. See project-capacity.md for source/test routing.
+
+
+## Recorded session reader and retained navigation
+
+`executor_session.py` reads only exact completed physical archives beneath the authorized
+run. Parent/link/hardlink guards reuse executor_evidence; typed API failures preserve
+run evidence. GET job sessions and per-attempt byte-cursor pages are authenticated and
+no-store. System/delta/agent_end data is omitted; literal recorded prompt, assistant,
+tool and readable reasoning text remains unredacted. Structured costs are admin-only.
+Each text is 16 KiB; lines over 256 KiB become notices; sources over 64 MiB produce a
+notice without scanning. A requested item maximum is strict (1..200); assistant source
+items can group bounded text/reasoning/usage parts. Complete LF lines only are read;
+partial archived tails do not offer endless continuation. Archive completion is known,
+start time unavailable. SessionView/sessionModel validate and render on demand with
+collapsed reasoning, expandable tools and Load more. No live polling or instruction
+transport exists in this change.
+
+App records the job origin and retained list filters to restore page/tab/scope/search/
+status/sort/pagination after coherent Jobs navigation. Project tabs/capacity remain as
+implemented. TicketWorkspace fences comments/actions/read results by scope generation;
+completed A cannot become current under B, and pending A is reused on A-B-A reentry.
+Proof: test_web_executor_session.py, test_web_jobs.py, sessions/routes/jobs/help model
+checks and LA-01 plus retained jobs/tickets/project-capacity browser journeys.
+
+Global Jobs retains its Jobs/Capacity sub-tabs; Tickets is its own sidebar page. The project Jobs tab retains Tickets/Jobs/Capacity.

@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-5e4552df"
+title = "Fence ticket read completions"
+status = "active"
+requirement = "If ticket reads overlap scope changes, fail or receive repeated triggers while pending, the interface shall discard stale completions, report failures and allow at most one pending read per scope."
+verification = "Controlled browser responses verify late old-scope results discarded, error is visible rather than empty success and pending duplicate triggers send one request."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/JobDetails.tsx"]
+linked_tests = ["04_Software/web/tests/routes.test.mjs", "04_Software/web/tests/sessions.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/tickets.spec.ts", "04_Software/web/e2e/projectCapacity.spec.ts"]
+created = 2026-11-14
+updated = 2026-11-14

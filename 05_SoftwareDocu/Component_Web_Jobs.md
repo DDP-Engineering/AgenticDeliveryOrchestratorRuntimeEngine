@@ -242,3 +242,45 @@ separate from historical events. Outside the parked lifecycle the API does not
 supply historical question text; the frontend never reconstructs it from event
 names. Presentation, safe question rendering and command delegation are described
 in [Component Web Frontend](Component_Web_Frontend.md#job-details-presentation).
+
+
+## Recorded agent sessions and global navigation
+
+Global `/jobs` opens the existing job list with search, status filters, server sorting,
+pagination, refresh and selectable all-authorized-project/single-project scope.
+Global `/tickets` opens the existing ticket workspace, automatically reading its scope
+on entry and scope changes; Read tickets remains available. Generation and synchronous
+pending guards prevent duplicate pending reads and stale completions. Project listing,
+hub tabs and project-specific Tickets/Jobs/Capacity controls retain their existing layout.
+
+Job details place Activity / Agent sessions / Artifacts / Technical information tabs,
+Show ticket and right-aligned Close above the ticket title. The status line uses saved
+status, stage and workflow. Actions, budgets, consumption, clarification, approval and
+review remain available; closing restores the originating list state.
+
+`adore/web/executor_session.py` supplies `list_sessions(run)` and
+`read_session(run, attempt_id, cursor=0, limit=200, include_cost=False)`. Authenticated
+GET `/api/v1/jobs/{project_id}/{run_id}/sessions` and its `/{attempt_id}` child resolve
+ownership through the strict existing job snapshot and recheck grants before release.
+Both return Cache-Control: no-store. Only the run's own exact archive folders are read,
+with regular-file, hardlink, symlink/reparse and parent identity checks. No migration
+or alternative stored format is introduced. Start time is null because current metadata
+records only archive completion; exit code and timeout describe the physical launch.
+
+The JSONL reader accepts complete LF lines, emits prompt/assistant/readable reasoning,
+tool call/result, turn, usage and notice items, ignores system/delta/agent_end messages,
+and retains literal recorded text including secrets. Each text is at most 16 KiB with
+an explicit truncation marker; records above 256 KiB become notices. Files above 64 MiB
+produce a notice without scanning them. A normal page scans up to 4 MiB between records;
+skipping one oversized line is bounded by the 64 MiB source ceiling. Byte cursors name
+line starts. The requested limit strictly caps source items at at most 200; an assistant
+source item can group up to three bounded typed text/reasoning/usage parts. A pending partial
+line is never projected. Structured usage costs are administrator-only; literal agent
+text is not redacted. Existing normalized latest executor output stays independent.
+
+`SessionView.tsx` and `sessionModel.ts` own on-demand attempt selection, validated
+transport, stale-response guards, collapsed reasoning and expandable tools plus cursor
+Load more. No live polling or instructions are added. Focused proof lives in
+`test_web_executor_session.py`, retained `test_web_jobs.py`, frontend session/routes/job
+model tests and jobs/tickets browser journeys. Real-provider and Linux link acceptance
+remain operator checks; Windows hosts without symlink privilege skip those cases.

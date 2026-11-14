@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-fb6236ba"
+title = "List completed agent attempts"
+status = "active"
+requirement = "When an authorized user opens job sessions, the service shall list completed archived attempts newest first with exact archive identity, stage, attempt, recorded times or explicit unavailable times, and saved outcome."
+verification = "Offline archive fixture GET checks sorted completed attempts, absent archive and unavailable start time."
+affected_paths = ["04_Software/adore/web/executor_session.py", "04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_executor_session.py", "04_Software/tests/test_web_jobs.py"]
+created = 2026-11-14
+updated = 2026-11-14

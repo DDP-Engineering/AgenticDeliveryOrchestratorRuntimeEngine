@@ -97,7 +97,13 @@ Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-t
 
 Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.
 
-The detail replaces the job list while open. Its compact heading combines the ticket number and title. **What is happening now** shows the state, who acts and **Next step**. Budgets and Consumption sit beside it on wide screens and below it on narrow screens. **Activity** lists saved events newest first. **Agent question** holds the active clarification; other states show **Evidence and artifacts**. **Technical details** holds identifiers, executor output and expandable **Original recorded events**. **Close** returns to the list with its filters. Old events do not become current action requests.
+The detail replaces its originating list while open. Above the title are **Activity**, **Agent sessions**, **Artifacts** and **Technical information**, then **Show ticket** and **Close** on the right. Saved status, stage and workflow appear below the title. Job actions, budgets and consumption remain available. Clarification, approval and review controls use saved locations. **Close** restores the originating view, scope, search, filters and pagination.
+
+## Agent session history {#agent-sessions}
+
+In **Agent sessions**, choose a completed attempt, newest first. Each attempt comes from the job’s own archived Pi output. Read the prompt ADORE sent, assistant text, tool calls and results, turn boundaries and token usage. Expand a tool row for its full recorded text. Readable reasoning starts collapsed; system messages are never shown. Streaming deltas and duplicate final message lists are omitted. **Load more** follows the recorded cursor. The archive completion time is shown; a missing start time is stated explicitly.
+
+Administrators and developers assigned to this project see text exactly as recorded, including any secrets it contains. Structured cost amounts remain administrator-only. Responses are not cached. The existing **View latest executor output** remains in **Technical information**. Each text item is limited to 16 KiB with a visible truncation marker; malformed or omitted records become notices. Sessions above 64 MiB show a size-bound notice. History does not update live.
 
 ## Job budgets {#budgets}
 
@@ -117,7 +123,7 @@ Questions appear in **Agent question** as Markdown with lists, tables and code. 
 
 Timeline stages come from each event's recorded stage, stage context or transition destination; unrelated events remain unknown. Job times include seconds. An event is saved evidence, not a live progress signal.
 
-Under **Technical details**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
+Under **Technical information**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
 
 The summary shows the attempt, recorded time, result and exit code. Expand **stdout** or **stderr** when records are present. If a launch is in progress, the panel identifies it and keeps the latest completed output. When the journal changes during a read, choose **Retry**. The last verified output is marked as possibly out of date.
 
@@ -128,7 +134,7 @@ If **Consumption** cannot load, use **Refresh consumption** beside the error. Jo
 
 ## Project capacity {#project-capacity}
 
-**Summary** shows only **Parallel job limit**, **Free** and **Queued jobs** as compact rectangles alongside the project’s operational facts. In the project or global **Jobs** page, choose **Capacity** beside **Tickets** and **Jobs**. Each project has one table row with its limit, free places, queue, monitoring and current job states. Finished jobs, operation history and logs are excluded. Choose 10, 25, 50 or All in **Rows per page** and use **Previous** and **Next**.
+**Summary** shows only **Parallel job limit**, **Free** and **Queued jobs** as compact rectangles alongside the project’s operational facts. In the project’s **Jobs** tab, choose **Capacity** beside **Tickets** and **Jobs**. Each project has one table row with its limit, free places, queue, monitoring and current job states. Finished jobs, operation history and logs are excluded. Choose 10, 25, 50 or All in **Rows per page** and use **Previous** and **Next**.
 
 The queue counts submitted requests and admitted jobs waiting for dispatch, not unrequested forge tickets. A project at capacity does not block other projects. Settings still shows **Your latest operations** with saved Start, Retry, Cancel and settings results; Queued and In progress do not mean Confirmed.
 
