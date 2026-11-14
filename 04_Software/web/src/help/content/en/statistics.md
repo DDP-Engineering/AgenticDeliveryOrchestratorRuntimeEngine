@@ -14,7 +14,7 @@ Open **Statistics** in the sidebar to see every project you can access, or open 
 | All time | Clears both dates. Leaving both dates empty also means all time. |
 | Export CSV | Opens a menu of downloads for the current project, dates and grouping. |
 
-Dates and buckets use UTC unless the page address carries another time zone. The dates apply to every tab and every export. A report for different dates is refused even if both sources agree; daylight-saving changes and leaving one date empty remain supported. Missing required job totals show an error and **Retry**, not zero or an empty report. Changing the project keeps the period and the tab you are on.
+Dates and buckets use UTC unless the page address carries another time zone. The dates apply to every tab and every export. A report for different dates is refused even if both sources agree; daylight-saving changes and leaving one date empty remain supported. Missing required job totals or impossible Usage/Trends dates, such as February 30, show an error and **Retry** without totals, exports or a successful-update time. Valid leap days and daily, weekly and monthly buckets remain supported. Changing the project keeps the period and the tab you are on.
 
 The **Export CSV** menu offers **Project metrics**, **Project usage** and **Job consumption** for one project, or **All-project metrics**, **All-project usage** and **Job consumption** for **All projects**. It appears once the data has loaded. Background reads keep the report, open menu and table controls visible until a complete validated replacement is ready.
 

@@ -1152,6 +1152,10 @@ must match the chosen calendar dates in the requested time zone. Even mutually
 matching reports for a different period are refused; daylight-saving changes and
 one-sided date ranges remain supported. Missing required job or lifecycle totals
 are invalid evidence, not measured zero or an empty Quality/Trends result.
+Usage and Trends bucket dates must also be real calendar days: an impossible date
+such as February 30 shows error/Retry without report, exports or a successful-update
+time. Valid leap days and server-selected daily, weekly and monthly buckets remain
+supported; the browser does not reassign observations to other dates.
 An inconsistent project interval or invalid pooled result also shows error/Retry without a new
 successful-update time; it cannot replace the page with a rendering failure.
 Token directions and known combined totals must be exact safe integers, including

@@ -265,6 +265,49 @@ test("mutually matching wrong calendar intervals never publish initial or replac
   }
 });
 
+/** Buckets are server-selected local dates, but impossible calendar days are corrupt evidence. */
+test("analytical bucket dates reject rollover and malformed days before initial or replacement success", async () => {
+  for (const member of ["metrics", "usage"]) for (const date of ["2026-02-30", "2026-99-99", "2023-02-29", "1900-02-29",
+    "2100-02-29", "2026-04-31", "2026-00-01", "2026-01-00", "0000-01-01", "10000-01-01", "2026-2-01",
+    "2026-10-25T00:00:00Z", "", null, 20261025, {}, undefined]) {
+    const h = reporting();
+    const complete = async day => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = fixture(), usage = consumption();
+      usage.daily = [{ date: "2024-02-29", executor: "pi", model: "example", ...amounts(0, 0) }];
+      (member === "metrics" ? metrics : usage).daily[0].date = day;
+      h.requests.metrics.at(-1).resolve({ alpha: metrics }); h.requests.usage.at(-1).resolve({ alpha: usage }); await pending;
+    };
+    await complete(date);
+    assert.equal(h.latest().status, "error", `${member}/${String(date)}`);
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false, "no transient success for an impossible date");
+    await complete("2024-02-29"); assert.equal(h.latest().status, "ready", "valid leap day recovers");
+    h.advance(100); await complete(date);
+    assert.equal(h.latest().status, "error"); assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    await complete("2000-02-29"); assert.equal(h.latest().status, "ready");
+    assert.equal(h.latest().data.fullReportAt, 1100); h.owner.dispose();
+  }
+});
+
+test("real bucket days remain server-owned for day week and month grouping", async () => {
+  for (const granularity of ["day", "week", "month"]) {
+    const selected = { ...selection, granularity };
+    const metrics = fixture(), usage = consumption();
+    const dates = ["0001-01-01", "2000-02-29", "2024-02-29", "2024-02-26", "2024-02-01", "9999-12-31"];
+    metrics.scope.granularity = usage.scope.granularity = granularity;
+    metrics.daily = dates.map(date => ({ ...metrics.daily[0], date }));
+    usage.daily = dates.map(date => ({ date, executor: "pi", model: "example", ...amounts(0, 0) }));
+    const h = reporting({ selection: selected });
+    const pending = h.owner.refresh(); await flush();
+    h.requests.metrics[0].resolve({ alpha: metrics }); h.requests.usage[0].resolve({ alpha: usage }); await pending;
+    assert.equal(h.latest().status, "ready", granularity);
+    assert.deepEqual(h.latest().data.pooledMetrics.daily.map(row => row.date), [...dates].sort());
+    assert.deepEqual(h.latest().data.pooledUsage.daily.map(row => row.date), [...dates].sort());
+    h.owner.dispose();
+  }
+});
+
 test("required metrics total counts cannot be omitted and silently pooled as zero", async () => {
   for (const key of ["runs", "started", "completed", "failed", "merged", "mr_revisions", "pipeline_repairs"]) {
     const h = reporting();

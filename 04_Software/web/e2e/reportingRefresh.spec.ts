@@ -77,6 +77,63 @@ for (const scope of ["global", "selected", "project"] as const) for (const failu
   });
 }
 
+for (const scope of ["global", "selected", "project"] as const) for (const member of ["metrics", "usage"] as const)
+  for (const date of ["2026-02-30", "2026-99-99"]) {
+    test(`Statistics ${scope} ${member} refuses impossible bucket ${date} before initial and replacement publication`, async ({ page }) => {
+      const errors: string[] = [];
+      page.on("pageerror", error => errors.push(error.message));
+      const id = await alpha(page);
+      let corrupt = true;
+      await page.route(/\/api\/v1\/(?:projects\/[^/]+\/)?(?:metrics|usage)\?/, async route => {
+        const body = await (await route.fetch()).json();
+        const rows = scope === "global" ? Object.values(body) : [body];
+        for (const value of rows as Array<{ period?: unknown; daily: unknown[] }>) {
+          const metric = !!value.period;
+          value.daily = [metric ? { date: corrupt && member === "metrics" ? date : "2024-02-29",
+            started: 1, completed: 0, failed: 0, mr_revisions: 0, pipeline_repairs: 0, tokens_in: 0, tokens_out: 0 } : {
+            date: corrupt && member === "usage" ? date : "2024-02-29", executor: "pi", model: "example",
+            events: 1, tokens_in: 0, tokens_out: 0, cache_read_tokens: null, cache_write_tokens: null }];
+        }
+        await route.fulfill({ json: body });
+      });
+      const path = scope === "project" ? `/projects/${id}/statistics` : "/metrics";
+      await page.goto(`${path}?tab=${member === "metrics" ? "trends" : "usage"}${scope === "selected" ? `&project=${id}` : ""}`);
+      for (let round = 0; round < 2; round++) {
+        await expect(feedback(page).getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+        await expect(page.getByRole("alert")).toBeVisible();
+        await expect(page.locator("#metrics-tab-panel table")).toHaveCount(0);
+        await expect(page.locator(".metrics-export")).toHaveCount(0);
+        expect(await times(page)).toEqual([]); expect(errors).toEqual([]);
+        corrupt = false;
+        await feedback(page).getByRole("button", { name: "Retry", exact: true }).click();
+        await expect(page.locator("#metrics-tab-panel").getByRole("cell", { name: "2024-02-29", exact: true })).toBeVisible();
+        expect((await times(page)).length).toBe(3); expect(errors).toEqual([]);
+        await page.getByText("Export CSV", { exact: true }).click();
+        await expect(page.locator(".metrics-export a").first()).toBeVisible();
+        if (round === 0) { corrupt = true; await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click(); }
+      }
+    });
+  }
+
+for (const [granularity, date] of [["day", "2024-02-29"], ["week", "2024-02-26"], ["month", "2024-02-01"]]) {
+  test(`Statistics preserves valid server ${granularity} bucket dates`, async ({ page }) => {
+    const id = await alpha(page);
+    await page.route(/\/api\/v1\/projects\/[^/]+\/(?:metrics|usage)\?/, async route => {
+      const body = await (await route.fetch()).json();
+      body.daily = [body.period ? { date, started: 1, completed: 0, failed: 0, mr_revisions: 0, pipeline_repairs: 0,
+        tokens_in: 0, tokens_out: 0 } : { date, executor: "pi", model: "example", events: 1, tokens_in: 0, tokens_out: 0,
+        cache_read_tokens: null, cache_write_tokens: null }];
+      await route.fulfill({ json: body });
+    });
+    await page.goto(`/projects/${id}/statistics?tab=trends&granularity=${granularity}`);
+    await expect(page.locator("#metrics-tab-panel").getByRole("cell", { name: date, exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Usage", exact: true }).click();
+    await expect(page.locator("#metrics-tab-panel").getByRole("cell", { name: date, exact: true })).toBeVisible();
+    expect((await times(page)).length).toBe(3);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+}
+
 for (const [timezone, from, through, seconds] of [
   ["Europe/Bucharest", "2026-10-25", "2026-10-25", 90000],
   ["Europe/Bucharest", "2026-03-29", "2026-03-29", 82800],

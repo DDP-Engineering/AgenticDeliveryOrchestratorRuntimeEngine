@@ -35,6 +35,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   period/time zone, including daylight-saving and midnight transitions; mutually
   matching wrong-period data is refused. Require job/lifecycle/revision/repair totals
   before publication instead of treating missing counts as zero or an empty report.
+  Reject impossible Usage/Trends bucket dates before report or freshness publication;
+  valid leap days and server-selected day/week/month buckets remain unchanged.
 - Keep Jobs/History rows, pages, open details, consumption and manual executor output
   through same-context reads and command results. Add scoped Refresh/retry, validated
   completion times and marked older information after transport/deadline failure;

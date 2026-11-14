@@ -53,7 +53,13 @@ and `pipeline_repairs`; each is a present nonnegative safe integer. Absence cann
 become a pooled zero or an empty Quality/Trends success. Helpers and all three
 browser scopes cover initial/replacement refusal, no pageerror and valid recovery;
 real-server calendar/DST/midnight/one-sided controls and optional-evidence controls
-remain valid. Metrics run collections must be arrays of object rows with
+remain valid. Metrics and usage analytical bucket dates must be actual calendar
+days in the exact `YYYY-MM-DD` format, years 0001–9999. Rollover dates, impossible
+leap days and malformed values fail before report/exports/success time publication.
+Validation does not recalculate server attribution or week/month alignment. Helpers
+and all three browser scopes cover initial/replacement refusal, no pageerror,
+valid leap-day recovery and day/week/month controls.
+Metrics run collections must be arrays of object rows with
 nonnegative safe-integer review-round counts and a safe per-project derived total;
 malformed run evidence fails before publication, not inside global Quality rendering.
 Optional revisions may be absent or an empty array; present evidence must be an array

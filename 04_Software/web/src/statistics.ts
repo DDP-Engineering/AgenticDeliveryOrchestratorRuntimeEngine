@@ -16,6 +16,14 @@ const amount = (value: unknown) => value === null || typeof value === "number" &
 const tokens = (value: unknown) => value === null ? null : count(value);
 const instant = (value: unknown) => value === null || typeof value === "string" && /T.*(?:Z|[+-]\d\d:\d\d)$/.test(value) && Number.isFinite(Date.parse(value)) ? value as string | null : invalid();
 
+/** Validate server-selected local bucket days without reassigning their zone or grouping. */
+function bucketDay(value: unknown): string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) return invalid();
+  const date = new Date(`${value}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return invalid();
+  return value;
+}
+
 /**
  * Resolve a requested local midnight solely to verify the server's scope binding.
  * Intl supplies IANA offsets; calendar arithmetic never adds 24h to a zoned
@@ -184,8 +192,9 @@ export function readStatistics(value: unknown, project: string, selection: Repor
   const dates = new Set<string>();
   for (const item of row.daily as unknown[]) {
     const day = object(item);
-    if (typeof day.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day.date) || dates.has(day.date)) invalid();
-    dates.add(String(day.date));
+    const date = bucketDay(day.date);
+    if (dates.has(date)) invalid();
+    dates.add(date);
   }
   if ("revisions" in row) revisions(row.revisions, project);
   const result = row as unknown as Metrics;
@@ -206,8 +215,8 @@ export function readConsumption(value: unknown, project: string, selection: Repo
   const buckets = new Set<string>();
   for (const item of row.daily as unknown[]) {
     const day = object(item); amounts(day);
-    if (typeof day.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day.date) ||
-      day.executor !== null && typeof day.executor !== "string" || day.model !== null && typeof day.model !== "string") invalid();
+    bucketDay(day.date);
+    if (day.executor !== null && typeof day.executor !== "string" || day.model !== null && typeof day.model !== "string") invalid();
     // One source bucket per tuple; null and empty names remain distinct identities.
     const identity = JSON.stringify([day.date, day.executor, day.model]);
     if (buckets.has(identity)) invalid();

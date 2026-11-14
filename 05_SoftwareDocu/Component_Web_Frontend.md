@@ -250,6 +250,12 @@ cost efficiency and financial/unknown evidence retain their existing contracts.
 Initial/replacement helper and all three browser scopes prove wrong-period and
 missing-count refusal without report/exports/time/pageerror, then valid recovery;
 real-server timezone/midnight/one-sided browser controls remain accepted.
+Metrics and usage analytical bucket dates must be real `YYYY-MM-DD` calendar
+days in years 0001–9999, not merely matching strings. `bucketDay` rejects date
+rollover, impossible leap days, year zero and malformed values before publication.
+It does not recalculate server attribution, week/month alignment or timezone.
+Helpers and all three browser scopes prove initial/replacement error/Retry with
+no report/exports/time/pageerror, valid leap-day recovery and day/week/month controls.
 Matching canonical scope fields (excluding each member's separately validated
 project identity) are checked across every project and both resource maps before
 publication. Metrics and usage pooled results are computed inside that same owned

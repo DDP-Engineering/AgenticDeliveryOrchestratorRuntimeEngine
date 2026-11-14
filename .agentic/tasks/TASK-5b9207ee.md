@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -797,6 +799,33 @@ remain unchanged; actual authorized history is append-only in Log. No backend,
 schema, dependency, payload, cadence or publication change is made. This session
 stops immediately at the completed build advance.
 
+### Round-9 review correction under RULING-002
+
+Metrics and usage analytical bucket dates now validate as actual `YYYY-MM-DD`
+calendar days in years 0001–9999, not just strings with that shape. Rollover dates,
+impossible leap days, invalid months/days and malformed types fail before report
+or freshness publication. Server attribution, timezone and week/month grouping
+remain server-owned; no observations are reassigned. Existing duplicate-date/tuple
+identity validation is unchanged.
+
+Helpers prove initial and replacement refusal with no transient ready state,
+cleared report/time and valid leap-day recovery. Twelve browser cases cover both
+members in all-project, global selected and project-hub scopes, with error/Retry,
+no report tables/exports/success time/pageerror and valid recovery. Three controls
+preserve server-provided day/week/month dates. Focused proof passes 85 helper/help
+contracts and 163 integrated offline Chromium reporting/Statistics/session/operation
+cases, including existing four-locale/two-theme continuity regressions.
+
+Scoped requirements/specification, component/user/knowledge documentation,
+four-locale Statistics help, CHANGELOG and the merged localized Statistics note
+are current. Production assets are rebuilt and all 132 input/7 output fingerprints
+independently match. No backend, schema, dependency, cadence or payload changes.
+These are build results, not independent approval or final strict proof. Fresh
+independent round-10 reviews under RULING-002, full strict proof/report and task
+closure belong to the next validate session; this session stops at build advance.
+Installed review-counter limits remain unchanged; actual authorized history stays
+in append-only Log.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -1095,6 +1124,15 @@ stops immediately at the completed build advance.
 - 2026-11-13 validate: DEVIATION validate: installed verdict CLI rejects authorized --round 9 with exit 1 (review round must be 1 through 6) despite RULING-001 - preserve both independent round-9 changes_required verdicts and reproduced findings in append-only Log rather than falsifying an earlier round, hand-editing CLI-owned State or changing installed policy/payload. RULING-001 rounds 7-9 are now exhausted; ADORE_QUESTIONS.md requests explicit authorization for another bounded correction/review. No backward routing or repair is authorized at this last-round boundary; pause blocked, with current candidate preserved and no final proof/report/closure claim.
 - 2026-11-14 validate: Validation resumption after second user authorization: branch matches journal, entry worktree is clean at 25eb7c2, interaction remains autopilot. Read installed task guide, complete durable journal, validate/review steps, project/environment context and relevant reporting contracts/source/tests. RULING-002 extends authorization to independent rounds 10-12; no new review round consumed here. Source and a fresh offline production-helper reproduction confirm the round-9 defect remains: both readStatistics and readConsumption accept 2026-02-30 and 2026-99-99 analytical bucket dates; after valid baseline at time 1000, createReportingRefresh publishes ready, pooled impossible dates and completedAt/fullReportAt=2000. Corrected Node stdin reproduction exits 0 because assertions demonstrate the defect, NOT acceptance proof (initial harness omitted required timer functions and was corrected). git diff --check exit 0. Return only for recorded real-calendar validation in both bucket readers, initial/replacement withholding/error/Retry/recovery proof with no report/exports/success time/pageerror, and valid leap-day/day-week-month controls; do not recalculate server attribution or weaken REQ-SEC-7ee58549, REQ-DATA-d535499a or REQ-UX-cbca5fd9. No product, tests, requirements, policy or payload edited; ADORE_QUESTIONS.md is absent and the clarification is settled by the user ruling. Full validation reconciliation, fresh independent round-10 reviews and final strict proof/report/closure remain after correction; no browser, full suite, CI or live acceptance run in this routing session. Existing installed six-round verdict-recording limitation remains unchanged; authorized actual review history stays append-only in Log.
 - 2026-11-14 validate: returned to build - User RULING-002 authorizes three more review rounds (10-12). Round-9 analytical bucket-date defect remains independently reproduced: metrics/usage accept impossible dates and publish ready with renewed successful times. Validate real calendar bucket dates before publication; add initial/replacement error/Retry and withheld-report/CSV/time regressions, recovery and valid leap-day/day-week-month controls, preserving server attribution. Return for fresh round-10 independent reviews and final strict proof after correction.
+- 2026-11-14 build: Round-9 correction build bounds under RULING-002: 45 minutes, at most 22 ticket-scoped changed paths and 12 focused verification commands. Correct only real calendar validation for metrics/usage analytical bucket dates before report/freshness publication; add initial/replacement withholding/error/Retry/recovery helpers and browser proof plus valid leap-day/day-week-month controls, without recalculating server attribution. Preserve original anchor, history and contracts; update scoped documentation/traceability/localized notes and rebuild assets. Fresh Node 22.23.4, locked node_modules/.venv, image Chromium path and nonempty machine identity checked. Stop at build advance; no backend/schema/dependency/payload/publication changes.
+- 2026-11-14 build: red: node --test tests/statistics.test.mjs exit 1 (29 pass/2 new failures): impossible metrics bucket 2026-02-30 publishes ready instead of error; the valid-grouping control also had a fixture ordering assumption, corrected to the established pooled date sort before implementation. npm run build:e2e/typecheck exit 0; playwright reportingRefresh --grep 'global metrics refuses impossible bucket 2026-02-30' exit 1: impossible date is rendered without error/Retry. Added both metrics/usage initial/replacement/refusal/recovery negatives and real leap-day/day-week-month controls before implementation (REQ-SEC-7ee58549, REQ-DATA-d535499a, REQ-UX-cbca5fd9). Preserve original recorded anchor.
+- 2026-11-14 build: green: Node statistics/metrics/polling/request/errors/help suite exit 0 (85/85); npm run build:e2e/typecheck exit 0; playwright reportingRefresh --grep 'impossible bucket|valid server .* bucket dates' exit 0 (15/15). Shared local bucket-day validation now rejects rollover, nonexistent months/days, invalid leap days, year zero, out-of-range years and malformed types/formats in both readers before report/time publication. Helpers prove initial/replacement refusal, no transient ready, cleared evidence/time and valid leap-day recovery; all three browser scopes prove error/Retry, no report tables/exports/time/pageerror, recovery, and valid server day/week/month dates. Server attribution/grouping and existing duplicate identity guards unchanged (REQ-SEC-7ee58549, REQ-DATA-d535499a, REQ-UX-cbca5fd9).
+- 2026-11-14 build: green: final Node statistics/metrics/polling/request/errors/help suite exit 0 (85/85); npm run build:e2e/typecheck exit 0; integrated playwright e2e/reportingRefresh.spec.ts e2e/statistics.spec.ts e2e/sessionRefresh.spec.ts e2e/operationRefresh.spec.ts exit 0 (163/163 offline Chromium cases). All 12 new impossible metrics/usage bucket initial/replacement/error/Retry/recovery cases and three valid day/week/month controls pass; existing calendar/DST, coherence/cadence/continuity, denial/result-generation and four-locale/two-theme narrow regressions remain green. No original oracle weakened; final strict suite and fresh independent round-10 reviews remain validate-stage work.
+- 2026-11-14 build: release-notes: updated (existing Statistics fixed entry in en/fr/de/ro now names invalid calendar dates while retaining quiet refresh and honest unknown counts; no new category entry. check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exit 0).
+- 2026-11-14 build: help: updated (Statistics en/fr/de/ro explains refusal of impossible Usage/Trends dates such as February 30, withheld totals/exports/success time and valid leap-day/day-week-month support; matching structure and existing interface terms. Help outline/parser/link contracts pass in the final 85-test helper run).
+- 2026-11-14 build: Round-9 correction build audit under RULING-002: npm run build, release-note checker, git diff --check and independent SHA-256/traceability audits exit 0. All 132 frontend inputs/7 outputs match; all 42 requirements remain active with existing affected paths/test links. Evolution exit 0 reviewed all 236 post-anchor paths (41 added/183 modified/12 removed), preserving inherited target integration and original anchor. This session changes 21/22 scoped paths: one validator, helper/browser proof, three requirement verifications, reporting spec/component/user/knowledge docs, four-locale Statistics help, merged release note/CHANGELOG, journal and four regenerated JS/index/stamp paths. Recorded defect corrected with focused proof; fresh round-10 independent reviews and full strict proof/report/closure remain required in validate. No backend/dependency/schema/payload/publication changes.
+- 2026-11-14 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 177 warnings, 28 notes. Existing categories remain: 2 ticket-ref, 37 stale-path, 16 no-linked-tests, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend tests/inherited sources; 5 outside-layout paths are untouched target configuration/release archives. Six secret flags retain inherited journal/Users fake credential wording, three target fixture-key literals and unavailable generated-JS scan; this correction introduces no secret. DEVIATION build: generated minified-JS added-lines scan is unavailable - accepted with reviewed-source rebuild and all stamped hashes matching, not a detected secret or final strict proof. Existing Vite large-chunk warning retained without unrelated splitting/dependencies. No unresolved recorded correction remains in focused proof; independent approval/full suite not claimed.
+- 2026-11-14 build: completed; next validate
 
 ## Rulings
 
@@ -1104,13 +1142,13 @@ stops immediately at the completed build advance.
 
 ## State
 
-status: waiting
-reported: build - paused
-next: continue build: User RULING-002 authorizes three more review rounds (10-12). Round-9 analytical bucket-date defect remains independently reproduced: metrics/usage accept impossible dates and publish ready with renewed successful times. Validate real calendar bucket dates before publication; add initial/replacement error/Retry and withheld-report/CSV/time regressions, recovery and valid leap-day/day-week-month controls, preserving server attribution. Return for fresh round-10 independent reviews and final strict proof after correction.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: Recorded user authorization as RULING-002 and confirmed the existing bucket-calendar defect; only executor-owned task journal changed.
-evidence: Offline Node production-validator/coordinator reproduction exit 0 demonstrates four unsafe replacement publications; git diff --check exit 0. No acceptance pass claimed.
-issues: Bucket-date acceptance failure still requires build correction. Full reconciliation, independent reviews, strict proof/report and closure not run; installed verdict CLI cannot encode rounds above 6. No browser/CI/live acceptance in this session.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Corrected real-calendar metrics/usage bucket validation before report/freshness publication; added initial/replacement/recovery and leap-day/grouping proof, updated scoped docs/requirements/four-locale help/notes, rebuilt production assets.
+evidence: Node focused helper/help suite exit 0 (85/85); build:e2e/typecheck and integrated reporting/Statistics/session/operation Playwright exit 0 (163/163); production build/release-note/whitespace/hash/42-requirement audits exit 0; advisory check 0 errors, 177 explained warnings.
+issues: Fresh independent round-10 reviews under RULING-002 and final strict/full proof/report/closure remain validate work. Installed CLI cannot encode rounds above 6; actual review history remains in Log. No CI/live/Windows acceptance; no publication.
 spec_compliance:
 implementation_quality:
 review_round: 6

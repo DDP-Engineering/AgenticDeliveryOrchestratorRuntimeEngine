@@ -83,7 +83,13 @@ Required metrics total counts must be present safe integers (runs and the six li
 revision/repair counters); absence never becomes pooled zero or a false empty tab.
 Helpers and all-project/global-selected/project-hub browser cases prove initial and
 replacement refusal without report/exports/time/pageerror and valid recovery; real
-server DST/midnight/skipped-date/one-sided controls prove the calendar binding. App renders those stored aggregates without recomputing.
+server DST/midnight/skipped-date/one-sided controls prove the calendar binding.
+Metrics and usage bucket dates also validate as real `YYYY-MM-DD` calendar days
+in years 0001–9999 before report/time publication. Rollover and impossible leap
+days fail closed; server attribution and grouping are not recomputed. Helpers and
+all three browser scopes prove initial/replacement refusal without report/exports/
+time/pageerror, leap-day recovery and valid day/week/month controls.
+App renders those stored aggregates without recomputing.
 Cross-project interval mismatch or pooled failure clears report/exports/success
 time with error/Retry; two-project helper/browser negatives also assert no pageerror.
 Shared raw/pooled numeric validation checks lifecycle/current-stock/total/day,
