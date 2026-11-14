@@ -205,7 +205,7 @@ def test_reviewed_environment_routes_preserve_candidate_and_enforce_authorizatio
                            headers=headers).status_code == 409
         assert engine.calls == []
         started = client.post(path, json=reviewed, headers=headers)
-        assert started.status_code == 200, started.text
+        assert started.status_code == 202, started.text
         def read(job_id):
             return client.get(f"/api/v1/environment-preparations/{job_id}").json()
         done = finish(read, started.json())

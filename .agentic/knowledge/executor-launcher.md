@@ -244,3 +244,9 @@ its captured fallback; spawn/render/rejection never does. The existing stats gra
 can receive late instruction responses. File-only doubles leave records queued.
 The launch-owned marker, kernel liveness and literal bounded stdout archive stay intact.
 Proof: instruction/fallback/cancel cases in test_pi_rpc.py; storage routes to instructions.md.
+
+Native and executor-image guard sources are byte-identical, including the explanation
+that ADORE manages publication under the project policy. The publication-blocking
+patterns and project-trust refusal remain shared. Guard parity is enforced by
+test_pi_installation.py::test_managed_pi_ships_the_reviewed_guard alongside the existing
+fake-RPC guard command fixture (REQ-SEC-a6d32441).

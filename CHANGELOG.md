@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Complete four-locale instruction API errors, align packaged Pi guard policy text and restore environment-status/catalog verification contracts.
+
 - Remove the redundant project capacity panel from Settings, Statistics, History and Access.
 
 - Preserve omitted import identity fields and original environment acceptance statuses through durable configuration; refuse private request storage failures with sanitized service errors.

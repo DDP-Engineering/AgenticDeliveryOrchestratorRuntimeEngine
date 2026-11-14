@@ -394,3 +394,9 @@ cover acknowledgements, restart, malformed files, grants, scope races and locale
 The existing production build/stamper includes the new composer and four-locale help.
 Full integrated suites and Linux symlink acceptance remain parent-owned for this child;
 no AEGIS --run or global frontend validation runs here.
+
+Integration consistency proof targets guard-copy parity/fake-RPC blocking, reviewed
+environment202/grants/candidate preservation and exact settings catalog membership,
+plus Node errors/settingHelp/configurationTasks and selected existing browser journeys.
+It uses isolated fake runners and no live installation/provider/forge/container work.
+The parent owns the fresh full integrated proof and deployment after the repair commit.

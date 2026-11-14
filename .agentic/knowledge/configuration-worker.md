@@ -101,3 +101,8 @@ assertions and intercepted evidence; acceptance/status tests still inspect the
 initial202. A delayed old enrollment preview is delivered only after its actual
 operation has completed, preserving stale-generation coverage independently of
 the protected enrollment resource's serialization.
+
+The reviewed setup/import environment domain fixture asserts the established202
+confirmed response, including a ready preparation result. CSRF, stale revision, empty
+pre-effect call history, retained candidate/no profile publication, authentication and
+developer denial assertions remain in test_web_environment.py (REQ-FUNC-80b5347e).

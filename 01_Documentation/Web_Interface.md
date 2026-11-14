@@ -1649,3 +1649,7 @@ and 409 job_not_working outside working. Literal responses retain job identity a
 browser fences switched-job completions. No extra tab, setting, navigation or Pi loop
 is introduced; existing cancellation, session liveness/continuity and archives remain.
 See Component_Instructions.md for bounds, corruption refusals and offline proof.
+
+Shared API error guidance explains instruction storage read/save failures and refusal
+of instructions outside a working job in all four interface languages. The Agent
+sessions composer retains its contextual messages, queue/delivery meaning and limits.

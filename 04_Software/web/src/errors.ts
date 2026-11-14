@@ -30,6 +30,8 @@ export const repositoryConnectionHelp: Record<Locale, string> = {
 /** Localized sentences for every API and client error code. */
 export const errorMessages: Record<Locale, Record<string, string>> = {
   en: {
+    instruction_storage_unavailable: "Instructions could not be read or saved. Check storage access and try again.",
+    job_not_working: "Instructions can be queued only while the job is working.",
     project_capacity_unavailable: "Project capacity cannot be read safely. Inspect the named project data before starting work.",
     capacity_below_occupancy: "The limit is below this project’s occupied slots. New starts already respect the lower limit; existing jobs continue.",
     recipe_invalid: "Choose a valid Dockerfile or a complete source ZIP without credentials (up to 18 MiB).",
@@ -186,6 +188,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "The server sent an unexpected response.",
   },
   fr: {
+    instruction_storage_unavailable: "Les instructions n’ont pas pu être lues ou enregistrées. Vérifiez l’accès au stockage et réessayez.",
+    job_not_working: "Les instructions sont acceptées uniquement pendant le travail de la tâche.",
     project_capacity_unavailable: "La capacité du projet est illisible. Vérifiez les données du projet indiquées avant de démarrer.",
     capacity_below_occupancy: "La limite est inférieure aux places occupées du projet. Les nouveaux démarrages respectent déjà la limite réduite ; les tâches continuent.",
     recipe_invalid: "Choisissez un Dockerfile valide ou un ZIP source complet sans identifiants (18 Mio maximum).",
@@ -342,6 +346,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Le serveur a envoyé une réponse inattendue.",
   },
   de: {
+    instruction_storage_unavailable: "Anweisungen konnten nicht gelesen oder gespeichert werden. Prüfen Sie den Speicherzugriff.",
+    job_not_working: "Anweisungen können nur während der Bearbeitung des Jobs eingereiht werden.",
     project_capacity_unavailable: "Die Projektkapazität kann nicht sicher gelesen werden. Prüfen Sie die genannten Projektdaten.",
     capacity_below_occupancy: "Das Limit liegt unter den belegten Projektplätzen. Neue Starts beachten das kleinere Limit bereits; laufende Aufträge bleiben aktiv.",
     recipe_invalid: "Wählen Sie eine gültige Dockerfile oder ein vollständiges Quell-ZIP ohne Zugangsdaten (bis 18 MiB).",
@@ -498,6 +504,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Der Server hat eine unerwartete Antwort gesendet.",
   },
   ro: {
+    instruction_storage_unavailable: "Instrucțiunile nu au putut fi citite sau salvate. Verifică accesul la stocare și încearcă din nou.",
+    job_not_working: "Instrucțiunile pot fi puse în așteptare doar cât timp jobul lucrează.",
     project_capacity_unavailable: "Capacitatea proiectului nu poate fi citită sigur. Verifică datele proiectului indicate înainte de pornire.",
     capacity_below_occupancy: "Limita este sub locurile ocupate ale proiectului. Pornirile noi respectă deja limita redusă; joburile existente continuă.",
     recipe_invalid: "Alege un Dockerfile valid sau un ZIP sursă complet, fără credențiale (maximum 18 MiB).",

@@ -1435,3 +1435,10 @@ A lifecycle change or completed send during an instruction GET queues one traili
 fresh read. Working-to-terminal changes therefore settle acknowledged delivery after
 an older pre-ack snapshot, then stop timed polling. LA-03 terminal-transition browser
 proof holds the old response and observes Delivered without another polling interval.
+
+REQ-UX-e6ed7168: shared errors.ts includes instruction_storage_unavailable and
+job_not_working in en/fr/de/ro; contextual InstructionComposer messages stay separate.
+The strict API-source error inventory and unknown-code fallback tests remain active.
+REQ-UX-b0e9a434: settingKeys.json is lexically sorted with exact configuration-key
+membership; test_web_setting_catalog.py and Node settingHelp checks enforce this
+without changing visible settings grouping, controls or help.

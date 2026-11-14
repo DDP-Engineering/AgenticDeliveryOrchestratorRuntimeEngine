@@ -13,7 +13,7 @@
  * It blocks publication from the model's shell tools - `git push` and the
  * gh, glab and tea forge CLIs - before they run: Pi reports the attempt as a
  * failed tool call whose text starts with "ADORE blocks". ADORE publishes only
- * after human approval. This is defence in depth: the real boundary is that no
+ * under the project policy. This is defence in depth: the real boundary is that no
  * forge credential is in the agent's environment.
  *
  * It also answers project trust with "no", so a repository's own `.pi`
@@ -34,7 +34,7 @@ export default function (pi: ExtensionAPI) {
 			if (pattern.test(command)) {
 				return {
 					block: true,
-					reason: `ADORE blocks ${label}: publication is done by ADORE after human approval.`,
+					reason: `ADORE blocks ${label}: publication is managed by ADORE under the project policy.`,
 				};
 			}
 		}

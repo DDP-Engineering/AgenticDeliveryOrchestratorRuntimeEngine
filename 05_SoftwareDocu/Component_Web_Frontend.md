@@ -1219,3 +1219,13 @@ A lifecycle change or completed send during an instruction GET queues one traili
 fresh read. Working-to-terminal changes therefore settle acknowledged delivery after
 an older pre-ack snapshot, then stop timed polling. LA-03 terminal-transition browser
 proof holds the old response and observes Delivered without another polling interval.
+
+## Shared instruction errors and catalog ordering
+
+The shared API error catalog includes instruction_storage_unavailable and
+job_not_working in en/fr/de/ro; the instruction composer's own contextual copy remains
+separate. Strict errors.test.mjs coverage requires every emitted API code in all four
+locales and preserves generic handling for unknown codes. settingKeys.json is the
+lexically sorted complete key inventory; order corrections preserve exact membership
+and do not change settings grouping, help, visibility or controls. Python catalog
+verification and Node settingHelp tests enforce both inventory and localized help.

@@ -502,3 +502,8 @@ and copy the exact text once to the ticket through independent durable forge rep
 Queued/Delivered names Pi receipt, not completion. Existing compact saved header,
 Jobs/Tickets scopes/list behavior, Projects, cancellation, live liveness/continuity
 and literal session archives remain. See knowledge/instructions.md.
+
+Shared instruction API errors have explicit en/fr/de/ro messages, while the composer
+retains contextual copy. Native and image Pi guards share the project-policy explanation
+and unchanged publication/trust rules. The settings key inventory is lexically sorted
+with exact membership; reviewed environment responses retain202 even when already ready.

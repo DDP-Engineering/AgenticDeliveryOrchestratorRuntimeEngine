@@ -441,3 +441,11 @@ existing stats grace are matched too. No second writer or agent loop is added.
 Launch-owned live.json, kernel liveness, bounded literal stdout/archive and sanitized
 operational tails, stderr, questions and diagnostics keep their existing policies.
 See Component_Instructions.md; targeted fake-Pi proof is in test_pi_rpc.py.
+
+## Shared guard policy text
+
+The packaged native and executor-image guard sources are byte-identical, including
+the publication explanation: ADORE manages publication under the project policy.
+The blocked git/forge command patterns and refusal of project trust are unchanged.
+`test_pi_installation.py::test_managed_pi_ships_the_reviewed_guard` enforces source
+parity; the existing fake-RPC guard fixture verifies blocked and allowed commands.
