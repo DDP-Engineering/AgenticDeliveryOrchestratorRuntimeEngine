@@ -5,312 +5,256 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Operations Guide
+# Operations guide
 
-## First web import
+## System overview
 
-Install and start Docker or Podman on the ADORE server before importing a container
-project. Guided enrollment and raw-file import prepare missing ADORE base and
-network-proxy images automatically and show progress before saving the project
-with monitoring paused. WSL runtimes use their selected distro and Linux account.
-Builds need server internet access even when the agent's internet access is off.
-Simultaneous imports reuse preparation; later imports inspect and reuse the images.
-After a failed build or server restart, retry the import to reuse cached layers.
-Custom project images are prepared by the administrator; native imports do not
-build container images. See [Project executor images](Project_Executor_Images.md).
+ADORE coordinates eligible GitHub, GitLab and Gitea tickets through isolated
+implementation, candidate publication and human review. Pi is the only coding
+agent. Projects select container execution or managed Pi on the ADORE server.
+Each job has its own Git branch, worktree, recorded workflow, execution plan and
+resource identity. Project limits bound admission and consumed work.
 
-## Runtime States
+| Owner | Responsibility |
+|---|---|
+| Pi and the repository instructions | Code changes, engineering decisions and selecting/reporting checks. |
+| AEGIS, when installed in the target | Task journal, stage content and engineering transitions. |
+| ADORE | Ticket selection, resource ownership, limits, recovery, host Git, candidate freshness and publication. |
+| People | Clarification, configured approval, review and merge. |
 
-| State | Meaning | Next action |
-| --- | --- | --- |
-| `working` | A fresh stage attempt may run. | Advance, park, or fail within budgets. |
-| `parked-clarification` | A human answer is required. | Comment plus `agent-answered`, or timeout. |
-| `awaiting-approval` | Strictly validated AEGIS or explicitly unverified direct candidate is presented. | Freshly add the approval label, or candidate/target drift invalidates it. |
-| `publishing` | The approved candidate is pushed and its MR/PR opened or adopted. | Reach draft MR/PR or fail loudly. |
-| `in-review` | Draft MR/PR awaits human action. | Merge, close, or request a bounded revision. |
-| `failed` | Execution stopped with preserved evidence. | Fix cause, clear pending notification, then explicit retry. |
-| `done` | A human merged the draft. | Cleanup is complete/auditable. |
-| `cancelled` | An operator or closed source ticket ended the run. | Audit state remains; delete explicitly if no longer needed. |
+ADORE does not run an independent repository test command and never merges.
+The CLI and web interface share profiles and durable run state. The web API and
+one supervisor use independent configuration, project and run processes;
+projects progress independently up to their configured limits.
 
-The immutable run `workflow` is `aegis` or `direct`, selected from payload
-presence in the worktree at claim. Direct uses `build -> validate -> done`,
-with validate owned by ADORE and no task id. It has no configured independent
-verification command in this build. Pi's reported checks are summary evidence
-only. Both workflows wait at done for fresh approval and review. See
-[Runtime project contract](Integrating_A_Runtime_Project.md).
+## Workflows
 
-AEGIS stage is recorded separately as `frame`, `specify`, `design`, `build`,
-`validate`, or `done`. Quick tasks omit specify/design. Validate closes the
-AEGIS task, so a run stays at `done` while it awaits approval, publishes and
-is in review. A run state that names the removed `deliver` stage is refused.
-AEGIS may return to any earlier stage on the selected path, including Design
-to Specify. ADORE saves the observed stage before checkpoint work and continues
-in a fresh executor session within the existing run budgets. Jobs displays that
-saved stage. A done task returns to Validate when ADORE requires fresh verification.
-If the source ticket is closed while a run is parked for clarification,
-awaiting approval, or still has an open MR/PR in review, the next poll cancels
-it with outcome `ticket closed` and releases its resources. A merged MR/PR takes
-precedence even when the source ticket has also closed; a closed-unmerged MR/PR
-retains the `MR_CLOSED` outcome.
+The workflow is selected from the admitted worktree and retained for that job.
+A missing `.agentic/aegis.py` selects Direct. A present unsupported or broken
+payload is refused; ADORE does not install or change it.
 
-`awaiting-approval` and `in-review` have no timers by design. These are
-human-paced states: after closed/deleted-ticket reconciliation, an open ticket
-may wait indefinitely for approval or review action without generating a
-reminder or timeout.
+| Workflow | Stages | Completion evidence |
+|---|---|---|
+| AEGIS full | Frame → Specify → Design → Build → Validate → Done | The agent's completed task journal and reported checks. |
+| AEGIS quick | Frame → Build → Validate → Done | The same journal contract; the executor justifies the quick path. |
+| Direct | Implementation (`build`) → Validation (`validate`) → Done | Product changes and the retained implementation summary. |
 
-## Normal Operator Loop
+An AEGIS stage uses a fresh bounded session. A permitted return to an earlier
+stage continues from the journal. Supported version/schema policy is defined in
+`04_Software/adore/aegis.py`; retired stage names are refused.
+
+Direct implementation reads the repository instructions and writes
+`ADORE_SUMMARY.md`. ADORE retains the summary and excludes the summary/questions
+exchange files from the candidate. Summary-only work is not a product change.
+Checks remain agent-reported; Direct does not claim independent verification.
+Clarification and review revisions use fresh sessions in either workflow.
+
+## Runtime project contract
+
+Prepare host Git and forge authentication, a clone of the intended repository,
+the target branch, documented build/test instructions, and the selected runtime.
+Generated caches and local tool state belong in the target's ignore rules.
+AEGIS projects maintain their own payload, task journals and configuration.
+
+Only eligible open tickets can start: configured readiness/priority requirements
+apply to automatic pickup and manual Start. Epic, hold and exclusion labels block
+admission. The configured quick label is a hint, not an approval or stage override.
+Create the configured lifecycle, approval and revision labels before running.
+See [Getting started](Getting_Started.md) and [Configuration](Configuration_Reference.md).
+
+Every admitted job records a complete execution plan before its first save.
+Containers without preparation still pin the effective image and provisioned
+container/image IDs. Local jobs pin their host/account/resource identity.
+Preparation remains optional. Replaced resources or stable policy drift require
+explicit recovery or a fresh job; a stored job never receives a guessed plan.
+
+## Runtime states
+
+Stage records engineering progress; lifecycle records the operator-visible state.
+A stage of Done can coexist with approval or review still pending.
+
+| Lifecycle | Meaning |
+|---|---|
+| `working` | Admitted work or a bounded executor attempt; queued work is distinguished by its dispatch evidence. |
+| `parked-clarification` | Waiting for an answer on the source ticket. |
+| `awaiting-approval` | The candidate is presented for configured human approval. |
+| `publishing` | Candidate publication is in progress. |
+| `in-review` | The published MR/PR awaits human review or merge. |
+| `failed` | Work stopped; retained evidence supports explicit recovery. |
+| `done` | A human merge was observed. |
+| `cancelled` | Cancellation and resource release were recorded. |
+| `handoff-pending` / `handed-off` | Human ownership was requested / confirmed. |
+
+## Normal operator loop
+
+1. Enroll and verify the project. Check repository access, runtime prerequisites
+   and the model connection separately; a version check does not prove AI access.
+2. Review readiness, labels, target branch, approval policy and budgets.
+3. Read Tickets and inspect eligibility. Start one explicitly or enable monitoring.
+4. Follow Jobs, Activity and Agent sessions. Use the recorded attempt, not an old
+   event timestamp alone, to diagnose execution.
+5. Answer clarification on the ticket. Apply the configured answered label.
+6. Review the candidate presentation and approve it when approval is required.
+7. Review the MR/PR; request changes or merge through the forge.
+
+Use one web supervisor per ADORE home. Do not run an additional `adore run --loop`
+scheduler over the same web-managed profiles. The standalone CLI remains usable
+for deliberate project operations; locks and ownership checks still apply.
+
+## Admission, capacity and budgets
+
+Monitoring pause stops new automatic pickup and preserves in-flight work.
+Explicit Start is available while monitoring is paused, subject to readiness,
+unique ticket ownership and project capacity. Successful Start confirms a durable
+admission, not that Pi has already started.
+
+Jobs from different projects run independently. A project admits up to its
+`polling.max_concurrent_runs`; a reviewed reduction below current usage can remain
+staged while existing jobs finish. It does not cancel those jobs.
+
+Executor-launch and cumulative active-work limits are separate from token/cost
+statistics. Waiting time is excluded. Retry, clarification and revisions retain
+consumed work. Limits are reread before attempts; a running attempt keeps its
+existing timeout. A failed exhausted job needs explicit Retry after adjustment.
+
+See [Configuration](Configuration_Reference.md) for limits and scoped save rules.
+
+## Clarification and instructions
+
+A blocking question parks the job and appears on the source ticket. Read it from
+Job details or the forge, answer on that ticket and use the configured answered
+label. An unanswered clarification can exhaust its configured deadline.
+Questions do not count as failed engineering attempts.
+
+Agent sessions also supports messages during working jobs. Send now submits at
+the next safe agent boundary; Queue message waits for current work to finish.
+Receipt confirms delivery, not completed work. Unacknowledged instructions can
+remain queued for a later session. Historical conversations are read-only.
+
+## Approval and publication
+
+Human approval is enabled by default through `delivery.require_human_approval`.
+ADORE presents the retained result, changes and exact candidate/target binding,
+removes an existing approval label and waits for fresh approval. Candidate or
+target drift invalidates that approval.
+
+When approval is disabled, candidate and target freshness checks still apply.
+Guarded progress commits can be pushed when `delivery.publish_checkpoints` is
+on; these are separate from final MR/PR publication and do not authorize merge.
+The agent never commits, pushes, creates reviews or merges on ADORE's behalf.
+
+ADORE adopts an existing matching open MR/PR where appropriate, or creates a
+Draft/Ready review according to `delivery.draft`. It refreshes the publication
+description and records its pushed checkpoint. A publication failure retains
+state for inspection; an uncertain outcome is not permission to publish blindly.
+
+## Review and revisions
+
+Use the configured revise label on the MR/PR to request changes. A revision keeps
+the job branch and recorded workflow. AEGIS creates a new task; Direct returns to
+implementation. Fresh candidate evidence and the configured approval policy apply.
+
+`review.on_pipeline_failure` chooses automatic revision, notification or ignore.
+Automatic repairs and human-requested revisions share the review-round limit.
+ADORE reads pipeline verdicts; it does not host CI or fetch pipeline job logs.
+After a human merge it records completion and honors the configured source-branch
+removal policy. An unmerged closed review fails the job.
+
+## Recovery
+
+Read the failure reason, Activity, session and diagnostic evidence first. Correct
+the actual cause before Retry: authentication, runtime ownership, missing tools,
+source conflict, limits, unavailable payload or notification transport.
 
 ```text
-adore --profile <name> status
-adore --profile <name> run --dry-run
-adore --profile <name> run --once
-adore --profile <name> runs
 adore --profile <name> logs <run-id>
+adore --profile <name> retry <run-id>
 ```
 
-Continuous service mode uses `run --loop`. Every executor launch, transition,
-failure, question, notification delivery, approval and publication event is
-appended to `journal.jsonl` under the profile state root.
+Retry resets the current stage counter and preserves work, task history,
+cumulative active work and audit evidence. A pending required notification blocks
+new code work until delivery succeeds. A normal poll replays due notifications
+without starting another implementation session.
 
-## Failure Interpretation
+A completed attempt can report an earlier supported AEGIS stage. That is different
+from `STALE_WORKING`, where the conductor was interrupted. Forward jumps without
+required stage evidence fail closed. An explicit reset changes only ADORE's stage
+pointer; it does not edit the AEGIS journal. Use the CLI reference before resetting.
 
-| Signal | Meaning | Operator response |
-| --- | --- | --- |
-| Incident attempt `1/3` or `2/3` | Recoverable stage attempt failed. | Observe the fresh remediation attempt; intervene if evidence shows a policy/resource issue. |
-| Incident attempt `3/3` plus terminal comment | Stage limit reached. | Inspect local/MR evidence and explicitly retry only after correcting the cause. |
-| `AEGIS_PROTOCOL` | Wrong version/schema, malformed CLI output, identity/path violation. | Repair the target payload/journal; do not repeatedly launch an executor. |
-| `AEGIS_TIMEOUT` / `EXECUTOR_TIMEOUT` | The bounded command runner reports that it killed an AEGIS or executor process. | Inspect resource pressure and the configured bound; stderr wording and exit code alone do not produce this classification. |
-| `NOTIFICATION_DELIVERY` | Required ticket/MR write failed. | Restore forge transport. Polling replays the outbox without an execution slot. |
-| `NO_CHANGES` | Direct session ended successfully without product progress; summary/questions alone do not count. | Inspect the retained agent summary and ticket scope before explicit Retry. |
-| `NO_STAGE_PROGRESS` | The executor exited 0 but AEGIS stayed at the same stage; the evidence ends with the executor's last stderr lines (up to 20, colour codes removed). | Read those lines first, for example auto-rejected tool permissions, fix the executor setup, then let the next attempt run or retry. |
-| `BUDGET_EXHAUSTED` | Iteration/time/cost/file cap reached. | Adjust scope/config deliberately, then retry. |
-| `STALE_WORKING` | A conductor died or lost ownership. | Inspect evidence, reconcile the worktree, then retry. |
-| `CLARIFICATION_TIMEOUT` / `REVIEW_LIMIT` | Human/review bound exhausted. | Decide manually; retry only with a new explicit intent. |
+### Environment and preparation recovery
 
-Evidence is sanitized before comments. Local JSONL remains the durable audit
-record. ADORE treats required problem notification as part of correctness, not
-best-effort telemetry.
+Retry retains the pinned environment. A changed backend, stable execution policy,
+resource ownership or image can require a fresh job. The web action **Abandon and
+start again** shows the destructive effects and requires confirmation. It verifies
+owned resources and starts the still-open ticket with current settings only after
+cleanup succeeds. Monitoring remains paused when already paused.
 
-## Approval Operations
+A local Retry can explicitly revalidate volatile installed-executor/PATH evidence
+on the same host/account while retaining stable policy and cumulative limits.
+It does not switch a job to another backend. See [Local execution](Local_Execution.md).
 
-A direct approval presentation shows the retained agent summary, changed-file
-count and exact candidate/target fingerprints. No
-AEGIS task line or strict-check pass is implied. Empty questions files park
-rather than complete a candidate. The summary and configured questions file are
-excluded from all direct checkpoints and published candidates; unsafe present
-summary artifacts prevent checkpoint/approval. A checkpoint failure can resume
-conductor-owned validate without replaying completed implementation. Completion
-and entry into validate are saved together, so an interruption after that write
-can be recovered with Retry even at the launch limit.
+Incomplete preparation is not replayed by ordinary Retry. Inspect its retained
+steps, then use the explicit reprepare operation when appropriate. See
+[Container preparation](Container_Preparation.md).
 
-On adoption and each freshly approved direct revision, ADORE refreshes the MR/PR
-description with the current summary, file count and candidate binding. A refused
-or timed-out description write fails publication with `MR_CREATE_FAILED` rather
-than entering review with stale evidence. Restore forge access and Retry; the
-same approved description is written again without another implementation session.
+### Publication and Git recovery
 
-For AEGIS the approval presentation leads with the deviations the AEGIS journal
-recorded, as a count and in full, then lists strict evidence, warnings,
-commands, diff size, exact commits, candidate fingerprint and target commit.
-Deviations inform the approver; they never block. Do not pre-apply
-`agent-approved`; ADORE removes and verifies it absent before presentation.
+Candidate or target changes require fresh validation/presentation. Before retrying
+uncertain publication, inspect the saved checkpoint, remote branch and MR/PR.
+`STALE_PUBLISHING` requires explicit recovery rather than automatic replay.
+Checkpoint failures preserve the worktree and identify the failing path or Git
+operation. Correct that cause before retrying; do not bypass resource ownership.
 
-After reviewing the presentation, add `agent-approved`. The next poll fetches
-the target and recomputes the fingerprint. Drift removes the label and returns
-the run to integration/validation. Approval is never reused for a revision.
-Retrying interrupted publication rechecks the label and candidate before any
-push. A missing approval returns to normal validation/presentation. Ticket
-title/body edits are separately recorded as `ticket content changed since
-pickup` and refresh the local snapshot; they are visibility, not automatic
-candidate invalidation.
+### Cancel, handoff and cleanup
 
-## Review Operations
+Pause is not cancellation. Cancel queues a durable request when the run is owned;
+confirmation means the actual stop/cleanup was recorded, not merely accepted.
+Handoff waits for a safe boundary and preserves human-owned work. Wait for
+`handed-off` before editing that worktree.
 
-ADORE opens a draft by default, or a ready review when `delivery.draft = false`. Apply `agent-revise` to the MR/PR to request a
-bounded revision. The next poll retains the recorded workflow: AEGIS creates a
-new task on the same branch with earlier journals preserved; direct restarts
-build without a task. Both require a new candidate presentation and approval. The configured review-round
-limit ends visibly on both active surfaces.
+Failed jobs retain their recovery evidence. Explicit Cancel/Delete are resource
+release boundaries; routine cleanup protects active, failed, human-owned and
+corrupt jobs. Foreign resources and unknown live owners are never guessed away.
+Never remove a live lock file. See [CLI reference](CLI_Reference.md) for exact flags.
 
-The revise label is removed only after provisioning and, for AEGIS, payload
-probing and task creation succeed. Failures before that point leave the request visible for a
-later retry. A crash in the narrow create/remove/state-save boundary can leave
-a duplicate or orphan AEGIS task because AEGIS has no idempotency key; inspect
-the `revision-task-created` journal event before manual recovery.
+## Worker supervision and service maintenance
 
-During publication ADORE first adopts an existing open MR/PR for the task
-branch, avoiding duplicate creation after a crash or failed read-back.
-Publication pushes the validated candidate once and runs no executor session
-or AEGIS command before entering `in-review`; it refuses a run that is neither
-at stage `done` nor at the `publishing` reset pointer with `PUBLICATION_STAGE`.
+The API serves authenticated requests and durable command results. The supervisor
+owns independent configuration and project workers; project workers dispatch fresh
+single-run processes. Each process checks durable ownership and ancestor identity.
+A blocked project does not consume another project's configuration/execution lane.
 
-ADORE has no merge operation. The human review/merge path remains protected by
-forge permissions and branch rules.
+The API and worker must use the same account and absolute ADORE home. Stop the
+whole supervisor only when its owned jobs can safely stop. For deployment, preserve
+active workers until a validated rollout can retain their running processes.
+The portable Start/Stop controls own the complete application tree.
 
-On GitLab the revision thread comes from the MR notes endpoint, which already
-includes diff notes. On GitHub and Gitea ADORE additionally reads the submitted
-reviews and their inline comments, so feedback left through "Review changes"
-reaches the executor and not only conversation-tab comments.
+Interrupted effects retain uncertain ownership until process death is proved.
+They are not silently replayed. Inspect durable operation outcomes and job evidence
+before resubmitting a command. Service setup is in
+[deployment tools](../02_Tools/deploy/README.md).
 
-### Pipeline failures
+## Data, backup and maintenance
 
-While a run is `in-review`, each poll reads the forge pipeline verdict for the
-draft and normalizes it to `success`, `failed`, `running`, `none` or `unknown`.
-Only a *change* in that verdict is a signal, so a run that waits days is neither
-nagged nor repaired twice for one failure. `[review] on_pipeline_failure`
-decides what a new `failed` verdict does:
+Back up the ADORE home, profile configuration and protected credentials, web
+identity database, state, image definitions and any externally configured state
+roots. Keep backups private. A stopped copy avoids races; a live SQLite backup
+must use SQLite's backup mechanism, not a lone copy of a changing database file.
+An active filesystem/log snapshot is not an atomic application-wide backup.
 
-| Mode | Behavior |
-| --- | --- |
-| `revise` (default) | Start a governed repair round automatically. |
-| `notify` | Post one comment on the draft and wait for a human. |
-| `ignore` | Skip the pipeline read entirely. |
+Each stored format has one current schema. Unsupported data is refused with
+explicit operator cleanup guidance. The application does not convert or recreate
+an incompatible store. Do not fabricate missing plans or job history.
 
-A repair round uses the same recorded workflow and bounded path as the revise
-label. The executor receives the pipeline acceptance criteria and discussion.
-AEGIS repeats strict validation; direct presents a new explicitly unverified
-candidate. Both require **fresh human approval** before review publication.
-Guarded WIP checkpoints may be pushed earlier when enabled. ADORE never merges.
+Statistics distinguish observed tokens, reported cost, estimated cost and missing
+coverage. Missing evidence is not zero. Runtime evidence and summaries remain
+separate from session text. Use explicit export/report commands for retained data;
+`stats --rebuild` changes metrics, not job state or journals.
 
-`max_review_rounds` bounds repairs and human-requested revisions together, so a
-permanently red pipeline cannot loop. When the budget is spent, ADORE posts a
-comment saying so and leaves the run in review rather than failing it.
+## References
 
-A pipeline that is unreadable, or a `gh` too old to report check status, reads
-as `unknown` and is silent. It never blocks the poll and never triggers a
-repair.
-
-For AEGIS runs ADORE also verifies `check --strict --run` in the execution
-environment, which covers
-only the commands the target repository configures for AEGIS. Keep those aligned
-with the pipeline if you want local validation to predict the pipeline result
-and avoid spending repair rounds on failures the container could have caught.
-
-## Notification Outbox
-
-An outbox record is stored before every required problem/approval comment. A
-failed transport stops code work. Polling retries due records using capped
-backoff without provisioning a container. If a draft MR/PR is confirmed
-deleted, delivery falls back to the source ticket. If the source ticket is also
-deleted, the notification is marked undeliverable in the audit log.
-
-`adore retry` refuses a run while its outbox is nonempty.
-If only the final status write of an already terminal run fails, the replay is
-queued without changing its terminal lifecycle or outcome.
-
-## Stopping and Cleanup
-
-Queued cancellation interrupts executor sessions for both workflows.
-Cancellation takes precedence at the next conductor boundary, so a returned
-executor result cannot present a candidate after saved cancellation.
-
-`cancel` removes active resources and retains audit state. Failed runs keep
-their worktree, container companions, and local evidence for explicit retry;
-routine `cleanup` protects them along with active valid runs. To release a
-failed run, use `cancel <run-id>` (keep audit state) or `delete <run-id>
---force` (irreversible state removal). Cleanup removes the selected
-project's verified done, cancelled and stale resources. Stateless resources,
-foreign saved identities, corrupt state and unproven runtime mounts remain for
-operator inspection. Runtime cleanup failure preserves the worktree. Other
-projects' resources remain untouched. A live or unknown lock owner is never
-reclaimed. Run mutations serialize only the selected run; cancel queues a durable
-request to a live owner. Profile-contained state uses stable lifecycle/execution
-files under its server home's `resource-locks/state/<state-root-hash>/`; external
-state keeps `<state root>/locks`. Never remove these while any server or run can use them. Kernel ownership, not file age/existence, is authoritative.
-
-Concurrent jobs retain separate branches, worktrees, containers, native process
-scopes, Pi sessions, credentials and output. Production names include a stable
-project suffix even when profiles target the same repository and ticket. Brief
-Git registry/checkpoint mutations serialize per common repository; executor work
-and remote publication do not hold that lock. Fetch, Pi installation, shared image
-preparation, ChatGPT refresh and metrics publication have separate mutation scopes.
-A busy or unproven resource fails explicitly rather than being adopted or removed.
-
-Archive and either profile-delete mode require a complete project barrier, including
-live execution/cleanup reservations with terminal or removed state. Monitoring
-pause continues to leave running jobs alone.
-
-## Native local execution
-
-Native runs retain their recorded AEGIS/direct workflow, budgets, questions,
-approval and draft/ready publication. Parking/retry preserve identity; cancel/delete release only verified scope/worktree.
-
-See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
-authentication, process ownership and acceptance coverage.
-
-
-## Git repositories used by container tests
-
-New repository execution environments let Git discover the repository selected
-by the current directory or `git -C`. A test may create and commit in a temporary
-or nested repository without redirecting that operation to the job's worktree.
-The host worktree's Git pointer stays unchanged.
-
-Retry keeps the existing container and its installed dependencies. Containers
-created with the historical Git environment retain that environment during reuse;
-newly created containers use the native discovery mode. An upgrade does not
-replace active resources. Normal cancellation/deletion remains the explicit
-resource-release boundary.
-
-A missing or corrupt native binding produces an isolation error with preserved
-evidence. Review the saved run IO data and runtime error before retrying; ADORE
-rejects unknown binding modes rather than silently changing the execution target.
-For WSL, ordinary `wsl -d Ubuntu -- docker` or Podman runtime settings use direct
-command execution internally. Custom wrappers specify their command boundary
-with `--` or `--exec`.
-
-## Container command timeouts
-
-When a container command exceeds its deadline, ADORE stops that verified container
-before processing its output. A later admitted command resumes the same container;
-installed packages and files remain. The timeout still counts under the configured
-attempt and cumulative limits. Network access and package permission are unchanged.
-
-If the runtime cannot confirm safe interruption or restart, the job fails with an
-infrastructure error and no further executor attempt. Inspect retained evidence
-and runtime ownership before using explicit Retry. Cancel and delete retain their
-normal authority; ADORE never automatically replaces a container to hide the error.
-A preparation timeout still needs its existing explicit replay procedure.
-
-
-## Concurrent project execution
-
-`polling.max_concurrent_runs` is the project's admission ceiling (default 1).
-Manual Start, automatic pickup, Retry, Restart and automatic resumptions share
-one short reservation boundary. Independent conductors have their own executor,
-backend and configuration revision; no project lock spans an agent call.
-Reducing the ceiling blocks later reservations and leaves existing jobs running.
-Initial reservations keep their dispatch evidence and wait for actual start
-capacity under the current lower ceiling; they do not all start at the old N.
-An executor that already started may finish above the reduced ceiling.
-Cleanup still occupies its place until the owned resource is safely released.
-Pause stops automatic pickup and preserves explicit eligible Start.
-
-Queued web commands do not allocate an executor. An admitted job reserves its
-execution place until the run process begins; that wait is excluded from its
-active-work budget. Settled clarification, approval and review waits release
-executor capacity. Initialization, `handoff-pending`, unsettled parking and an
-active conductor finishing backend cleanup retain their place until safe release.
-
-Windows sharing contention during state reads or atomic JSON publication is
-retried at most six times with at most 250 ms of scheduled waits. Persistent
-sharing denial raises a state error with the affected path; valid previous bytes
-are retained. Resolve storage access before explicit recovery. This does not
-retry executor or forge effects. See [Worker acceptance](Worker_Acceptance.md)
-for the focused contracts and operational smoke scope.
-
-A live or uncertain durable owner is never classified as stale from heartbeat
-age. Reconciliation skips foreign run locks and owns outbox/publication effects
-one run at a time. An interrupted publisher fails visibly for remote-state
-inspection and explicit recovery; it is not published again automatically.
-
-Pending execution is recorded explicitly in current run state. Active-work
-readouts remain zero before first dispatch, including if a queued job is
-cancelled; dispatch persists clock activation before any external claim effect.
-
-
-Kernel lock placement depends only on the canonical state-root path. Profile-contained
-state uses the server home identified by the `profiles/<profile>/...` path layout,
-with locks outside the deletable profile. External state keeps `<state root>/locks`.
-Changing ambient ADORE home cannot split ownership. A clone containing retained state
-is kept during optional clone removal.
+- [Web interface](Web_Interface.md): navigation, job details and account workflows.
+- [CLI reference](CLI_Reference.md): exact commands and flags.
+- [Configuration reference](Configuration_Reference.md): settings and defaults.
+- [Security and credentials](Security_And_Credentials.md): account and secret boundaries.
+- [Getting started](Getting_Started.md): installation and first project.

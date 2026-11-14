@@ -111,7 +111,7 @@ guides belong in `01_Documentation/`.
 The implemented run-state, recovery, and idempotency contracts are currently
 documented in `Component_State_Store.md`, `Component_Orchestrator.md`, and
 `Component_Isolation.md`. Operator-facing recovery procedures belong in
-`01_Documentation/Recovery_And_Maintenance.md`.
+`01_Documentation/Operations_Guide.md`.
 
 - [Preparation](Component_Preparation.md): reviewed exact-source plans and closed grammar.
 - [Execution](Component_Execution.md): shared backend, file setup runner and owned recovery.

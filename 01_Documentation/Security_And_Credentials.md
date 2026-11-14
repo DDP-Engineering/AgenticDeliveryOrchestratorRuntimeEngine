@@ -88,7 +88,7 @@ start. `tea` reads its logins only from its own config file
 
 ## Executor Credentials
 
-Pi, ADORE's only coding agent, runs inside an ADORE-managed container. It
+Pi, ADORE's only coding agent, runs in a managed container or an owned local process. It
 receives exactly one model credential: the key of the configured
 `[executor] provider`, under the environment variable Pi reads for that
 provider. The key never appears in `config.toml`; an inline key field is
@@ -298,7 +298,7 @@ CLI mechanisms: [gh environment](https://cli.github.com/manual/gh_help_environme
 
 ## Project provider keys in the web interface
 
-Admin Project → Executor configuration → Provider credentials edits approved provider variables in the private profile .env. Saving/removing requires paused monitoring, idle valid state and no pending changes. Other .env variables are retained. POSIX files use 0600; Windows deployment must protect the profile directory with the service-account ACL. Browser drafts clear after a mutation and leaving the page; response, audit and portable export omit credential values. Ambient environment overrides remain externally managed. A saved key is not proof of provider sign-in; Test AI connection is explicit and may use API billing separately from a subscription. GUI disconnect removes only the chosen project API key, leaving external subscription login and provider revocation to their actual owners. See Component_Executor_Configuration.md for strict input/evidence contracts.
+Admin Project → Settings → Agent and model → Provider API key edits approved provider variables in the private profile .env. Saving/removing requires paused monitoring, idle valid state and no pending changes. Other .env variables are retained. POSIX files use 0600; Windows deployment must protect the profile directory with the service-account ACL. Browser drafts clear after a mutation and leaving the page; response, audit and portable export omit credential values. Ambient environment overrides remain externally managed. A saved key is not proof of provider sign-in; Test AI connection is explicit and may use API billing separately from a subscription. GUI disconnect removes only the chosen project API key, leaving external subscription login and provider revocation to their actual owners. See Component_Executor_Configuration.md for strict input/evidence contracts.
 
 ## Container preparation
 
@@ -339,8 +339,44 @@ delivery archives contain no user credentials or machine-specific auth paths.
 
 ## Agent package installation authority
 
-Explicit `container.system_packages = true` authorizes direct package-manager sudo for the measured non-root container user. Package scripts have effective container-root authority, including access to existing mounted repo/worktree/IO/cache and credentials already available there. The mode refuses host-oriented runtime overrides and never adds forge credentials or changes egress. Disabled means ADORE grants no sudo authority; custom-image privileges remain operator-owned. See [Agent dependency installation](Agent_Dependency_Installation.md).
+### Enable direct installation
 
+In Project Settings > Agent and model, an administrator can review and apply **Allow agent system package installation**. It defaults to false and is container-only. Pause monitoring and wait for idle jobs before applying, then start a fresh job. The CLI equivalent is `adore --profile <name> config set container.system_packages true`.
+
+The agent installs dependencies directly, reads command outputs and exits, diagnoses missing prerequisites and retries within existing stage/job limits. ADORE configures permission, not a dependency list or installation broker. Existing optional recipes still run before the agent.
+
+```toml
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See LICENSE.txt. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+[container]
+system_packages = true
+[executor]
+provider = "openai"
+model = "gpt-5.5"
+internet = false
+```
+
+Installation rights and internet access are independent. With `executor.internet = false`, only the model provider and the extra hosts in `container.egress.allowlist` are reachable through the proxy; local package sources also remain usable. With `true`, the agent can reach external package sources. Enabling installation never changes this switch.
+
+### Image and agent requirements
+
+Rebuild the executor base image from the current Dockerfile, or use a compatible trusted image with root-owned `/usr/bin/python3`, `/usr/bin/id`, sudo, visudo and `/etc/sudoers.d`. ADORE installs none of these during a job. Missing tools cause an explicit authorization failure. Read-only host/model checks do not grant permission or prove package installation.
+
+The agent remains the normal image user and runs, for example, `sudo -n apt-get update` and `sudo -n apt-get install -y <needed-package>` inside its job. Supported installed manager paths are `/usr/bin/apt-get`, `/usr/bin/apt`, `/usr/bin/dpkg`, `/usr/bin/dnf`, `/usr/bin/yum`, `/sbin/apk`, `/usr/bin/pacman` and `/usr/bin/zypper`. Agent tool permissions must allow these commands noninteractively. Pi is the only coding agent. Its guard continues to refuse Git publication and forge commands.
+
+Keep project libraries and code owned by the normal user. Respect lockfiles; changing project dependencies remains a reviewed product change. Administrative package scripts/hooks have effective root authority throughout the container. sudo is not a sandbox that limits what those package scripts can do. Provider credentials already available inside the container are also within that authority.
+
+### Host and recovery boundaries
+
+The managed mode refuses runtime overrides for extra mounts, host namespaces, devices, users, capabilities, environment, entrypoints or privileged mode. Memory/CPU/process limits and rootless Podman `--userns=keep-id` remain available. Standard repository/worktree/IO/cache mounts are shared host surfaces; container-root access is not a guarantee of complete host isolation. Forge credentials remain outside the container; publication and merge authority are unchanged.
+
+An immutable execution plan binds the enabled permission, network configuration and exact container/image identities. Same-container stop/resume retains installed system packages. Changed policy, replaced/missing container or image drift fails closed; start a fresh job to reassess/install dependencies, or use existing explicit recipe recovery when applicable. The image itself is never updated by an installation. A not-required recipe status does not claim that dependencies are installed.
+
+For enabled jobs, operational tails, stderr and questions sanitize known credential values and common Bearer credentials within the existing UTF-8 byte limits. RPC session stdout instead preserves literal events within its recording bounds and is copied unchanged into launch archives. Authorized job readers can see known credential values the agent printed through Agent sessions. The non-RPC file protocol retains its sanitized 64 KiB streams. These are retention bounds, not filesystem quotas. Complete original Pi telemetry remains authoritative; retention does not reduce token totals. Pi cost remains an estimate, not reported billed cost. Root authorization runs on the exact immutable container ID, uses fixed trusted code and receives no additional provider environment from ADORE.
+
+ChatGPT projects receive only a short-lived stage access token. Operational evidence masks it; a value printed by the agent remains literal in its authorized session recording. The server sign-in and refresh token remain outside the job container.
 
 ## Recorded agent session visibility
 

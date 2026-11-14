@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/adore/metrics.py`.
-> Design context: `00_Planning/ADORE_System_Overview.md`.
+> System overview: [Operations guide](../01_Documentation/Operations_Guide.md#system-overview).
 
 ## 1. Purpose
 

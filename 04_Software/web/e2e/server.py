@@ -454,8 +454,7 @@ def main() -> None:
                 else:
                     roots[0].journal(run_id, "gate-started", stage=stage, executor="pi", ts=stamp)
             # Completed session history replays real recorded Pi stdout offline.
-            fixture = (SOFTWARE.parent / "00_Planning" /
-                       "2026-11-01_Pi_Single_Executor/fixtures/run_tool_calls_chatgpt.jsonl")
+            fixture = SOFTWARE / "tests/fixtures/pi_rpc/run_tool_calls_chatgpt.jsonl"
             records = [item["record"]
                        for line in fixture.read_text(encoding="utf-8").splitlines()
                        if (item := json.loads(line))["dir"] == "stdout"]

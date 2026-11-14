@@ -15,7 +15,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > environment detection/guidance in Component_Doctor.md; the `adore profile`
 > commands + `--profile` resolution + per-profile statistics in Component_CLI.md;
 > the operator integration guide in
-> `01_Documentation/Integrating_A_Runtime_Project.md`.
+> `01_Documentation/Operations_Guide.md`.
 
 ## 1. Purpose
 

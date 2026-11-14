@@ -51,7 +51,7 @@ class PortableDocumentation(unittest.TestCase):
             source = Path(temp) / "source"
             source.mkdir()
             body = (REPO / "02_Tools/portable/README.md").read_text(encoding="utf-8")
-            for name in (*PACKAGER.USER_DOC_FILES, "Code_Style.md", "Web_UX_Acceptance_Handoff.md"):
+            for name in (*PACKAGER.USER_DOC_SOURCES.values(), "Code_Style.md", "README.md"):
                 (source / name).write_text(body, encoding="utf-8")
             (source / "Operator_Cheat_Sheets").mkdir()
             destination = Path(temp) / "Documentation"
@@ -64,7 +64,7 @@ class PortableDocumentation(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="portable-doc-unit-", dir=WORK) as temp:
             source = Path(temp) / "source"
             source.mkdir()
-            (source / "README.md").write_text(
+            (source / "User_Guide.md").write_text(
                 (REPO / "02_Tools/portable/README.md").read_text(encoding="utf-8"), encoding="utf-8")
             destination = Path(temp) / "Documentation"
             with self.assertRaisesRegex(RuntimeError, "guide missing"):
@@ -77,7 +77,7 @@ class PortableDocumentation(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="portable-doc-unit-", dir=WORK) as temp:
             source = Path(temp) / "source"
             source.mkdir()
-            for name in PACKAGER.USER_DOC_FILES:
+            for name in PACKAGER.USER_DOC_SOURCES.values():
                 (source / name).symlink_to(REPO / "02_Tools/portable/README.md")
             destination = Path(temp) / "Documentation"
             with self.assertRaisesRegex(RuntimeError, "guide missing or linked"):

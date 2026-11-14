@@ -20,7 +20,7 @@ Key components:
   MR/PR operations, deliberately without merge;
 - `adore/isolation.py` - worktrees, local checkpoints, fingerprints,
   Docker/Podman lifecycle and executor command seam;
-- `adore/executor/` - the Pi launcher (RPC in a container, native file protocol locally);
+- `adore/executor/` - the Pi RPC launcher for container and managed native execution;
 - `adore/config.py`, `doctor.py`, `wizard.py`, `cli.py` - validated setup and
   operator surfaces;
 - `tests/` - fully offline unit/contract suite.
@@ -40,7 +40,7 @@ transitions but never Git/forge publication. ADORE owns local commits, push and
 draft MR/PR creation after fresh fingerprint-bound human approval. Neither the
 executor nor ADORE merges.
 
-See the [runtime integration guide](../01_Documentation/Integrating_A_Runtime_Project.md)
+See the [runtime integration guide](../01_Documentation/Operations_Guide.md#runtime-project-contract)
 for the target-repository contract and onboarding sequence.
 
 ## Native local executor

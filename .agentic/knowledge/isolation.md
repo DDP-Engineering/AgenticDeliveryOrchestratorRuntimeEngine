@@ -59,7 +59,7 @@ with values only in the client environment); the caller bounds and ends it.
   the orchestrator passes and keeps any name also derived from a retained one;
   it never deletes by prefix alone. It does not recognise the old cut proxy and
   network names of earlier ADORE builds; the operator removes those by hand
-  (`01_Documentation/Recovery_And_Maintenance.md`).
+  (`01_Documentation/Operations_Guide.md`).
 - Git identity is applied only to ADORE checkpoint commits; it does not
   reconfigure the operator's clone.
 - The worktree and container are per run; the conductor alone decides when to

@@ -254,54 +254,10 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
 - timeout override keys are `frame`, `specify`, `design`, `build`, or
   `validate`; any other key, `deliver` included, fails validation as not an AEGIS stage. Each positive override bounds one executor attempt, replacing the general stage-attempt limit. In the GUI, all five stages offer General or Custom seconds; General removes that stage’s entry.
 
-The command uses `stage_timeout_overrides.validate`, falling back to
-`budgets.per_gate_timeout_seconds`. Failed and timed-out invocations consume
-`recovery.max_stage_failures` across fresh Pi fix sessions. At the limit the run
-fails `VERIFICATION_FAILED`, retaining evidence; `adore retry` re-arms attempts
-under the existing cumulative budgets. Evidence retains command, exit, elapsed
-seconds and up to the last 200 sanitized output lines (also capped at 6000
-characters). Stdout precedes stderr; no chronological interleaving is claimed.
-The approval comment and MR/PR body show the command/result. Empty configuration
-keeps the explicit unverified notice, never a verification pass.
-
-### Verification command suggestions
-
-For clones without `.agentic/aegis.py`, enrollment and `adore init` share a
-read-only suggestion. Enrollment shows **Suggested from `<file>`** and prefills
-only an untouched draft; a human keeps, edits or clears it before Create. Preview
-never clones, executes commands or saves the suggestion. Settings never infers over
-a saved value; explicit reviewed Save remains authoritative.
-
-The first eligible root match in this order wins:
-
-| File | Suggested command |
-|---|---|
-| `package.json` with a real textual `scripts.test` | `pnpm test` with `pnpm-lock.yaml`, else `yarn test` with `yarn.lock`, else `npm test` |
-| `pyproject.toml`, `pytest.ini`, `tox.ini` | `uv run pytest -q` with `uv.lock`, else `python -m pytest -q` |
-| `go.mod` | `go test ./...` |
-| `Cargo.toml` | `cargo test` |
-| `pom.xml` | `mvn -q test` |
-| `build.gradle`, `build.gradle.kts` | `./gradlew test` with `gradlew`, else `gradle test` |
-| `*.sln`, `*.csproj` | `dotnet test` |
-| `Makefile` with `test:` target | `make test` |
-
-Malformed package JSON and npm's no-test-specified placeholder give no JavaScript
-match. Filenames within a row use the listed order; dotnet filenames are lexical
-within each pattern. The source names the matching manifest, not a lockfile/wrapper.
-Without a root match, exactly one matching immediate child supplies
-`cd <dir> && <command>` and its child-relative source. The sole name must match
-`[A-Za-z0-9_][A-Za-z0-9._-]*`. Multiple matching children give no suggestion,
-including safe plus unsupported names. There is no deeper search.
-
-Links outside the clone and files over 1 MiB are ignored, including lockfiles and
-wrappers. Only package JSON and Makefile contents need reading; other rows use
-names. Access/encoding failures refuse discovery rather than guess a partial
-answer. No tool installation, executable check, network or command execution is
-part of discovery; a suggestion is not a verification result.
-
-ADORE conducts AEGIS major 0 from 0.15.0 upward over JSON schema `1`; a
-different major, a payload below the floor, or any other contract is refused
-at probe. From 0.15.0 validate closes the AEGIS task; there is no deliver stage.
+ADORE does not execute a separately configured repository verification command.
+The agent selects and reports checks from the repository instructions. AEGIS
+completion comes from its task journal; Direct retains the implementation summary.
+Direct implementation uses the build timeout override or the general attempt limit.
 
 ## Recovery
 
@@ -455,7 +411,7 @@ SQLite bytes, authorization, scope and financial redaction.
 
 ## Web executor configuration
 
-**Project → Settings → Agent and model** shows **Test AI connection**, the provider (`executor.provider`), the model (`executor.model`), for an endpoint its base URL and API type (`executor.endpoint.*`), the launch command (`executor.command`), **Internet access for the agent** (`executor.internet`), **Web search** (`executor.web.search`), the additional credential variables (`executor.env_keys`), **Provider API key**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. Provider, model and endpoint are edited together and staged as one reviewed candidate (`executor.connection`); the model list comes from the pinned Pi and any typed ID is accepted. The launch command is an ordinary reviewed setting. One Save writes all edited settings together after confirmation of important effects and existing paused/idle checks. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project uses ADORE-managed Pi with a fixed command. **Provider API key** saves or removes only the configured provider's variable (none for a ChatGPT subscription) and, with internet on and Brave or Tavily search, `BRAVE_API_KEY` or `TAVILY_API_KEY`. Runtime preparation remains external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** shows **Test AI connection**, the provider (`executor.provider`), the model (`executor.model`), for an endpoint its base URL and API type (`executor.endpoint.*`), the launch command (`executor.command`), **Internet access for the agent** (`executor.internet`), **Web search** (`executor.web.search`), the additional credential variables (`executor.env_keys`), **Provider API key**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. Provider, model and endpoint are edited together and staged as one reviewed candidate (`executor.connection`); the model list comes from the pinned Pi and any typed ID is accepted. The launch command is an ordinary reviewed setting. One Save writes all edited settings together after confirmation of important effects and existing paused/idle checks. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project uses ADORE-managed Pi with a fixed command. **Provider API key** saves or removes only the configured provider's variable (none for a ChatGPT subscription) and, with internet on and Brave or Tavily search, `BRAVE_API_KEY` or `TAVILY_API_KEY`. Runtime preparation remains external. Developers read non-secret settings/results without mutation actions.
 
 The names-only credential selector offers known provider names and retained custom names. Most projects leave this list empty and use the selected provider's credential. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. A container or native project uses its provider API key, or for a ChatGPT subscription a short-lived access token from the server's ChatGPT sign-in; no host sign-in is copied into the container. A ChatGPT project's model evidence counts only while the server stays signed in. Explicit Test AI connection runs Pi and remains the evidence of model access; it may incur provider charges. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
 
@@ -472,7 +428,7 @@ authentication, process ownership and acceptance coverage.
 
 ## Agent system packages
 
-`container.system_packages` is a strict boolean, false by default, for direct agent installation with noninteractive sudo in a compatible container image. It is independent of `container.egress` and rejected for native execution. See [Agent dependency installation](Agent_Dependency_Installation.md) for image prerequisites, supported package managers, runtime argument restrictions and recovery.
+`container.system_packages` is a strict boolean, false by default, for direct agent installation with noninteractive sudo in a compatible container image. It is independent of `container.egress` and rejected for native execution. See [Agent dependency installation](Security_And_Credentials.md#agent-package-installation-authority) for image prerequisites, supported package managers, runtime argument restrictions and recovery.
 
 
 ### Budget changes and observations

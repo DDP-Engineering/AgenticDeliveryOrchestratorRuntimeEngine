@@ -121,4 +121,4 @@ execution and rejects corrupt schema, identity/path and contradictory checks.
 The historical 0.14 fixture verifies refusal before any status call. Unit tests
 use no sibling checkout, external CLI or network. The executor owns evolution
 and report; the conductor consumes the task/check API.
-See [AEGIS compatibility](../01_Documentation/AEGIS_Compatibility.md).
+See [Workflow contract](../01_Documentation/Operations_Guide.md#workflows).

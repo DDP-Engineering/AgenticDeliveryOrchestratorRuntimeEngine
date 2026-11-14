@@ -37,7 +37,10 @@ REPO = Path(__file__).resolve().parents[1]
 PYTHON_VERSION = "3.12.13"
 MAX_FILES = 30000
 MAX_BYTES = 1024 * 1024 * 1024
-USER_DOC_FILES = ("README.md", "Administrator_Guide.md", "Troubleshooting.md")
+USER_DOC_SOURCES = {"README.md": "User_Guide.md",
+                    "Administrator_Guide.md": "Administrator_Guide.md",
+                    "Troubleshooting.md": "Troubleshooting.md"}
+USER_DOC_FILES = tuple(USER_DOC_SOURCES)
 
 
 # PUBLIC API
@@ -48,15 +51,15 @@ def copy_user_documentation(destination: Path, *, source: Path | None = None) ->
     @exception RuntimeError A required guide is missing or linked.
     @note Additional source files are ignored; internal material never joins by default.
     """
-    source = source or REPO / "01_Documentation/User_Guide"
-    guides = [source / name for name in USER_DOC_FILES]
+    source = source or REPO / "01_Documentation"
+    guides = {name: source / filename for name, filename in USER_DOC_SOURCES.items()}
     if source.is_symlink() or not source.is_dir() or any(
-        path.is_symlink() or not path.is_file() for path in guides
+        path.is_symlink() or not path.is_file() for path in guides.values()
     ):
         raise RuntimeError("required portable user guide missing or linked")
     destination.mkdir()
-    for path in guides:
-        shutil.copy2(path, destination / path.name)
+    for name, path in guides.items():
+        shutil.copy2(path, destination / name)
 
 
 def run(argv: list[str], cwd: Path) -> str:

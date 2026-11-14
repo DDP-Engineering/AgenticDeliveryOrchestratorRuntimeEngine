@@ -43,9 +43,14 @@ wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
 - Keep folder ownership explicit:
   - `00_Planning/` holds planning, strategy, design-history, and TODO
     material. AI agents update it only when the user explicitly asks.
-  - `01_Documentation/` holds project/user documentation such as manuals,
-    setup guides, configuration references, presentations, and operational
-    guidance. AI agents update it when software interfaces, user-visible
+  - `01_Documentation/` holds current project/user manuals, setup guides,
+    configuration references, presentations, and operational guidance. Keep
+    implemented facts here; do not retain superseded plans, ticket-publication
+    bundles or historical acceptance handoffs as current documentation.
+    Consolidate duplicated guidance while retaining useful specialized guides.
+    The three compact user guides live directly beside the technical manuals;
+    the packager explicitly selects and names their exported files.
+    AI agents update documentation when software interfaces, user-visible
     behavior, or implementation-facing guidance changes.
   - `02_Tools/` is the required source location for all environment setup,
     installation, packaging, deployment, service setup, launch, and related
@@ -241,16 +246,17 @@ list are in `04_Software/web/src/help/README.md`. Agents keep it current.
 ## Status
 
 ADORE conducts a team's opt-in forge tickets and persists its own run state as
-schema 1. For a repository with AEGIS installed it is the companion
+schema 1, with a required pinned execution plan for every admitted job. For a
+repository with AEGIS installed it is the companion
 orchestrator: it invokes `python .agentic/aegis.py` and accepts AEGIS JSON
 schema 1. The supported AEGIS range is declared once in
 `04_Software/adore/aegis.py`, never in prose. Executors advance the durable AEGIS
 task journals; ADORE independently owns ticket selection, worktree/container
 isolation, bounded recovery, validation, candidate-bound human approval, Git
 publication, forge comments, and configured draft or ready MR/PR creation. ADORE never
-merges, and migrates no earlier run state. Repositories without AEGIS get the
-direct workflow planned in
-`00_Planning/2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md`.
+merges, and migrates no earlier run state. Repositories without AEGIS use the
+implemented direct workflow described in
+`01_Documentation/Operations_Guide.md`.
 
 The runnable implementation under `04_Software/` supports GitLab, GitHub and
 Gitea adapters; Docker, Podman and WSL-wrapped runtimes; open/none/allowlisted

@@ -121,25 +121,22 @@ is set up by the scripts in `02_Tools/deploy/`.
 ## Documentation
 
 | Read | For |
-| --- | --- |
-| [Getting Started](01_Documentation/Getting_Started.md) | host setup, first profile, first safe poll |
-| [Security and Credentials](01_Documentation/Security_And_Credentials.md) | where every credential lives and the human merge boundary |
-| [Integrating a Runtime Project](01_Documentation/Integrating_A_Runtime_Project.md) | the target-repository contract and the AEGIS ownership boundary |
-| [Operations Guide](01_Documentation/Operations_Guide.md) | states, approval, review and failure interpretation |
-| [Recovery and Maintenance](01_Documentation/Recovery_And_Maintenance.md) | retry, reset, cancel, delete and cleanup |
-| [Configuration Reference](01_Documentation/Configuration_Reference.md) | every `config.toml` key |
-| [CLI Reference](01_Documentation/CLI_Reference.md) | every command and exit code |
-| [Operator Cheat Sheets](01_Documentation/Operator_Cheat_Sheets/README.md) | one-page reminders and slide decks |
-| [System Overview](00_Planning/ADORE_System_Overview.md) | design, components, known limits and open work |
+|---|---|
+| [Documentation index](01_Documentation/README.md) | user, operator and engineering guides |
+| [Getting started](01_Documentation/Getting_Started.md) | installation and first project |
+| [Operations](01_Documentation/Operations_Guide.md) | system overview, workflows, approval, review and recovery |
+| [Web interface](01_Documentation/Web_Interface.md) | current screens, scopes, job details and sessions |
+| [CLI reference](01_Documentation/CLI_Reference.md) | commands and intervention flags |
+| [Configuration reference](01_Documentation/Configuration_Reference.md) | settings, defaults and limits |
+| [Security](01_Documentation/Security_And_Credentials.md) | credentials, account isolation and authority |
 
 ## Repository layout
 
 | Path | Contents |
 | --- | --- |
-| `00_Planning/` | system overview and design position |
-| `01_Documentation/` | operator and administrator guides |
-| `02_Tools/` | release-identity checker and runtime-bundle packagers |
-| `04_Software/` | the `adore` package, offline tests, deploy scripts and container images |
+| `01_Documentation/` | current user, operator, administrator and engineering guides |
+| `02_Tools/` | setup, installation, deployment, packaging and repository automation |
+| `04_Software/` | runnable Python/frontend implementation and offline tests |
 | `05_SoftwareDocu/` | one implementation contract per component |
 | `07_Delivery/` | final user archives and optional SHA-256 files only |
 | `.agentic/` | this repository's own AEGIS workflow, requirements and task journals |
@@ -169,7 +166,7 @@ called automatically. Setup/deployment scripts do not require automated tests.
 AEGIS is a separate project with its own repository. ADORE consumes its companion
 CLI; supported version and schema policy is declared once in
 `04_Software/adore/aegis.py`. The AEGIS 0.15 contract is covered by
-captured offline regression evidence; see [AEGIS compatibility](01_Documentation/AEGIS_Compatibility.md).
+captured offline regression evidence; see [AEGIS compatibility](01_Documentation/Operations_Guide.md#workflows).
 ADORE keeps its own Semantic Versioning and preserves saved job progress across
 compatible companion updates. Run state remains schema 1.
 

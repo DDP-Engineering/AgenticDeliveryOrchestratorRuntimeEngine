@@ -96,5 +96,5 @@ actual Direct/AEGIS executor entry in independent processes, settings B/global
 completion while A is blocked, preserved staging in active A, B completion
 before releasing A, and deduplicated Cancel at a full real pool. The AEGIS fake
 refuses independent test execution. The exact reuse map and platform/runtime
-smoke boundaries are in ../01_Documentation/Worker_Acceptance.md. This is
+smoke boundaries are in ../01_Documentation/Operations_Guide.md. This is
 application proof, not automated testing of deployment scripts.

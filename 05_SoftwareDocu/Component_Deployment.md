@@ -11,7 +11,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > Component documentation per `component_documentation_template.md`.
 > Sources: `02_Tools/deploy/install-ubuntu.sh`, `02_Tools/deploy/install-windows.ps1`,
 > `02_Tools/deploy/adore.service` (template).
-> Design context: `00_Planning/ADORE_System_Overview.md`.
+> System overview: [Operations guide](../01_Documentation/Operations_Guide.md#system-overview).
 
 ## 1. Purpose
 
@@ -150,3 +150,14 @@ Review script changes directly; verify actual user application archives separate
 - The Windows loop task starts at logon (not boot); running as a service
   account at boot needs NSSM or a `-User/-Password` registration - add when
   a dedicated runner machine exists.
+
+## Curated user documentation in portable packages
+
+`02_Tools/create_package.py` reads the three user guides beside the technical
+manuals in `01_Documentation/`. `USER_DOC_SOURCES` maps source filenames to their
+package names: `User_Guide.md` becomes `Documentation/README.md`, while
+`Administrator_Guide.md` and `Troubleshooting.md` keep their names.
+`USER_DOC_FILES` names the exported files. The source index and all other manuals
+remain excluded. Missing, linked or non-file guide sources refuse packaging
+before a documentation destination is created. Existing export names and user
+content are unchanged by source-folder organization.

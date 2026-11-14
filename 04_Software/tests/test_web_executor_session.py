@@ -34,8 +34,7 @@ def _archive(store, name="build-attempt-2-attempt1", records=None):
         "output_file_present": True, "stderr_file_present": True,
     }), encoding="utf-8")
     if records is None:
-        fixture = (Path(__file__).parents[2] / "00_Planning" /
-                   "2026-11-01_Pi_Single_Executor/fixtures/run_tool_calls_chatgpt.jsonl")
+        fixture = Path(__file__).parent / "fixtures/pi_rpc/run_tool_calls_chatgpt.jsonl"
         records = [item["record"] for line in fixture.read_text(encoding="utf-8").splitlines()
                    if (item := json.loads(line))["dir"] == "stdout"]
     (folder / "output.jsonl").write_bytes(b"".join(

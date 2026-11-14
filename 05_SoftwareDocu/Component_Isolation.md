@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/adore/isolation.py`.
-> Design context: `00_Planning/ADORE_System_Overview.md`.
+> System overview: [Operations guide](../01_Documentation/Operations_Guide.md#system-overview).
 > Images: `04_Software/docker/Dockerfile.executor-base`,
 > `04_Software/docker/Dockerfile.egress-proxy`, plus runtime-project images
 > such as `Dockerfile.executor-project`
@@ -275,7 +275,7 @@ replacing resources to change a mount.
   proxy container and egress network names and keeping any name also derived
   from a retained executor. Containers and networks named by earlier builds are
   not recognised; an operator removes such leftovers by hand (see
-  `01_Documentation/Recovery_And_Maintenance.md`). The network sweep checks the
+  `01_Documentation/Operations_Guide.md`). The network sweep checks the
   canonical `adore-egress` prefix even after the profile switches internet on,
   plus the current configured prefix; it never guesses arbitrary other
   prefixes.

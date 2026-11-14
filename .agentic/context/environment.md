@@ -255,7 +255,7 @@ existing parent capture pipes; no global terminal/Git/Pi settings are needed.
 
 ## Agent package image readiness
 
-Opted-in container.system_packages jobs require a rebuilt compatible Linux image with root-owned OS Python/id, sudo/visudo and a supported package manager. ADORE configures sudo permission but installs no bootstrap tools on job start. Native execution rejects the permission. Agent package downloads obey container.egress. See 01_Documentation/Agent_Dependency_Installation.md; live package acceptance is separate from offline injected tests.
+Opted-in container.system_packages jobs require a rebuilt compatible Linux image with root-owned OS Python/id, sudo/visudo and a supported package manager. ADORE configures sudo permission but installs no bootstrap tools on job start. Native execution rejects the permission. Agent package downloads obey container.egress. See 01_Documentation/Security_And_Credentials.md; live package acceptance is separate from offline injected tests.
 
 
 ## Container Git context
@@ -368,7 +368,7 @@ failed/unrun selection completed (128 pass,12 fail), followed by focused12-case
 1 baseline enrollment-help discrepancy,0 unrun; this is not a single all-green
 suite. That help test and rendering are unchanged at the baseline; its assertions
 and active guidance requirements remain explicit. See
-01_Documentation/Worker_Acceptance.md for final counts and limitations.
+01_Documentation/Operations_Guide.md for final counts and limitations.
 
 
 Archived-session proof uses recorded Pi stdout fixtures, temporary current run/profile

@@ -12,9 +12,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > Sources: `04_Software/adore/executor/base.py`,
 > `04_Software/adore/executor/launcher.py`,
 > `04_Software/adore/executor/pi_rpc.py`; Pi guard:
-> `04_Software/docker/pi/adore-guard.ts`.
-> Design context: `00_Planning/ADORE_System_Overview.md`;
-> Runtime-image and credential contracts: `04_Software/docker/README.md` and
+> `04_Software/adore/executor/adore-guard.ts`.
+> System overview: [Operations guide](../01_Documentation/Operations_Guide.md#system-overview);
+> Runtime-image and credential contracts: `02_Tools/containers/README.md` and
 > `01_Documentation/Security_And_Credentials.md`.
 
 ## 1. Purpose
@@ -462,3 +462,9 @@ parse bound rather than the former small persistence bound. Total retention rema
 32 MiB with an explicit truncation notice. Reader responses preserve full retained text;
 no earlier missing evidence is recreated. Cancellation, acknowledgement, budget and
 usage accounting paths remain unchanged.
+
+## Recorded offline session fixtures
+
+Current Pi RPC captures live in `04_Software/tests/fixtures/pi_rpc/`. The archived
+session API contracts and browser fixture server share that location with the RPC
+contracts. Planning documents and proposal bundles are not fixture dependencies.

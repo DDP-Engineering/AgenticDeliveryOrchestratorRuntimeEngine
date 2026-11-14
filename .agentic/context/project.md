@@ -213,7 +213,7 @@ duplicate identities while genuine absence remains missing; no schema/timestamp 
 
 - `README.md` - product summary, current release and repository layout.
 - `01_Documentation/README.md` - operator guide index; start with
-  `Getting_Started.md` and `Integrating_A_Runtime_Project.md`.
+  `Getting_Started.md` and `Operations_Guide.md`.
 - `01_Documentation/Configuration_Reference.md` and `CLI_Reference.md` - every
   setting and command.
 - `01_Documentation/Security_And_Credentials.md` - credential placement and
@@ -380,7 +380,7 @@ Companion updates do not renumber ADORE or replace project payloads.
 
 ## Agent-controlled container packages
 
-Explicit container.system_packages enables direct noninteractive package-manager sudo by the normal agent, independent of egress. The conductor pins authority and resource IDs even without recipes and preserves existing stage limits and forge boundaries. Settings reviews the separate boolean; false preserves legacy authority. See knowledge/package-permissions.md and 01_Documentation/Agent_Dependency_Installation.md.
+Explicit container.system_packages enables direct noninteractive package-manager sudo by the normal agent, independent of egress. The conductor pins authority and resource IDs even without recipes and preserves existing stage limits and forge boundaries. Settings reviews the separate boolean; false preserves legacy authority. See knowledge/package-permissions.md and 01_Documentation/Security_And_Credentials.md.
 
 
 ## Container Git context

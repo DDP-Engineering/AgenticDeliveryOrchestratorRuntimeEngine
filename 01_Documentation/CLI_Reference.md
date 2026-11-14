@@ -102,7 +102,7 @@ resolved configuration.
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
 | `adore [selector] cleanup` | Reclaim a provably stale local lock and remove the selected project's finished and orphaned run resources: the executor/proxy containers, egress networks and worktree directories of its done, cancelled, stale and state-less runs. Other projects' resources stay, even with a shared slug, egress network prefix or worktree root. Active, failed, human-owned and corrupt runs are protected; a live/unknown lock remains held and is reported. |
 
-Read [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) before using a
+Read [Operations_Guide.md](Operations_Guide.md#recovery) before using a
 destructive command.
 
 These intervention commands mutate ADORE-owned state only. None edits an AEGIS
@@ -196,7 +196,7 @@ reason; the web worker shows the saved job cause rather than raw process logs.
 
 ## Direct agent dependency installation
 
-`adore --profile <name> config set container.system_packages true` opts a container project into direct agent package-manager sudo. Use false to stop granting that permission for future jobs. Network remains independently configured through `container.egress`. Existing managed jobs retain pinned authority and reject policy drift. See [Agent dependency installation](Agent_Dependency_Installation.md).
+`adore --profile <name> config set container.system_packages true` opts a container project into direct agent package-manager sudo. Use false to stop granting that permission for future jobs. Network remains independently configured through `container.egress`. Existing managed jobs retain pinned authority and reject policy drift. See [Agent dependency installation](Security_And_Credentials.md#agent-package-installation-authority).
 
 ## Owned recovery deletion
 

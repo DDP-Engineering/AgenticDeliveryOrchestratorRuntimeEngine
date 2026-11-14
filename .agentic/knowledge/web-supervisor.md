@@ -68,4 +68,4 @@ real controlled Direct/AEGIS A execution overlaps B, B/global configuration
 finishes while A remains blocked, active A retains unsafe staging, and full-pool
 Cancel preserves its live peer and deduplicates requests. No target repository
 checks run. Exact command/oracle/platform evidence is recorded in
-01_Documentation/Worker_Acceptance.md.
+01_Documentation/Operations_Guide.md.
