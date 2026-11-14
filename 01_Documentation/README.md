@@ -44,6 +44,6 @@ package. The index and engineering references remain repository documentation.
 | [Project executor images](Project_Executor_Images.md) | External builds, retained definitions, source ZIPs and image selection. |
 | [Portable project settings](Portable_Project_Settings.md) | Closed working-rule export and transfer format. |
 
-[Operator cheat sheets](Operator_Cheat_Sheets/README.md) provide task-oriented
-reminders and presentations. [Deployment tools](../02_Tools/deploy/README.md)
+[Operator quick reference](Operator_Quick_Reference.md) provides task-oriented
+reminders and the five current presentations. [Deployment tools](../02_Tools/deploy/README.md)
 document service installation; source automation belongs under 02_Tools.

@@ -33,18 +33,18 @@ python -m pytest -q
 python -m ruff check adore tests
 ```
 
-Target repositories must carry unchanged `.agentic/aegis.py` from AEGIS 0.15.0
-or later within major 0 (an older release or a major bump is refused at probe) and return schema 1
-from `status --all --json`. Executors own journal
-transitions but never Git/forge publication. ADORE owns local commits, push and
-draft MR/PR creation after fresh fingerprint-bound human approval. Neither the
-executor nor ADORE merges.
+Repositories with AEGIS use its installed companion and schema-1 contract;
+`adore/aegis.py` defines the supported version range. Repositories without AEGIS
+use the Direct build/validate/done workflow. An invalid installed companion is
+refused. Pi owns agent work and AEGIS journal transitions. ADORE owns local
+commits, push and draft or ready MR/PR creation under the configured approval
+policy. Neither Pi nor ADORE merges.
 
 See the [runtime integration guide](../01_Documentation/Operations_Guide.md#runtime-project-contract)
 for the target-repository contract and onboarding sequence.
 
 ## Native local executor
 
-Explicit local profiles run an installed authenticated CLI under the ADORE machine
+Explicit local profiles run ADORE-managed Pi under the ADORE machine
 and service account with dedicated worktrees and verified Windows Job/Linux cgroup
 process ownership. Project tools remain user-owned. See [Local execution](../01_Documentation/Local_Execution.md).

@@ -77,8 +77,8 @@ releaseNotes.test.mjs` covers grouping and the English fallback; the e2e
 Whether a change is user-visible stays a judgement made by the agent or
 developer; the checker verifies only form and alignment, and the `--since`
 warning is advisory. Translation quality is reviewed, not machine-checked.
-ADORE 0.15.0 assigns the accumulated release notes to the dated `0.15.0`
-release, matching the changelog heading of 2026-11-12. Future user-visible
+ADORE 0.16.0 assigns the accumulated release notes to the dated `0.16.0`
+release, matching the changelog heading of 2026-11-15. Future user-visible
 changes start a new `Unreleased` group. The wheel includes
 `adore/release_notes.toml`; portable archives install that wheel and record the
 file in their integrity manifest. Package names derive from the project version;

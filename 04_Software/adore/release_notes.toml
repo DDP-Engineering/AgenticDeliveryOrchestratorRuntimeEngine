@@ -15,6 +15,10 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+[[release]]
+version = "0.16.0"
+date = "2026-11-15"
+
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }

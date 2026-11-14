@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Using ADORE
 
-Applies to **ADORE 0.15.0**.
+Applies to **ADORE 0.16.0**.
 
 ADORE takes eligible repository tickets through implementation, checks and human
 review, then publishes a PR/MR. Merging remains a human decision.

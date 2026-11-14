@@ -12,6 +12,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-15
+
 ### Added
 
 - Queue job instructions from Agent sessions for immediate or after-work delivery through Pi acknowledgements, with durable ticket-comment replay.
@@ -37,6 +39,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Consolidate current operator guidance into one quick reference and update all five presentations for ADORE 0.16.0.
+- Remove superseded planning material and duplicate manuals; keep current user and technical guides together.
+
 - Delete affected `runs/<run-id>/` directories with an empty `execution` record before starting this build.
 - Every job pins one execution plan and resource identity, including containers without preparation.
 
@@ -53,7 +58,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Separate project Jobs and Tickets, keep budgets beside job content, and page Activity.
 - Present recorded agent conversations with full retained prompts, inline messages and send/queue controls.
 
-- Separate global Jobs and Tickets with retained scopes and list controls; automatically read global tickets and compact job details into four tabs above the saved status.
+- Separate global Jobs and Tickets with retained scopes and list controls; automatically read global tickets and show Activity, Agent sessions and Job details above the saved status.
 
 - Compact Summary capacity into operational tiles and move cross-project capacity/current job states into a paginated Capacity tab.
 
