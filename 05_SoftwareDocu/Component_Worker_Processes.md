@@ -88,3 +88,13 @@ Queued working/execution_pending reservations retain launch authority but wait f
 
 
 REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
+
+## Integrated acceptance
+
+The existing process contracts plus tests/test_worker_acceptance.py prove
+actual Direct/AEGIS executor entry in independent processes, settings B/global
+completion while A is blocked, preserved staging in active A, B completion
+before releasing A, and deduplicated Cancel at a full real pool. The AEGIS fake
+refuses independent test execution. The exact reuse map and platform/runtime
+smoke boundaries are in ../01_Documentation/Worker_Acceptance.md. This is
+application proof, not automated testing of deployment scripts.

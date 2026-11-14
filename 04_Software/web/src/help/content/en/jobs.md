@@ -15,6 +15,8 @@ Concurrent jobs have separate working folders, execution resources, credentials 
 
 Projects progress independently. With a limit of two, two jobs can execute together while the next Start waits for a place. Stopping the application stops its workers and jobs; uncertain interrupted work requires inspection before an explicit Retry.
 
+After a lower job limit, admitted jobs that have not started wait for a place under the new limit. Jobs already executing continue, even above the lower limit, and cleanup keeps its place until safe release. Settings in another project and server administration remain available.
+
 ## Stages {#stages}
 
 ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.

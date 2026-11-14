@@ -17,14 +17,18 @@
 from __future__ import annotations
 
 # IMPORTS
+from contextlib import nullcontext
 from dataclasses import replace
 import json
 import os
 from pathlib import Path
 import sys
 import time
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from adore.config import load_config
+from adore.executor.base import GateRun
 from adore.orchestrator import Orchestrator
 from adore.profiles import ProfileStore
 from adore.state import StateStore
@@ -34,15 +38,33 @@ from adore.web.store import WebStore
 from adore.web.worker_context import WorkerContext
 
 from tests.test_orchestrator import (
+    TASK_ID,
     DirectExecutor,
+    FakeAegis,
     FakeContainers,
     FakeForge,
     FakeWorktrees,
     direct_edit,
+    sequence,
 )
 
 
 # PUBLIC API
+class OfflineAegis(FakeAegis):
+    """@brief Simulate agent-owned quick-stage journals, refusing independent checks."""
+
+    def __init__(self, *args, branch="offline-admission"):
+        stages = sequence("frame", "build", "validate", "done", path="quick")
+        super().__init__([
+            replace(task, header={**task.header, "branch": branch}) for task in stages])
+
+    def probe(self):
+        return SimpleNamespace(version="supported-offline", schema=1)
+
+    def create_task(self, *args):
+        return TASK_ID
+
+
 def offline_engine(profiles: ProfileStore, name: str):
     """@brief Construct real product behavior with offline external collaborators."""
     config = load_config(profiles.config_path(name))
@@ -54,6 +76,9 @@ def offline_engine(profiles: ProfileStore, name: str):
         """@brief Give concurrent fake Git worktrees distinct real exchange directories."""
         path = Path(config.worktree.root) / run_id
         path.mkdir(parents=True, exist_ok=True)
+        if (trees.repo_path / ".agentic/aegis.py").is_file():
+            (path / ".agentic").mkdir(exist_ok=True)
+            (path / ".agentic/aegis.py").write_text("# offline governed fixture\n")
         return path
 
     trees.path_for = path_for
@@ -87,6 +112,8 @@ def main() -> int:
         deadline = time.monotonic() + 30
         while not marker.with_suffix(".release").exists():
             assert_ancestry()
+            if engine.store.cancel_requested(run_id):
+                return GateRun(exit_code=1)
             if time.monotonic() >= deadline:
                 raise RuntimeError("offline executor barrier timed out")
             time.sleep(0.02)
@@ -95,8 +122,15 @@ def main() -> int:
         return result
 
     executor.attempts.append(blocked)
+    governed = run.workflow == "aegis"
+    if governed:
+        executor.attempts.extend([direct_edit(trees), direct_edit(trees)])
+    client = (patch("adore.orchestrator.AegisClient",
+                    lambda *args: OfflineAegis(*args, branch=run.branch))
+              if governed else nullcontext())
     try:
-        return 0 if engine.conduct_run(run_id, config_revision=revision) else 1
+        with client:
+            return 0 if engine.conduct_run(run_id, config_revision=revision) else 1
     finally:
         context.close()
         web.clear_worker(owner)

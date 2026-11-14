@@ -1163,8 +1163,8 @@ server-local time; explicit web commands remain available.
 The web worker keeps independent in-memory cadence/deadlines per immutable
 project identity and treats nonzero, timed-out, malformed or exceptional CLI
 outcomes as failed checks. Invalid configuration gets a 60-second recheck with
-no engine invocation. Restart resets cadence; serial work on another project
-may delay a due round. `polling.mode` governs standalone CLI startup; the web
+no engine invocation. Restart resets cadence; another project's work does not
+consume this project's scheduler or run pool. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
 
 Connection and launch-command editing retain the right-hand control column, with row Cancel and one project Save bar.

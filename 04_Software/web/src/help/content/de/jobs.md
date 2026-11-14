@@ -15,6 +15,8 @@ Parallele Aufträge haben eigene Arbeitsordner, Ressourcen, Zugangsdaten und Aus
 
 Projekte arbeiten unabhängig. Bei einer Grenze von zwei laufen zwei Aufträge gleichzeitig; der nächste Start wartet auf einen Platz. Das Beenden der Anwendung stoppt ihre Worker und Aufträge; unklare unterbrochene Arbeit muss vor einem ausdrücklichen Wiederholen geprüft werden.
 
+Nach einer niedrigeren Auftragsgrenze warten aufgenommene, noch nicht gestartete Aufträge auf einen Platz gemäß der neuen Grenze. Bereits laufende Aufträge arbeiten auch oberhalb dieser Grenze weiter; die Bereinigung behält ihren Platz bis zur sicheren Freigabe. Einstellungen anderer Projekte und die Serververwaltung bleiben verfügbar.
+
 ## Phasen {#stages}
 
 ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.

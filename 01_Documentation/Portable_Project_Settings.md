@@ -39,8 +39,9 @@ defaults when active TOML omits them:
 Every integer and the USD cap are at most 1,000,000,000. Boolean values cannot
 stand in for numbers; fractional values cannot stand in for integer limits.
 `max_cost_usd = 0` disables reported-cost enforcement while other bounds remain.
-Concurrency is a ceiling; the current serial conductor does not gain parallel
-execution by importing a higher value.
+Concurrency transfers the target project's run-pool ceiling. Its independent web
+worker can execute jobs in parallel up to that value; a standalone CLI pass stays
+synchronous. Import creates a stopped project, so no job starts merely by importing.
 
 Only this list is portable. Exclusions include agent/profile/display identity;
 forge, repository, login and branch ownership; all state/worktree/metrics paths;

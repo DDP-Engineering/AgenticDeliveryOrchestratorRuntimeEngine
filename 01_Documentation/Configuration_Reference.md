@@ -64,8 +64,12 @@ The server preview uses the effective agent slug, ticket number `1` and run iden
 
 `max_scope_hint` remains reserved configuration intent and is not a pickup filter.
 
-Conduction is synchronous and serial: one `poll_once` call works at most one
-run at a time. Values above `1` do not create parallel gates or workers.
+The web supervisor starts independent project workers and up to the current
+project limit of run conductors. A and B at `1` can each execute one job at the
+same time; A at `2` can execute two while a third request waits. A standalone
+`poll_once` call remains synchronous. Increasing the limit enables more web run
+processes; it does not parallelize stages inside a job. After a staged reduction,
+started executors continue and initial reservations wait for the current limit.
 
 Acceptance checking defaults to false; priority checking stays true. Explicit values override these defaults. Maximum additional revision rounds defaults to five (minimum one), excluding initial implementation and sharing the budget between human requests and automatic pipeline repairs. After exhaustion, a new human request fails with REVIEW_LIMIT; a failed pipeline stops automatic repairs, posts a notice and leaves the job in review.
 

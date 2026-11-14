@@ -15,6 +15,8 @@ Lucrările simultane au dosare de lucru, resurse, credențiale și ieșiri separ
 
 Proiectele progresează independent. La limita de două, două lucrări pot rula împreună, iar următoarea pornire așteaptă un loc. Oprirea aplicației oprește lucrătorii și joburile; munca întreruptă cu rezultat incert cere verificare înainte de o reîncercare explicită.
 
+După reducerea limitei, lucrările admise care nu au început așteaptă un loc conform noii limite. Lucrările deja în execuție continuă, chiar peste limita redusă, iar curățarea păstrează locul până la eliberarea sigură. Setările altui proiect și administrarea serverului rămân disponibile.
+
 ## Etape {#stages}
 
 ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.

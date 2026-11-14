@@ -37,9 +37,12 @@ unknown stage. Mapping values accept only
 those three task kinds. Bug/fix mappings win over change, configured feature
 labels follow, and an unmatched ticket uses `default_kind`.
 
-`PollingConfig.max_concurrent_runs` is a capacity ceiling only. The current
-conductor is synchronous and serial; values above one do not create parallel
-gates or workers.
+`PollingConfig.max_concurrent_runs` is the canonical positive per-project
+admission ceiling (default one), shared by automatic/manual starts, Retry,
+Restart and resumed work. The web supervisor dispatches independent run
+processes up to that limit. Standalone `poll_once` stays synchronous; stages
+within one run stay ordered. Current staged lower limits gate new starts while
+already-started jobs continue against their bound configuration revision.
 
 `RecoveryConfig` owns `max_stage_failures`, `max_transient_retries`, and a
 nonempty nonnegative backoff list. Defaults are 3, 3 and `[5, 30, 120]`.

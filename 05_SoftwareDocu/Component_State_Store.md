@@ -214,3 +214,18 @@ state uses the server home identified by the `profiles/<profile>/...` path layou
 with locks outside the deletable profile. External state keeps `<state root>/locks`.
 Changing ambient ADORE home cannot split ownership. A clone containing retained state
 is kept during optional clone removal.
+
+## Concurrent storage access
+
+StateStore.load and atomic JSON publication retry Windows sharing/access/lock
+conflicts (winerror 5/32/33 or Windows CRT EACCES without winerror) at most six times with 10/20/40/80/100 ms waits.
+Other I/O errors retain their existing behavior. Exhausted sharing conflicts
+raise StateStorageError (a StateError subtype) naming the path; no state is recreated and an unpublished
+replacement is removed. Each delayed publication rechecks before_write, so an
+owner revoked during a wait cannot publish. Corrupt JSON is never retried as
+valid data. Public focused proof: test_state_sharing_contention_is_bounded_and_preserves_evidence
+and test_state_sharing_retry_rechecks_writer_authority in tests/test_state.py.
+list_runs/invalid_runs propagate storage unavailability instead of omitting a
+reserved job as corrupt. Public proof also includes
+test_state_listing_propagates_exhausted_sharing_denial and the admission
+regression test_admission_refuses_storage_loss_between_capacity_scans.

@@ -341,3 +341,10 @@ Review-boundary proof additionally covers two reserved initial runs started seri
 
 
 REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
+
+WK-07 acceptance combines existing focused worker/configuration/ownership/resource
+contracts with actual controlled Direct/AEGIS process scenarios. Windows state
+sharing errors have bounded local retries and persistent-denial/refencing proof.
+Operational smoke stages current source onto extracted portable runtimes only in
+auto-cleaned OS temporary directories; final delivery archives remain unchanged.
+Complete umbrella validation stays deferred until the explicit post-commit request.

@@ -62,3 +62,10 @@ consumed execution/publication. Restart does not replay uncertain operations.
 ProjectWorker uses shared admission_limit to respect current staged lower N before dispatching new commands/polls. Existing children continue with unchanged active config bytes; corrupt staged evidence refuses dispatch. Read-only role/capacity diagnostics route to project-capacity.md. Focused proof includes test_web_project_status.py.
 
 After a lower N, already-started executors continue, while queued initial reservations wait for actual start capacity. Pending reservations retain their dispatch evidence; they do not block each other indefinitely. Initial activation rechecks current N atomically in the conductor as well as limiting supervisor dispatch.
+
+Integrated acceptance reuses those contracts in tests/test_worker_acceptance.py:
+real controlled Direct/AEGIS A execution overlaps B, B/global configuration
+finishes while A remains blocked, active A retains unsafe staging, and full-pool
+Cancel preserves its live peer and deduplicates requests. No target repository
+checks run. Exact command/oracle/platform evidence is recorded in
+01_Documentation/Worker_Acceptance.md.

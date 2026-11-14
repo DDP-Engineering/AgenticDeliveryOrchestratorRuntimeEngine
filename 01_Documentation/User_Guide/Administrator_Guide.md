@@ -11,6 +11,21 @@ The portable package runs the web application and its worker together. It
 includes Python and their dependencies. Repository access and implementation
 tools are prepared separately under the OS account running ADORE.
 
+## Projects and workers
+
+One local supervisor owns independent project workers, a configuration worker
+and each project's job pool. The **Active job limit** belongs to the selected
+project; two projects set to one can both work at the same time. Project settings
+and monitoring stay scoped to that project. Accounts, access, audit retention,
+shared ChatGPT sign-in and service administration remain server-wide.
+
+A lower limit holds new starts. Jobs already executing continue; admitted jobs
+that have not started wait for the lower limit. Monitoring pause stops automatic
+pickup and leaves explicit eligible Start available. Cancel signalling remains
+available with a full job pool. Confirm the durable result before repeating an
+operation; an uncertain result needs inspection. Use the portable Stop command
+to drain the application's owned worker trees. Never remove live ownership files.
+
 ## Prepare the host
 
 Install Git and the CLI for the project's forge: tea for Gitea, gh for GitHub or
@@ -82,9 +97,9 @@ and run state. Include any external project state directories selected in the
 configuration. Protect backups as credentials: they can contain sessions,
 password hashes and operational secrets.
 
-Restore the whole consistent backup with the matching application version, then
-verify accounts, projects and history. Restore the matching package with a
-rollback backup; reverse database migrations are not supported. Do not restore
+A build accepts only its current stored formats. A refused store names the
+database/marker or run directory the operator can delete to start fresh.
+Do not reinterpret older data or delete it automatically. Do not restore
 only the database or remove the initialization marker to recreate an admin user.
 
 ## Access and advanced commands

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-83b9fc8c"
+
+title = "Bound transient run-state sharing contention without losing valid evidence"
+
+status = "active"
+
+requirement = """
+When Windows sharing contention interrupts run-state reads or JSON publication, the state store shall retry at most six times within 250 ms of scheduled waits and retain valid evidence with a typed StateError if storage remains unavailable.
+"""
+
+verification = "Inject brief and persistent sharing denials through public StateStore.load/save; assert bounded success or typed refusal with old bytes intact and no temporary residue; force a sharing denial after a valid first capacity scan and assert listing/admission propagate storage unavailability without omitting a pending reservation; revoke writer authority during retry and assert no publication."
+
+affected_paths = ["04_Software/adore/state.py", "05_SoftwareDocu/Component_State_Store.md"]
+
+linked_tests = ["04_Software/tests/test_state.py::test_state_sharing_contention_is_bounded_and_preserves_evidence", "04_Software/tests/test_state.py::test_state_sharing_retry_rechecks_writer_authority", "04_Software/tests/test_state.py::test_state_listing_propagates_exhausted_sharing_denial", "04_Software/tests/test_worker_acceptance.py::test_admission_refuses_storage_loss_between_capacity_scans"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

@@ -29,6 +29,7 @@ from collections.abc import Callable, Iterator
 from contextlib import ExitStack, contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta
+import errno
 import hashlib
 import json
 import os
@@ -39,6 +40,7 @@ import socket
 import stat
 import tempfile
 from threading import local
+import time
 from typing import Any
 
 from adore.branding import DEFAULT_STATE_ROOT, PRODUCT_SLUG
@@ -67,6 +69,27 @@ _LIFECYCLES = {
 
 
 # LOCAL HELPERS
+def _sharing_io(action: Callable, path: Path):
+    """@brief Bound sharing retries without treating unavailable bytes as fresh state.
+    @param[in] action Local read or fenced atomic replacement; never an external effect.
+    @param[in] path Exact state artifact named on failure.
+    @return The completed action's result.
+    @exception StateError Persistent Windows sharing denial.
+    """
+    delays = (0.01, 0.02, 0.04, 0.08, 0.1)
+    for attempt in range(len(delays) + 1):
+        try:
+            return action()
+        except PermissionError as exc:
+            windows_error = getattr(exc, "winerror", None)
+            if not (windows_error in (5, 32, 33)
+                    or windows_error is None and os.name == "nt" and exc.errno == errno.EACCES):
+                raise
+            if attempt == len(delays):
+                raise StateStorageError(f"state storage unavailable: {path}: {exc}") from exc
+            time.sleep(delays[attempt])
+
+
 def _clock_stamp(value: object) -> datetime:
     """
     @brief Refuse malformed durable clock evidence before budget accounting.
@@ -95,6 +118,10 @@ class StateError(RuntimeError):
              ticket.json (for example after a crash or manual edit). Callers
              skip or escalate the affected run; they never reinitialize it.
     """
+
+
+class StateStorageError(StateError):
+    """@brief Unavailable storage must propagate through listings and admission scans."""
 
 
 class LockHeldError(RuntimeError):
@@ -676,11 +703,10 @@ class StateStore:
                     closed: the caller skips/escalates, never reinitializes).
         """
         path = self.run_dir(run_id) / STATE_FILE
-        with path.open(encoding="utf-8") as handle:
-            try:
-                data = strict_json_loads(handle.read())
-            except ValueError as exc:
-                raise StateError(f"corrupt state.json for run {run_id!r}: {exc}") from exc
+        try:
+            data = strict_json_loads(_sharing_io(lambda: path.read_text(encoding="utf-8"), path))
+        except ValueError as exc:
+            raise StateError(f"corrupt state.json for run {run_id!r}: {exc}") from exc
         if not isinstance(data, dict):
             raise StateError(f"corrupt state.json for run {run_id!r}: not a JSON object")
         try:
@@ -707,6 +733,8 @@ class StateStore:
         for entry in self._run_dirs():
             try:
                 runs.append(self.load(entry.name))
+            except StateStorageError:
+                raise
             except (StateError, FileNotFoundError):
                 continue
         return runs
@@ -724,6 +752,8 @@ class StateStore:
         for entry in self._run_dirs():
             try:
                 self.load(entry.name)
+            except StateStorageError:
+                raise
             except FileNotFoundError:
                 continue
             except StateError:
@@ -1218,9 +1248,12 @@ class StateStore:
                 handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
-            if self.before_write is not None:
-                self.before_write()
-            os.replace(temporary, path)
+            def publish():
+                """@brief Refence every delayed replacement before publishing saved evidence."""
+                if self.before_write is not None:
+                    self.before_write()
+                os.replace(temporary, path)
+            _sharing_io(publish, path)
         finally:
             Path(temporary).unlink(missing_ok=True)
 

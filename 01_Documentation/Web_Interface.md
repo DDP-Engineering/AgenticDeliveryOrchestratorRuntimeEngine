@@ -40,6 +40,10 @@ Other projects keep their own configuration and running executors keep their sna
 A worker crash leaves interrupted configuration uncertain rather than replaying it.
 Inspect the active settings and durable result before submitting another operation.
 
+The integrated contract inventory and platform smoke boundaries are in
+[Worker acceptance](Worker_Acceptance.md). It distinguishes real process
+overlap, simulated external adapters and release-media acceptance.
+
 ## Local worker processes
 
 `adore-web-worker --home <ADORE_HOME>` owns one home lock and supervises
@@ -92,7 +96,7 @@ checks according to repository instructions. Direct implementation uses the
    uv run --extra web adore-web-worker --home <ADORE_HOME>
    ```
 
-   Keep both processes running. Use one web worker per ADORE home and no
+   Keep both processes running. Use one web supervisor per ADORE home and no
    separate `adore run --loop` scheduler for these projects. Open
    `http://127.0.0.1:8765`, the default loopback address. For remote access, see
    the HTTPS guidance below.

@@ -702,3 +702,105 @@ def test_parked_poll_counter_rejects_corrupt_state(tmp_path: Path, value: object
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(StateError, match="parked_polls"):
         store.load(run.run_id)
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+@pytest.mark.parametrize("refusals", [2, 6])
+@pytest.mark.parametrize("transport", ["winerror", "crt"])
+def test_state_sharing_contention_is_bounded_and_preserves_evidence(
+    tmp_path, monkeypatch, operation, refusals, transport,
+):
+    """@brief Brief sharing conflicts recover; persistent denial stays typed and atomic."""
+    store = _store(tmp_path)
+    run = RunState("sharing", 7)
+    store.save(run)
+    path = store.run_dir(run.run_id) / "state.json"
+    before = path.read_bytes()
+    if transport == "crt":
+        from types import SimpleNamespace
+
+        monkeypatch.setattr(state_module, "os", SimpleNamespace(**{**vars(os), "name": "nt"}))
+    original = Path.open if operation == "read" else state_module.os.replace
+    attempts, delays = [], []
+
+    def conflict(*args, **kwargs):
+        """@brief Inject the Windows sharing boundary, not JSON or ownership failures."""
+        target = args[0] if operation == "read" else args[1]
+        if Path(target) == path:
+            attempts.append(target)
+            if len(attempts) <= refusals:
+                error = PermissionError(13, "sharing violation")
+                if transport == "winerror":
+                    error.winerror = 32
+                raise error
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(Path if operation == "read" else state_module.os,
+                        "open" if operation == "read" else "replace", conflict)
+    if hasattr(state_module, "time"):
+        monkeypatch.setattr(state_module.time, "sleep", delays.append)
+    run.outcome = "current evidence"
+    action = (lambda: store.load(run.run_id)) if operation == "read" else (lambda: store.save(run))
+    if refusals == 6:
+        with pytest.raises(StateError, match="storage unavailable"):
+            action()
+        assert len(attempts) == 6
+    else:
+        action()
+        assert len(attempts) == 3
+    monkeypatch.undo()
+    assert sum(delays) <= 0.25
+    assert path.read_bytes() == before if operation == "read" or refusals == 6 else (
+        store.load(run.run_id).outcome == "current evidence")
+    assert not list(path.parent.glob(".state.json-*"))
+
+
+def test_state_sharing_retry_rechecks_writer_authority(tmp_path, monkeypatch):
+    """@brief Lost ownership during a retry never publishes a previously valid candidate."""
+    store = _store(tmp_path)
+    run = RunState("fenced", 7)
+    store.save(run)
+    path = store.run_dir(run.run_id) / "state.json"
+    before = path.read_bytes()
+    denied = [False]
+
+    def authority():
+        if denied[0]:
+            raise RuntimeError("ownership lost")
+
+    def conflict(*args):
+        denied[0] = True
+        error = PermissionError("sharing violation")
+        error.winerror = 32
+        raise error
+
+    store.before_write = authority
+    monkeypatch.setattr(os, "replace", conflict)
+    if hasattr(state_module, "time"):
+        monkeypatch.setattr(state_module.time, "sleep", lambda _: None)
+    run.outcome = "must not publish"
+    with pytest.raises(RuntimeError, match="ownership lost"):
+        store.save(run)
+    assert path.read_bytes() == before
+    assert not list(path.parent.glob(".state.json-*"))
+
+
+@pytest.mark.parametrize("listing", ["list_runs", "invalid_runs"])
+def test_state_listing_propagates_exhausted_sharing_denial(tmp_path, monkeypatch, listing):
+    """@brief Unavailable storage never becomes an omitted or merely corrupt run."""
+    store = _store(tmp_path)
+    store.save(RunState("reserved", 7, execution_pending=True))
+    path = store.run_dir("reserved") / "state.json"
+    original = Path.read_text
+
+    def denied(target, *args, **kwargs):
+        if target == path:
+            error = PermissionError("sharing violation")
+            error.winerror = 32
+            raise error
+        return original(target, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", denied)
+    monkeypatch.setattr(state_module.time, "sleep", lambda _: None)
+    with pytest.raises(StateError, match="storage unavailable"):
+        getattr(store, listing)()

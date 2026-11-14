@@ -16,6 +16,11 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Brief Windows file contention no longer interrupts concurrent jobs.", fr = "Un bref conflit d’accès aux fichiers Windows n’interrompt plus les tâches simultanées.", de = "Kurze Dateizugriffskonflikte unter Windows unterbrechen parallele Aufträge nicht mehr.", ro = "Conflictele scurte de acces la fișiere în Windows nu mai întrerup lucrările simultane." }
+
+[[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "See project slots, queues and workers; keep unsaved settings and operation results on return.", fr = "Places, files et services par projet ; paramètres non enregistrés et résultats conservés au retour.", de = "Projektplätze, Warteschlangen und Dienste; Entwürfe und Vorgangsergebnisse bleiben erhalten.", ro = "Vezi locurile, cozile și workerii proiectului; setările nesalvate și rezultatele rămân la revenire." }

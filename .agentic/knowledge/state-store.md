@@ -160,3 +160,10 @@ state uses the server home identified by the `profiles/<profile>/...` path layou
 with locks outside the deletable profile. External state keeps `<state root>/locks`.
 Changing ambient ADORE home cannot split ownership. A clone containing retained state
 is kept during optional clone removal.
+
+REQ-REL-83b9fc8c: load and atomic JSON publication bound Windows sharing conflicts
+(winerror 5/32/33 or Windows CRT EACCES without winerror) to six attempts with 250 ms total scheduled waits. Persistent
+sharing denial raises StateStorageError (StateError subtype) with the exact path,
+preserving prior evidence and propagating through list_runs/invalid_runs;
+other I/O errors still propagate. Publication rechecks before_write on every
+attempt. Focused public proof: tests/test_state.py state_sharing tests.

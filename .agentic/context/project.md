@@ -20,37 +20,24 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts a team's
 opt-in GitHub, GitLab or Gitea tickets. CLI/configured repositories without
-`.agentic/aegis.py` use bounded fresh direct implementation attempts and optional
-independent verification before human approval; an empty command keeps candidates
-explicitly unverified. A present unsupported or
+`.agentic/aegis.py` use bounded fresh direct implementation attempts. The agent
+selects and reports repository checks; ADORE records completion and candidate
+evidence without independently rerunning repository suites. A present unsupported or
 broken payload is refused without fallback. Web enrollment accepts repositories
-with or without AEGIS. Guided enrollment and scalar/batch settings APIs accept an
-exact optional single-line verification command under existing reviewed revision
-and access boundaries; invalid nontext, CR/LF/NUL are refused with field feedback.
-Enrollment Verification and Settings Implementation expose the optional command
-through one-row textareas, exact domain validation and localized feedback. For an
-inspected direct clone, enrollment prefills only an untouched draft from a shared
-bounded file-only reader and identifies the source in all four locales. Init offers
-the same suggestion with explicit keep/edit/none choices. Root matches precede a
-unique immediate-child match; external links and files over 1 MiB are ignored.
-Discovery never runs a command or publishes configuration. Human edits/clearing
-and saved Settings remain authoritative; only confirmed Create/Save/init persists
-chosen text. An inspected AEGIS enrollment shows the repository-test-command note
-instead, and AEGIS or unavailable clones receive no suggestion.
+with or without AEGIS. Enrollment and Settings explain that the agent owns
+repository checks; no independent repository-test command is configured or run.
 API and browser readiness report a separate
 read-only workflow observation (AEGIS, Direct or not-inspected) outside prerequisite
 checks and stores schema-3 evidence with strict deletion guidance on corruption.
 Pending-clone evidence transfers unchanged at creation; the runtime pre-pick probe
 remains authoritative. Jobs identifies each saved workflow in the list and detail.
 Direct jobs show only Implementation/build, Validation/validate and Done stage
-evidence without an AEGIS task, plus the last recorded executor attempt and saved
-independent verification command/result, duration and bounded redacted literal tail.
-Passed, failed, timed out, explicit not-configured/unverified and unavailable are
-distinct; unknown workflows and corrupt direct transport fail closed and hide stale
-evidence. Current configuration cannot replace saved results. Four-locale Jobs and
-Settings help maps direct stage limits to build/validate with general fallback.
+evidence without an AEGIS task, plus the last recorded executor attempt and
+agent-reported completion and summary. Unknown workflows and corrupt direct
+evidence fail closed; current configuration cannot replace saved results.
+Four-locale Jobs and Settings help map direct stage limits to build/validate with general fallback.
 In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
-isolated branch/worktree with container or native local execution, verifies the candidate independently,
+isolated branch/worktree with container or native local execution, observes the agent-owned completion evidence,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval when configured, or automatically after validation and freshness checks when disabled. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
 Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while the inactive scope-hint control is omitted.
 Its users are the operator who runs the conductor on a host, the reviewers who
@@ -65,9 +52,8 @@ ADORE's only coding agent.
   evidence does not depend on the Windows code page, and corrupt bytes remain refused.
 - `adore/orchestrator.py` claims tickets, provisions isolation, supervises
   stages or direct implementation, bounds failures, parks clarifications,
-  replays notifications, verifies AEGIS strictly or runs optional direct
-  verification with bounded fresh fixes, records explicit unverified evidence
-  when no command is configured and publishes draft/ready reviews; `adore/state.py` persists schema-1
+  replays notifications, observes AEGIS done journals or direct agent completion
+  without independent repository test execution and publishes draft/ready reviews; `adore/state.py` persists schema-1
   run state, short admission/per-run kernel locks and an append-only JSONL journal.
 - `adore/forge/` adapts GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`);
   `adore/isolation.py` owns worktrees, checkpoint commits, candidate
@@ -81,10 +67,8 @@ ADORE's only coding agent.
   file-named `PromptError`. Composition and notice selection remain caller-owned.
 - `adore/config.py`, `doctor.py`, `wizard.py`, `profiles.py` and `cli.py`
   provide validated configuration, host readiness probes, assisted setup,
-  profile homes and the `adore` command; `verification_hint.py` supplies shared
-  read-only repository command/source suggestions to CLI init and web preview.
-  Malformed package evidence is a miss, including decoder-limit failures;
-  filesystem/encoding errors refuse discovery rather than guessing a default.
+  profile homes and the `adore` command. Repository instructions and the agent
+  select checks; setup does not configure an independent test runner.
   `metrics.py`, `process_log.py`,
   `identity.py`, `branding.py` and `util.py` provide run statistics, mirrored
   logs, derived resource names, identity constants and shared helpers.
@@ -159,24 +143,19 @@ the pinned worktree before the first claim save and retained on continuation.
 The executor's validate session closes an AEGIS task; ADORE verifies that advance
 itself. Direct uses build/validate/done with no task bindings: settled changed
 work without questions saves completion/validate atomically, then checkpoints
-and integrates the target. Configured workflow.verify_command runs independently
-through the owned environment under the validate timeout; pass precedes the final
-checkpoint/fingerprint. Failures/timeouts count once under max_stage_failures and
-route to fresh build sessions with retained sanitized command/exit/output context;
-successful fix builds preserve the count. Exhaustion stops VERIFICATION_FAILED;
-explicit Retry re-arms it while retaining history/work and cumulative budgets.
-Empty configuration records not-configured evidence. Retry can finish completed
-validation without another launch; missing completion needs build authority.
-AEGIS ignores verify_command and keeps its strict commands and counter resets. Both runs
-stay at stage done while awaiting approval, publishing and in review.
+and integrates the target. The agent selects and reports repository checks;
+ADORE records its completion evidence without independently executing a target
+suite. Retry may finish a completed candidate without another launch; missing
+completion needs fresh build authority. AEGIS done journals remain authoritative
+for agent-owned validation. Both workflows stay at stage done while awaiting
+approval, publishing and in review.
 A stage receives a bounded
 number of failed attempts, questions park the run without consuming that
 budget, and required forge notifications pass through a persisted outbox. Parked cleanup is durably settled before polling resumes; status replay reconciles the current lifecycle labels.
 Publication requires a fresh `agent-approved` label bound to the exact
 candidate fingerprint and target commit; every review round repeats
 workflow-appropriate evidence and approval. Direct approval and MR/PR bodies
-show the retained agent summary, file count and configured command/result or
-explicit unverified notice; adopted and
+show the retained agent summary and file count; adopted and
 revised reviews refresh that description without changing review settings.
 Summary/questions are excluded from direct progress/checkpoints/publication;
 unsafe present artifacts fail closed. Direct summaries never count as a strict

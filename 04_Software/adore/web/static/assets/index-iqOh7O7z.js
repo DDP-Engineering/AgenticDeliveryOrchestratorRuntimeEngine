@@ -319,6 +319,8 @@ Parallele Aufträge haben eigene Arbeitsordner, Ressourcen, Zugangsdaten und Aus
 \r
 Projekte arbeiten unabhängig. Bei einer Grenze von zwei laufen zwei Aufträge gleichzeitig; der nächste Start wartet auf einen Platz. Das Beenden der Anwendung stoppt ihre Worker und Aufträge; unklare unterbrochene Arbeit muss vor einem ausdrücklichen Wiederholen geprüft werden.\r
 \r
+Nach einer niedrigeren Auftragsgrenze warten aufgenommene, noch nicht gestartete Aufträge auf einen Platz gemäß der neuen Grenze. Bereits laufende Aufträge arbeiten auch oberhalb dieser Grenze weiter; die Bereinigung behält ihren Platz bis zur sicheren Freigabe. Einstellungen anderer Projekte und die Serververwaltung bleiben verfügbar.\r
+\r
 ## Phasen {#stages}\r
 \r
 ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.\r
@@ -1138,6 +1140,8 @@ Each project has one concurrent-job limit, shared by Start, Retry, fresh restart
 Concurrent jobs have separate working folders, execution resources, credentials and output. Cancelling one leaves the others running. Brief shared updates may wait; agents with ready resources continue.\r
 \r
 Projects progress independently. With a limit of two, two jobs can execute together while the next Start waits for a place. Stopping the application stops its workers and jobs; uncertain interrupted work requires inspection before an explicit Retry.\r
+\r
+After a lower job limit, admitted jobs that have not started wait for a place under the new limit. Jobs already executing continue, even above the lower limit, and cleanup keeps its place until safe release. Settings in another project and server administration remain available.\r
 \r
 ## Stages {#stages}\r
 \r
@@ -1959,6 +1963,8 @@ Les tâches simultanées ont leurs propres dossiers de travail, ressources, iden
 \r
 Les projets avancent indépendamment. Avec une limite de deux, deux tâches peuvent s’exécuter ensemble et le démarrage suivant attend une place. Arrêter l’application arrête ses workers et tâches ; un résultat interrompu incertain doit être vérifié avant de réessayer explicitement.\r
 \r
+Après une baisse de la limite, les tâches admises mais non démarrées attendent une place selon la nouvelle limite. Les tâches déjà exécutées continuent, même au-delà de cette limite, et le nettoyage garde sa place jusqu’à libération sûre. Les paramètres des autres projets et l’administration du serveur restent accessibles.\r
+\r
 ## Étapes {#stages}\r
 \r
 ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.\r
@@ -2779,6 +2785,8 @@ Fiecare proiect are o singură limită de lucrări simultane, comună pornirii, 
 Lucrările simultane au dosare de lucru, resurse, credențiale și ieșiri separate. Anularea uneia lasă celelalte lucrări active. Actualizările comune pot aștepta; agenții cu resurse pregătite continuă.\r
 \r
 Proiectele progresează independent. La limita de două, două lucrări pot rula împreună, iar următoarea pornire așteaptă un loc. Oprirea aplicației oprește lucrătorii și joburile; munca întreruptă cu rezultat incert cere verificare înainte de o reîncercare explicită.\r
+\r
+După reducerea limitei, lucrările admise care nu au început așteaptă un loc conform noii limite. Lucrările deja în execuție continuă, chiar peste limita redusă, iar curățarea păstrează locul până la eliberarea sigură. Setările altui proiect și administrarea serverului rămân disponibile.\r
 \r
 ## Etape {#stages}\r
 \r

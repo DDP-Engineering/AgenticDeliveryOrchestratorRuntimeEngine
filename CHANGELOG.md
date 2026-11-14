@@ -12,8 +12,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Bound transient Windows run-state sharing contention so concurrent readers do not interrupt jobs; persistent failures preserve evidence and current ownership fences.
+
 ### Changed
 
+- Document integrated worker acceptance, per-project parallel execution and explicit platform/distribution smoke boundaries.
 - Show per-project capacity, queue causes and separate worker roles; retain Settings drafts and durable operation results across navigation/refresh. Staged lower job limits fence new admission while existing jobs continue.
 
 

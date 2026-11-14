@@ -200,9 +200,9 @@ queued without changing its terminal lifecycle or outcome.
 
 ## Stopping and Cleanup
 
-Queued cancellation interrupts Direct verification as well as executor sessions.
-Cancellation takes precedence over a returned verification result, so it cannot
-start a fix attempt or present an approval candidate after the check has stopped.
+Queued cancellation interrupts executor sessions for both workflows.
+Cancellation takes precedence at the next conductor boundary, so a returned
+executor result cannot present a candidate after saved cancellation.
 
 `cancel` removes active resources and retains audit state. Failed runs keep
 their worktree, container companions, and local evidence for explicit retry;
@@ -280,6 +280,10 @@ Manual Start, automatic pickup, Retry, Restart and automatic resumptions share
 one short reservation boundary. Independent conductors have their own executor,
 backend and configuration revision; no project lock spans an agent call.
 Reducing the ceiling blocks later reservations and leaves existing jobs running.
+Initial reservations keep their dispatch evidence and wait for actual start
+capacity under the current lower ceiling; they do not all start at the old N.
+An executor that already started may finish above the reduced ceiling.
+Cleanup still occupies its place until the owned resource is safely released.
 Pause stops automatic pickup and preserves explicit eligible Start.
 
 Queued web commands do not allocate an executor. An admitted job reserves its
@@ -287,6 +291,13 @@ execution place until the run process begins; that wait is excluded from its
 active-work budget. Settled clarification, approval and review waits release
 executor capacity. Initialization, `handoff-pending`, unsettled parking and an
 active conductor finishing backend cleanup retain their place until safe release.
+
+Windows sharing contention during state reads or atomic JSON publication is
+retried at most six times with at most 250 ms of scheduled waits. Persistent
+sharing denial raises a state error with the affected path; valid previous bytes
+are retained. Resolve storage access before explicit recovery. This does not
+retry executor or forge effects. See [Worker acceptance](Worker_Acceptance.md)
+for the focused contracts and operational smoke scope.
 
 A live or uncertain durable owner is never classified as stale from heartbeat
 age. Reconciliation skips foreign run locks and owns outbox/publication effects
