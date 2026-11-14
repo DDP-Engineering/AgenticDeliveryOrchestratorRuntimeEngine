@@ -1310,3 +1310,12 @@ A run-role context with no operation claim authorizes only conduct for its exact
 project/run. Project-role autonomous polling remains separate. Public proof is
 in test_web_ownership.py and test_run_concurrency.py; supervision dispatch uses
 the conductor's admission-only and single-run interfaces independently.
+
+
+## Concurrent resource ownership
+
+Archive requires the full project admission/run/execution barrier. A live cleanup
+reservation blocks it even when saved state is terminal; corrupt state is refused.
+Other projects retain independent barriers. The command worker and CLI recheck
+archived deletion before effects. Pausing monitoring keeps active jobs running.
+Focused proof: `04_Software/tests/test_shared_resources.py` and `test_web_archive.py`.

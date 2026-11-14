@@ -511,16 +511,15 @@ def test_cleanup_skips_foreign_run_and_retains_ownership_through_effects(tmp_pat
     engine.store.save(run)
     with peer.store.run_lock(run.run_id):
         engine.cleanup()
-    targets, retained = containers.cleanup_calls[0]
-    assert run.container not in targets and run.container in retained
+    assert not containers.removed
     observed = []
-    def remove(prefix, targets, retained):
-        assert run.container in targets
+    def remove(name, *args, **kwargs):
+        assert name == run.container
         with pytest.raises(LockHeldError):
             peer.reset(run.run_id, 'build')
         observed.append('exclusive cleanup')
-        return []
-    monkeypatch.setattr(containers, 'cleanup_orphan_containers', remove)
+        return {}
+    monkeypatch.setattr(containers, 'release_owned', remove)
     engine.cleanup()
     assert observed == ['exclusive cleanup']
     assert peer.reset(run.run_id, 'build')
@@ -622,8 +621,10 @@ def test_corrupt_dispatch_never_grants_initial_execution(tmp_path, monkeypatch, 
 
 def test_unavailable_lifecycle_lock_storage_is_a_typed_refusal(tmp_path):
     """@brief An unusable configured state location cannot bypass lifecycle exclusion."""
-    (tmp_path / 'locks').write_text('not a lock directory')
-    with pytest.raises(StateError), StateStore(tmp_path).run_lock('run-7'):
+    store = StateStore(tmp_path)
+    store.locks_root.parent.mkdir(parents=True, exist_ok=True)
+    store.locks_root.write_text('not a lock directory')
+    with pytest.raises(StateError), store.run_lock('run-7'):
         pytest.fail('unavailable lifecycle lock was bypassed')
 
 

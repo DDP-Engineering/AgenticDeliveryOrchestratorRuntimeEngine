@@ -315,3 +315,6 @@ backend boundaries, deterministic events and an owned spawned helper solely for
 kernel-lock death recovery. Targeted tests cover admission, single-run CLI,
 capacity resumptions, dispatch corruption, live/unknown durable ownership and
 cleanup boundaries; no target repository checks or DCP operations run.
+
+
+Shared-resource proof uses isolated homes, injected Git/runtime/auth/Node boundaries and deterministic thread barriers. Kernel lock files stay outside deletable profiles. Run targeted component contracts only per umbrella instruction; global validation is deferred to the final umbrella pass.

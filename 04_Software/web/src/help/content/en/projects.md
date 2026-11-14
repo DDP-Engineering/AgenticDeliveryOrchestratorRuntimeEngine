@@ -63,6 +63,8 @@ A new project starts with monitoring stopped. Developers see it once an administ
 
 ## Archive, restore and delete {#lifecycle}
 
+Archive and deletion require every job to stop executing and finish cleanup, even if its saved status already says it has finished. Resources with unproven ownership are kept for inspection.
+
 Administrators find these buttons on the Summary tab.
 
 - **Archive project** works after jobs finish and queued requests clear. It keeps settings, history, metrics and audit records and stops new work. **Restore project** brings it back.

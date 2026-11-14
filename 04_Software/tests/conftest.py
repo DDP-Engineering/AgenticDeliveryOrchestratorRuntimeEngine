@@ -45,7 +45,7 @@ def symlink_support(tmp_path: Path) -> None:
         source.unlink()
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def adore_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """
     @brief      An isolated ADORE config home wired into the environment.

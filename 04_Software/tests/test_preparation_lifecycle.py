@@ -41,6 +41,7 @@ def recipe_engine(tmp_path, monkeypatch, failure="exit"):
     engine.config.worktree.repo_path = str(tmp_path)
     worktrees.repo_path = tmp_path
     worktrees.create = lambda *args: tmp_path
+    worktrees.path_for = lambda _: tmp_path
     worktrees.runner = SourceRunner()
     control = {"failure": failure, "cid": "d" * 64, "calls": [], "gates": 0}
 
@@ -151,7 +152,7 @@ def test_explicit_reprepare_recreates_owned_container_and_caps_replay(tmp_path, 
     assert saved.execution["status"] == "success" and saved.execution["attempts"] == 2
     assert saved.execution["history"][0]["status"] == "failed"
     assert saved.execution["resource"]["container_id"] == "f" * 64
-    assert containers.removed == [saved.container]
+    assert containers.removed == ["d" * 64]
     assert len(control["calls"]) == 3 and control["gates"] == 1
     saved.lifecycle = "failed"
     engine.store.save(saved)

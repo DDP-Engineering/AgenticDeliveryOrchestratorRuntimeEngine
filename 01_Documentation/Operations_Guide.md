@@ -209,15 +209,26 @@ their worktree, container companions, and local evidence for explicit retry;
 routine `cleanup` protects them along with active valid runs. To release a
 failed run, use `cancel <run-id>` (keep audit state) or `delete <run-id>
 --force` (irreversible state removal). Cleanup removes the selected
-project's orphaned executor/proxy containers, egress networks and worktree
-directories (those of its done, cancelled, stale and state-less runs) and
-leaves other projects' resources in place. It reports corrupt runs while
-keeping their state and resources. It reclaims only a
-provably stale local lock; a live/unknown holder is reported and left in
-place. Run mutations serialize only the selected run. Cancel queues a durable
-request to a live owner, while an idle run is cleaned by one exclusive owner.
-Never remove persistent files under `locks/`: ownership is the kernel lock,
-not the file's existence or age.
+project's verified done, cancelled and stale resources. Stateless resources,
+foreign saved identities, corrupt state and unproven runtime mounts remain for
+operator inspection. Runtime cleanup failure preserves the worktree. Other
+projects' resources remain untouched. A live or unknown lock owner is never
+reclaimed. Run mutations serialize only the selected run; cancel queues a durable
+request to a live owner. Profile-contained state uses stable lifecycle/execution
+files under its server home's `resource-locks/state/<state-root-hash>/`; external
+state keeps `<state root>/locks`. Never remove these while any server or run can use them. Kernel ownership, not file age/existence, is authoritative.
+
+Concurrent jobs retain separate branches, worktrees, containers, native process
+scopes, Pi sessions, credentials and output. Production names include a stable
+project suffix even when profiles target the same repository and ticket. Brief
+Git registry/checkpoint mutations serialize per common repository; executor work
+and remote publication do not hold that lock. Fetch, Pi installation, shared image
+preparation, ChatGPT refresh and metrics publication have separate mutation scopes.
+A busy or unproven resource fails explicitly rather than being adopted or removed.
+
+Archive and either profile-delete mode require a complete project barrier, including
+live execution/cleanup reservations with terminal or removed state. Monitoring
+pause continues to leave running jobs alone.
 
 ## Native local execution
 
@@ -285,3 +296,10 @@ inspection and explicit recovery; it is not published again automatically.
 Pending execution is recorded explicitly in current run state. Active-work
 readouts remain zero before first dispatch, including if a queued job is
 cancelled; dispatch persists clock activation before any external claim effect.
+
+
+Kernel lock placement depends only on the canonical state-root path. Profile-contained
+state uses the server home identified by the `profiles/<profile>/...` path layout,
+with locks outside the deletable profile. External state keeps `<state root>/locks`.
+Changing ambient ADORE home cannot split ownership. A clone containing retained state
+is kept during optional clone removal.

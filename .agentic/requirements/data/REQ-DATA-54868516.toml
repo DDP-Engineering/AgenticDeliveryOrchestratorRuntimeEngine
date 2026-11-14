@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-DATA-54868516"
+
+title = "Preserve all concurrent terminal metrics in atomic mirrors"
+
+status = "active"
+
+requirement = "When terminal summaries change concurrently, ADORE shall preserve committed rows in an atomically replaced JSONL mirror under a bounded store lock."
+
+verification = "Concurrent insert/delete updates leave complete parseable rows matching SQLite; exhausted lock or SQLite contention raises MetricsError."
+
+affected_paths = ["04_Software/adore/metrics.py", "04_Software/adore/resource_lock.py"]
+
+linked_tests = ["04_Software/tests/test_shared_resources.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

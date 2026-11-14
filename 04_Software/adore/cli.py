@@ -632,26 +632,36 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
         config, env_file=_env_file_for_config(args.config), **options,
     )
     profiles = ProfileStore()
+    matches = [item for item in profiles.list_profiles()
+               if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
+    if len(matches) == 1:
+        bound_profile = matches[0]
+        def admission_guard() -> None:
+            """@brief Recheck the exact profile under admission after archive/delete barriers."""
+            try:
+                current = profiles.load(bound_profile.name)
+            except (ProfileError, OSError) as exc:
+                raise LockHeldError("project admission target is unavailable") from exc
+            if current.project_id != bound_profile.project_id or current.archived:
+                raise LockHeldError("project admission is stopped or its identity changed")
+        engine.admission_guard = admission_guard
     database = profiles.home / "web.db"
-    if database.is_file():
-        matches = [item for item in profiles.list_profiles()
-                   if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
-        if len(matches) == 1:
-            from adore.web.store import WebStore
+    if database.is_file() and len(matches) == 1:
+        from adore.web.store import WebStore
 
-            web = WebStore(database)
-            project_id = matches[0].project_id
+        web = WebStore(database)
+        project_id = matches[0].project_id
 
-            def run_available(run_id: str) -> bool:
-                """@brief Preserve live or uncertain web owners for standalone operators."""
-                web.recover_interrupted(project_id=project_id, role="run")
-                return not web.worker_heartbeats(role="run", project_id=project_id,
-                                                 run_id=run_id)
+        def run_available(run_id: str) -> bool:
+            """@brief Preserve live or uncertain web owners for standalone operators."""
+            web.recover_interrupted(project_id=project_id, role="run")
+            return not web.worker_heartbeats(role="run", project_id=project_id,
+                                             run_id=run_id)
 
-            engine.run_available = run_available
-            engine.on_delete = lambda run_id, remove_source: web.forget_run_usage(
-                project_id, run_id, remove_source=remove_source,
-            )
+        engine.run_available = run_available
+        engine.on_delete = lambda run_id, remove_source: web.forget_run_usage(
+            project_id, run_id, remove_source=remove_source,
+        )
     from adore.web.worker_context import current_context
 
     context = current_context()
@@ -773,6 +783,8 @@ def _cmd_conduct(args: argparse.Namespace) -> int:
         if built is None:
             return EXIT_ERROR
         _config, engine = built
+        logger = ProcessLogger(process_log_path(engine.store.run_dir(args.run_id)))
+        engine.log = logger.emit
         return EXIT_OK if engine.conduct_run(args.run_id,
                                               config_revision=args.config_revision) else EXIT_ERROR
     except (LockHeldError, StateError, OSError, ValueError):
@@ -1133,7 +1145,17 @@ def _cmd_profile(args: argparse.Namespace) -> int:
             return EXIT_ERROR
         if getattr(args, "remove_resources", False):
             return _delete_profile_with_resources(store, args)
-        store.delete(args.name)
+        try:
+            profile = store.load(args.name)
+            state = StateStore(profile.store_root or store.default_store_root(args.name))
+            with state.project_barrier():
+                if any(run.lifecycle not in _DELETABLE_RUN_LIFECYCLES
+                       for run in state.list_runs()):
+                    raise LockHeldError("unfinished runs block profile deletion")
+                store.delete(args.name)
+        except (LockHeldError, StateError) as exc:
+            print(f"error: {exc}")
+            return EXIT_ERROR
         print(f"deleted profile {args.name}")
         return EXIT_OK
     # path
@@ -1171,7 +1193,7 @@ def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace
     remove_clone = bool(getattr(args, "remove_clone", False))
     clone = None
     try:
-        with _operator_lock(engine.store):
+        with engine.store.project_barrier():
             if engine.store.invalid_runs():
                 print("error: corrupt run state; inspect it before deleting the project")
                 return EXIT_ERROR
@@ -1189,38 +1211,37 @@ def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace
                     return EXIT_ERROR
             report = engine.purge_resources()
             if clone is not None:
-                # Purge may leave stale worktree records; live linked worktrees stay.
-                run_command(["git", "-C", clone.path, "worktree", "prune"], timeout=30)
+                # Reinspect without pruning unproven shared registrations.
                 clone = clone_decision(store, args.name, config.worktree.repo_path,
                                        config.platform.repo)
-    except LockHeldError as exc:
+            profile_dir = store.profile_dir(args.name).resolve()
+            state_root = Path(engine.store.root).resolve()
+            retained = None if state_root.is_relative_to(profile_dir) else str(state_root)
+            try:
+                store.delete(args.name)
+            except OSError as exc:
+                print(json.dumps({"deleted": None, **report, "state_retained": retained,
+                                  "clone_removed": None, "clone_retained": None,
+                                  "error": f"profile removal failed: {exc}"},
+                                 indent=2, ensure_ascii=False))
+                return EXIT_ERROR
+            removed, kept = None, None
+            if clone is not None and clone.removable:
+                # force_rmtree tolerates errors; only a folder that is really gone counts.
+                force_rmtree(clone.path)
+                if Path(clone.path).exists():
+                    kept = {"path": clone.path, "reason": "removal-failed"}
+                else:
+                    removed = clone.path
+            elif clone is not None:
+                kept = {"path": clone.path, "reason": clone.reason}
+            print(json.dumps({"deleted": args.name, **report, "state_retained": retained,
+                              "clone_removed": removed, "clone_retained": kept},
+                             indent=2, ensure_ascii=False))
+            return EXIT_OK
+    except (LockHeldError, StateError, IsolationError) as exc:
         print(f"error: {exc}")
         return EXIT_ERROR
-    profile_dir = store.profile_dir(args.name).resolve()
-    state_root = Path(engine.store.root).resolve()
-    retained = None if state_root.is_relative_to(profile_dir) else str(state_root)
-    try:
-        store.delete(args.name)
-    except OSError as exc:
-        print(json.dumps({"deleted": None, **report, "state_retained": retained,
-                          "clone_removed": None, "clone_retained": None,
-                          "error": f"profile removal failed: {exc}"},
-                         indent=2, ensure_ascii=False))
-        return EXIT_ERROR
-    removed, kept = None, None
-    if clone is not None and clone.removable:
-        # force_rmtree tolerates errors; only a folder that is really gone counts.
-        force_rmtree(clone.path)
-        if Path(clone.path).exists():
-            kept = {"path": clone.path, "reason": "removal-failed"}
-        else:
-            removed = clone.path
-    elif clone is not None:
-        kept = {"path": clone.path, "reason": clone.reason}
-    print(json.dumps({"deleted": args.name, **report, "state_retained": retained,
-                      "clone_removed": removed, "clone_retained": kept},
-                     indent=2, ensure_ascii=False))
-    return EXIT_OK
 
 
 def _profile_metrics(profile) -> dict:

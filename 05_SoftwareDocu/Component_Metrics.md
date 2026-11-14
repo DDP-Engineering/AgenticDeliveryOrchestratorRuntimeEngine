@@ -210,3 +210,16 @@ invented day.
 ## Explicit deleted-job summary cleanup
 
 `delete_summary(db_path, run_id, export_jsonl)` removes exactly the verified deleted job's terminal row and refreshes its optional mirror before a fresh journal can reuse that run ID. Absent/disabled stores stay absent. CLI `stats --rebuild` holds the same conductor lock across its entire compute/write batch, preventing an old snapshot from restoring a deleted summary. Proof: `tests/test_drift_recovery.py` integration and rebuild-lock cases.
+
+
+## Concurrent resource ownership
+
+Summary upsert/deletion and mirror replacement share bounded database/mirror
+writer locks across processes. SQLite transactions end before snapshot export;
+connections close explicitly, and SQLite busy handling is bounded to one second.
+The mirror and HTML reports publish complete fsynced sibling files atomically.
+A failed export preserves the previous complete mirror and raises `MetricsError`;
+committed SQLite rows remain authoritative. Concurrent terminal summaries cannot
+overwrite one another's snapshot. The database cannot also be its JSONL mirror.
+
+Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.

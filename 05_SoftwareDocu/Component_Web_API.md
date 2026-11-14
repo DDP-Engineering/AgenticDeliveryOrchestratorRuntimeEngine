@@ -918,3 +918,20 @@ A successful external CLI sign-in is not a bound identity and keeps the overall 
 The project configuration catalog exposes `delivery.require_human_approval`
 as an editable boolean. The normal Admin candidate review, authorization,
 validation and idle-project checks apply. Invalid scalar values are rejected.
+
+
+## Concurrent resource ownership
+
+Archive requires the full project admission/run/execution barrier. An active
+conductor or cleanup reservation returns `project_has_active_work` even if saved
+state is terminal; corrupt state returns `run_state_corrupt`. Other projects keep
+independent barriers. Archived deletion is rechecked by the command worker and
+CLI barrier before resource effects. Pausing monitoring retains existing jobs.
+
+Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
+
+
+## Diagnostic and lifecycle boundaries
+
+Deletion enqueue also takes the full project barrier. A queued deletion blocks
+Restore so admission cannot be re-enabled during deletion.

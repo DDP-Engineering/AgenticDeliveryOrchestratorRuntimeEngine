@@ -139,7 +139,8 @@ class BoundTarget:
         self, backend: ContainerBackend, name: str, env: dict[str, str], expected: dict | None,
         secrets: Sequence[str] = (),
     ) -> None:
-        self.backend, self.name, self.env, self.expected = backend, name, env, expected
+        self.backend, self.name = backend, name
+        self.env, self.expected = dict(env), dict(expected) if expected else None
         self.paths = backend.paths
         self.secrets = sorted((value for value in secrets if value), key=len, reverse=True)
 
@@ -207,7 +208,7 @@ class ContainerBackend:
         self._operator_parked: set[str] = set()
 
     def _checked_identity(
-        self, name: str, expected: dict | None, *, status: str = "running",
+        self, name: str, expected: dict | None, *, status: str | None = "running",
     ) -> dict[str, str]:
         """@brief Require authoritative ownership and lifecycle before a control.
         @param[in] name Owned run name used for strict runtime inspection.
@@ -225,7 +226,7 @@ class ContainerBackend:
             observed = self.resource_identity(name)
         except IsolationError as exc:
             raise ExecutionRecoveryError("execution resource identity unconfirmed") from exc
-        if observed["status"] != status or expected and any(
+        if status is not None and observed["status"] != status or expected and any(
             observed[key] != expected[key] for key in ("container_id", "image_id")
         ):
             raise ExecutionRecoveryError("execution resource identity or state changed")
@@ -374,18 +375,18 @@ class ContainerBackend:
         """@brief Stop the verified run target, retaining its container filesystem."""
         self._operator_parked.add(name)
         self._pending_resume.pop(name, None)
-        self.verify_identity(name, expected)
-        self.manager.stop(name)
+        observed = self._checked_identity(name, expected, status=None)
+        self.manager.stop(observed["container_id"])
 
     def interrupt(self, name: str, *, expected: dict | None = None) -> None:
         """@brief Interrupt only the verified active run target."""
         self._operator_parked.add(name)
         self._pending_resume.pop(name, None)
-        self.verify_identity(name, expected)
-        self.manager.interrupt(name)
+        observed = self._checked_identity(name, expected, status=None)
+        self.manager.interrupt(observed["container_id"])
 
     def remove(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Release the verified target and its owned egress resources."""
+        """@brief Remove the immutable executor; path-bound companion release stays separate."""
         self._operator_parked.add(name)
         self._pending_resume.pop(name, None)
         if expected and (expected.get("kind") == "local"
@@ -393,9 +394,11 @@ class ContainerBackend:
             raise ExecutionRecoveryError(
                     "execution backend changed; restore the pinned profile")
         # Explicit cleanup of an already absent resource is idempotent.
-        if expected and self.manager.status(name) != "absent":
-            self.verify_identity(name, expected)
-        self.manager.remove(name)
+        if self.manager.status(name) != "absent":
+            observed = self._checked_identity(name, expected, status=None)
+            # Lifecycle controls never re-resolve a mutable name at the runtime.
+            # Full proxy/network release needs host path proof and belongs to release_owned.
+            self.manager.remove_executor(observed["container_id"])
         self._operator_parked.discard(name)
 
 

@@ -11,6 +11,8 @@ Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt.
 
 Jedes Projekt hat eine gemeinsame Grenze für gleichzeitige Aufträge: Start, Wiederholen, Neustart und Fortsetzung. Die Überwachungspause stoppt die automatische Aufnahme und lässt den ausdrücklichen Start zu. Eine niedrigere Grenze lässt bestehende Aufträge weiterlaufen. Wartende Befehle und abgeschlossene Übergänge zur Klärungs-, Freigabe- oder Review-Wartephase nutzen keinen Executor; Initialisierung und Bereinigung behalten ihren Platz bis zur sicheren Freigabe. Warten vor der Ausführung verbraucht keine aktive Arbeitszeit.
 
+Parallele Aufträge haben eigene Arbeitsordner, Ressourcen, Zugangsdaten und Ausgaben. Wird einer abgebrochen, laufen die anderen weiter. Gemeinsame Aktualisierungen können warten; bereite Agenten arbeiten weiter.
+
 ## Phasen {#stages}
 
 ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.

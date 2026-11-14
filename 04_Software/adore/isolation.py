@@ -32,7 +32,9 @@ from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Callable, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import wraps
 import hashlib
 import ipaddress
 import os
@@ -55,6 +57,7 @@ from adore.branding import (
     EGRESS_PROXY_ALIAS,
 )
 from adore.config import SELINUX_RELABEL_OPTIONS, EgressPolicy
+from adore.resource_lock import ResourceLockError, resource_lock
 from adore.util import (
     DEFAULT_COMMAND_TIMEOUT,
     CommandResult,
@@ -381,6 +384,16 @@ class CheckpointProtocolError(IsolationError):
     """@brief Git checkpoint identity cannot be trusted; automatic work must stop."""
 
 
+def _repository_mutation(method):
+    """@brief Keep shared Git mutation sequences outside executor lifetimes."""
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        """@brief Acquire the common repository resource before a host mutation."""
+        with self.repository_lock():
+            return method(self, *args, **kwargs)
+    return locked
+
+
 class WorktreeManager:
     """
     @brief   Per-run git worktrees on the host (code isolation).
@@ -401,6 +414,7 @@ class WorktreeManager:
         *,
         git_name: str = "",
         git_email: str = "",
+        namespace: str = "",
     ) -> None:
         """
         @brief      Bind the manager to a local clone and a worktrees root.
@@ -415,6 +429,7 @@ class WorktreeManager:
                           backoff (test override).
         @param[in]  git_name Name for host-side ADORE checkpoint commits.
         @param[in]  git_email Email for host-side ADORE checkpoint commits.
+        @param[in]  namespace Stable project resource suffix, supplied by production construction.
         """
         self.repo_path = Path(repo_path).resolve()
         self.root = Path(root).resolve()
@@ -422,6 +437,39 @@ class WorktreeManager:
         self.sleep = sleep
         self.git_name = git_name
         self.git_email = git_email
+        if namespace and re.fullmatch(r"[0-9a-f]{12}", namespace) is None:
+            raise IsolationError("invalid worktree project namespace")
+        self.namespace = namespace
+
+    @contextmanager
+    def repository_lock(self, scope: str = "repository"):
+        """@brief Bound shared clone mutations independently of project/run locks.
+        @exception IsolationError Busy or unsafe repository lock storage.
+        @note The lock ends before any executor session is launched.
+        """
+        # Main clones and linked worktrees share their actual Git common directory.
+        common = self.repo_path / ".git"
+        if common.is_file():
+            try:
+                pointer = common.read_text(encoding="utf-8").strip()
+                if not pointer.startswith("gitdir: "):
+                    raise ValueError
+                admin = (self.repo_path / pointer[len("gitdir: "):]).resolve()
+                shared = admin / "commondir"
+                common = (admin / shared.read_text(encoding="utf-8").strip()).resolve()
+            except (OSError, ValueError) as exc:
+                raise IsolationError("repository common directory is unproven") from exc
+        else:
+            common = common.resolve()
+        # Keep stable lock metadata inside the common Git metadata directory;
+        # it must not dirty the clone's working tree or differ for linked worktrees.
+        key = hashlib.sha256(os.path.normcase(str(common)).encode()).hexdigest()
+        lock = common / "adore-resource-locks" / (key + "-" + scope + ".lock")
+        try:
+            with resource_lock(lock):
+                yield
+        except ResourceLockError as exc:
+            raise IsolationError(str(exc)) from exc
 
     def path_for(self, run_id: str) -> Path:
         """
@@ -429,7 +477,14 @@ class WorktreeManager:
         @param[in]  run_id Stable run identifier.
         @return     `<root>/<run-id>`.
         """
-        return self.root / run_id
+        if (not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id)
+                or run_id in {".", ".."}):
+            raise IsolationError("invalid worktree run identity")
+        suffix = "-p" + self.namespace if self.namespace else ""
+        path = self.root / (run_id + suffix)
+        if path.is_symlink() or path.resolve() != path.absolute():
+            raise IsolationError("worktree path is linked or aliased")
+        return path
 
     def exists(self, run_id: str) -> bool:
         """
@@ -439,6 +494,7 @@ class WorktreeManager:
         """
         return (self.path_for(run_id) / ".git").exists()
 
+    @_repository_mutation
     def create(self, run_id: str, branch: str, base_ref: str,
                *, new_branch: bool = False) -> Path:
         """
@@ -472,6 +528,7 @@ class WorktreeManager:
             self._git("worktree", "add", "-b", branch, str(path), base_ref)
         return path
 
+    @_repository_mutation
     def remove(self, run_id: str, *, delete_branch: str | None = None) -> None:
         """
         @brief      Remove the run's worktree (and optionally its branch).
@@ -496,6 +553,8 @@ class WorktreeManager:
         @exception  IsolationError When git fails for another reason, or the
                     teardown race persists past every retry.
         """
+        if delete_branch:
+            self.verify_removal(run_id, delete_branch)
         path = self.path_for(run_id)
         last: IsolationError | None = None
         for delay in (0.0, *_TEARDOWN_RETRY_DELAYS):
@@ -504,7 +563,6 @@ class WorktreeManager:
             try:
                 if (path / ".git").exists():
                     self._git("worktree", "remove", "--force", str(path))
-                self._git("worktree", "prune")
                 if delete_branch and self._branch_exists(delete_branch):
                     self._git("branch", "-D", delete_branch)
                 return
@@ -558,8 +616,10 @@ class WorktreeManager:
         @param[in]  remote Remote name.
         @exception  IsolationError When git fails (offline, auth, ...).
         """
-        self._git("fetch", remote)
+        with self.repository_lock("fetch"):
+            self._git("fetch", remote)
 
+    @_repository_mutation
     def merge(self, run_id: str, ref: str) -> CommandResult:
         """
         @brief      Merge a ref into the run branch (delivery integration).
@@ -1049,6 +1109,7 @@ class WorktreeManager:
             entry = entry.split(" -> ", 1)[1].strip()
         return entry.strip('"')
 
+    @_repository_mutation
     def commit_all_if_dirty(self, run_id: str, message: str, *,
                             exclude_paths: Sequence[str] = ()) -> bool:
         """
@@ -1160,6 +1221,7 @@ class WorktreeManager:
         git("commit", "-m", message)
         return True
 
+    @_repository_mutation
     def scrub_container_worktree_config(self) -> None:
         """
         @brief   Remove ADORE container worktree paths from the host repo config.
@@ -1192,7 +1254,23 @@ class WorktreeManager:
                     continue
             kept.append(line)
         if changed:
-            config_path.write_text("".join(kept), encoding="utf-8")
+            lock = config_path.with_name("config.lock")
+            acquired = False
+            try:
+                descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                acquired = True
+                with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+                    if config_path.read_text(encoding="utf-8").splitlines(keepends=True) != lines:
+                        raise IsolationError("shared Git configuration changed during repair")
+                    stream.write("".join(kept))
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(lock, config_path)
+            except OSError as exc:
+                raise IsolationError("shared Git configuration is busy or unavailable") from exc
+            finally:
+                if acquired:
+                    lock.unlink(missing_ok=True)
 
     # -- internals ------------------------------------------------------------------
 
@@ -1328,10 +1406,12 @@ class ContainerManager:
             return "absent"
         raise IsolationError(f"{self.runtime} inspect failed", result.argv, result.stderr)
 
-    def resource_identity(self, name: str) -> dict[str, str]:
+    def resource_identity(self, name: str, *, bindings: dict[str, Path] | None = None
+                          ) -> dict[str, str]:
         """
         @brief Read actual owned resource/image identity with strict inspect validation.
         @param[in] name Exact expected run container name.
+        @param[in] bindings Optional exact dedicated host bind mounts required for warm reuse.
         @return Container ID, image ID and observed lifecycle status.
         @exception IsolationError For missing, corrupt or foreign resources.
         """
@@ -1357,10 +1437,22 @@ class ContainerManager:
                 raise ValueError
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             raise IsolationError("container identity unavailable or corrupt") from exc
+        if bindings is not None:
+            mounts = item.get("Mounts")
+            if not isinstance(mounts, list):
+                raise IsolationError("container resource mounts are missing")
+            for destination, source in bindings.items():
+                matches = [mount for mount in mounts if isinstance(mount, dict)
+                           and mount.get("Destination") == destination]
+                if (len(matches) != 1 or matches[0].get("Type") != "bind"
+                        or not isinstance(matches[0].get("Source"), str)
+                        or os.path.normcase(matches[0]["Source"].replace("\\", "/"))
+                        != os.path.normcase(self._mount_source(source).replace("\\", "/"))):
+                    raise IsolationError("container resource belongs to another run")
         return {"container_id": cid, "image_id": image, "status": status}
 
     def release_owned(self, name: str, repo: Path, worktree: Path, io: Path,
-                      *, expected: dict | None = None) -> None:
+                      *, expected: dict | None = None) -> dict[str, list[str]]:
         """@brief Release actual owned container/proxy/network IDs despite policy drift.
         @param[in] name Derived run container name, never a deletion target by itself.
         @param[in] repo Main repository clone.
@@ -1439,6 +1531,7 @@ class ContainerManager:
             return set(values)
 
         networks = []
+        network_names = []
         for network in names:
             if not network.endswith(suffix):
                 continue
@@ -1464,6 +1557,7 @@ class ContainerManager:
             if not attached or not attached <= owned:
                 raise IsolationError("container cleanup network has unproven or foreign ownership")
             networks.append(nid)
+            network_names.append(network)
         # IDs are the sole destructive targets; a replacement under an old name is never removed.
         for record in (executor, proxy):
             if record:
@@ -1481,6 +1575,12 @@ class ContainerManager:
                 raise IsolationError("owned network deletion was not verified")
         if inspect_container(name) is not None or inspect_container(proxy_name) is not None:
             raise IsolationError("another container appeared during cleanup; retained")
+
+        return {
+            "containers_removed": [name] if executor else [],
+            "proxy_containers_removed": [proxy_name] if proxy else [],
+            "egress_networks_removed": network_names,
+        }
 
     def image_identity(self, image: str) -> str:
         """
@@ -1730,16 +1830,24 @@ class ContainerManager:
             git_mode = self._git_binding_mode(name)
             if git_mode == _GIT_BINDING_VERSION:
                 _admit_git_pointer(git_pointer, git_payload)
+        owned_id = name
+        if state != "absent":
+            identity = self.resource_identity(name, bindings={
+                CONTAINER_REPO_MOUNT: Path(repo_path),
+                CONTAINER_WORKTREE_MOUNT: Path(worktree_path),
+                CONTAINER_IO_MOUNT: Path(io_path),
+            })
+            owned_id = identity["container_id"]
         if state == "running":
             if git_mode == _GIT_BINDING_VERSION:
-                self._verify_git_binding(name, git_payload)
+                self._verify_git_binding(owned_id, git_payload)
             return "running"
         if self.egress.mode == "allowlist-proxy":
             self._ensure_proxy_context(name, io_path)
         if state != "absent":
-            self.start(name)
+            self.start(owned_id)
             if git_mode == _GIT_BINDING_VERSION:
-                self._verify_git_binding(name, git_payload)
+                self._verify_git_binding(owned_id, git_payload)
             return "started"
         Path(io_path).mkdir(parents=True, exist_ok=True)
         if git_payload is not None:
@@ -1944,6 +2052,16 @@ class ContainerManager:
         """
         self._remove_container(name)
         self.remove_egress(name)
+
+    def remove_executor(self, identity: str) -> None:
+        """@brief Remove only a verified immutable executor, preserving unproven companions.
+        @param[in] identity Observed full runtime ID; the caller proves saved ownership.
+        @exception IsolationError Invalid identity or failed executor removal.
+        @note Full path-bound executor/proxy/network release uses release_owned.
+        """
+        if re.fullmatch(r"[0-9a-f]{64}", identity) is None:
+            raise IsolationError("executor removal requires an immutable resource identity")
+        self._remove_container(identity)
 
     def remove_egress(self, name: str) -> None:
         """

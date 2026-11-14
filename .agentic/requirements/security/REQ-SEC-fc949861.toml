@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-fc949861"
+
+title = "Refuse unproven run resource effects"
+
+status = "active"
+
+requirement = "If run resource paths or branch ownership are unproven, ADORE shall refuse cleanup, checkpoint and publication with a typed error before destructive effects."
+
+verification = "Foreign paths, branches and container pins fail typed with no mutation; owned cleanup preserves a peer."
+
+affected_paths = ["04_Software/adore/isolation.py", "04_Software/adore/orchestrator.py", "04_Software/adore/execution.py", "04_Software/adore/clone_cleanup.py", "04_Software/adore/process_log.py", "04_Software/adore/cli.py"]
+
+linked_tests = ["04_Software/tests/test_shared_resources.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

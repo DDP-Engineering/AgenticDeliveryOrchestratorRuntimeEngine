@@ -25,7 +25,7 @@ from adore.isolation import ContainerManager, IsolationError, build_container_en
 from adore.util import CommandResult
 import pytest
 
-from tests.test_isolation import FakeRunner
+from tests.test_isolation import FakeRunner, owned_container_receipt
 
 # PUBLIC API / TESTS
 
@@ -301,6 +301,8 @@ def test_git_binding_warm_reuse_preserves_creation_mode(tmp_path, status, mode):
     runner = FakeRunner(*replies)
     manager = ContainerManager("docker", "test-image", "uv", "npm", runner)
 
+    runner.results.insert(2, owned_container_receipt(
+        manager, "c", tmp_path / "repo", tmp_path / "work", io))
     assert manager.provision("c", tmp_path / "repo", tmp_path / "work", io,
                              build_container_env("run-1", "Bot", "bot@example.test")) == (
         "running" if status == "running" else "started")

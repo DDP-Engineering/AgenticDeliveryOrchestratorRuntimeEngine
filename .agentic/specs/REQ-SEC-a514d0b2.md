@@ -36,22 +36,22 @@ Also governs REQ-FUNC-bcaf01be (the CLI/engine removal it triggers).
    longer exists returns the operation to administrators (developers 404).
 4. CLI `adore profile delete <name> --force --remove-resources`:
    - loads and validates the profile's configuration (invalid -> error,
-     nothing deleted); takes the conductor lock (held -> error);
+     nothing deleted); takes the full admission/run/execution barrier (any live owner -> error);
    - refuses (error, nothing deleted) when any run is neither terminal
      (`done`, `failed`, `cancelled`) nor human-owned (`handed-off`,
      `handoff-pending`), or when run state is corrupt;
    - for each run recorded in this project's state except human-owned runs,
      removes its executor container (with its egress proxy and network) and
-     its worktree directory; it never sweeps by container-name prefix or the
+     its worktree directory after exact saved/path/runtime ownership checks; it never sweeps by container-name prefix or the
      worktree root, which other projects on the host may share;
-   - releases the lock, deletes `<home>/profiles/<name>/` (profile, config and
+   - holds the barrier while deleting `<home>/profiles/<name>/` (profile, config and
      default state), and leaves a `store_root` outside ADORE home untouched;
    - prints JSON: `{"deleted": name, "containers_removed": [...],
      "worktrees_removed": [...], "worktrees_retained": [...],
      "state_retained": path|null}` and exits 0; if removing the profile
      directory fails it prints the same report with `"deleted": null` and an
      `"error"` and exits non-zero.
-   Without `--remove-resources`, `profile delete` behaves as before.
+   Without `--remove-resources`, profile deletion still requires the same project barrier.
 
 ## Data / interface
 

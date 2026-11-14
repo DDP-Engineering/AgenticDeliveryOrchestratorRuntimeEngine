@@ -23,6 +23,7 @@ import re
 import tempfile
 
 from adore.profiles import adore_home
+from adore.resource_lock import ResourceLockError, resource_lock
 from adore.util import run_command, strict_json_loads
 
 # CONSTANTS
@@ -209,7 +210,8 @@ def install_pi(*, progress: Callable[[str], None], runner=None) -> ManagedPi:
     root = adore_home().resolve() / "tools" / "pi"
     pi = ManagedPi(node, root / PI_VERSION)
     try:
-        with tempfile.TemporaryDirectory(prefix="adore-pi-install-") as directory:
+        with resource_lock(root / ".install.lock", timeout=330), \
+                tempfile.TemporaryDirectory(prefix="adore-pi-install-") as directory:
             cwd = Path(directory)
             progress("Checking Node for managed Pi.")
             _check_node(node, runner, cwd)
@@ -251,7 +253,7 @@ def install_pi(*, progress: Callable[[str], None], runner=None) -> ManagedPi:
                 candidate.prefix.rename(pi.prefix)
             progress(f"Managed Pi {PI_VERSION} is ready at {pi.prefix}.")
             return pi
-    except OSError as exc:
+    except (OSError, ResourceLockError) as exc:
         raise PiInstallationError(
             "permission-denied", f"Could not publish managed Pi at {pi.prefix}. "
             "Check the service account's write permissions or retry after another install finishes."

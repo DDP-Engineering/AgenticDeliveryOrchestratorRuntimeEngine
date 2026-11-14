@@ -141,24 +141,15 @@ remains executor-owned and will be reread; therefore reset cannot falsify a
 journal transition. Use it only after understanding the mismatch, then run
 `retry`.
 
-`cleanup` clears only a readable local lock whose recorded PID is provably gone,
-then removes the selected project's orphaned executor/proxy containers,
-egress networks and worktree directories: those of its done, cancelled and
-stale runs and of its run IDs (`<platform>-<repo>-<ticket>`) that have no
-state. Other projects on the host keep their resources even when they share
-the slug, egress network prefix or worktree root, and a proxy or network that
-any other existing executor container still uses stays. A proxy or network
-whose run has no state, worktree or executor container left stays too. Remove
-such leftovers, and those of a project that no longer has a profile, by hand
-after checking their owner. Active, failed
-and human-owned runs are protected: a failed run's container
-companions, worktree and evidence remain available for `retry`. Release those
-resources explicitly with `cancel <run-id>` while retaining audit state, or
-with irreversible `delete <run-id> --force` after separately preserving any
-required evidence. A live, different-host, unreadable, or otherwise unknown
-lock remains present and is reported as `lock_held_by`; never remove it until
-ownership is verified. Cleanup reports corrupt runs and keeps their state,
-worktree and containers.
+`cleanup` reclaims only a readable local operator lock with a provably dead owner,
+then releases verified done, cancelled and stale resources under their run locks.
+Stateless resources, corrupt or foreign identities, active/failed/human-owned work,
+and unproven container mounts are retained. It does not force-delete a worktree
+husk or prune another run's Git registration. Inspect retained resources explicitly.
+Stable kernel files in the server home's `resource-locks/` for profile-contained
+state, or `<state root>/locks` for external state, must remain while any server
+or run can use them. Profile archive/deletion refuses live execution or cleanup,
+including reservations whose state is already terminal or removed.
 
 With internet access for the agent Off (`[executor] internet = false`, the
 default) every container run has its own proxy container,
@@ -239,3 +230,10 @@ CLI: `adore --profile <name> delete <run-id> --force` reports a clean error on d
 A successful fresh start clears the discarded job's terminal summary and web usage projection so its new journal begins with fresh statistics. Cleanup errors retain remaining evidence. Container cleanup uses the actual owned proxy/network identities even when current execution or internet settings changed; a foreign member or unproven leftover network is retained for operator inspection.
 
 If a previously deleted job left a branch with no recorded ownership checkpoint, confirmed restart preserves that ref and selects an empty branch generation. It checks the base and at most three alternatives against local/remote availability and the repository naming rule. If no valid name is available, it stops before cleanup. A changed known checkpoint is never bypassed. The success message explains a retained older branch. Initial local refs are created atomically, and unowned existing worktree paths are refused.
+
+
+Kernel lock placement depends only on the canonical state-root path. Profile-contained
+state uses the server home identified by the `profiles/<profile>/...` path layout,
+with locks outside the deletable profile. External state keeps `<state root>/locks`.
+Changing ambient ADORE home cannot split ownership. A clone containing retained state
+is kept during optional clone removal.

@@ -88,6 +88,19 @@ class FakeRunner:
 # HELPER FUNCTIONS
 
 
+def owned_container_receipt(manager, name, repo, worktree, io):
+    """@brief Complete fake runtime ownership for warm provisioning."""
+    import json
+    return _ok(json.dumps([{"Id": "a" * 64, "Image": "sha256:" + "b" * 64,
+                          "Name": "/" + name, "State": {"Status": "running"},
+                          "Mounts": [{"Type": "bind", "Destination": destination,
+                                      "Source": manager._mount_source(path)}
+                                     for destination, path in [
+                                         (CONTAINER_REPO_MOUNT, repo),
+                                         (CONTAINER_WORKTREE_MOUNT, worktree),
+                                         (CONTAINER_IO_MOUNT, io)]]}]))
+
+
 def _ok(stdout: str = "") -> CommandResult:
     """
     @brief      A successful canned result.
@@ -249,8 +262,7 @@ def test_worktree_remove_missing_is_not_an_error(tmp_path: Path) -> None:
     runner = FakeRunner(_ok())  # prune only
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     manager.remove("run-1")
-    assert len(runner.calls) == 1
-    assert "prune" in runner.calls[0]
+    assert runner.calls == []
 
 
 def test_worktree_remove_with_branch_delete(tmp_path: Path) -> None:
@@ -259,12 +271,14 @@ def test_worktree_remove_with_branch_delete(tmp_path: Path) -> None:
              branch only when asked.
     """
     manager = _fake_worktree(tmp_path, "run-1", "/repo/.git/worktrees/run-1")
-    runner = FakeRunner(_ok(), _ok(), _ok("abc"), _ok())  # remove, prune, verify, -D
+    common = str(manager.repo_path / ".git")
+    runner = FakeRunner(_ok(common), _ok(common), _ok("refs/heads/adore/run-1"),
+                        _ok(str(manager.path_for("run-1"))), _ok(), _ok("abc"), _ok())
     manager.runner = runner
     manager.remove("run-1", delete_branch="adore/run-1")
-    assert runner.calls[0][3:6] == ["worktree", "remove", "--force"]
-    assert "prune" in runner.calls[1]
-    assert "-D" in runner.calls[3] and "adore/run-1" in runner.calls[3]
+    assert runner.calls[4][3:6] == ["worktree", "remove", "--force"]
+    assert not any("prune" in call for call in runner.calls)
+    assert "-D" in runner.calls[6] and "adore/run-1" in runner.calls[6]
 
 
 def test_worktree_remove_retries_past_the_wsl_bind_mount_race(tmp_path: Path) -> None:
@@ -283,9 +297,9 @@ def test_worktree_remove_retries_past_the_wsl_bind_mount_race(tmp_path: Path) ->
 
     manager.remove("run-1")
 
-    assert len(runner.calls) == 4                 # 2 failed + (remove, prune)
+    assert len(runner.calls) == 3                 # 2 failed + exact removal
     assert runner.calls[2][3:6] == ["worktree", "remove", "--force"]
-    assert "prune" in runner.calls[3]
+    assert not any("prune" in call for call in runner.calls)
     assert sleeps == [1.0, 2.0]                   # two backoff waits
 
 
@@ -887,12 +901,17 @@ def test_container_provision_is_idempotent(tmp_path: Path) -> None:
     @brief   running -> no-op; exited -> start (keep-warm resume).
     """
     running = FakeRunner(_ok("running\n"))
-    _manager(running).provision("c", "r", "w", tmp_path / "io", {})
-    assert len(running.calls) == 1  # inspect only
+    manager = _manager(running)
+    running.results.append(owned_container_receipt(manager, "c", "r", "w", tmp_path / "io"))
+    manager.provision("c", "r", "w", tmp_path / "io", {})
+    assert len(running.calls) == 2  # state plus ownership
 
-    exited = FakeRunner(_ok("exited\n"), _ok())
-    _manager(exited).provision("c", "r", "w", tmp_path / "io", {})
-    assert exited.calls[1][:2] == ["docker", "start"]
+    exited = FakeRunner(_ok("exited\n"))
+    manager = _manager(exited)
+    exited.results.extend([owned_container_receipt(manager, "c", "r", "w", tmp_path / "io"), _ok()])
+    manager.provision("c", "r", "w", tmp_path / "io", {})
+    assert exited.calls[2][:2] == ["docker", "start"]
+    assert exited.calls[2][-1] == "a" * 64
 
 
 def test_container_status_absent_vs_error() -> None:
@@ -1718,7 +1737,13 @@ def test_summary_io_failure_is_typed(tmp_path: Path, monkeypatch: pytest.MonkeyP
         raise PermissionError("denied summary")
 
     if operation == "read":
-        monkeypatch.setattr(os, "open", denied)
+        original_open = os.open
+        def deny_summary(path, *args, **kwargs):
+            """@brief Inject permission denial only at the summary read boundary."""
+            if Path(path) == source:
+                return denied()
+            return original_open(path, *args, **kwargs)
+        monkeypatch.setattr(os, "open", deny_summary)
         with pytest.raises(IsolationError, match="summary"):
             manager.read_summary("run-1", max_chars=6000)
     else:
@@ -1817,8 +1842,10 @@ def test_summary_refuses_mutation_during_observation(
     if phase == "open":
         original_open = os.open
 
-        def replace_at_open(path, flags):
-            """@brief Swap in a distinct regular file after the first path check."""
+        def replace_at_open(path, flags, *args, **kwargs):
+            """@brief Swap the summary only after its own first path check."""
+            if Path(path) != source:
+                return original_open(path, flags, *args, **kwargs)
             replacement = source.with_suffix(".new")
             replacement.write_text("replacement", encoding="utf-8")
             os.replace(replacement, source)
@@ -1834,7 +1861,7 @@ def test_summary_refuses_mutation_during_observation(
             nonlocal checks
             info = original_fstat(fd)
             checks += 1
-            if checks == 1:
+            if (info.st_dev, info.st_ino) == (source.stat().st_dev, source.stat().st_ino):
                 source.write_text("changed content", encoding="utf-8")
             return info
 

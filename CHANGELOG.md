@@ -14,6 +14,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Isolate concurrent job resources by project, serialize short shared mutations,
+  preserve concurrent metrics exports and require proven ownership for cleanup.
+- Guard project archive and deletion across every live execution and cleanup reservation.
+
 - Separate short project admission from exclusive run execution and reconciliation;
   apply the project concurrency limit to manual starts, retries and resumed work.
 - Add revision-bound single-run CLI dispatch, preserve live foreign owners and

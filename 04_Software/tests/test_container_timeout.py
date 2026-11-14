@@ -55,6 +55,7 @@ class Runtime:
         self.starts = 0
         self.resource_id = CID
         self.on_start = None
+        self.bindings = []
 
     def __call__(self, argv, **kwargs):
         """@brief Simulate the external Docker-compatible CLI contract.
@@ -82,7 +83,7 @@ class Runtime:
             ) else IMAGE
             return CommandResult(stdout=json.dumps([{
                 "Id": resource, "Image": image, "Name": "/" + NAME,
-                "State": {"Status": self.status},
+                "State": {"Status": self.status}, "Mounts": self.bindings,
             }]))
         if operation == "exec":
             self.executions.append(list(argv))
@@ -170,6 +171,11 @@ def test_normal_provision_resumes_a_confirmed_timeout_resource(tmp_path):
     runtime = Runtime([CommandResult(exit_code=124, timed_out=True)])
     backend, target, _expected = bound(runtime)
     assert target(["work"]).timed_out
+    runtime.bindings = [{"Type": "bind", "Destination": destination,
+                         "Source": str(path).replace("\\", "/")}
+                        for destination, path in [("/adore/repo", tmp_path),
+                                                  ("/adore/work", tmp_path),
+                                                  ("/adore/io", tmp_path / "io")]]
     assert backend.provision(NAME, tmp_path, tmp_path, tmp_path / "io", {}) == "started"
     assert runtime.stops == runtime.starts == 1
     assert target(["next"]).ok

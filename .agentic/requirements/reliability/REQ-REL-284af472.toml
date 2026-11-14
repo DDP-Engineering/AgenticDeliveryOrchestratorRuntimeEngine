@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-284af472"
+
+title = "Serialize shared repository mutations without holding execution"
+
+status = "active"
+
+requirement = "When independent runs modify one shared repository, ADORE shall serialize bounded Git mutation sequences outside agent execution."
+
+verification = "Two concurrent injected managers provision and checkpoint without overlapping shared mutations; exhausted contention raises IsolationError."
+
+affected_paths = ["04_Software/adore/isolation.py", "04_Software/adore/resource_lock.py"]
+
+linked_tests = ["04_Software/tests/test_shared_resources.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

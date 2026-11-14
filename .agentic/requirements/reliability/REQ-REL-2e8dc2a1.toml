@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-2e8dc2a1"
+
+title = "Serialize common prerequisite and credential mutations independently"
+
+status = "active"
+
+requirement = "When common Pi installation or ChatGPT refresh is requested concurrently, ADORE shall serialize each mutation under an independent bounded resource lock."
+
+verification = "Concurrent refresh helpers serialize and return separate tokens; failures release ownership; installed Pi verification remains independent."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/pi_installation.py", "04_Software/adore/resource_lock.py"]
+
+linked_tests = ["04_Software/tests/test_shared_resources.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

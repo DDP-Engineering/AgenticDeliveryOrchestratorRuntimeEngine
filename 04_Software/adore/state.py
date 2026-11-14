@@ -26,7 +26,7 @@ from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta
 import hashlib
@@ -539,6 +539,23 @@ class StateStore:
         return self.root / "runs"
 
     @property
+    def locks_root(self) -> Path:
+        """@brief Resolve stable kernel storage solely from the canonical state path.
+        @return Server-level storage for profile-contained state, otherwise root/locks.
+        @note External state survives profile deletion; profile-owned locks must live
+              outside the profile, independently of a web server's explicit --home.
+        """
+        from adore.profiles import PROFILES_DIR
+
+        root = self.root.resolve()
+        profile_homes = [part.parent.parent for part in (root, *root.parents)
+                         if os.path.normcase(part.parent.name) == os.path.normcase(PROFILES_DIR)]
+        if not profile_homes:
+            return root / "locks"
+        key = hashlib.sha256(os.path.normcase(str(root)).encode()).hexdigest()
+        return profile_homes[-1] / "resource-locks" / "state" / key
+
+    @property
     def lock_path(self) -> Path:
         """
         @brief   The single-instance lock file path.
@@ -918,7 +935,7 @@ class StateStore:
         if name in held:
             yield
             return
-        directory = self.root / "locks"
+        directory = self.locks_root
         try:
             directory.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
@@ -966,6 +983,26 @@ class StateStore:
             finally:
                 handle.close()
 
+    @contextmanager
+    def project_barrier(self) -> Iterator[None]:
+        """@brief Exclude admission and every run/cleanup owner for project removal.
+        @exception LockHeldError Any owned run or execution reservation is active.
+        @exception StateError Corrupt run state or lock storage.
+        @note Acquire all scopes before the first effect, including absent run state.
+        """
+        with self.admission_lock(), ExitStack() as scopes:
+            if self.invalid_runs():
+                raise StateError("corrupt run state blocks project resource barrier")
+            identities = {run.run_id for run in self.list_runs()}
+            for path in self.locks_root.glob("*.lock"):
+                for prefix in ("run-", "execution-"):
+                    if path.name.startswith(prefix):
+                        identities.add(path.name[len(prefix):-len(".lock")])
+            for run_id in sorted(identities):
+                scopes.enter_context(self.run_lock(run_id))
+                scopes.enter_context(self.execution_slot(run_id))
+            yield
+
     def owns_run_lock(self, run_id: str) -> bool:
         """@brief Whether this thread already conducts the run under a kernel lock."""
         return "run-" + run_id in getattr(self._scoped_locks, "held", set())
@@ -994,7 +1031,7 @@ class StateStore:
         @return Set of run identities with a held kernel execution slot.
         """
         result = set()
-        for path in (self.root / "locks").glob("execution-*.lock"):
+        for path in self.locks_root.glob("execution-*.lock"):
             run_id = path.name[len("execution-"):-len(".lock")]
             # The current thread's reservation also counts for other run IDs.
             if "execution-" + run_id in getattr(self._scoped_locks, "held", set()):
@@ -1010,6 +1047,9 @@ class StateStore:
     @contextmanager
     def admission_lock(self) -> Iterator[None]:
         """@brief Serialize short local reservations and preserve operator exclusion."""
+        if "admission" in getattr(self._scoped_locks, "held", set()):
+            yield
+            return
         with self._scope_lock("admission"):
             if not self.acquire_lock():
                 raise LockHeldError("another instance holds the admission lock")
@@ -1171,13 +1211,18 @@ class StateStore:
         if self.before_write is not None:
             self.before_write()
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        with tmp.open("w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-        if self.before_write is not None:
-            self.before_write()
-        tmp.replace(path)
+        descriptor, temporary = tempfile.mkstemp(prefix="." + path.name + "-", dir=path.parent)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                json.dump(data, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            if self.before_write is not None:
+                self.before_write()
+            os.replace(temporary, path)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
 
 
 # END OF FILE

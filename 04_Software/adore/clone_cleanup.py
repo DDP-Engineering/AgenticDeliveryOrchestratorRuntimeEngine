@@ -217,8 +217,6 @@ def project_clone_decision(
                 made by the local backend while the project now uses containers.
     @param[in]  runs The project's run states.
     """
-    from adore.isolation import WorktreeManager
-
     decision = clone_decision(
         store,
         name,
@@ -229,16 +227,25 @@ def project_clone_decision(
     )
     if not decision.removable:
         return decision
-    worktrees = WorktreeManager(config.worktree.repo_path, config.worktree.root, runner)
+    state_root = getattr(getattr(config, "state", None), "store_root", "")
+    if state_root:
+        from adore.state import StateStore
+        clone = Path(decision.path)
+        if (Path(state_root).resolve().is_relative_to(clone)
+                or StateStore(state_root).locks_root.is_relative_to(clone)):
+            return _keep(decision.path, "shared")  # Retained state and stable lock inodes survive.
     swept = set()
     for run in runs:
         kept = run.lifecycle in {"handed-off", "handoff-pending"} or (
             config.execution.backend != "local"
             and run.execution.get("plan", {}).get("backend") == "local"
         )
-        if kept and worktrees.path_for(run.run_id).is_dir():
+        if not run.worktree:
+            continue  # No saved path grants no authority to sweep a derived name.
+        folder = Path(run.worktree).resolve()
+        if kept and folder.is_dir():
             return _keep(decision.path, "worktrees")
-        swept.add(worktrees.path_for(run.run_id).resolve())
+        swept.add(folder)
     # A linked worktree that is not one of this project's runs survives the sweep.
     if any(folder not in swept for folder in _linked_folders(Path(decision.path))):
         return _keep(decision.path, "worktrees")

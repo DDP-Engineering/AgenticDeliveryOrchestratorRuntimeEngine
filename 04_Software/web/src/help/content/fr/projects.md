@@ -63,6 +63,8 @@ Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le 
 
 ## Archiver, restaurer et supprimer {#lifecycle}
 
+L’archivage et la suppression exigent la fin de l’exécution et du nettoyage de toutes les tâches, même si leur état indique déjà une fin. Les ressources sans propriété prouvée sont conservées pour inspection.
+
 Les administrateurs trouvent ces boutons dans l’onglet Résumé.
 
 - **Archiver le projet** fonctionne une fois les tâches terminées et les demandes en file traitées. Il conserve les paramètres, l’historique, les statistiques et les enregistrements d’audit, et arrête tout nouveau travail. **Restaurer le projet** le ramène.

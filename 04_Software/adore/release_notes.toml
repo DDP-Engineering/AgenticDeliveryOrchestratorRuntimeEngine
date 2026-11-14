@@ -25,6 +25,11 @@ category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Concurrent jobs share project limits; waiting uses no active time and live jobs stay protected.", fr = "Les tâches partagent la limite du projet ; l’attente ne consomme pas de temps actif.", de = "Parallele Aufträge teilen die Projektgrenze; Wartezeit zählt nicht als aktive Arbeit.", ro = "Lucrările respectă limita proiectului; așteptarea nu consumă timp activ." }
 
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Concurrent jobs keep separate resources; stopping one preserves the others and their statistics.", fr = "Les tâches simultanées gardent leurs ressources et statistiques lors de l’arrêt d’une autre tâche.", de = "Parallele Aufträge behalten eigene Ressourcen und Statistiken, wenn ein anderer gestoppt wird.", ro = "Lucrările simultane își păstrează resursele și statisticile când o altă lucrare este oprită." }
+
 [[release]]
 version = "0.15.0"
 date = "2026-11-12"

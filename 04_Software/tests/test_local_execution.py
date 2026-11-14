@@ -561,6 +561,7 @@ def test_local_conductor_pins_target_parks_retries_and_never_lists_containers(
     config.delivery.publish_checkpoints = False
     trees.repo_path = work
     trees.create = lambda *args: work
+    trees.path_for = lambda _: work
     containers.list_executors = lambda *args: pytest.fail("local container inventory")
 
     class Client(FakeAegis):
@@ -931,6 +932,7 @@ def test_container_cleanup_retains_persisted_native_worktree(tmp_path, monkeypat
     # The pinned environment includes the state root, so bind the backend after moving it.
     config.state.store_root = str(engine.store.root)
     backend = LocalBackend(config, context=context, controller=controller)
+    trees.path_for = lambda _: work
     run = make_run(engine)
     backend.provision(run.container, work, work, engine._io_dir(run.run_id), {})
     run.execution = {

@@ -325,6 +325,8 @@ Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt.
 \r
 Jedes Projekt hat eine gemeinsame Grenze für gleichzeitige Aufträge: Start, Wiederholen, Neustart und Fortsetzung. Die Überwachungspause stoppt die automatische Aufnahme und lässt den ausdrücklichen Start zu. Eine niedrigere Grenze lässt bestehende Aufträge weiterlaufen. Wartende Befehle und abgeschlossene Übergänge zur Klärungs-, Freigabe- oder Review-Wartephase nutzen keinen Executor; Initialisierung und Bereinigung behalten ihren Platz bis zur sicheren Freigabe. Warten vor der Ausführung verbraucht keine aktive Arbeitszeit.\r
 \r
+Parallele Aufträge haben eigene Arbeitsordner, Ressourcen, Zugangsdaten und Ausgaben. Wird einer abgebrochen, laufen die anderen weiter. Gemeinsame Aktualisierungen können warten; bereite Agenten arbeiten weiter.\r
+\r
 ## Phasen {#stages}\r
 \r
 ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.\r
@@ -498,91 +500,93 @@ Entwickler beginnen bei Schritt 3, sobald ein Administrator ihnen Zugriff auf ei
 - [Statistiken und Kosten](/help/statistics): Nutzung, Qualität, Trends und geschätzte Kosten.
 - [Verwaltung](/help/administration): Benutzer, Zugriff, Systemstatus und Änderungsverlauf.
 - [Glossar](/help/glossary): die in der Oberfläche verwendeten Begriffe.
-`,Ez=`# Repository hinzufügen
-
-Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
-
-Fügen Sie ein Repository als Projekt hinzu, damit ADORE seine bereiten Tickets aufnehmen, einen Coding-Agenten darauf ansetzen und Entwürfe für Merge Requests oder Pull Requests zur menschlichen Prüfung veröffentlichen kann. Nur Administratoren fügen Projekte hinzu, und ADORE führt nie einen Merge aus.
-
-
-Eine aktuelle Umgebungsprüfung wird an das erstellte Projekt übertragen. Ungeprüfte Voraussetzungen bleiben teilweise geprüft; Konfigurationsänderungen machen das Ergebnis veraltet. Wiederholen Sie eine abgelaufene Prüfung.
-
-
-Eine erfolgreiche externe CLI-Anmeldung bleibt teilweise geprüft, da sie sich außerhalb von ADORE unbemerkt ändern kann. Verbinden Sie den Repository-Zugang und prüfen Sie erneut, um die Projekt-Zugangsdaten zu binden.
-
-## Bevor Sie beginnen {#before-you-start}
-
-Halten Sie Folgendes bereit:
-
-- Die Repository-Adresse (https oder ssh), die das Konto des ADORE-Servers lesen kann. ADORE klont das Repository beim Erstellen des Projekts in einen eigenen Ordner.
-- Ein GitLab-, GitHub- oder Gitea-Konto, das Tickets lesen und aktualisieren und Review-Entwürfe erstellen darf.
-- Die Namen des Bereitschafts- und des Freigabelabels. Ein Mensch setzt das Bereitschaftslabel, damit ein Ticket aufgenommen werden kann; siehe [Tickets für die automatische Aufnahme](/help/tickets#labels).
-- Die Modell-ID für Pi und bei Containern einen laufenden Docker- oder Podman-Dienst. Das gemeinsame Standardimage wird beim Import automatisch vorbereitet; eigene Images müssen bereits in diesem Dienst vorhanden sein. Siehe [Executor und Modelle](/help/executors).
-
-## Neues Projekt registrieren {#add-project}
-
-Wählen Sie unter [Projekte](/projects) **Neues Projekt registrieren**. Der geführte Assistent beginnt mit Repository und Identität und besteht aus fünf Schritten; jede Änderung einer Angabe macht frühere Validierungen und Prüfungen ungültig.
-
-Wenn keine Projekte mehr vorhanden sind, bieten Übersicht und Projekte Administratoren **Neues Projekt registrieren** und **Rohkonfiguration importieren** an. Nach dem Löschen des letzten Projekts kehren Sie zu Projekte zurück, wo beide Aktionen verfügbar bleiben.
-
-| Schritt | Was abgefragt wird |
-|---|---|
-| Repository und Identität | **Repository-URL** und **Repository lesen**: ADORE füllt **Forge**, **Repository**, **Gitea tea login**, **Zielbranch** und die Projekt-ID zur Bestätigung aus und schlägt einen änderbaren **Lokaler Klonpfad** vor. **Weiter** bleibt deaktiviert, bis das Repository gelesen wurde. **Anzeigename** beginnt mit dem Repository-Namen; **Beschreibung** ist optional. |
-| Agent und Modell | Wählen Sie **Anbieter**, **Modell** und bei Bedarf den Endpunkt. Wählen Sie für einen Container Laufzeit und Image. Speichern Sie den Anbieterschlüssel nach der Erstellung unter Einstellungen. Unter **Auf dem Server installiert** erscheinen das aktuelle Systemkonto und der optionale **PATH für Projektwerkzeuge**. |
-| Eignung, Prüfer und Grenzen | **Bereitschaftslabel**, **Freigabelabel**, optional **Prüfende (kommagetrennt)** und vier Auftragslimits: Executor-Starts, aktive Sekunden, gemeldete Kosten in USD und geänderte Dateien. Ein Kostenlimit von 0 schaltet dieses Limit ab; es bedeutet nicht kostenlos. |
-| Überprüfung | Beim Öffnen dieses Schritts werden Konfiguration, Serverordner, Git und Forge-Zugriff automatisch geprüft. **Umgebung erneut prüfen** wiederholt diese Prüfungen. **Workflow** zeigt separat den beobachteten Repository-Workflow, ohne die Registrierung zu sperren. Bei Ausführung auf dem Server zeigt **Pi auf dem Server** lokale Fehler wie inkompatible Node-Versionen. Bei Containerausführung werden die Engine und Pi im lokalen Image geprüft. Es wird nichts veröffentlicht. **Weiter** öffnet die Prüfung, sobald die Konfiguration gültig ist. |
-| Prüfen und erstellen | Zeigt den exakten Kandidaten und die Serverorte sowie eine eingeklappte Liste **Auf Standard belassene Einstellungen** mit dem Standardwert jeder weiteren Einstellung (nur lesbar; nach dem Erstellen in den Einstellungen änderbar). **Ändern** führt zu einem Schritt zurück. **Mit gestoppter Aufnahme erstellen** klont zuerst das Repository (aus einer URL), prüft den Zielbranch und speichert dann das Projekt; sofern Sie **ADORE-Labels im Repository anlegen** nicht abwählen, legt es die fehlenden ADORE-Labels an und zeigt das Ergebnis; danach folgt **Projekt öffnen**. |
-
-Für die native lokale Ausführung wählen Sie **Ausführung → Auf dem Server installiert**. Spezialisierte Container-Setups verwenden die erweiterte Server-TOML-Methode weiter unten.
-
-Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unter dem aktuellen Systemkonto. Der optionale **PATH für Projektwerkzeuge** bestimmt die Werkzeugordner. Siehe [Pi auf dem Server installieren](/help/executors#installed-executors).
-
-**Automatischer Speicherort** behält den vorgeschlagenen Klonpfad bei. Wählen Sie **Eigener Speicherort** und **Ordner wählen…**, um Ordner auf dem ADORE-Rechner zu durchsuchen. Ein Klick wählt eine Zeile; Doppelklick oder Eingabe öffnet den Ordner. Nutzen Sie Zurück oder Übergeordneter Ordner und dann **Ordner auswählen**, um genau den bestehenden Ordner zu bestätigen. Ein neues Ziel geben Sie direkt im Klonpfad des Hauptformulars ein. Die Auswahl erstellt nichts; Links und Netzwerkpfade werden abgewiesen. **Abbrechen** erhält den Entwurf. Ein beim Laden eingegebener Ordnerpfad bleibt in der Adressleiste stehen.
-
-**Zielbranch** listet die Remote-Branches von GitHub, GitLab und Gitea auf, auch bei eigenen Instanzen. Der Standardbranch des Repositorys ist ausgewählt und mit **Standard** markiert. Wählen Sie bei Bedarf einen anderen Branch. **Repository lesen** aktualisiert die Liste und behält eine ausdrückliche Auswahl bei, solange der Branch existiert. Eine andere URL löscht die bisherigen Optionen. Ohne gemeldeten Standardbranch wählen Sie selbst; ohne Branches legen Sie zuerst einen im Repository an und lesen es erneut. Der Git-Zugriff des ADORE-Kontos wird verwendet; unbekannte Forge-Typen werden weiterhin manuell gewählt.
-
-## Repository-Workflows {#workflows}
-
-Bei Bestätigung der geführten Registrierung oder eines Konfigurationsimports bereitet ADORE fehlende gemeinsame Ausführungs- und Proxy-Images vor dem Speichern des Projekts vor. Die aktuelle Phase wird angezeigt; die erste Vorbereitung kann mehrere Minuten dauern und benötigt Internet auf dem Server. Weitere Importe verwenden die Images erneut. Nach einem Vorbereitungsfehler können Sie den Import ohne erneute Eingabe derselben Antworten wiederholen. Native Importe überspringen die Container-Vorbereitung. Eigene Images bleiben Aufgabe des Administrators.
-
-**AEGIS / Direkt**. Der Agent wählt und führt Prüfungen gemäß den Repository-Anweisungen aus. Mit AEGIS folgt er den gespeicherten Phasen, sonst implementiert er das Ticket direkt. ADORE beobachtet Fortschritt und Journal, speichert den Kandidaten und fordert menschliche Freigabe an. Es startet keine zusätzlichen Repository-Tests oder strikten AEGIS-Prüfungen.
-
-## Originalkonfiguration importieren {#import-project}
-
-Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei \`config.toml\`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau.
-
-Wählen Sie die vollständige exportierte ZIP direkt: Konfiguration und Image-Definitionen werden zusammen importiert. ADORE prüft auch den Quellgraphen, die Image-Zuordnung und vorhandene Definitionen. Eine andere Definition mit demselben Root-Image-Namen wird abgelehnt. TOML-Dateien dürfen bis zu 512 KiB, ZIPs bis zu 18 MiB groß sein. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei. Siehe [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml).
-
-
-Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, sobald ein Administrator ihnen auf dem Reiter **Zugriff** Zugriff gewährt. Auf dem Reiter **Zusammenfassung**:
-
-1. Wählen Sie **Repository-Zugang**. Geben Sie die Adresse des Forge-Servers und ein in der Forge erstelltes Zugriffstoken ein, dann **Prüfen und verbinden**. Das bestätigt das Konto und den Lesezugriff auf das Repository. Das Token bleibt auf dem Server, nie im Browser. Alternativ melden Sie das Forge-Werkzeug unter dem ADORE-Dienstkonto an.
-2. Wählen Sie **Host-Voraussetzungen prüfen**. Die Details betreffen Git, das Repository-Befehlswerkzeug, die Repository-Anmeldung, die Container-Engine, Pi im Image, bei einem ChatGPT-Abonnement außerdem die ChatGPT-Anmeldung des Servers, bei ausgeschaltetem [Internetzugang](/help/executors#internet) das Netzwerk-Proxy-Image und den Websuche-Schlüssel, wenn Brave oder Tavily einen braucht. Für ein Projekt, das direkt auf dem Server läuft, ersetzt **Lokale Ausführung** die Zeilen zu Container-Engine und Image: Sie prüft kompatibles Node, das von ADORE verwaltete Pi und die Zugangsdaten des Anbieters. Die separate Zeile **Workflow** bestimmt den Workflow, ohne AEGIS auszuführen. Das ist kein vollständiger Auftrag und belegt keine Push-Berechtigung.
-3. Führen Sie **KI-Verbindung testen** in den Einstellungen aus, wie unter [Executor und Modelle](/help/executors#test-connection) beschrieben.
-4. Wählen Sie **Überwachung aktivieren**. Die Kachel Überwachung wechselt von Pausiert auf Aktiv, und ADORE beginnt, Tickets mit dem Bereitschaftslabel aufzunehmen. **Überwachung pausieren** stoppt neue Aufnahmen, unterbricht aber keinen laufenden Auftrag.
-
-## Archivieren, wiederherstellen und löschen {#lifecycle}
-
-Administratoren finden diese Schaltflächen auf dem Reiter Zusammenfassung.
-
-- **Projekt archivieren** funktioniert, nachdem Aufträge beendet und eingereihte Anfragen abgearbeitet sind. Es behält Einstellungen, Verlauf, Kennzahlen und Audit-Einträge und stoppt neue Arbeit. **Projekt wiederherstellen** bringt es zurück.
-- **Projekt löschen** erscheint nur bei archivierten Projekten und verlangt die Eingabe des Projektnamens. Es entfernt die ADORE-Einstellungen, den Auftragsverlauf, die Kennzahlen, die Container und die Worktrees des Projekts. Erhalten bleiben das Repository und seine Branches, Worktrees von an eine Person übergebenen Aufträgen, ein Auftragsstatus-Ordner außerhalb des ADORE-Verzeichnisses und der Audit-Verlauf. Das Löschen wird abgelehnt, solange Arbeit eingereiht oder nicht abgeschlossen ist. **Auch den lokalen Klon entfernen** (nicht angehakt) löscht zusätzlich den Klon, den ADORE in seinem Ordner \`repos\` angelegt hat; die Option erscheint nur für einen sauberen Klon des Repositorys dieses Projekts, den kein anderes Projekt nutzt und kein beim Löschen behaltener Worktree mehr braucht, sonst nennt der Dialog den Grund, warum der Klon bleibt.
-
-> Das Löschen kann nicht rückgängig gemacht werden. Um ein Projekt danach anzupassen, siehe [Projekteinstellungen](/help/settings).
-
-## Gitea-Anmeldung auf diesem Rechner {#gitea-sign-in}
-
-ADORE nutzt zuerst die gespeicherte Projektverbindung. Andernfalls verwendet es die tea-Konfiguration des aktuellen Kontos. Meldet tea eine fehlende Anmeldung, prüft ADORE die Windows- oder Linux-Standardpfade und wählt die konfigurierte Anmeldung, genau eine Standardanmeldung oder die einzige vorhandene Anmeldung. Mehrere Konten ohne eindeutige Auswahl erfordern eine ausdrückliche Verbindung.
-
-Die Erkennung beachtet \`XDG_CONFIG_HOME\`. Unter Windows prüft sie außerdem Local AppData, Roaming AppData und \`.config\` im Benutzerverzeichnis; unter Linux \`.config\` im Benutzerverzeichnis. Private Anwendungscaches werden nicht durchsucht und Zugangsdaten nicht zwischen Rechnern kopiert.
-
-1. Öffnen Sie die **Übersicht** des Projekts und wählen Sie **Repository-Zugang**.
-2. Geben Sie den Gitea-Ursprung bei Bedarf mit Port unter **Repository-Server** ein.
-3. Erstellen Sie dort ein Token für das Konto mit Lese-/Änderungsrechten für Tickets und Entwurfsreviews und tragen Sie es unter **Zugriffstoken** ein.
-4. Wählen Sie **Prüfen und verbinden**. Ein HTTP-Server erfordert die angezeigte Bestätigung. Ein Fehler erhält die gespeicherte Verbindung.
-5. Prüfen Sie die Host-Voraussetzungen erneut. Git-Zugangsdaten für clone/push werden getrennt eingerichtet.
-
-Richten Sie auf einem anderen Rechner dessen eigene CLI-Anmeldung ein oder nutzen Sie dieses Formular. Das Lieferarchiv enthält keine Benutzertokens.
+`,Ez=`# Repository hinzufügen\r
+\r
+Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.\r
+\r
+Fügen Sie ein Repository als Projekt hinzu, damit ADORE seine bereiten Tickets aufnehmen, einen Coding-Agenten darauf ansetzen und Entwürfe für Merge Requests oder Pull Requests zur menschlichen Prüfung veröffentlichen kann. Nur Administratoren fügen Projekte hinzu, und ADORE führt nie einen Merge aus.\r
+\r
+\r
+Eine aktuelle Umgebungsprüfung wird an das erstellte Projekt übertragen. Ungeprüfte Voraussetzungen bleiben teilweise geprüft; Konfigurationsänderungen machen das Ergebnis veraltet. Wiederholen Sie eine abgelaufene Prüfung.\r
+\r
+\r
+Eine erfolgreiche externe CLI-Anmeldung bleibt teilweise geprüft, da sie sich außerhalb von ADORE unbemerkt ändern kann. Verbinden Sie den Repository-Zugang und prüfen Sie erneut, um die Projekt-Zugangsdaten zu binden.\r
+\r
+## Bevor Sie beginnen {#before-you-start}\r
+\r
+Halten Sie Folgendes bereit:\r
+\r
+- Die Repository-Adresse (https oder ssh), die das Konto des ADORE-Servers lesen kann. ADORE klont das Repository beim Erstellen des Projekts in einen eigenen Ordner.\r
+- Ein GitLab-, GitHub- oder Gitea-Konto, das Tickets lesen und aktualisieren und Review-Entwürfe erstellen darf.\r
+- Die Namen des Bereitschafts- und des Freigabelabels. Ein Mensch setzt das Bereitschaftslabel, damit ein Ticket aufgenommen werden kann; siehe [Tickets für die automatische Aufnahme](/help/tickets#labels).\r
+- Die Modell-ID für Pi und bei Containern einen laufenden Docker- oder Podman-Dienst. Das gemeinsame Standardimage wird beim Import automatisch vorbereitet; eigene Images müssen bereits in diesem Dienst vorhanden sein. Siehe [Executor und Modelle](/help/executors).\r
+\r
+## Neues Projekt registrieren {#add-project}\r
+\r
+Wählen Sie unter [Projekte](/projects) **Neues Projekt registrieren**. Der geführte Assistent beginnt mit Repository und Identität und besteht aus fünf Schritten; jede Änderung einer Angabe macht frühere Validierungen und Prüfungen ungültig.\r
+\r
+Wenn keine Projekte mehr vorhanden sind, bieten Übersicht und Projekte Administratoren **Neues Projekt registrieren** und **Rohkonfiguration importieren** an. Nach dem Löschen des letzten Projekts kehren Sie zu Projekte zurück, wo beide Aktionen verfügbar bleiben.\r
+\r
+| Schritt | Was abgefragt wird |\r
+|---|---|\r
+| Repository und Identität | **Repository-URL** und **Repository lesen**: ADORE füllt **Forge**, **Repository**, **Gitea tea login**, **Zielbranch** und die Projekt-ID zur Bestätigung aus und schlägt einen änderbaren **Lokaler Klonpfad** vor. **Weiter** bleibt deaktiviert, bis das Repository gelesen wurde. **Anzeigename** beginnt mit dem Repository-Namen; **Beschreibung** ist optional. |\r
+| Agent und Modell | Wählen Sie **Anbieter**, **Modell** und bei Bedarf den Endpunkt. Wählen Sie für einen Container Laufzeit und Image. Speichern Sie den Anbieterschlüssel nach der Erstellung unter Einstellungen. Unter **Auf dem Server installiert** erscheinen das aktuelle Systemkonto und der optionale **PATH für Projektwerkzeuge**. |\r
+| Eignung, Prüfer und Grenzen | **Bereitschaftslabel**, **Freigabelabel**, optional **Prüfende (kommagetrennt)** und vier Auftragslimits: Executor-Starts, aktive Sekunden, gemeldete Kosten in USD und geänderte Dateien. Ein Kostenlimit von 0 schaltet dieses Limit ab; es bedeutet nicht kostenlos. |\r
+| Überprüfung | Beim Öffnen dieses Schritts werden Konfiguration, Serverordner, Git und Forge-Zugriff automatisch geprüft. **Umgebung erneut prüfen** wiederholt diese Prüfungen. **Workflow** zeigt separat den beobachteten Repository-Workflow, ohne die Registrierung zu sperren. Bei Ausführung auf dem Server zeigt **Pi auf dem Server** lokale Fehler wie inkompatible Node-Versionen. Bei Containerausführung werden die Engine und Pi im lokalen Image geprüft. Es wird nichts veröffentlicht. **Weiter** öffnet die Prüfung, sobald die Konfiguration gültig ist. |\r
+| Prüfen und erstellen | Zeigt den exakten Kandidaten und die Serverorte sowie eine eingeklappte Liste **Auf Standard belassene Einstellungen** mit dem Standardwert jeder weiteren Einstellung (nur lesbar; nach dem Erstellen in den Einstellungen änderbar). **Ändern** führt zu einem Schritt zurück. **Mit gestoppter Aufnahme erstellen** klont zuerst das Repository (aus einer URL), prüft den Zielbranch und speichert dann das Projekt; sofern Sie **ADORE-Labels im Repository anlegen** nicht abwählen, legt es die fehlenden ADORE-Labels an und zeigt das Ergebnis; danach folgt **Projekt öffnen**. |\r
+\r
+Für die native lokale Ausführung wählen Sie **Ausführung → Auf dem Server installiert**. Spezialisierte Container-Setups verwenden die erweiterte Server-TOML-Methode weiter unten.\r
+\r
+Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unter dem aktuellen Systemkonto. Der optionale **PATH für Projektwerkzeuge** bestimmt die Werkzeugordner. Siehe [Pi auf dem Server installieren](/help/executors#installed-executors).\r
+\r
+**Automatischer Speicherort** behält den vorgeschlagenen Klonpfad bei. Wählen Sie **Eigener Speicherort** und **Ordner wählen…**, um Ordner auf dem ADORE-Rechner zu durchsuchen. Ein Klick wählt eine Zeile; Doppelklick oder Eingabe öffnet den Ordner. Nutzen Sie Zurück oder Übergeordneter Ordner und dann **Ordner auswählen**, um genau den bestehenden Ordner zu bestätigen. Ein neues Ziel geben Sie direkt im Klonpfad des Hauptformulars ein. Die Auswahl erstellt nichts; Links und Netzwerkpfade werden abgewiesen. **Abbrechen** erhält den Entwurf. Ein beim Laden eingegebener Ordnerpfad bleibt in der Adressleiste stehen.\r
+\r
+**Zielbranch** listet die Remote-Branches von GitHub, GitLab und Gitea auf, auch bei eigenen Instanzen. Der Standardbranch des Repositorys ist ausgewählt und mit **Standard** markiert. Wählen Sie bei Bedarf einen anderen Branch. **Repository lesen** aktualisiert die Liste und behält eine ausdrückliche Auswahl bei, solange der Branch existiert. Eine andere URL löscht die bisherigen Optionen. Ohne gemeldeten Standardbranch wählen Sie selbst; ohne Branches legen Sie zuerst einen im Repository an und lesen es erneut. Der Git-Zugriff des ADORE-Kontos wird verwendet; unbekannte Forge-Typen werden weiterhin manuell gewählt.\r
+\r
+## Repository-Workflows {#workflows}\r
+\r
+Bei Bestätigung der geführten Registrierung oder eines Konfigurationsimports bereitet ADORE fehlende gemeinsame Ausführungs- und Proxy-Images vor dem Speichern des Projekts vor. Die aktuelle Phase wird angezeigt; die erste Vorbereitung kann mehrere Minuten dauern und benötigt Internet auf dem Server. Weitere Importe verwenden die Images erneut. Nach einem Vorbereitungsfehler können Sie den Import ohne erneute Eingabe derselben Antworten wiederholen. Native Importe überspringen die Container-Vorbereitung. Eigene Images bleiben Aufgabe des Administrators.\r
+\r
+**AEGIS / Direkt**. Der Agent wählt und führt Prüfungen gemäß den Repository-Anweisungen aus. Mit AEGIS folgt er den gespeicherten Phasen, sonst implementiert er das Ticket direkt. ADORE beobachtet Fortschritt und Journal, speichert den Kandidaten und fordert menschliche Freigabe an. Es startet keine zusätzlichen Repository-Tests oder strikten AEGIS-Prüfungen.\r
+\r
+## Originalkonfiguration importieren {#import-project}\r
+\r
+Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei \`config.toml\`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau.\r
+\r
+Wählen Sie die vollständige exportierte ZIP direkt: Konfiguration und Image-Definitionen werden zusammen importiert. ADORE prüft auch den Quellgraphen, die Image-Zuordnung und vorhandene Definitionen. Eine andere Definition mit demselben Root-Image-Namen wird abgelehnt. TOML-Dateien dürfen bis zu 512 KiB, ZIPs bis zu 18 MiB groß sein. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei. Siehe [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml).\r
+\r
+\r
+Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, sobald ein Administrator ihnen auf dem Reiter **Zugriff** Zugriff gewährt. Auf dem Reiter **Zusammenfassung**:\r
+\r
+1. Wählen Sie **Repository-Zugang**. Geben Sie die Adresse des Forge-Servers und ein in der Forge erstelltes Zugriffstoken ein, dann **Prüfen und verbinden**. Das bestätigt das Konto und den Lesezugriff auf das Repository. Das Token bleibt auf dem Server, nie im Browser. Alternativ melden Sie das Forge-Werkzeug unter dem ADORE-Dienstkonto an.\r
+2. Wählen Sie **Host-Voraussetzungen prüfen**. Die Details betreffen Git, das Repository-Befehlswerkzeug, die Repository-Anmeldung, die Container-Engine, Pi im Image, bei einem ChatGPT-Abonnement außerdem die ChatGPT-Anmeldung des Servers, bei ausgeschaltetem [Internetzugang](/help/executors#internet) das Netzwerk-Proxy-Image und den Websuche-Schlüssel, wenn Brave oder Tavily einen braucht. Für ein Projekt, das direkt auf dem Server läuft, ersetzt **Lokale Ausführung** die Zeilen zu Container-Engine und Image: Sie prüft kompatibles Node, das von ADORE verwaltete Pi und die Zugangsdaten des Anbieters. Die separate Zeile **Workflow** bestimmt den Workflow, ohne AEGIS auszuführen. Das ist kein vollständiger Auftrag und belegt keine Push-Berechtigung.\r
+3. Führen Sie **KI-Verbindung testen** in den Einstellungen aus, wie unter [Executor und Modelle](/help/executors#test-connection) beschrieben.\r
+4. Wählen Sie **Überwachung aktivieren**. Die Kachel Überwachung wechselt von Pausiert auf Aktiv, und ADORE beginnt, Tickets mit dem Bereitschaftslabel aufzunehmen. **Überwachung pausieren** stoppt neue Aufnahmen, unterbricht aber keinen laufenden Auftrag.\r
+\r
+## Archivieren, wiederherstellen und löschen {#lifecycle}\r
+\r
+Archivierung und Löschung erfordern, dass alle Aufträge ihre Ausführung und Bereinigung beendet haben, auch bei bereits abgeschlossenem Status. Ressourcen ohne Eigentumsnachweis bleiben zur Prüfung erhalten.\r
+\r
+Administratoren finden diese Schaltflächen auf dem Reiter Zusammenfassung.\r
+\r
+- **Projekt archivieren** funktioniert, nachdem Aufträge beendet und eingereihte Anfragen abgearbeitet sind. Es behält Einstellungen, Verlauf, Kennzahlen und Audit-Einträge und stoppt neue Arbeit. **Projekt wiederherstellen** bringt es zurück.\r
+- **Projekt löschen** erscheint nur bei archivierten Projekten und verlangt die Eingabe des Projektnamens. Es entfernt die ADORE-Einstellungen, den Auftragsverlauf, die Kennzahlen, die Container und die Worktrees des Projekts. Erhalten bleiben das Repository und seine Branches, Worktrees von an eine Person übergebenen Aufträgen, ein Auftragsstatus-Ordner außerhalb des ADORE-Verzeichnisses und der Audit-Verlauf. Das Löschen wird abgelehnt, solange Arbeit eingereiht oder nicht abgeschlossen ist. **Auch den lokalen Klon entfernen** (nicht angehakt) löscht zusätzlich den Klon, den ADORE in seinem Ordner \`repos\` angelegt hat; die Option erscheint nur für einen sauberen Klon des Repositorys dieses Projekts, den kein anderes Projekt nutzt und kein beim Löschen behaltener Worktree mehr braucht, sonst nennt der Dialog den Grund, warum der Klon bleibt.\r
+\r
+> Das Löschen kann nicht rückgängig gemacht werden. Um ein Projekt danach anzupassen, siehe [Projekteinstellungen](/help/settings).\r
+\r
+## Gitea-Anmeldung auf diesem Rechner {#gitea-sign-in}\r
+\r
+ADORE nutzt zuerst die gespeicherte Projektverbindung. Andernfalls verwendet es die tea-Konfiguration des aktuellen Kontos. Meldet tea eine fehlende Anmeldung, prüft ADORE die Windows- oder Linux-Standardpfade und wählt die konfigurierte Anmeldung, genau eine Standardanmeldung oder die einzige vorhandene Anmeldung. Mehrere Konten ohne eindeutige Auswahl erfordern eine ausdrückliche Verbindung.\r
+\r
+Die Erkennung beachtet \`XDG_CONFIG_HOME\`. Unter Windows prüft sie außerdem Local AppData, Roaming AppData und \`.config\` im Benutzerverzeichnis; unter Linux \`.config\` im Benutzerverzeichnis. Private Anwendungscaches werden nicht durchsucht und Zugangsdaten nicht zwischen Rechnern kopiert.\r
+\r
+1. Öffnen Sie die **Übersicht** des Projekts und wählen Sie **Repository-Zugang**.\r
+2. Geben Sie den Gitea-Ursprung bei Bedarf mit Port unter **Repository-Server** ein.\r
+3. Erstellen Sie dort ein Token für das Konto mit Lese-/Änderungsrechten für Tickets und Entwurfsreviews und tragen Sie es unter **Zugriffstoken** ein.\r
+4. Wählen Sie **Prüfen und verbinden**. Ein HTTP-Server erfordert die angezeigte Bestätigung. Ein Fehler erhält die gespeicherte Verbindung.\r
+5. Prüfen Sie die Host-Voraussetzungen erneut. Git-Zugangsdaten für clone/push werden getrennt eingerichtet.\r
+\r
+Richten Sie auf einem anderen Rechner dessen eigene CLI-Anmeldung ein oder nutzen Sie dieses Formular. Das Lieferarchiv enthält keine Benutzertokens.\r
 `,Rz=`# Projekteinstellungen
 
 Der Reiter Einstellungen eines Projekts listet die Arbeitsregeln auf, die ADORE dafür anwendet: welche Tickets aufgenommen werden, welche Limits gelten, wie veröffentlicht wird und welcher Agent verwendet wird. Administratoren bearbeiten mehrere Einstellungen und speichern sie gemeinsam; Entwickler lesen sie.
@@ -1122,6 +1126,8 @@ Start is confirmed after the job is durably admitted and taken by the worker. Th
 \r
 Each project has one concurrent-job limit, shared by Start, Retry, fresh restarts and resumed work. Pausing monitoring stops automatic pickup and keeps explicit Start available. Lowering the limit leaves existing jobs running. Queued commands and settled clarification, approval or review waits use no executor; initialization and cleanup keep their place until safe release. Waiting before execution does not consume active work.\r
 \r
+Concurrent jobs have separate working folders, execution resources, credentials and output. Cancelling one leaves the others running. Brief shared updates may wait; agents with ready resources continue.\r
+\r
 ## Stages {#stages}\r
 \r
 ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.\r
@@ -1295,91 +1301,93 @@ Developers start at step 3 once an administrator has given them access to a proj
 - [Statistics and costs](/help/statistics): usage, quality, trends and estimated costs.
 - [Administration](/help/administration): users, access, system status and change history.
 - [Glossary](/help/glossary): the terms used throughout the interface.
-`,Mz=`# Adding a repository
-
-Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
-
-Add a repository as a project so ADORE can pick up its ready tickets, run a coding agent on them and publish draft merge or pull requests for people to review. Only administrators add projects, and ADORE never merges.
-
-
-A current environment check is carried to the created project. Unchecked prerequisites remain partial; changing the configuration makes the result stale. If a check expires, run it again.
-
-
-A successful external CLI sign-in remains partial because it can change outside ADORE without an observable credential change. Connect repository access and check again to bind the project credential.
-
-## Before you start {#before-you-start}
-
-Have these ready:
-
-- The repository address (https or ssh) that the ADORE server account can read. ADORE clones it into its own folder when you create the project.
-- A GitLab, GitHub or Gitea account that can read and update issues and create draft reviews.
-- The ready and approval label names. A person adds the ready label to make a ticket eligible; see [Tickets for automatic pickup](/help/tickets#labels).
-- The model ID for Pi and, for containers, a running Docker or Podman service. The default shared image is prepared automatically on import; custom images must already exist on that service. See [Executors and models](/help/executors).
-
-## Enroll new project {#add-project}
-
-Choose **Enroll new project** on [Projects](/projects). The guided wizard starts at Repository and identity and takes five steps, and changing any answer makes earlier validation and checks stale.
-
-When no projects remain, Overview and Projects offer **Enroll new project** and **Import raw configuration** to administrators. Deleting the last project returns you to Projects, where both actions remain available.
-
-| Step | What it asks |
-|---|---|
-| Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |
-| Agent and model | Choose **Provider**, **Model** and endpoint details, when needed. Select **Runs in**, the runtime and image for a container. Save the provider key in Settings after creation. For **Installed on the server**, only the current OS account and optional **Project tools PATH** are shown. |
-| Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
-| Verification | Opening this step automatically checks the configuration, server folders, Git and forge access. **Recheck environment** repeats these checks. **Workflow** separately reports the observed repository workflow without blocking enrollment. For server execution, **Pi on the server** reports native failures, including incompatible Node versions. Container execution checks the engine and Pi in the local image. Nothing is published. **Continue** opens the review once the setup is valid. |
-| Review and create | Shows the exact candidate and server locations, and a closed **Settings left at their defaults** list of every other setting with its default value (read-only; change them in Settings after creation). **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks the target branch, then saves the project and, unless you untick **Create the ADORE labels in the repository**, creates the missing ADORE labels and lists the result; **Open project** follows. |
-
-For native local execution choose **Runs in → Installed on the server**. Specialized container setups use the advanced server TOML method below.
-
-Choose **Installed on the server** to use ADORE-managed Pi under the current OS account. The optional **Project tools PATH** selects the tool directories. See [Install Pi on the server](/help/executors#installed-executors).
-
-**Automatic location** keeps the proposed clone path. Choose **Custom location** and **Choose folder…** to browse folders on the ADORE host. Click a row to select it; double-click or press Enter to open it. Use Back or Parent folder to navigate, then **Select folder** to confirm the exact existing folder. Enter a new destination directly in the main clone-path field. The selector creates nothing; links and network paths are refused. **Cancel** preserves the draft. A path typed while a folder list loads stays in the address bar.
-
-**Target branch** lists the remote branches for GitHub, GitLab and Gitea, including self-hosted repositories. The repository’s default branch is selected and marked **default**. Choose another branch if needed. **Read repository** refreshes the list and keeps an explicit selection while that branch still exists. Changing the URL clears the previous choices. If no default is reported, choose a branch yourself; if the repository has no branches, add one there and read it again. This uses the ADORE account’s Git access; unknown forge types still need manual selection.
-
-## Repository workflows {#workflows}
-
-When you confirm guided enrollment or a raw import, ADORE prepares missing shared executor and network-proxy images before saving the project. Progress shows the current stage; the first preparation may take several minutes and needs internet access on the server. Later imports reuse the images. After a preparation failure, retry the import without entering the same answers again. Native imports skip container preparation. Custom image definitions remain the administrator's responsibility.
-
-**AEGIS / Direct**. The agent discovers and runs checks according to the repository instructions. With AEGIS it follows the recorded stages; without AEGIS it implements the ticket directly. ADORE monitors progress and the task journal, records the candidate and requests human approval. It does not independently run repository tests or strict AEGIS checks.
-
-## Import raw configuration {#import-project}
-
-In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 \`config.toml\` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes.
-
-Select a complete exported ZIP directly; its configuration and image definitions are imported together. ADORE also checks the source graph, image correspondence and existing definitions. A different definition already using the root image name is refused. TOML files may be up to 512 KiB and ZIPs up to 18 MiB. Use the included Compose file to build images separately on the destination server. See [Settings → Export raw configuration](/help/settings#toml).
-
-
-A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:
-
-1. Choose **Repository access**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.
-2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, Pi in the image, plus the server's ChatGPT sign-in for a ChatGPT subscription, the network proxy image while [internet access](/help/executors#internet) is Off and the web search key when Brave or Tavily needs one. For a project that runs on the server itself, **Local execution** replaces the container engine and image rows: it checks compatible Node, ADORE-managed Pi and the selected provider credential. The separate **Workflow** row identifies the workflow without running AEGIS. This is not a full job and does not prove push permission.
-3. Run **Test AI connection** in Settings, as described in [Executors and models](/help/executors#test-connection).
-4. Choose **Activate monitoring**. The Monitoring tile changes from Paused to Active and ADORE starts picking up tickets that carry the ready label. **Pause monitoring** stops new pickups but does not interrupt a running job.
-
-## Archive, restore and delete {#lifecycle}
-
-Administrators find these buttons on the Summary tab.
-
-- **Archive project** works after jobs finish and queued requests clear. It keeps settings, history, metrics and audit records and stops new work. **Restore project** brings it back.
-- **Delete project** appears only for archived projects and asks you to type the project name. It removes the project's ADORE settings, job history, metrics, containers and worktrees. It keeps the repository and its branches, worktrees of jobs handed to a person, a job-state folder outside ADORE home and the audit trail. Deletion is refused while work is queued or unfinished. **Also remove the local clone** (unticked) also deletes the clone ADORE made under its \`repos\` folder; it is offered only for a clean clone of this project's repository that no other project uses and no worktree kept by the deletion still needs, otherwise the dialog says why the clone stays.
-
-> Deletion cannot be undone. To adjust a project afterwards, see [Project settings](/help/settings).
-
-## Gitea sign-in on this computer {#gitea-sign-in}
-
-ADORE uses the saved project connection first. Otherwise it reuses the current account’s tea configuration. If tea reports a missing login, ADORE checks standard Windows or Linux configuration locations and selects the configured login, a single default, or the only available login. Multiple accounts without a clear selection require an explicit connection.
-
-Discovery respects \`XDG_CONFIG_HOME\`. On Windows it also checks the account’s Local AppData, Roaming AppData and home \`.config\` directories; on Linux it checks the home \`.config\` directory. It does not search private application caches or copy credentials between computers.
-
-1. Open the project’s **Summary** tab and choose **Repository access**.
-2. Enter the Gitea origin, including its port when needed, in **Repository server**.
-3. Create a token on that Gitea server for the account allowed to read/update issues and create draft reviews, and enter it in **Access token**.
-4. Choose **Verify and connect**. An HTTP server requires the displayed acknowledgement. A failed check preserves the saved connection.
-5. Choose **Check host prerequisites** again. Git clone/push credentials are configured separately.
-
-On another computer, prepare that computer’s own CLI sign-in or use this connection form. The delivery archive contains no user tokens.
+`,Mz=`# Adding a repository\r
+\r
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.\r
+\r
+Add a repository as a project so ADORE can pick up its ready tickets, run a coding agent on them and publish draft merge or pull requests for people to review. Only administrators add projects, and ADORE never merges.\r
+\r
+\r
+A current environment check is carried to the created project. Unchecked prerequisites remain partial; changing the configuration makes the result stale. If a check expires, run it again.\r
+\r
+\r
+A successful external CLI sign-in remains partial because it can change outside ADORE without an observable credential change. Connect repository access and check again to bind the project credential.\r
+\r
+## Before you start {#before-you-start}\r
+\r
+Have these ready:\r
+\r
+- The repository address (https or ssh) that the ADORE server account can read. ADORE clones it into its own folder when you create the project.\r
+- A GitLab, GitHub or Gitea account that can read and update issues and create draft reviews.\r
+- The ready and approval label names. A person adds the ready label to make a ticket eligible; see [Tickets for automatic pickup](/help/tickets#labels).\r
+- The model ID for Pi and, for containers, a running Docker or Podman service. The default shared image is prepared automatically on import; custom images must already exist on that service. See [Executors and models](/help/executors).\r
+\r
+## Enroll new project {#add-project}\r
+\r
+Choose **Enroll new project** on [Projects](/projects). The guided wizard starts at Repository and identity and takes five steps, and changing any answer makes earlier validation and checks stale.\r
+\r
+When no projects remain, Overview and Projects offer **Enroll new project** and **Import raw configuration** to administrators. Deleting the last project returns you to Projects, where both actions remain available.\r
+\r
+| Step | What it asks |\r
+|---|---|\r
+| Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |\r
+| Agent and model | Choose **Provider**, **Model** and endpoint details, when needed. Select **Runs in**, the runtime and image for a container. Save the provider key in Settings after creation. For **Installed on the server**, only the current OS account and optional **Project tools PATH** are shown. |\r
+| Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |\r
+| Verification | Opening this step automatically checks the configuration, server folders, Git and forge access. **Recheck environment** repeats these checks. **Workflow** separately reports the observed repository workflow without blocking enrollment. For server execution, **Pi on the server** reports native failures, including incompatible Node versions. Container execution checks the engine and Pi in the local image. Nothing is published. **Continue** opens the review once the setup is valid. |\r
+| Review and create | Shows the exact candidate and server locations, and a closed **Settings left at their defaults** list of every other setting with its default value (read-only; change them in Settings after creation). **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks the target branch, then saves the project and, unless you untick **Create the ADORE labels in the repository**, creates the missing ADORE labels and lists the result; **Open project** follows. |\r
+\r
+For native local execution choose **Runs in → Installed on the server**. Specialized container setups use the advanced server TOML method below.\r
+\r
+Choose **Installed on the server** to use ADORE-managed Pi under the current OS account. The optional **Project tools PATH** selects the tool directories. See [Install Pi on the server](/help/executors#installed-executors).\r
+\r
+**Automatic location** keeps the proposed clone path. Choose **Custom location** and **Choose folder…** to browse folders on the ADORE host. Click a row to select it; double-click or press Enter to open it. Use Back or Parent folder to navigate, then **Select folder** to confirm the exact existing folder. Enter a new destination directly in the main clone-path field. The selector creates nothing; links and network paths are refused. **Cancel** preserves the draft. A path typed while a folder list loads stays in the address bar.\r
+\r
+**Target branch** lists the remote branches for GitHub, GitLab and Gitea, including self-hosted repositories. The repository’s default branch is selected and marked **default**. Choose another branch if needed. **Read repository** refreshes the list and keeps an explicit selection while that branch still exists. Changing the URL clears the previous choices. If no default is reported, choose a branch yourself; if the repository has no branches, add one there and read it again. This uses the ADORE account’s Git access; unknown forge types still need manual selection.\r
+\r
+## Repository workflows {#workflows}\r
+\r
+When you confirm guided enrollment or a raw import, ADORE prepares missing shared executor and network-proxy images before saving the project. Progress shows the current stage; the first preparation may take several minutes and needs internet access on the server. Later imports reuse the images. After a preparation failure, retry the import without entering the same answers again. Native imports skip container preparation. Custom image definitions remain the administrator's responsibility.\r
+\r
+**AEGIS / Direct**. The agent discovers and runs checks according to the repository instructions. With AEGIS it follows the recorded stages; without AEGIS it implements the ticket directly. ADORE monitors progress and the task journal, records the candidate and requests human approval. It does not independently run repository tests or strict AEGIS checks.\r
+\r
+## Import raw configuration {#import-project}\r
+\r
+In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 \`config.toml\` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes.\r
+\r
+Select a complete exported ZIP directly; its configuration and image definitions are imported together. ADORE also checks the source graph, image correspondence and existing definitions. A different definition already using the root image name is refused. TOML files may be up to 512 KiB and ZIPs up to 18 MiB. Use the included Compose file to build images separately on the destination server. See [Settings → Export raw configuration](/help/settings#toml).\r
+\r
+\r
+A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:\r
+\r
+1. Choose **Repository access**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.\r
+2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, Pi in the image, plus the server's ChatGPT sign-in for a ChatGPT subscription, the network proxy image while [internet access](/help/executors#internet) is Off and the web search key when Brave or Tavily needs one. For a project that runs on the server itself, **Local execution** replaces the container engine and image rows: it checks compatible Node, ADORE-managed Pi and the selected provider credential. The separate **Workflow** row identifies the workflow without running AEGIS. This is not a full job and does not prove push permission.\r
+3. Run **Test AI connection** in Settings, as described in [Executors and models](/help/executors#test-connection).\r
+4. Choose **Activate monitoring**. The Monitoring tile changes from Paused to Active and ADORE starts picking up tickets that carry the ready label. **Pause monitoring** stops new pickups but does not interrupt a running job.\r
+\r
+## Archive, restore and delete {#lifecycle}\r
+\r
+Archive and deletion require every job to stop executing and finish cleanup, even if its saved status already says it has finished. Resources with unproven ownership are kept for inspection.\r
+\r
+Administrators find these buttons on the Summary tab.\r
+\r
+- **Archive project** works after jobs finish and queued requests clear. It keeps settings, history, metrics and audit records and stops new work. **Restore project** brings it back.\r
+- **Delete project** appears only for archived projects and asks you to type the project name. It removes the project's ADORE settings, job history, metrics, containers and worktrees. It keeps the repository and its branches, worktrees of jobs handed to a person, a job-state folder outside ADORE home and the audit trail. Deletion is refused while work is queued or unfinished. **Also remove the local clone** (unticked) also deletes the clone ADORE made under its \`repos\` folder; it is offered only for a clean clone of this project's repository that no other project uses and no worktree kept by the deletion still needs, otherwise the dialog says why the clone stays.\r
+\r
+> Deletion cannot be undone. To adjust a project afterwards, see [Project settings](/help/settings).\r
+\r
+## Gitea sign-in on this computer {#gitea-sign-in}\r
+\r
+ADORE uses the saved project connection first. Otherwise it reuses the current account’s tea configuration. If tea reports a missing login, ADORE checks standard Windows or Linux configuration locations and selects the configured login, a single default, or the only available login. Multiple accounts without a clear selection require an explicit connection.\r
+\r
+Discovery respects \`XDG_CONFIG_HOME\`. On Windows it also checks the account’s Local AppData, Roaming AppData and home \`.config\` directories; on Linux it checks the home \`.config\` directory. It does not search private application caches or copy credentials between computers.\r
+\r
+1. Open the project’s **Summary** tab and choose **Repository access**.\r
+2. Enter the Gitea origin, including its port when needed, in **Repository server**.\r
+3. Create a token on that Gitea server for the account allowed to read/update issues and create draft reviews, and enter it in **Access token**.\r
+4. Choose **Verify and connect**. An HTTP server requires the displayed acknowledgement. A failed check preserves the saved connection.\r
+5. Choose **Check host prerequisites** again. Git clone/push credentials are configured separately.\r
+\r
+On another computer, prepare that computer’s own CLI sign-in or use this connection form. The delivery archive contains no user tokens.\r
 `,qz=`# Project settings
 
 A project's Settings tab lists the working rules ADORE applies to it: which tickets it picks up, its limits, how it publishes and which agent it uses. Administrators edit several settings and save them together; developers read them.
@@ -1919,6 +1927,8 @@ Le démarrage est confirmé après l’enregistrement durable et la prise en cha
 \r
 Chaque projet a une limite de tâches simultanées, commune au démarrage, aux reprises, aux nouveaux départs et au travail repris. La pause arrête la prise en charge automatique et conserve le démarrage explicite. Réduire la limite laisse les tâches actives continuer. Les commandes en attente et les attentes stabilisées de réponse, approbation ou revue n’utilisent pas d’exécuteur ; l’initialisation et le nettoyage gardent leur place jusqu’à libération sûre. L’attente avant exécution ne consomme pas de travail actif.\r
 \r
+Les tâches simultanées ont leurs propres dossiers de travail, ressources, identifiants et sorties. Annuler une tâche laisse les autres actives. Les mises à jour communes peuvent attendre ; les agents prêts continuent.\r
+\r
 ## Étapes {#stages}\r
 \r
 ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.\r
@@ -2092,91 +2102,93 @@ Les développeurs commencent à l’étape 3 dès qu’un administrateur leur a 
 - [Statistiques et coûts](/help/statistics) : utilisation, qualité, tendances et coûts estimés.
 - [Administration](/help/administration) : utilisateurs, accès, état du système et historique des changements.
 - [Glossaire](/help/glossary) : les termes utilisés dans l’interface.
-`,Wz=`# Ajouter un dépôt
-
-L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
-
-Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.
-
-
-Une vérification actuelle est transmise au projet créé. Les prérequis non contrôlés restent partiels ; une modification de configuration rend le résultat périmé. Si le contrôle expire, relancez-le.
-
-
-Une connexion CLI externe réussie reste partielle car elle peut changer hors d’ADORE sans modification observable. Connectez l’accès au dépôt et vérifiez à nouveau pour lier les identifiants du projet.
-
-## Avant de commencer {#before-you-start}
-
-Préparez ces éléments :
-
-- L’adresse du dépôt (https ou ssh) que le compte du serveur ADORE peut lire. ADORE le clone dans son propre dossier à la création du projet.
-- Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.
-- Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).
-- L’identifiant du modèle Pi et, pour les conteneurs, un service Docker ou Podman actif. L’image commune par défaut est préparée automatiquement à l’import ; les images personnalisées doivent déjà exister dans ce service. Voir [Exécuteurs et modèles](/help/executors).
-
-## Inscrire un nouveau projet {#add-project}
-
-Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assistant guidé commence par Dépôt et identité et comporte cinq étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.
-
-Lorsqu’il ne reste aucun projet, Vue d’ensemble et Projets proposent **Inscrire un nouveau projet** et **Importer la configuration brute** aux administrateurs. La suppression du dernier projet vous ramène à Projets, où ces deux actions restent disponibles.
-
-| Étape | Ce qui est demandé |
-|---|---|
-| Dépôt et identité | **URL du dépôt** et **Lire le dépôt** : ADORE remplit **Forge**, **Dépôt**, **Gitea tea login**, **Branche cible** et l’identifiant du projet, à confirmer, et propose un **Chemin du clone local** modifiable. **Continuer** reste désactivé tant que le dépôt n’a pas été lu. **Nom affiché** reprend le nom du dépôt ; **Description** est facultative. |
-| Agent et modèle | Choisissez le **Fournisseur**, le **Modèle** et, si nécessaire, le point de terminaison. Pour un conteneur, choisissez le moteur et l’image. Enregistrez la clé du fournisseur dans Paramètres après la création. Pour **Installé sur le serveur**, seuls le compte système actuel et le **PATH des outils du projet** facultatif s’affichent. |
-| Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** facultatifs et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |
-| Vérification | L’ouverture de cette étape contrôle automatiquement la configuration, les dossiers du serveur, Git et l’accès à la forge. **Revérifier l'environnement** relance ces contrôles. **Workflow** indique séparément le workflow observé du dépôt sans bloquer l’inscription. En exécution sur le serveur, **Pi sur le serveur** indique les échecs locaux, dont les versions incompatibles de Node. En conteneur, le contrôle teste le moteur et Pi dans l’image locale. Rien n’est publié. **Continuer** ouvre la révision une fois la configuration valide. |
-| Révision et création | Affiche le candidat exact et les emplacements sur le serveur, ainsi qu’une liste repliée **Paramètres laissés par défaut** avec la valeur par défaut de chaque autre paramètre (en lecture seule ; modifiez-les dans Paramètres après la création). **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** clone d’abord le dépôt (depuis une URL), vérifie la branche cible, puis enregistre le projet et, sauf si vous décochez **Créer les étiquettes ADORE dans le dépôt**, crée les étiquettes ADORE manquantes et en affiche le résultat ; **Ouvrir le projet** suit. |
-
-Pour l’exécution locale native, choisissez **Exécution → Installé sur le serveur**. Les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.
-
-Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sous le compte système actuel. Le **PATH des outils du projet** facultatif sélectionne leurs dossiers. Voir [Installer Pi sur le serveur](/help/executors#installed-executors).
-
-**Emplacement automatique** conserve le chemin proposé pour le clone. Choisissez **Emplacement personnalisé** puis **Choisir un dossier…** pour parcourir les dossiers de l’hôte ADORE. Un clic sélectionne une ligne ; un double-clic ou Entrée ouvre le dossier. Utilisez Retour ou Dossier parent, puis **Sélectionner le dossier** pour confirmer exactement le dossier existant. Saisissez une nouvelle destination dans le champ du clone du formulaire principal. Le sélecteur ne crée rien ; liens et chemins réseau sont refusés. **Annuler** conserve le brouillon. Un chemin saisi pendant le chargement des dossiers reste dans la barre d’adresse.
-
-**Branche cible** liste les branches distantes de GitHub, GitLab et Gitea, y compris les instances privées. La branche par défaut du dépôt est sélectionnée et marquée **par défaut**. Choisissez une autre branche si nécessaire. **Lire le dépôt** actualise la liste et conserve un choix explicite tant que la branche existe. Changer l’URL efface les anciens choix. Sans branche par défaut, choisissez-en une ; sans branches, ajoutez-en une au dépôt et relisez-le. L’accès Git du compte ADORE est utilisé ; un type de forge inconnu reste à sélectionner manuellement.
-
-## Workflows du dépôt {#workflows}
-
-À la confirmation d’une inscription guidée ou d’un import de configuration, ADORE prépare les images communes d’exécution et de proxy manquantes avant d’enregistrer le projet. La progression indique l’étape actuelle ; la première préparation peut prendre plusieurs minutes et nécessite Internet sur le serveur. Les imports suivants réutilisent les images. En cas d’échec, réessayez l’import sans ressaisir les mêmes réponses. Les imports natifs ignorent cette préparation. Les images personnalisées restent à la charge de l’administrateur.
-
-**AEGIS / Direct**. L’agent découvre et exécute les contrôles selon les instructions du dépôt. Avec AEGIS, il suit les étapes enregistrées ; sinon il implémente directement le ticket. ADORE observe le progrès et le journal, enregistre le candidat et demande une approbation humaine. Il ne relance pas les tests du dépôt ni les contrôles AEGIS stricts.
-
-## Importer la configuration brute {#import-project}
-
-Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 \`config.toml\` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.
-
-Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).
-
-
-Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :
-
-1. Choisissez **Accès au dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.
-2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, Pi dans l’image, ainsi que la connexion ChatGPT du serveur pour un abonnement ChatGPT, l’image du proxy réseau quand l’[accès Internet](/help/executors#internet) est désactivé et la clé de recherche web quand Brave ou Tavily en demande une. Pour un projet exécuté directement sur le serveur, **Exécution locale** remplace les lignes du moteur de conteneur et de l’image : elle vérifie la version compatible de Node, Pi géré par ADORE et les identifiants du fournisseur. La ligne **Workflow** identifie séparément le workflow sans exécuter AEGIS. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.
-3. Lancez **Tester la connexion IA** dans Paramètres, comme décrit dans [Exécuteurs et modèles](/help/executors#test-connection).
-4. Choisissez **Activer la surveillance**. La tuile Surveillance passe de En pause à Active et ADORE commence à prendre en charge les tickets qui portent l’étiquette de disponibilité. **Suspendre la surveillance** arrête les nouvelles prises en charge mais n’interrompt pas une tâche en cours.
-
-## Archiver, restaurer et supprimer {#lifecycle}
-
-Les administrateurs trouvent ces boutons dans l’onglet Résumé.
-
-- **Archiver le projet** fonctionne une fois les tâches terminées et les demandes en file traitées. Il conserve les paramètres, l’historique, les statistiques et les enregistrements d’audit, et arrête tout nouveau travail. **Restaurer le projet** le ramène.
-- **Supprimer le projet** n’apparaît que pour les projets archivés et demande de saisir le nom du projet. Il supprime les paramètres ADORE du projet, l’historique des tâches, les statistiques, les conteneurs et les worktrees. Il conserve le dépôt et ses branches, les worktrees des tâches confiées à une personne, un dossier d’état de tâche situé hors du répertoire ADORE et la piste d’audit. La suppression est refusée tant que du travail est en file ou inachevé. **Supprimer aussi le clone local** (décoché) supprime aussi le clone créé par ADORE dans son dossier \`repos\` ; l’option n’apparaît que pour un clone propre du dépôt de ce projet qu’aucun autre projet n’utilise et dont aucun worktree conservé par la suppression n’a encore besoin, sinon la fenêtre indique pourquoi le clone est conservé.
-
-> La suppression est irréversible. Pour ajuster un projet ensuite, voir [Paramètres du projet](/help/settings).
-
-## Connexion Gitea sur cet ordinateur {#gitea-sign-in}
-
-ADORE utilise d’abord la connexion enregistrée du projet. Sinon, il réutilise la configuration tea du compte courant. Si tea signale un compte absent, ADORE vérifie les emplacements standard Windows ou Linux et choisit le compte configuré, un unique compte par défaut ou le seul compte disponible. Plusieurs comptes sans sélection claire exigent une connexion explicite.
-
-La détection respecte \`XDG_CONFIG_HOME\`. Sous Windows, elle vérifie aussi Local AppData, Roaming AppData et le répertoire personnel \`.config\` ; sous Linux, le répertoire personnel \`.config\`. Elle ne parcourt pas les caches privés des applications et ne copie pas les identifiants entre ordinateurs.
-
-1. Ouvrez l’onglet **Résumé** du projet et choisissez **Accès au dépôt**.
-2. Indiquez l’origine Gitea, avec son port si nécessaire, dans **Serveur du dépôt**.
-3. Créez sur ce serveur un jeton pour le compte autorisé à lire/modifier les tickets et créer des demandes de revue en brouillon, puis saisissez-le dans **Jeton d’accès**.
-4. Choisissez **Vérifier et connecter**. Un serveur HTTP exige la confirmation affichée. Un échec préserve la connexion enregistrée.
-5. Contrôlez à nouveau les prérequis de l’hôte. Les identifiants Git clone/push sont configurés séparément.
-
-Sur un autre ordinateur, préparez sa propre connexion CLI ou utilisez ce formulaire. L’archive de livraison ne contient aucun jeton utilisateur.
+`,Wz=`# Ajouter un dépôt\r
+\r
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.\r
+\r
+Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.\r
+\r
+\r
+Une vérification actuelle est transmise au projet créé. Les prérequis non contrôlés restent partiels ; une modification de configuration rend le résultat périmé. Si le contrôle expire, relancez-le.\r
+\r
+\r
+Une connexion CLI externe réussie reste partielle car elle peut changer hors d’ADORE sans modification observable. Connectez l’accès au dépôt et vérifiez à nouveau pour lier les identifiants du projet.\r
+\r
+## Avant de commencer {#before-you-start}\r
+\r
+Préparez ces éléments :\r
+\r
+- L’adresse du dépôt (https ou ssh) que le compte du serveur ADORE peut lire. ADORE le clone dans son propre dossier à la création du projet.\r
+- Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.\r
+- Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).\r
+- L’identifiant du modèle Pi et, pour les conteneurs, un service Docker ou Podman actif. L’image commune par défaut est préparée automatiquement à l’import ; les images personnalisées doivent déjà exister dans ce service. Voir [Exécuteurs et modèles](/help/executors).\r
+\r
+## Inscrire un nouveau projet {#add-project}\r
+\r
+Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assistant guidé commence par Dépôt et identité et comporte cinq étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.\r
+\r
+Lorsqu’il ne reste aucun projet, Vue d’ensemble et Projets proposent **Inscrire un nouveau projet** et **Importer la configuration brute** aux administrateurs. La suppression du dernier projet vous ramène à Projets, où ces deux actions restent disponibles.\r
+\r
+| Étape | Ce qui est demandé |\r
+|---|---|\r
+| Dépôt et identité | **URL du dépôt** et **Lire le dépôt** : ADORE remplit **Forge**, **Dépôt**, **Gitea tea login**, **Branche cible** et l’identifiant du projet, à confirmer, et propose un **Chemin du clone local** modifiable. **Continuer** reste désactivé tant que le dépôt n’a pas été lu. **Nom affiché** reprend le nom du dépôt ; **Description** est facultative. |\r
+| Agent et modèle | Choisissez le **Fournisseur**, le **Modèle** et, si nécessaire, le point de terminaison. Pour un conteneur, choisissez le moteur et l’image. Enregistrez la clé du fournisseur dans Paramètres après la création. Pour **Installé sur le serveur**, seuls le compte système actuel et le **PATH des outils du projet** facultatif s’affichent. |\r
+| Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** facultatifs et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |\r
+| Vérification | L’ouverture de cette étape contrôle automatiquement la configuration, les dossiers du serveur, Git et l’accès à la forge. **Revérifier l'environnement** relance ces contrôles. **Workflow** indique séparément le workflow observé du dépôt sans bloquer l’inscription. En exécution sur le serveur, **Pi sur le serveur** indique les échecs locaux, dont les versions incompatibles de Node. En conteneur, le contrôle teste le moteur et Pi dans l’image locale. Rien n’est publié. **Continuer** ouvre la révision une fois la configuration valide. |\r
+| Révision et création | Affiche le candidat exact et les emplacements sur le serveur, ainsi qu’une liste repliée **Paramètres laissés par défaut** avec la valeur par défaut de chaque autre paramètre (en lecture seule ; modifiez-les dans Paramètres après la création). **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** clone d’abord le dépôt (depuis une URL), vérifie la branche cible, puis enregistre le projet et, sauf si vous décochez **Créer les étiquettes ADORE dans le dépôt**, crée les étiquettes ADORE manquantes et en affiche le résultat ; **Ouvrir le projet** suit. |\r
+\r
+Pour l’exécution locale native, choisissez **Exécution → Installé sur le serveur**. Les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.\r
+\r
+Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sous le compte système actuel. Le **PATH des outils du projet** facultatif sélectionne leurs dossiers. Voir [Installer Pi sur le serveur](/help/executors#installed-executors).\r
+\r
+**Emplacement automatique** conserve le chemin proposé pour le clone. Choisissez **Emplacement personnalisé** puis **Choisir un dossier…** pour parcourir les dossiers de l’hôte ADORE. Un clic sélectionne une ligne ; un double-clic ou Entrée ouvre le dossier. Utilisez Retour ou Dossier parent, puis **Sélectionner le dossier** pour confirmer exactement le dossier existant. Saisissez une nouvelle destination dans le champ du clone du formulaire principal. Le sélecteur ne crée rien ; liens et chemins réseau sont refusés. **Annuler** conserve le brouillon. Un chemin saisi pendant le chargement des dossiers reste dans la barre d’adresse.\r
+\r
+**Branche cible** liste les branches distantes de GitHub, GitLab et Gitea, y compris les instances privées. La branche par défaut du dépôt est sélectionnée et marquée **par défaut**. Choisissez une autre branche si nécessaire. **Lire le dépôt** actualise la liste et conserve un choix explicite tant que la branche existe. Changer l’URL efface les anciens choix. Sans branche par défaut, choisissez-en une ; sans branches, ajoutez-en une au dépôt et relisez-le. L’accès Git du compte ADORE est utilisé ; un type de forge inconnu reste à sélectionner manuellement.\r
+\r
+## Workflows du dépôt {#workflows}\r
+\r
+À la confirmation d’une inscription guidée ou d’un import de configuration, ADORE prépare les images communes d’exécution et de proxy manquantes avant d’enregistrer le projet. La progression indique l’étape actuelle ; la première préparation peut prendre plusieurs minutes et nécessite Internet sur le serveur. Les imports suivants réutilisent les images. En cas d’échec, réessayez l’import sans ressaisir les mêmes réponses. Les imports natifs ignorent cette préparation. Les images personnalisées restent à la charge de l’administrateur.\r
+\r
+**AEGIS / Direct**. L’agent découvre et exécute les contrôles selon les instructions du dépôt. Avec AEGIS, il suit les étapes enregistrées ; sinon il implémente directement le ticket. ADORE observe le progrès et le journal, enregistre le candidat et demande une approbation humaine. Il ne relance pas les tests du dépôt ni les contrôles AEGIS stricts.\r
+\r
+## Importer la configuration brute {#import-project}\r
+\r
+Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 \`config.toml\` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.\r
+\r
+Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).\r
+\r
+\r
+Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :\r
+\r
+1. Choisissez **Accès au dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.\r
+2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, Pi dans l’image, ainsi que la connexion ChatGPT du serveur pour un abonnement ChatGPT, l’image du proxy réseau quand l’[accès Internet](/help/executors#internet) est désactivé et la clé de recherche web quand Brave ou Tavily en demande une. Pour un projet exécuté directement sur le serveur, **Exécution locale** remplace les lignes du moteur de conteneur et de l’image : elle vérifie la version compatible de Node, Pi géré par ADORE et les identifiants du fournisseur. La ligne **Workflow** identifie séparément le workflow sans exécuter AEGIS. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.\r
+3. Lancez **Tester la connexion IA** dans Paramètres, comme décrit dans [Exécuteurs et modèles](/help/executors#test-connection).\r
+4. Choisissez **Activer la surveillance**. La tuile Surveillance passe de En pause à Active et ADORE commence à prendre en charge les tickets qui portent l’étiquette de disponibilité. **Suspendre la surveillance** arrête les nouvelles prises en charge mais n’interrompt pas une tâche en cours.\r
+\r
+## Archiver, restaurer et supprimer {#lifecycle}\r
+\r
+L’archivage et la suppression exigent la fin de l’exécution et du nettoyage de toutes les tâches, même si leur état indique déjà une fin. Les ressources sans propriété prouvée sont conservées pour inspection.\r
+\r
+Les administrateurs trouvent ces boutons dans l’onglet Résumé.\r
+\r
+- **Archiver le projet** fonctionne une fois les tâches terminées et les demandes en file traitées. Il conserve les paramètres, l’historique, les statistiques et les enregistrements d’audit, et arrête tout nouveau travail. **Restaurer le projet** le ramène.\r
+- **Supprimer le projet** n’apparaît que pour les projets archivés et demande de saisir le nom du projet. Il supprime les paramètres ADORE du projet, l’historique des tâches, les statistiques, les conteneurs et les worktrees. Il conserve le dépôt et ses branches, les worktrees des tâches confiées à une personne, un dossier d’état de tâche situé hors du répertoire ADORE et la piste d’audit. La suppression est refusée tant que du travail est en file ou inachevé. **Supprimer aussi le clone local** (décoché) supprime aussi le clone créé par ADORE dans son dossier \`repos\` ; l’option n’apparaît que pour un clone propre du dépôt de ce projet qu’aucun autre projet n’utilise et dont aucun worktree conservé par la suppression n’a encore besoin, sinon la fenêtre indique pourquoi le clone est conservé.\r
+\r
+> La suppression est irréversible. Pour ajuster un projet ensuite, voir [Paramètres du projet](/help/settings).\r
+\r
+## Connexion Gitea sur cet ordinateur {#gitea-sign-in}\r
+\r
+ADORE utilise d’abord la connexion enregistrée du projet. Sinon, il réutilise la configuration tea du compte courant. Si tea signale un compte absent, ADORE vérifie les emplacements standard Windows ou Linux et choisit le compte configuré, un unique compte par défaut ou le seul compte disponible. Plusieurs comptes sans sélection claire exigent une connexion explicite.\r
+\r
+La détection respecte \`XDG_CONFIG_HOME\`. Sous Windows, elle vérifie aussi Local AppData, Roaming AppData et le répertoire personnel \`.config\` ; sous Linux, le répertoire personnel \`.config\`. Elle ne parcourt pas les caches privés des applications et ne copie pas les identifiants entre ordinateurs.\r
+\r
+1. Ouvrez l’onglet **Résumé** du projet et choisissez **Accès au dépôt**.\r
+2. Indiquez l’origine Gitea, avec son port si nécessaire, dans **Serveur du dépôt**.\r
+3. Créez sur ce serveur un jeton pour le compte autorisé à lire/modifier les tickets et créer des demandes de revue en brouillon, puis saisissez-le dans **Jeton d’accès**.\r
+4. Choisissez **Vérifier et connecter**. Un serveur HTTP exige la confirmation affichée. Un échec préserve la connexion enregistrée.\r
+5. Contrôlez à nouveau les prérequis de l’hôte. Les identifiants Git clone/push sont configurés séparément.\r
+\r
+Sur un autre ordinateur, préparez sa propre connexion CLI ou utilisez ce formulaire. L’archive de livraison ne contient aucun jeton utilisateur.\r
 `,Jz=`# Paramètres du projet
 
 L’onglet Paramètres d’un projet liste les règles de fonctionnement qu’ADORE lui applique : quels tickets il prend en charge, ses limites, la façon dont il publie et l’agent qu’il utilise. Les administrateurs modifient plusieurs paramètres et les enregistrent ensemble ; les développeurs les lisent.
@@ -2716,6 +2728,8 @@ Pornirea este confirmată după admiterea durabilă și preluarea lucrării de c
 \r
 Fiecare proiect are o singură limită de lucrări simultane, comună pornirii, reîncercării, repornirii de la zero și reluării. Pauza monitorizării oprește preluarea automată și păstrează pornirea explicită. Reducerea limitei lasă lucrările existente să continue. Comenzile în coadă și așteptările stabilizate de clarificare, aprobare sau review nu ocupă un executor; inițializarea și curățarea păstrează locul până la eliberarea sigură. Așteptarea înainte de execuție nu consumă timp de lucru activ.\r
 \r
+Lucrările simultane au dosare de lucru, resurse, credențiale și ieșiri separate. Anularea uneia lasă celelalte lucrări active. Actualizările comune pot aștepta; agenții cu resurse pregătite continuă.\r
+\r
 ## Etape {#stages}\r
 \r
 ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.\r
@@ -2889,91 +2903,93 @@ Dezvoltatorii încep de la pasul 3, după ce un administrator le-a dat acces la 
 - [Statistici și costuri](/help/statistics): utilizare, calitate, tendințe și costuri estimate.
 - [Administrare](/help/administration): utilizatori, acces, starea sistemului și istoricul modificărilor.
 - [Glosar](/help/glossary): termenii folosiți în interfață.
-`,rE=`# Adăugarea unui repository
-
-Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
-
-Adăugați un repository ca proiect pentru ca ADORE să poată prelua tichetele lui pregătite, să ruleze un agent de programare pe ele și să publice MR/PR-uri ciornă pe care oamenii să le revizuiască. Doar administratorii adaugă proiecte, iar ADORE nu integrează niciodată modificările.
-
-
-O verificare actuală a mediului se transferă proiectului creat. Cerințele neverificate rămân parțiale; schimbarea configurației învechește rezultatul. Dacă verificarea expiră, ruleaz-o din nou.
-
-
-O autentificare CLI externă reușită rămâne parțială deoarece se poate schimba în afara ADORE fără o modificare observabilă. Conectați accesul la repository și verificați din nou pentru a lega credențialele proiectului.
-
-## Înainte de a începe {#before-you-start}
-
-Pregătiți următoarele:
-
-- Adresa repository-ului (https sau ssh) pe care contul serverului ADORE o poate citi. ADORE îl clonează în propriul dosar când creați proiectul.
-- Un cont GitLab, GitHub sau Gitea care poate citi și actualiza tichetele și poate crea cereri de revizuire ciornă.
-- Numele etichetelor ready și de aprobare. O persoană adaugă eticheta ready pentru ca un tichet să devină eligibil; vezi [Tichete pentru preluare automată](/help/tickets#labels).
-- ID-ul modelului pentru Pi și, pentru containere, un serviciu Docker sau Podman pornit. Imaginea comună implicită se pregătește automat la import; imaginile personalizate trebuie să existe deja în acel serviciu. Vezi [Executori și modele](/help/executors).
-
-## Înrolarea unui proiect nou {#add-project}
-
-Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul ghidat începe cu Repository și identitate și are cinci pași, iar schimbarea oricărui răspuns face ca validările și verificările anterioare să devină învechite.
-
-Când nu mai există proiecte, Prezentare și Proiecte oferă administratorilor **Înrolează un proiect nou** și **Importă configurația brută**. Ștergerea ultimului proiect vă readuce la Proiecte, unde ambele acțiuni rămân disponibile.
-
-| Pas | Ce cere |
-|---|---|
-| Repository și identitate | **URL-ul repository-ului** și **Citește repository-ul**: ADORE completează **Forge**, **Depozit**, **Gitea tea login**, **Ramură țintă** și ID-ul proiectului, pentru confirmare, și propune o **Calea clonei locale** pe care o puteți schimba. **Continuă** rămâne dezactivat până când repository-ul a fost citit. **Nume afișat** pornește de la numele repository-ului; **Descriere** este opțională. |
-| Agent și model | Alegeți **Furnizor**, **Model** și detaliile endpointului, dacă este necesar. Pentru container, alegeți runtime-ul și imaginea. Salvați cheia furnizorului în Setări după creare. Pentru **Instalat pe server** apar contul curent al sistemului și opțional **PATH pentru uneltele proiectului**. |
-| Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** opționali și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |
-| Verificare | Deschiderea acestui pas verifică automat configurarea, folderele serverului, Git și accesul la forge. **Reverifică mediul** repetă aceste verificări. **Workflow** arată separat fluxul observat al repository-ului, fără să blocheze înrolarea. Pentru execuția nativă, **Pi pe server** afișează erorile locale, inclusiv versiunile Node incompatibile. Pentru execuția în container, se verifică motorul și Pi din imaginea locală. Nu se publică nimic. **Continuă** deschide revizuirea după ce configurarea este validă. |
-| Revizuire și creare | Afișează candidatul exact și locațiile de pe server, plus o listă restrânsă **Setări lăsate la valorile implicite** cu valoarea implicită a fiecărei alte setări (doar citire; le schimbați în Setări după creare). **Modifică** revine la un pas. **Creează cu preluarea oprită** clonează întâi repository-ul (dintr-un URL), verifică ramura țintă, apoi salvează proiectul și, dacă nu debifați **Creează etichetele ADORE în repository**, creează etichetele ADORE lipsă și arată rezultatul; urmează **Deschide proiectul**. |
-
-Pentru execuția locală nativă alegeți **Rulează în → Instalat pe server**. Configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.
-
-Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).
-
-**Locație automată** păstrează calea propusă pentru clonă. Alege **Locație personalizată** și **Alege folderul…** pentru a răsfoi folderele gazdei ADORE. Un clic selectează rândul; dublu-clic sau Enter deschide folderul. Folosește Înapoi sau Folderul părinte, apoi **Selectează folderul** pentru a confirma exact folderul existent. Introdu o destinație nouă direct în câmpul căii clonei din formularul principal. Selectorul nu creează nimic; legăturile și căile de rețea sunt refuzate. **Anulează** păstrează schița. Calea tastată în timpul încărcării listei rămâne în bara de adrese.
-
-**Ramură țintă** listează ramurile remote pentru GitHub, GitLab și Gitea, inclusiv instanțe proprii. Ramura implicită a repository-ului este selectată și marcată **implicită**. Alegeți altă ramură dacă este nevoie. **Citește repository-ul** actualizează lista și păstrează o selecție explicită dacă ramura mai există. Schimbarea URL-ului șterge opțiunile anterioare. Dacă nu este raportată o ramură implicită, alegeți una; dacă repository-ul nu are ramuri, adăugați una acolo și recitiți-l. Se folosește accesul Git al contului ADORE; tipul forge necunoscut se selectează în continuare manual.
-
-## Fluxurile repository-ului {#workflows}
-
-La confirmarea înrolării ghidate sau a unui import de configurație, ADORE pregătește imaginile comune de execuție și de proxy care lipsesc, înainte să salveze proiectul. Progresul arată etapa curentă; prima pregătire poate dura câteva minute și necesită internet pe server. Importurile următoare reutilizează imaginile. După un eșec al pregătirii, reîncercați importul fără să introduceți din nou aceleași răspunsuri. Importurile native omit pregătirea containerelor. Definițiile imaginilor personalizate rămân în responsabilitatea administratorului.
-
-**AEGIS / Direct**. Agentul descoperă și rulează verificările conform instrucțiunilor repository-ului. Cu AEGIS urmează etapele înregistrate; fără AEGIS implementează direct tichetul. ADORE urmărește progresul și jurnalul, înregistrează candidatul și cere aprobarea umană. Nu rulează separat testele repository-ului sau verificări AEGIS stricte.
-
-## Importă configurația brută {#import-project}
-
-În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog ZIP-ul exportat sau fișierul UTF-8 \`config.toml\`. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează configurația octet cu octet.
-
-Selectează direct ZIP-ul exportat complet: configurația și definițiile imaginilor sunt importate împreună. ADORE verifică și graful surselor, corespondența imaginii și definițiile existente. O definiție diferită care folosește deja numele imaginii principale este refuzată. Fișierele TOML pot avea până la 512 KiB, iar ZIP-urile până la 18 MiB. Construiește imaginile separat pe serverul destinație, folosind fișierul Compose inclus. Vezi [Setări → Exportă configurația brută](/help/settings#toml).
-
-
-Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce un administrator acordă accesul în fila **Acces** a proiectului. În fila **Rezumat**:
-
-1. Alegeți **Acces la repository**. Introduceți adresa serverului forge și un token de acces creat pe forge, apoi **Verifică și conectează**. Aceasta confirmă contul și accesul de citire la repository. Tokenul rămâne pe server, niciodată în browser. Alternativ, autentificați instrumentul forge sub contul de serviciu ADORE.
-2. Alegeți **Verifică cerințele gazdei**. Detaliile acoperă Git, instrumentul de linie de comandă al repository-ului, autentificarea în repository, motorul de containere, Pi din imagine, plus autentificarea ChatGPT a serverului pentru un abonament ChatGPT, imaginea proxyului de rețea când [accesul la internet](/help/executors#internet) este dezactivat și cheia de căutare web când Brave sau Tavily are nevoie de una. Pentru un proiect care rulează direct pe server, **Execuție locală** înlocuiește rândurile pentru motorul de containere și imagine: verifică versiunea compatibilă de Node, Pi administrat de ADORE și credențialele furnizorului. Rândul separat **Workflow** identifică fluxul fără să execute AEGIS. Aceasta nu este o lucrare completă și nu dovedește permisiunea de push.
-3. Rulați **Testează conexiunea AI** în Setări, așa cum este descris în [Executori și modele](/help/executors#test-connection).
-4. Alegeți **Activează monitorizarea**. Cardul Monitorizare trece din În pauză în Activă, iar ADORE începe să preia tichetele care poartă eticheta ready. **Pune monitorizarea în pauză** oprește preluările noi, dar nu întrerupe o lucrare în curs.
-
-## Arhivare, restaurare și ștergere {#lifecycle}
-
-Administratorii găsesc aceste butoane în fila Rezumat.
-
-- **Arhivează proiectul** funcționează după încheierea lucrărilor și golirea cererilor din coadă. Păstrează setările, istoricul, metricile și înregistrările de audit și oprește lucrul nou. **Restaurează proiectul** îl readuce.
-- **Șterge proiectul** apare doar pentru proiectele arhivate și vă cere să tastați numele proiectului. Elimină setările ADORE ale proiectului, istoricul lucrărilor, metricile, containerele și worktree-urile. Păstrează repository-ul și ramurile sale, worktree-urile lucrărilor predate unei persoane, un dosar de stare al lucrărilor din afara directorului ADORE și jurnalul de audit. Ștergerea este refuzată cât timp există lucru în coadă sau neterminat. **Elimină și clona locală** (nebifat) șterge și clona făcută de ADORE în dosarul său \`repos\`; opțiunea apare doar pentru o clonă curată a repository-ului acestui proiect, pe care nu o folosește alt proiect și de care nu mai are nevoie niciun worktree păstrat la ștergere, altfel fereastra spune de ce se păstrează clona.
-
-> Ștergerea nu poate fi anulată. Pentru a ajusta un proiect după aceea, vezi [Setările proiectului](/help/settings).
-
-## Autentificare Gitea pe acest calculator {#gitea-sign-in}
-
-ADORE folosește mai întâi conexiunea salvată a proiectului. Altfel reutilizează configurația tea a contului curent. Dacă tea raportează un login lipsă, ADORE verifică locațiile standard Windows sau Linux și selectează loginul configurat, un singur login implicit sau singurul login disponibil. Mai multe conturi fără o selecție clară necesită o conexiune explicită.
-
-Detectarea respectă \`XDG_CONFIG_HOME\`. Pe Windows verifică și directoarele Local AppData, Roaming AppData și \`.config\` din home-ul contului; pe Linux verifică directorul \`.config\` din home. Nu caută în cache-urile private ale aplicațiilor și nu copiază credențiale între calculatoare.
-
-1. Deschide fila **Rezumat** a proiectului și alege **Acces la repository**.
-2. Completează **Serverul depozitului** cu adresa de bază Gitea, inclusiv portul dacă este necesar.
-3. Creează pe serverul Gitea un token pentru contul cu drept de citire/actualizare a tichetelor și creare de cereri de revizuire în draft și introdu-l în **Token de acces**.
-4. Apasă **Verifică și conectează**. Un server HTTP necesită confirmarea afișată. O verificare eșuată păstrează conexiunea salvată.
-5. Verifică din nou cerințele gazdei. Credențialele Git pentru clone/push se configurează separat.
-
-Pe alt calculator, pregătește autentificarea CLI locală sau folosește acest formular de conectare. Arhiva de livrare nu conține tokenurile utilizatorilor.
+`,rE=`# Adăugarea unui repository\r
+\r
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.\r
+\r
+Adăugați un repository ca proiect pentru ca ADORE să poată prelua tichetele lui pregătite, să ruleze un agent de programare pe ele și să publice MR/PR-uri ciornă pe care oamenii să le revizuiască. Doar administratorii adaugă proiecte, iar ADORE nu integrează niciodată modificările.\r
+\r
+\r
+O verificare actuală a mediului se transferă proiectului creat. Cerințele neverificate rămân parțiale; schimbarea configurației învechește rezultatul. Dacă verificarea expiră, ruleaz-o din nou.\r
+\r
+\r
+O autentificare CLI externă reușită rămâne parțială deoarece se poate schimba în afara ADORE fără o modificare observabilă. Conectați accesul la repository și verificați din nou pentru a lega credențialele proiectului.\r
+\r
+## Înainte de a începe {#before-you-start}\r
+\r
+Pregătiți următoarele:\r
+\r
+- Adresa repository-ului (https sau ssh) pe care contul serverului ADORE o poate citi. ADORE îl clonează în propriul dosar când creați proiectul.\r
+- Un cont GitLab, GitHub sau Gitea care poate citi și actualiza tichetele și poate crea cereri de revizuire ciornă.\r
+- Numele etichetelor ready și de aprobare. O persoană adaugă eticheta ready pentru ca un tichet să devină eligibil; vezi [Tichete pentru preluare automată](/help/tickets#labels).\r
+- ID-ul modelului pentru Pi și, pentru containere, un serviciu Docker sau Podman pornit. Imaginea comună implicită se pregătește automat la import; imaginile personalizate trebuie să existe deja în acel serviciu. Vezi [Executori și modele](/help/executors).\r
+\r
+## Înrolarea unui proiect nou {#add-project}\r
+\r
+Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul ghidat începe cu Repository și identitate și are cinci pași, iar schimbarea oricărui răspuns face ca validările și verificările anterioare să devină învechite.\r
+\r
+Când nu mai există proiecte, Prezentare și Proiecte oferă administratorilor **Înrolează un proiect nou** și **Importă configurația brută**. Ștergerea ultimului proiect vă readuce la Proiecte, unde ambele acțiuni rămân disponibile.\r
+\r
+| Pas | Ce cere |\r
+|---|---|\r
+| Repository și identitate | **URL-ul repository-ului** și **Citește repository-ul**: ADORE completează **Forge**, **Depozit**, **Gitea tea login**, **Ramură țintă** și ID-ul proiectului, pentru confirmare, și propune o **Calea clonei locale** pe care o puteți schimba. **Continuă** rămâne dezactivat până când repository-ul a fost citit. **Nume afișat** pornește de la numele repository-ului; **Descriere** este opțională. |\r
+| Agent și model | Alegeți **Furnizor**, **Model** și detaliile endpointului, dacă este necesar. Pentru container, alegeți runtime-ul și imaginea. Salvați cheia furnizorului în Setări după creare. Pentru **Instalat pe server** apar contul curent al sistemului și opțional **PATH pentru uneltele proiectului**. |\r
+| Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** opționali și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |\r
+| Verificare | Deschiderea acestui pas verifică automat configurarea, folderele serverului, Git și accesul la forge. **Reverifică mediul** repetă aceste verificări. **Workflow** arată separat fluxul observat al repository-ului, fără să blocheze înrolarea. Pentru execuția nativă, **Pi pe server** afișează erorile locale, inclusiv versiunile Node incompatibile. Pentru execuția în container, se verifică motorul și Pi din imaginea locală. Nu se publică nimic. **Continuă** deschide revizuirea după ce configurarea este validă. |\r
+| Revizuire și creare | Afișează candidatul exact și locațiile de pe server, plus o listă restrânsă **Setări lăsate la valorile implicite** cu valoarea implicită a fiecărei alte setări (doar citire; le schimbați în Setări după creare). **Modifică** revine la un pas. **Creează cu preluarea oprită** clonează întâi repository-ul (dintr-un URL), verifică ramura țintă, apoi salvează proiectul și, dacă nu debifați **Creează etichetele ADORE în repository**, creează etichetele ADORE lipsă și arată rezultatul; urmează **Deschide proiectul**. |\r
+\r
+Pentru execuția locală nativă alegeți **Rulează în → Instalat pe server**. Configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.\r
+\r
+Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).\r
+\r
+**Locație automată** păstrează calea propusă pentru clonă. Alege **Locație personalizată** și **Alege folderul…** pentru a răsfoi folderele gazdei ADORE. Un clic selectează rândul; dublu-clic sau Enter deschide folderul. Folosește Înapoi sau Folderul părinte, apoi **Selectează folderul** pentru a confirma exact folderul existent. Introdu o destinație nouă direct în câmpul căii clonei din formularul principal. Selectorul nu creează nimic; legăturile și căile de rețea sunt refuzate. **Anulează** păstrează schița. Calea tastată în timpul încărcării listei rămâne în bara de adrese.\r
+\r
+**Ramură țintă** listează ramurile remote pentru GitHub, GitLab și Gitea, inclusiv instanțe proprii. Ramura implicită a repository-ului este selectată și marcată **implicită**. Alegeți altă ramură dacă este nevoie. **Citește repository-ul** actualizează lista și păstrează o selecție explicită dacă ramura mai există. Schimbarea URL-ului șterge opțiunile anterioare. Dacă nu este raportată o ramură implicită, alegeți una; dacă repository-ul nu are ramuri, adăugați una acolo și recitiți-l. Se folosește accesul Git al contului ADORE; tipul forge necunoscut se selectează în continuare manual.\r
+\r
+## Fluxurile repository-ului {#workflows}\r
+\r
+La confirmarea înrolării ghidate sau a unui import de configurație, ADORE pregătește imaginile comune de execuție și de proxy care lipsesc, înainte să salveze proiectul. Progresul arată etapa curentă; prima pregătire poate dura câteva minute și necesită internet pe server. Importurile următoare reutilizează imaginile. După un eșec al pregătirii, reîncercați importul fără să introduceți din nou aceleași răspunsuri. Importurile native omit pregătirea containerelor. Definițiile imaginilor personalizate rămân în responsabilitatea administratorului.\r
+\r
+**AEGIS / Direct**. Agentul descoperă și rulează verificările conform instrucțiunilor repository-ului. Cu AEGIS urmează etapele înregistrate; fără AEGIS implementează direct tichetul. ADORE urmărește progresul și jurnalul, înregistrează candidatul și cere aprobarea umană. Nu rulează separat testele repository-ului sau verificări AEGIS stricte.\r
+\r
+## Importă configurația brută {#import-project}\r
+\r
+În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog ZIP-ul exportat sau fișierul UTF-8 \`config.toml\`. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează configurația octet cu octet.\r
+\r
+Selectează direct ZIP-ul exportat complet: configurația și definițiile imaginilor sunt importate împreună. ADORE verifică și graful surselor, corespondența imaginii și definițiile existente. O definiție diferită care folosește deja numele imaginii principale este refuzată. Fișierele TOML pot avea până la 512 KiB, iar ZIP-urile până la 18 MiB. Construiește imaginile separat pe serverul destinație, folosind fișierul Compose inclus. Vezi [Setări → Exportă configurația brută](/help/settings#toml).\r
+\r
+\r
+Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce un administrator acordă accesul în fila **Acces** a proiectului. În fila **Rezumat**:\r
+\r
+1. Alegeți **Acces la repository**. Introduceți adresa serverului forge și un token de acces creat pe forge, apoi **Verifică și conectează**. Aceasta confirmă contul și accesul de citire la repository. Tokenul rămâne pe server, niciodată în browser. Alternativ, autentificați instrumentul forge sub contul de serviciu ADORE.\r
+2. Alegeți **Verifică cerințele gazdei**. Detaliile acoperă Git, instrumentul de linie de comandă al repository-ului, autentificarea în repository, motorul de containere, Pi din imagine, plus autentificarea ChatGPT a serverului pentru un abonament ChatGPT, imaginea proxyului de rețea când [accesul la internet](/help/executors#internet) este dezactivat și cheia de căutare web când Brave sau Tavily are nevoie de una. Pentru un proiect care rulează direct pe server, **Execuție locală** înlocuiește rândurile pentru motorul de containere și imagine: verifică versiunea compatibilă de Node, Pi administrat de ADORE și credențialele furnizorului. Rândul separat **Workflow** identifică fluxul fără să execute AEGIS. Aceasta nu este o lucrare completă și nu dovedește permisiunea de push.\r
+3. Rulați **Testează conexiunea AI** în Setări, așa cum este descris în [Executori și modele](/help/executors#test-connection).\r
+4. Alegeți **Activează monitorizarea**. Cardul Monitorizare trece din În pauză în Activă, iar ADORE începe să preia tichetele care poartă eticheta ready. **Pune monitorizarea în pauză** oprește preluările noi, dar nu întrerupe o lucrare în curs.\r
+\r
+## Arhivare, restaurare și ștergere {#lifecycle}\r
+\r
+Arhivarea și ștergerea cer ca toate lucrările să fi încheiat execuția și curățarea, chiar dacă starea salvată indică deja finalizarea. Resursele fără proprietate dovedită sunt păstrate pentru inspecție.\r
+\r
+Administratorii găsesc aceste butoane în fila Rezumat.\r
+\r
+- **Arhivează proiectul** funcționează după încheierea lucrărilor și golirea cererilor din coadă. Păstrează setările, istoricul, metricile și înregistrările de audit și oprește lucrul nou. **Restaurează proiectul** îl readuce.\r
+- **Șterge proiectul** apare doar pentru proiectele arhivate și vă cere să tastați numele proiectului. Elimină setările ADORE ale proiectului, istoricul lucrărilor, metricile, containerele și worktree-urile. Păstrează repository-ul și ramurile sale, worktree-urile lucrărilor predate unei persoane, un dosar de stare al lucrărilor din afara directorului ADORE și jurnalul de audit. Ștergerea este refuzată cât timp există lucru în coadă sau neterminat. **Elimină și clona locală** (nebifat) șterge și clona făcută de ADORE în dosarul său \`repos\`; opțiunea apare doar pentru o clonă curată a repository-ului acestui proiect, pe care nu o folosește alt proiect și de care nu mai are nevoie niciun worktree păstrat la ștergere, altfel fereastra spune de ce se păstrează clona.\r
+\r
+> Ștergerea nu poate fi anulată. Pentru a ajusta un proiect după aceea, vezi [Setările proiectului](/help/settings).\r
+\r
+## Autentificare Gitea pe acest calculator {#gitea-sign-in}\r
+\r
+ADORE folosește mai întâi conexiunea salvată a proiectului. Altfel reutilizează configurația tea a contului curent. Dacă tea raportează un login lipsă, ADORE verifică locațiile standard Windows sau Linux și selectează loginul configurat, un singur login implicit sau singurul login disponibil. Mai multe conturi fără o selecție clară necesită o conexiune explicită.\r
+\r
+Detectarea respectă \`XDG_CONFIG_HOME\`. Pe Windows verifică și directoarele Local AppData, Roaming AppData și \`.config\` din home-ul contului; pe Linux verifică directorul \`.config\` din home. Nu caută în cache-urile private ale aplicațiilor și nu copiază credențiale între calculatoare.\r
+\r
+1. Deschide fila **Rezumat** a proiectului și alege **Acces la repository**.\r
+2. Completează **Serverul depozitului** cu adresa de bază Gitea, inclusiv portul dacă este necesar.\r
+3. Creează pe serverul Gitea un token pentru contul cu drept de citire/actualizare a tichetelor și creare de cereri de revizuire în draft și introdu-l în **Token de acces**.\r
+4. Apasă **Verifică și conectează**. Un server HTTP necesită confirmarea afișată. O verificare eșuată păstrează conexiunea salvată.\r
+5. Verifică din nou cerințele gazdei. Credențialele Git pentru clone/push se configurează separat.\r
+\r
+Pe alt calculator, pregătește autentificarea CLI locală sau folosește acest formular de conectare. Arhiva de livrare nu conține tokenurile utilizatorilor.\r
 `,aE=`# Setările proiectului
 
 Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică: ce tichete preia, limitele, cum publică și ce agent folosește. Administratorii modifică mai multe setări și le salvează împreună; dezvoltatorii le citesc.

@@ -133,3 +133,16 @@ marker check is separate from live agent package-installation acceptance.
 
 
 The Pi launcher forwards a validated explicit thinking level to both native and container RPC processes; blank leaves Pi default.
+
+
+## Concurrent resource ownership
+
+Every run process owns a fresh mutable backend/executor. Bound container targets
+copy their environment and identity pins, so later caller mutations do not affect
+another launch. Stop/interrupt/removal address observed immutable container IDs
+and reject changed saved pins. Full executor/proxy/network cleanup is the
+conductor's path-bound `release_owned` operation; backend-only executor removal
+does not infer egress ownership from a name. Native targets retain run-owned
+receipts and isolated Pi temporary settings.
+
+Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.

@@ -108,3 +108,17 @@ One sign-in per ADORE home. Tokens refresh between stages only. Pending login
 is web-server memory and ends on restart. Pi requires its local callback port 1455 to be available during native login.
 An unreachable browser callback retains the manual redirect fallback. WSL2 runs the Linux native backend inside the distribution with a
 delegated cgroup v2. There is no wrapper fallback around process ownership.
+
+
+## Concurrent resource ownership
+
+A dedicated credential-directory lock serializes refresh helpers, their status
+marks and Disconnect across run processes, independently of repositories and
+executors. A separate lock atomically publishes the stable device identity.
+Pi retains its own credential-store lock and atomic credential persistence.
+Helpers have unique names; access tokens stay in the requesting stage's memory
+and bound environment, while temporary native settings stay in that run's control
+folder. A refresh error releases the lock and cannot alter another credential
+store. Existing stages continue while another run waits for refresh.
+
+Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.

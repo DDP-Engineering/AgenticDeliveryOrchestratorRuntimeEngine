@@ -22,6 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from adore.branding import PROCESS_LOG_FILE
+from adore.resource_lock import ResourceLockError, resource_lock
 from adore.util import utc_now_iso
 
 # CONSTANTS
@@ -75,9 +76,13 @@ class ProcessLogger:
         record = f"{utc_now_iso()} {line.rstrip()}\n"
         data_size = len(record.encode("utf-8"))
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._rotate_if_needed(data_size)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(record)
+        try:
+            with resource_lock(self.path.with_name(self.path.name + ".write.lock")):
+                self._rotate_if_needed(data_size)
+                with self.path.open("a", encoding="utf-8") as handle:
+                    handle.write(record)
+        except ResourceLockError as exc:
+            raise OSError("process log is busy or unavailable") from exc
 
     def _rotate_if_needed(self, incoming_bytes: int) -> None:
         """

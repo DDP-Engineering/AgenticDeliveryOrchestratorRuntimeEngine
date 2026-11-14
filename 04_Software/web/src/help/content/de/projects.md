@@ -63,6 +63,8 @@ Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, soba
 
 ## Archivieren, wiederherstellen und löschen {#lifecycle}
 
+Archivierung und Löschung erfordern, dass alle Aufträge ihre Ausführung und Bereinigung beendet haben, auch bei bereits abgeschlossenem Status. Ressourcen ohne Eigentumsnachweis bleiben zur Prüfung erhalten.
+
 Administratoren finden diese Schaltflächen auf dem Reiter Zusammenfassung.
 
 - **Projekt archivieren** funktioniert, nachdem Aufträge beendet und eingereihte Anfragen abgearbeitet sind. Es behält Einstellungen, Verlauf, Kennzahlen und Audit-Einträge und stoppt neue Arbeit. **Projekt wiederherstellen** bringt es zurück.

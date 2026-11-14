@@ -154,7 +154,7 @@ StateStore.before_write is an optional caller-supplied fence. JSON writes (inclu
 ## Admission, execution and lifecycle locks
 
 `run_lock(run_id)` is an exclusive nonblocking OS lock on a stable file under
-`locks/`; Windows byte-range locking and POSIX flock release it on process death.
+`locks_root`; Windows byte-range locking and POSIX flock release it on process death.
 The same store/thread may nest a run scope. Independent stores/threads remain
 exclusive. Persistent lock-file presence never proves a live owner; files are
 not unlinked or reclaimed during ordinary execution.
@@ -163,7 +163,8 @@ not unlinked or reclaimed during ordinary execution.
 lock. Execution slots are acquired under admission before initialization and
 remain held through cleanup. `execution_slots()` observes actual kernel locks,
 including Restart reservations whose old run state has already been removed.
-No admission section waits for a run lock or launches an external command.
+Capacity admission does not wait for run locks or launch external commands.
+Project destruction holds its explicit full barrier through authorized cleanup.
 
 `dispatch.json` has one closed current schema: `schema = 1`, the lowercase
 64-character SHA-256 `config_revision`, and `status` (`queued` or `started`).
@@ -184,3 +185,32 @@ all saves, including Cancel. Activation clears and saves the flag/clock before
 consuming dispatch authority or performing a forge/provisioning effect. A true
 flag with executor/task progress is corrupt; a missing field is refused with the
 run directory to delete, without repair or conversion.
+
+
+## Concurrent resource ownership
+
+`project_barrier()` excludes admission and acquires every known lifecycle and
+execution scope before yielding. This includes reservations whose run state is
+terminal or already removed. Profile-contained state places stable kernel files under the server home
+identified by its path, in `resource-locks/state/<canonical-state-root-hash>/`.
+External state keeps `<state root>/locks`. Windows profile deletion therefore
+cannot unlink held kernel inodes. Do not
+remove these files while the server/runs are active. Admission reentrancy covers
+its entire kernel and operator scope. JSON publication uses unique temporary
+files and fencing immediately before replacement. Journals remain in each run's
+own directory and each live conductor holds that run's lifecycle lock.
+
+Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
+
+
+## Diagnostic and lifecycle boundaries
+
+Offline tests automatically isolate ADORE home, including persistent kernel
+lock metadata. No operator identity database, profile data or service is used.
+
+
+Kernel lock placement depends only on the canonical state-root path. Profile-contained
+state uses the server home identified by the `profiles/<profile>/...` path layout,
+with locks outside the deletable profile. External state keeps `<state root>/locks`.
+Changing ambient ADORE home cannot split ownership. A clone containing retained state
+is kept during optional clone removal.

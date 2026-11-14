@@ -94,7 +94,6 @@ from adore.state import (
 )
 from adore.util import (
     CommandResult,
-    force_rmtree,
     in_quiet_hours,
     iso_to_datetime,
     load_env_file,
@@ -223,6 +222,7 @@ class Orchestrator:
         chatgpt_token: Callable[[int], str] | None = None,
         on_delete: Callable[[str, Callable[[], None]], None] | None = None,
         prompts: PromptCatalog | None = None,
+        resource_namespace: str | None = None,
     ) -> None:
         """
         @brief Wire the conductor from production or fake collaborators.
@@ -249,8 +249,15 @@ class Orchestrator:
         self.sleep = sleep
         self.log = log
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
+        self.resource_namespace = (hashlib.sha256(
+            os.path.normcase(str(store.root.resolve())).encode()).hexdigest()[:12]
+            if resource_namespace is None else resource_namespace)
+        if (self.resource_namespace
+                and re.fullmatch(r"[0-9a-f]{12}", self.resource_namespace) is None):
+            raise IsolationError("invalid project resource namespace")
         self.on_delete = on_delete
         self.on_admitted: Callable[[RunState], None] | None = None
+        self.admission_guard: Callable[[], None] | None = None
         self.last_retry_reason = ""
         self.before_effect: Callable[[], object] | None = None
         self.run_scope: Callable[[str], Any] | None = None
@@ -296,6 +303,8 @@ class Orchestrator:
             worktrees=WorktreeManager(
                 config.worktree.repo_path, config.worktree.root,
                 git_name=config.agent.name, git_email=config.agent.email,
+                namespace=hashlib.sha256(os.path.normcase(
+                    str(Path(config.state.store_root).resolve())).encode()).hexdigest()[:12],
             ),
             containers=ContainerManager(
                 config.container.runtime,
@@ -396,6 +405,8 @@ class Orchestrator:
         with (self._run_control(run_id) if not dry_run else contextlib.nullcontext(),
               contextlib.ExitStack() as reservation):
             with self.store.admission_lock() if not dry_run else contextlib.nullcontext():
+                if not dry_run and self.admission_guard is not None:
+                    self.admission_guard()
                 if self.store.is_paused() and ticket_iid is None:
                     summary["paused"] = True
                     return summary
@@ -447,6 +458,8 @@ class Orchestrator:
     def _reserve_execution(self, run: RunState) -> bool:
         """@brief Reserve a resumed executor place before any execution-side effects."""
         with self.store.admission_lock():
+            if self.admission_guard is not None:
+                self.admission_guard()
             if not self._has_capacity(excluding=run.run_id):
                 return False
             run.lifecycle = "working"
@@ -499,6 +512,8 @@ class Orchestrator:
                            revised=0, done=0)
             self._reconcile_one(run, summary)
             return True
+        if self.admission_guard is not None:
+            self.admission_guard()
         dispatch = self.store.load_dispatch(run_id)
         if dispatch["status"] == "queued" and run.execution_pending:
             if dispatch["config_revision"] != revision:
@@ -574,7 +589,7 @@ class Orchestrator:
         worktree = self.worktrees.path_for(run_id)
         if (run.run_id != run_id or run.lifecycle in {"handed-off", "handoff-pending"}
                 or not self._owned_branch(run)
-                or run.container != self.identity.container_name(run_id)
+                or run.container != self._container_name(run_id)
                 or directory.resolve() != directory.absolute()
                 or (run.worktree and Path(run.worktree).resolve() != worktree.resolve())
                 or (not run.worktree and worktree.exists())
@@ -637,6 +652,8 @@ class Orchestrator:
         """
         with contextlib.ExitStack() as reservation:
             with self.store.admission_lock():
+                if self.admission_guard is not None:
+                    self.admission_guard()
                 if not self._has_capacity(excluding=run_id):
                     return {"picked": None, "at_capacity": True, "start_reason": "at_capacity"}
                 reservation.enter_context(self.store.execution_slot(run_id))
@@ -886,6 +903,7 @@ class Orchestrator:
                 if run is None or not run.execution.get("resource"):
                     continue  # Unrecorded native ownership cannot authorize cleanup.
                 try:
+                    self._verify_run_resources(run)
                     self.backend.remove(run.container, expected=run.execution["resource"])
                     self.worktrees.remove(run_id)
                 except IsolationError as exc:
@@ -904,38 +922,23 @@ class Orchestrator:
         eligible -= native
         protected |= native
 
-        def executors(run_ids: set[str]) -> set[str]:
-            names = {self.identity.container_name(run_id) for run_id in run_ids}
-            return names | {
-                runs[run_id].container
-                for run_id in run_ids
-                if run_id in runs and runs[run_id].container
-            }
-
-        targets, retained = executors(eligible), executors(protected)
-        with contextlib.suppress(IsolationError):
-            report["containers_removed"] = sorted(
-                self.containers.cleanup_orphan_containers(prefix, targets, retained)
-            )
-        if listed is not None:
-            in_use = retained | (listed - targets)
-            with contextlib.suppress(IsolationError):
-                report["proxy_containers_removed"] = sorted(
-                    self.containers.cleanup_egress_proxies(targets, in_use)
-                )
-            with contextlib.suppress(IsolationError):
-                report["egress_networks_removed"] = sorted(
-                    self.containers.cleanup_egress_networks(targets, in_use)
-                )
         for run_id in sorted(eligible):
+            run = runs[run_id]
             path = self.worktrees.path_for(run_id)
-            if not path.is_dir():
-                continue
-            with contextlib.suppress(IsolationError):
-                self.worktrees.remove(run_id)
-            force_rmtree(path)
-            if not path.exists():
-                report["worktrees_removed"].append(run_id)
+            try:
+                self._verify_run_resources(run)
+                released = self.containers.release_owned(
+                    run.container, self.worktrees.repo_path, path, self._io_dir(run_id),
+                    expected=run.execution.get("resource") or None,
+                )
+                for key, names in released.items():
+                    report[key].extend(names)
+                if path.is_dir():
+                    self.worktrees.remove(run_id)
+                    if not path.exists():
+                        report["worktrees_removed"].append(run_id)
+            except IsolationError as exc:
+                self.log(f"{run_id}: cleanup retained: {_sanitize(exc)}")
         return report
 
     def _cleanup_run_ids(
@@ -972,6 +975,12 @@ class Orchestrator:
             name[len(prefix):] for name in executors
             if own_form.fullmatch(name[len(prefix):])
         }
+        protected |= owned - set(runs)
+        for run_id in owned - protected:
+            try:
+                self._verify_run_resources(runs[run_id])
+            except IsolationError:
+                protected.add(run_id)
         if scopes is not None:
             for run_id in sorted(owned - protected):
                 try:
@@ -1023,6 +1032,7 @@ class Orchestrator:
                         and run.execution.get("plan", {}).get("backend") == "local"):
                     report["worktrees_retained"].append(run.run_id)
                     continue
+                self._verify_run_resources(run)
                 if self.config.execution.backend == "local":
                     try:
                         resource = run.execution.get("resource")
@@ -1035,20 +1045,18 @@ class Orchestrator:
                     except IsolationError:
                         report["worktrees_retained"].append(run.run_id)
                     continue
-                names = {self.identity.container_name(run.run_id)}
-                if run.container:
-                    names.add(run.container)
-                for name in sorted(names):
-                    try:
-                        self.backend.remove(name, expected=run.execution.get("resource") or None)
-                    except IsolationError:
-                        continue
-                    report["containers_removed"].append(name)
+                self.containers.release_owned(
+                    run.container, self.worktrees.repo_path, path, self._io_dir(run.run_id),
+                    expected=run.execution.get("resource") or None,
+                )
+                report["containers_removed"].append(run.container)
                 if path.is_dir():
                     with contextlib.suppress(IsolationError):
                         self.worktrees.remove(run.run_id)
-                    force_rmtree(path)
-                    report["worktrees_removed"].append(run.run_id)
+                    if not path.exists():
+                        report["worktrees_removed"].append(run.run_id)
+                    else:
+                        report["worktrees_retained"].append(run.run_id)
         report["worktrees_retained"].sort()
         return report
 
@@ -1071,6 +1079,7 @@ class Orchestrator:
             return True
         if run.lifecycle in {"done", "cancelled"}:
             return False
+        self._verify_run_resources(run)
         self.store.request_handoff(run_id)
         # Pending is durable before stop/checkpoint work. Human ownership is announced
         # only after the container has stopped and every Git mutation has finished.
@@ -1269,7 +1278,7 @@ class Orchestrator:
             content_hash=content_hash(ticket.title, ticket.description),
             aegis_type=_task_type(ticket, self.config), branch=branch,
             base_ref=f"origin/{self.config.delivery.target_branch}",
-            container=self.identity.container_name(run_id),
+            container=self._container_name(run_id),
         )
         comments = self.forge.list_comments(ticket.iid)
         run.last_seen_comment_id = max((item.id for item in comments), default=None)
@@ -1994,6 +2003,7 @@ class Orchestrator:
 
     def _checkpoint(self, run: RunState, message: str) -> None:
         """@brief Create a durable local checkpoint and optionally publish WIP progress."""
+        self._verify_run_resources(run)
         progress = self.config.delivery.publish_checkpoints and run.lifecycle != "publishing"
         if run.workflow == "direct":
             self._consume_summary(run)
@@ -2027,6 +2037,7 @@ class Orchestrator:
 
     def _push_checkpoint(self, run: RunState, *, handoff: bool = False) -> None:
         """@brief Publish bounded WIP progress; stop on remote ownership loss."""
+        self._verify_run_resources(run)
         if not run.branch or run.branch == self.config.delivery.target_branch:
             error = "checkpoint branch must differ from target"
             if handoff:
@@ -2336,6 +2347,7 @@ class Orchestrator:
     @_exclusive_run
     def _publish(self, run: RunState, ticket: Ticket) -> None:
         """@brief Publish approved delivery while honoring safe ownership transfer."""
+        self._verify_run_resources(run)
         if self.before_effect is not None:
             self.before_effect()
         if self._handoff_at_boundary(run):
@@ -2857,6 +2869,7 @@ class Orchestrator:
         @param[in]  run The run whose branch to push.
         @return     The last CommandResult, successful or not.
         """
+        self._verify_run_resources(run)
         attempts = max(self.config.recovery.max_transient_retries, 1)
         schedule = self.config.recovery.retry_backoff_seconds
         result = self.worktrees.push(run.run_id, run.branch)
@@ -3184,7 +3197,10 @@ class Orchestrator:
             self.store.journal(run.run_id, "done", outcome=run.outcome)
             self._status(run)
             self._record_metrics(run)
-            self._teardown(run, remove_worktree=not cleanup_error)
+            try:
+                self._teardown(run, remove_worktree=not cleanup_error)
+            except IsolationError as exc:
+                self.store.journal(run.run_id, "resource-cleanup-retained", evidence=_sanitize(exc))
             summary["done"] += 1
             return
         if mr.state == "closed":
@@ -3417,17 +3433,49 @@ class Orchestrator:
         """@brief Derive the stable ticket-bound run identifier."""
         return derive_run_id(self.config.platform.kind, self.config.platform.repo, iid)
 
+    def _resource_run_id(self, run_id: str) -> str:
+        """@brief Bind host resources to this project's independently owned state root."""
+        return run_id + ("-p" + self.resource_namespace if self.resource_namespace else "")
+
+    def _container_name(self, run_id: str) -> str:
+        """@brief Avoid same-ticket container collisions across project profiles."""
+        return self.identity.container_name(self._resource_run_id(run_id))
+
     def _branch_name(self, run_id: str, iid: int) -> str:
         """@brief Render the configured task branch template."""
-        return self.config.worktree.branch_template.format(
-            slug=self.identity.slug, run_id=run_id, iid=iid
-        )
+        template = self.config.worktree.branch_template
+        branch = template.format(
+            slug=self.identity.slug, run_id=self._resource_run_id(run_id), iid=iid)
+        if self.resource_namespace and "{run_id}" not in template:
+            branch += "-p" + self.resource_namespace
+        return branch
 
     def _valid_admission_branch(self, name: str) -> bool:
         """@brief Apply bounded existing Git-name and Python-rule validation to actual names."""
         return branch_naming_preview(
             "{run_id}", self.config.worktree.branch_rule, self.identity.slug, run_id=name,
         )["valid"]
+
+    def _verify_run_resources(self, run: RunState) -> None:
+        """@brief Refuse foreign saved identities before checkpoint or resource effects.
+        @param[in] run Saved run whose resources the conductor intends to mutate.
+        @exception IsolationError Missing or foreign branch, target or path ownership.
+        """
+        worktree = self.worktrees.path_for(run.run_id)
+        if (not self._owned_branch(run)
+                or run.branch == self.config.delivery.target_branch
+                or run.container != self._container_name(run.run_id)
+                or run.worktree and Path(run.worktree).resolve() != worktree.resolve()
+                or not run.worktree and worktree.exists()):
+            raise IsolationError("run resource ownership is unproven")
+        if run.worktree:
+            self.worktrees.verify_removal(run.run_id, run.branch)
+        resource = run.execution.get("resource")
+        if resource and resource.get("kind") == "local" and (
+                resource.get("name") != run.container
+                or resource.get("worktree") != run.worktree
+                or Path(resource.get("io", "")) != self._io_dir(run.run_id)):
+            raise IsolationError("native resource belongs to another run")
 
     def _owned_branch(self, run: RunState) -> bool:
         """@brief Recognize only the configured base or one exact derived generation."""
@@ -3484,6 +3532,7 @@ class Orchestrator:
 
     def _provision(self, run: RunState) -> None:
         """@brief Provision the pinned target and prepare once per verified resource."""
+        self._verify_run_resources(run)
         recipe = bool(self.config.execution.preparation)
         local = self.config.execution.backend == "local"
         packages = self.config.container.system_packages is True
@@ -3952,6 +4001,7 @@ class Orchestrator:
 
     def _teardown(self, run: RunState, *, remove_worktree: bool) -> None:
         """@brief Remove execution resources while retaining local state evidence."""
+        self._verify_run_resources(run)
         pinned_native = run.execution.get("plan", {}).get("backend") == "local"
         if pinned_native and not run.execution.get("resource"):
             # Admission resolves the native plan before provisioning. Absence
@@ -3966,8 +4016,10 @@ class Orchestrator:
         elif self.config.execution.backend == "local" or pinned_native:
             self.backend.remove(run.container, expected=run.execution.get("resource") or None)
         else:
-            with contextlib.suppress(IsolationError):
-                self.backend.remove(run.container, expected=run.execution.get("resource") or None)
+            self.containers.release_owned(
+                run.container, self.worktrees.repo_path, self.worktrees.path_for(run.run_id),
+                self._io_dir(run.run_id), expected=run.execution.get("resource") or None,
+            )
         if remove_worktree:
             try:
                 self.worktrees.remove(run.run_id, delete_branch=run.branch)

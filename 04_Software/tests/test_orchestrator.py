@@ -175,6 +175,11 @@ class FakeWorktrees:
     def exists(self, run_id):
         return True
 
+    def repository_lock(self):
+        """@brief Fake Git mutations are already deterministic in these unit tests."""
+        from contextlib import nullcontext
+        return nullcontext()
+
     def path_for(self, run_id):
         return Path("C:/work") / run_id
 
@@ -257,6 +262,10 @@ class FakeWorktrees:
     def list_dirs(self):
         return self.dirs
 
+    def verify_removal(self, run_id, branch):
+        """@brief Default fake represents an unchanged owned worktree."""
+        return None
+
     def remove(self, run_id, **kwargs):
         self.removed.append(run_id)
 
@@ -294,6 +303,7 @@ class FakeContainers:
 
     def resource_identity(self, name):
         """@brief Supply authoritative runtime identity without invoking a CLI."""
+        self.observed_name = name
         return {"container_id": "d" * 64, "image_id": "sha256:" + "e" * 64,
                 "status": self.status_value}
 
@@ -309,15 +319,29 @@ class FakeContainers:
 
     def stop(self, name):
         self.status_value = "exited"
-        self.stopped.append(name)
+        self.stopped.append(getattr(self, "observed_name", name) if name == "d" * 64 else name)
 
     def interrupt(self, name):
         self.status_value = "exited"
-        self.interrupted.append(name)
+        self.interrupted.append(getattr(self, "observed_name", name) if name == "d" * 64 else name)
         self.interrupt_event.set()
 
     def remove(self, name):
         self.removed.append(name)
+
+    def remove_executor(self, identity):
+        """@brief Record immutable executor release through the backend seam."""
+        self.remove(getattr(self, "observed_name", identity))
+
+    def status(self, name):
+        """@brief Mirror the fake runtime lifecycle for owned controls."""
+        return self.status_value
+
+    def release_owned(self, name, repo, worktree, io, *, expected=None):
+        """@brief Model path-proven exact release; runtime boundary proof is separate."""
+        self.remove(name)
+        return {"containers_removed": [name], "proxy_containers_removed": [],
+                "egress_networks_removed": []}
 
     def list_containers(self, prefix):
         return []
@@ -419,6 +443,7 @@ def test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume(
     engine.config.worktree.repo_path = str(tmp_path)
     worktrees.repo_path = tmp_path
     worktrees.create = lambda *args: tmp_path
+    worktrees.path_for = lambda _: tmp_path
     worktrees.runner = SourceRunner()
     cid = "d" * 64
     containers.resource_identity = lambda _: {
@@ -456,6 +481,7 @@ def test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume(
 
     monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
     run = make_run(engine)
+    run.worktree = str(tmp_path)
     run.active_task_id = None
     run.task_ids = []
     run.lifecycle = "failed"
@@ -513,6 +539,7 @@ def make_engine(
         fake_executor,
         sleep=lambda _: None,
         log=lambda _: None,
+        resource_namespace="",
     )
     return engine, fake_forge, worktrees, containers, fake_executor
 
@@ -526,10 +553,10 @@ def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunSt
         task_ids=[TASK_ID],
         aegis_type=task_type,
         aegis_path=path,
-        branch="adore/github-owner-repo-7",
+        branch=engine._branch_name("github-owner-repo-7", 7),
         base_ref="origin/main",
-        worktree="C:/work/github-owner-repo-7",
-        container="adore-run-github-owner-repo-7",
+        worktree=str(engine.worktrees.path_for("github-owner-repo-7")),
+        container=engine._container_name("github-owner-repo-7"),
         content_hash=content_hash(
             engine.forge.ticket.title, engine.forge.ticket.description
         ),
@@ -3391,6 +3418,7 @@ def test_retry_settles_a_dirty_worktree_before_freshness(tmp_path: Path) -> None
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.worktree = str(tmp_path / "wt")
+    worktrees.path_for = lambda _: tmp_path / "wt"
     engine.store.save(run)
     worktrees.dirty = True
 
@@ -3832,21 +3860,11 @@ def test_cleanup_preserves_failed_run_resources_and_reports_egress_gc(
 
     report = engine.cleanup()
 
-    assert failed_path.is_dir()
-    assert not orphan_path.exists()
-    assert failed.run_id not in worktrees.removed
-    assert report["worktrees_removed"] == ["github-owner-repo-99"]
-    assert report["containers_removed"] == ["adore-run-github-owner-repo-99"]
-    assert report["proxy_containers_removed"] == [
-        "adore-run-github-owner-repo-99-egress-proxy",
-    ]
-    assert report["egress_networks_removed"] == [
-        "adore-egress-adore-run-github-owner-repo-99",
-    ]
-    assert len(containers.cleanup_calls) == 3
-    for targets, retained in containers.cleanup_calls:
-        assert failed.container in retained and failed.container not in targets
-        assert "adore-run-github-owner-repo-99" in targets
+    assert failed_path.is_dir() and orphan_path.is_dir()
+    assert not worktrees.removed and not containers.cleanup_calls
+    assert all(report[key] == [] for key in (
+        "worktrees_removed", "containers_removed", "proxy_containers_removed",
+        "egress_networks_removed"))
 
 
 @pytest.mark.parametrize(
@@ -4176,15 +4194,17 @@ def test_purge_resources_touches_only_this_projects_non_human_runs(tmp_path: Pat
     worktrees.path_for = lambda run_id: root / run_id
     failed = make_run(engine)
     failed.lifecycle = "failed"
+    failed.worktree = str(worktrees.path_for(failed.run_id))
     engine.store.save(failed)
-    engine.store.save(RunState(run_id="done-run", ticket_iid=9, lifecycle="done"))
-    engine.store.save(RunState(run_id="cancelled-run", ticket_iid=11, lifecycle="cancelled"))
+    saved_resource_run(engine, "done-run", 9, "done")
+    saved_resource_run(engine, "cancelled-run", 11, "cancelled")
     engine.store.save(RunState(run_id="human-run", ticket_iid=8, lifecycle="handed-off",
                                container="adore-run-human-run"))
     engine.store.save(RunState(run_id="pending-run", ticket_iid=10, lifecycle="handoff-pending"))
     for name in (failed.run_id, "done-run", "human-run", "pending-run", "other-project-run"):
         (root / name).mkdir(parents=True)
 
+    worktrees.remove = lambda run_id, **kwargs: remove_fake_worktree(worktrees, run_id, **kwargs)
     report = engine.purge_resources()
 
     assert not (root / failed.run_id).exists() and not (root / "done-run").exists()
@@ -4196,6 +4216,25 @@ def test_purge_resources_touches_only_this_projects_non_human_runs(tmp_path: Pat
     assert sorted(containers.removed) == sorted([
         failed.container, "adore-run-done-run", "adore-run-cancelled-run"])
     assert containers.cleanup_calls == []  # no prefix sweeps
+
+
+def remove_fake_worktree(worktrees, run_id, **kwargs):
+    """@brief Emulate Git removal only for cleanup tests with dedicated fake folders."""
+    import shutil
+    worktrees.removed.append(run_id)
+    path = worktrees.path_for(run_id)
+    if path.is_dir():
+        shutil.rmtree(path)
+
+
+def saved_resource_run(engine, run_id, iid, lifecycle):
+    """@brief Save a complete owned identity for cleanup contract fixtures."""
+    run = RunState(run_id=run_id, ticket_iid=iid, lifecycle=lifecycle,
+                   branch=engine._branch_name(run_id, iid),
+                   container=engine._container_name(run_id),
+                   worktree=str(engine.worktrees.path_for(run_id)))
+    engine.store.save(run)
+    return run
 
 
 def _shared_host(tmp_path: Path, engine: Orchestrator, worktrees: FakeWorktrees, *,
@@ -4223,6 +4262,22 @@ def _shared_host(tmp_path: Path, engine: Orchestrator, worktrees: FakeWorktrees,
         "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runtime,
         egress=EgressPolicy(mode=mode),
     )
+    worktrees.remove = lambda run_id, **kwargs: remove_fake_worktree(worktrees, run_id, **kwargs)
+    for run in engine.store.list_runs():
+        if run.worktree:
+            run.worktree = str(root / run.run_id)
+            engine.store.save(run)
+    def release_owned(name, repo, worktree, io, *, expected=None):
+        """@brief Emulate only the verified release result at the manager seam."""
+        proxy = name + "-egress-proxy"
+        network = "adore-egress-" + name
+        result = {"containers_removed": [name] if name in runtime.containers else [],
+                  "proxy_containers_removed": [proxy] if proxy in runtime.containers else [],
+                  "egress_networks_removed": [network] if network in runtime.networks else []}
+        runtime.containers.difference_update((name, proxy))
+        runtime.networks.discard(network)
+        return result
+    engine.containers.release_owned = release_owned
     return root, runtime
 
 
@@ -4236,7 +4291,7 @@ def test_cleanup_leaves_other_projects_resources_on_a_shared_host(tmp_path: Path
     """
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     own_run = "github-owner-repo-5"
-    engine.store.save(RunState(run_id=own_run, ticket_iid=5, lifecycle="cancelled"))
+    saved_resource_run(engine, own_run, 5, "cancelled")
     foreign = ["github-owner-other-1", "github-owner-other-2", "github-owner-other-3",
                "github-owner-repo-tools-4"]
     root, runtime = _shared_host(tmp_path, engine, worktrees, run_ids=[*foreign, own_run],
@@ -4270,9 +4325,8 @@ def test_cleanup_removes_this_projects_finished_and_stateless_run_resources(
     make_run(engine)  # github-owner-repo-7, working
     for iid, lifecycle in ((5, "cancelled"), (8, "done"), (12, "stale"), (6, "failed"),
                            (10, "handed-off"), (11, "handoff-pending")):
-        engine.store.save(RunState(run_id=f"github-owner-repo-{iid}", ticket_iid=iid,
-                                   lifecycle=lifecycle))
-    engine.store.save(RunState(run_id="legacy-done", ticket_iid=4, lifecycle="done"))
+        saved_resource_run(engine, f"github-owner-repo-{iid}", iid, lifecycle)
+    saved_resource_run(engine, "legacy-done", 4, "done")
     renamed = "adore-run-renamed-15"
     engine.store.save(RunState(run_id="github-owner-repo-15", ticket_iid=15,
                                lifecycle="cancelled", container=renamed))
@@ -4289,18 +4343,16 @@ def test_cleanup_removes_this_projects_finished_and_stateless_run_resources(
 
     report = engine.cleanup()
 
-    executors = sorted([*(f"adore-run-{run_id}" for run_id in gone), renamed])
-    assert report["containers_removed"] == executors
-    assert report["proxy_containers_removed"] == [f"{name}-egress-proxy" for name in executors]
-    assert report["egress_networks_removed"] == [f"adore-egress-{name}" for name in executors]
-    assert report["worktrees_removed"] == sorted(
-        [*with_dirs, "github-owner-repo-13", "legacy-done"]
-    )
-    assert sorted(path.name for path in root.iterdir()) == sorted(kept)
-    for run_id in kept:
-        executor = f"adore-run-{run_id}"
-        assert {executor, f"{executor}-egress-proxy"} <= runtime.containers
-        assert f"adore-egress-{executor}" in runtime.networks
+    removed = [f"github-owner-repo-{iid}" for iid in (5, 8, 12)]
+    executors = sorted(f"adore-run-{run_id}" for run_id in removed)
+    assert sorted(report["containers_removed"]) == executors
+    assert sorted(report["proxy_containers_removed"]) == [
+        name + "-egress-proxy" for name in executors]
+    assert sorted(report["worktrees_removed"]) == sorted([*removed, "legacy-done"])
+    for run_id in [*kept, "github-owner-repo-9", "github-owner-repo-13"]:
+        assert (root / run_id).exists()
+    assert renamed in runtime.containers
+    assert "adore-run-" + container_only in runtime.containers
 
 
 def test_cleanup_keeps_resources_of_runs_with_corrupt_state(tmp_path: Path) -> None:
@@ -4333,7 +4385,7 @@ def test_cleanup_continues_when_the_container_runtime_fails(tmp_path: Path) -> N
     """
     engine, _, worktrees, containers, _ = make_engine(tmp_path)
     run_id = "github-owner-repo-5"
-    engine.store.save(RunState(run_id=run_id, ticket_iid=5, lifecycle="done"))
+    saved_resource_run(engine, run_id, 5, "done")
     root = tmp_path / "worktrees"
     (root / run_id).mkdir(parents=True)
     worktrees.path_for = lambda candidate: root / candidate
@@ -4342,14 +4394,13 @@ def test_cleanup_continues_when_the_container_runtime_fails(tmp_path: Path) -> N
     def unavailable(*args):
         raise IsolationError("container runtime unavailable")
 
-    for method in ("list_containers", "list_executors", "cleanup_orphan_containers",
-                   "cleanup_egress_proxies", "cleanup_egress_networks"):
+    for method in ("list_containers", "list_executors", "release_owned"):
         setattr(containers, method, unavailable)
 
     report = engine.cleanup()
 
-    assert report["worktrees_removed"] == [run_id]
-    assert not (root / run_id).exists()
+    assert report["worktrees_removed"] == []
+    assert (root / run_id).exists()
     for key in ("containers_removed", "proxy_containers_removed", "egress_networks_removed"):
         assert report[key] == [], key
 
@@ -4361,12 +4412,12 @@ def test_cleanup_reports_only_worktrees_it_removed(
     """@brief A worktree directory that survives removal is not reported as removed."""
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     run_id = "github-owner-repo-5"
-    engine.store.save(RunState(run_id=run_id, ticket_iid=5, lifecycle="done"))
+    saved_resource_run(engine, run_id, 5, "done")
     stuck = tmp_path / "worktrees" / run_id
     stuck.mkdir(parents=True)
     worktrees.path_for = lambda candidate: stuck.parent / candidate
     worktrees.dirs = [stuck]
-    monkeypatch.setattr(orchestrator_module, "force_rmtree", lambda path: None)
+    monkeypatch.setattr(worktrees, "remove", lambda *args, **kwargs: None)
 
     report = engine.cleanup()
 
@@ -4384,7 +4435,7 @@ def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
     """
     engine, _, worktrees, containers, _ = make_engine(tmp_path)
     run_id = "github-owner-repo-5"
-    engine.store.save(RunState(run_id=run_id, ticket_iid=5, lifecycle="done"))
+    saved_resource_run(engine, run_id, 5, "done")
     root = tmp_path / "worktrees"
     (root / run_id).mkdir(parents=True)
     worktrees.path_for = lambda candidate: root / candidate
@@ -4407,9 +4458,9 @@ def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
     containers.cleanup_egress_networks = sweep("networks")
 
     report = engine.cleanup()
-
-    assert calls == ["executors"]
-    assert report["worktrees_removed"] == [run_id]
+    assert calls == []
+    assert report["proxy_containers_removed"] == []
+    assert report["egress_networks_removed"] == []
 
 
 @pytest.mark.parametrize("backoff, expected", [

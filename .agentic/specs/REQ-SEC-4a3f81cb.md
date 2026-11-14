@@ -13,99 +13,34 @@ run resources) and REQ-REL-2219035e (corrupt runs keep their resources).
 
 ## Behavior
 
-`adore [--profile P] cleanup` works only on run IDs that belong to the current
-project.
+`adore [--profile P] cleanup` retains active, failed, human-owned and corrupt runs.
+Stateless resources remain because a name or matching run-ID prefix alone does
+not prove ownership. A saved done, cancelled or stale run is eligible only while
+its lifecycle lock is exclusively owned and its configuration-derived branch,
+container, worktree and native IO identities match the saved run.
 
-1. **Run-ID form.** A project's run IDs have the form
-   `<platform kind>-<platform repo with "/" as "-" and spaces removed>-<ticket number>`,
-   the value ADORE derives for every run. A name has the project's form only
-   when everything after `<platform kind>-<safe repo>-` is one or more ASCII
-   digits. For gitea `dpasare/alpha`, `gitea-dpasare-alpha-9` has the form;
-   `gitea-dpasare-alpha-tools-4` does not.
-2. **Owned run IDs** are the union of:
-   - runs recorded in the project's state store, whatever their name;
-   - run directories in the project's state store whose state is corrupt;
-   - directories under the worktree root whose name has the project's form;
-   - executor containers named `<slug>-run-<run ID>` whose run ID has the
-     project's form.
-3. **Protected run IDs** are recorded runs whose lifecycle is active,
-   `failed`, `handed-off` or `handoff-pending`, and every corrupt run.
-   **Eligible run IDs** are owned run IDs that are not protected: `done`,
-   `cancelled` and `stale` runs, and form-matching run IDs without state.
-4. For each eligible run ID, cleanup removes whichever of these exist:
-   - the executor container `<slug>-run-<run ID>` and the run's recorded
-     container name;
-   - the egress proxy of each such executor container, under its per-run name
-     (defined in `specs/REQ-SEC-553ebd62.md`), whatever the current egress
-     mode;
-   - the egress network of each such executor container, under its per-run
-     name with both the canonical `adore-egress` prefix and the configured
-     `network_prefix`, whatever the current egress mode;
-   - the worktree directory `<worktree root>/<run ID>`, deregistered from Git
-     and then removed from disk.
-5. A resource is removed only when its exact name is derived in step 4 from
-   an eligible run ID **and** is not also derived from a
-   protected run ID or from any other existing executor container (listed
-   under `<slug>-run-`, proxy containers excluded). If that listing fails, no
-   proxy or network is removed in that pass. Everything else stays: other
-   projects' resources (even with the same slug, network prefix or worktree
-   root), look-alike project names, unrelated folders, and proxy or network
-   names of an earlier ADORE build, which cleanup does not recognise.
-6. The stale-lock handling is unchanged: a provably stale lock is cleared, a
-   live lock is reported with its holder and kept.
-7. Runtime failures stay best-effort per resource: a failed listing or
-   removal is skipped, the rest continues, and the command exits 0.
+Container release validates the exact executor/proxy mounts, immutable IDs and
+complete network membership; no foreign network member is removed. Destructive
+runtime commands use immutable IDs. Worktree release verifies the expected Git
+common directory, top level and branch. Unconfirmed runtime release preserves
+the worktree. Git registry mutation is serialized, without pruning unrelated
+registrations or force-deleting unproven husks.
 
-## Data / interface
+The report lists actual verified removals under `containers_removed`,
+`proxy_containers_removed`, `egress_networks_removed` and `worktrees_removed`.
+A preserved or missing resource is not reported as removed. A readable local
+operator lock is reclaimed only after proven owner death; live/unknown owners
+are retained. Kernel files remain under the server's resource-lock directory.
 
-- Command line unchanged: `adore [--profile P] cleanup`; exit 0.
-- JSON report keys unchanged: `lock_cleared`, `lock_held_by`,
-  `containers_removed`, `proxy_containers_removed`, `egress_networks_removed`,
-  `worktrees_removed`, `corrupt_runs`. The three container/network lists name
-  only resources that existed and were removed; `worktrees_removed` names the
-  run IDs whose directory existed and was removed; `corrupt_runs` names the
-  corrupt run IDs. Lists are sorted.
-- The note printed after the report for corrupt runs is unchanged.
+## Failure and recovery
 
-## Examples
+Unproven, corrupt or changed evidence produces typed refusal and preserves
+resources for inspection. The operator handles stateless resources explicitly;
+a prefix match grants no cleanup authority. Other projects remain independent,
+including profiles for the same repository using separate project resource suffixes.
 
-- Profiles A (gitea `dpasare/alpha`) and B (gitea `dpasare/beta`) share slug
-  `adore`, worktree root `worktrees` and prefix `adore-egress`. B has a
-  `working` run `gitea-dpasare-beta-3` and a `handed-off` run
-  `gitea-dpasare-beta-2`. A has a `cancelled` run `gitea-dpasare-alpha-5`, a
-  `failed` run `gitea-dpasare-alpha-6`, and a container
-  `adore-run-gitea-dpasare-alpha-9` with its worktree directory but no state.
-  Cleanup for A removes the containers, proxies, networks and worktrees of
-  runs 5 and 9; run 6 and all of B's resources remain.
-- Under the same root, `gitea-dpasare-alpha-tools-4` and a folder `notes`
-  remain after cleanup for A.
-- A's run `gitea-dpasare-alpha-7` has an unreadable `state.json`: its
-  worktree, container, proxy and network remain, and the report lists it under
-  `corrupt_runs`.
-- Names of an earlier build: for gitea
-  `dpasare/2026_Networked_Intelligent_Lab_Orchestrator` with slug `adore`, the
-  old cut proxy `adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy`
-  and network `adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige`
-  stay when cleanup removes `done` run 26's per-run resources; the operator
-  removes them by hand (01_Documentation/Recovery_And_Maintenance.md).
+## Verification
 
-## Acceptance
-
-- Automated tests cover every example above with a fake runtime.
-- Existing cleanup tests still hold: failed-run resources are kept, a live
-  lock is reported and kept, and the CLI prints the report keys.
-
-## Assumptions and open decisions
-
-- ADORE names executor containers and worktree directories only from the
-  derived run ID; resources named any other way are not collected and need
-  manual removal.
-- Repository paths that differ only by `/` versus `-` (`a/b-c`, `a-b/c`) map
-  to the same run IDs; this is pre-existing and outside this contract.
-- Orphans of projects that no longer have a profile belong to no project's
-  cleanup; the operator removes them manually.
-- Proxy and network names made by an earlier ADORE build (old cut names) are
-  not recognised; cleanup never removes them, and the operator removes them by
-  hand with the container runtime CLI.
-- A proxy or network whose run has no state, worktree or executor container
-  left cannot be tied to a run ID and stays; the operator removes it manually.
+Offline injected public cleanup and runtime ownership tests cover terminal removal,
+peer preservation, stateless/corrupt refusal, runtime failure, invalid mounts and
+foreign network members. No live Git, container or forge command is used.

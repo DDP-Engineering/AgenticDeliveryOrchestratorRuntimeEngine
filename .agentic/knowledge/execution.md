@@ -117,3 +117,16 @@ dependency marker retention and writable IO with network none/user adore. This
 marker check is separate from live agent package-installation acceptance.
 
 `BoundTarget.spawn` admits or resumes the verified container and addresses its immutable ID. `settle_timeout` quiesces RPC descendants and records same-resource restart eligibility; failed confirmation blocks further commands and spawns.
+
+
+## Concurrent resource ownership
+
+Every run process owns a fresh mutable backend/executor. Bound container targets
+copy their environment and identity pins, so later caller mutations do not affect
+another launch. Stop/interrupt/removal address observed immutable container IDs
+and reject changed saved pins. Full executor/proxy/network cleanup is the
+conductor's path-bound `release_owned` operation; backend-only executor removal
+does not infer egress ownership from a name. Native targets retain run-owned
+receipts and isolated Pi temporary settings.
+
+Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.

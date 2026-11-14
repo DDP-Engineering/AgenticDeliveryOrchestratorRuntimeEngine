@@ -63,6 +63,8 @@ Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce
 
 ## Arhivare, restaurare și ștergere {#lifecycle}
 
+Arhivarea și ștergerea cer ca toate lucrările să fi încheiat execuția și curățarea, chiar dacă starea salvată indică deja finalizarea. Resursele fără proprietate dovedită sunt păstrate pentru inspecție.
+
 Administratorii găsesc aceste butoane în fila Rezumat.
 
 - **Arhivează proiectul** funcționează după încheierea lucrărilor și golirea cererilor din coadă. Păstrează setările, istoricul, metricile și înregistrările de audit și oprește lucrul nou. **Restaurează proiectul** îl readuce.

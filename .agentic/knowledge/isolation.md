@@ -142,3 +142,19 @@ Literal environment-variable segments and the Windows system cache path stop
 with a path-specific `SuspiciousCheckpointPathError`; invalid bounded Git
 evidence raises `IsolationError`. The operator inspects preserved files.
 Focused offline proof: `tests/test_isolation.py`.
+
+
+## Concurrent resource ownership
+
+Shared worktree registry operations and checkpoint sequences use a bounded lock
+keyed by the resolved Git common directory, including linked-worktree clones.
+Remote fetch has a separate key; network publication and executor sessions do not
+hold the registry lock. Git config repair respects `config.lock` and atomically
+publishes only the unchanged inspected source. Run removal never prunes other
+worktree registrations. Production worktree directory names include a stable
+project suffix derived from the canonical state root. Invalid/escaping/linked run
+paths fail with `IsolationError`. Warm container provisioning verifies repository,
+worktree and IO mounts before reuse and starts its immutable ID. `release_owned`
+returns exact removed executor/proxy/network names after full path/identity proof.
+
+Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.

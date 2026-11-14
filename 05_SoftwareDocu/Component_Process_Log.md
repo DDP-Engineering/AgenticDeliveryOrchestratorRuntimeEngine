@@ -94,3 +94,12 @@ logger.emit('{"picked": 0}')
 - There is intentionally no config section for process-log size, path, or
   backup count. Add configuration only if operators need different retention
   after real unattended use.
+
+
+## Diagnostic and lifecycle boundaries
+
+Concurrent writers serialize rotation plus append under a bounded stable writer
+lock. Individual records and backup generations cannot race. `adore conduct` logs to
+`<store_root>/runs/<run-id>/adore.log`; admission/loop logs keep the project log.
+Lock failure is an explicit `OSError`. Offline proof: shared-resource rotation and
+CLI attribution tests plus the existing smoke log contracts.

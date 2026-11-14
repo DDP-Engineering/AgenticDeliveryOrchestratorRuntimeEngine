@@ -53,6 +53,7 @@ from adore.branding import (
     CONTAINER_CHATGPT_MOUNT,
     CONTAINER_PI_CHATGPT_SCRIPT,
 )
+from adore.resource_lock import ResourceLockError, atomic_write, resource_lock
 from adore.util import background_process_options, run_command, strict_json_loads
 
 # CONSTANTS
@@ -286,11 +287,13 @@ def prepare(directory: Path) -> Path:
         directory.chmod(0o700)
     device = directory / DEVICE_FILE
     try:
-        handle = os.open(device, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    except FileExistsError:
-        return directory
-    with os.fdopen(handle, "wb") as stream:
-        stream.write(str(uuid4()).encode("ascii") + b"\n")
+        with resource_lock(directory / "device.lock"):
+            if device.is_symlink() or device.exists() and not device.is_file():
+                raise OSError("ChatGPT device identity storage is unsafe")
+            if not device.exists():
+                atomic_write(device, str(uuid4()) + "\n")
+    except ResourceLockError as exc:
+        raise OSError("ChatGPT device identity is busy or unavailable") from exc
     return directory
 
 
@@ -336,8 +339,14 @@ def disconnect(directory: Path) -> None:
     @param[in]  directory Credential directory.
     @exception  OSError When a file cannot be removed.
     """
-    for name in (AUTH_FILE, MARK_FILE):
-        (directory / name).unlink(missing_ok=True)
+    if not directory.exists():
+        return
+    try:
+        with resource_lock(directory / "refresh.lock"):
+            for name in (AUTH_FILE, MARK_FILE):
+                (directory / name).unlink(missing_ok=True)
+    except ResourceLockError as exc:
+        raise OSError("ChatGPT credential mutation is busy or unavailable") from exc
 
 
 def check_redirect(url: object, state: str) -> str:
@@ -393,34 +402,40 @@ def bearer_token(manager, directory: Path, min_validity_seconds: int, *,
     @return     The access token (memory only).
     @exception  ChatGptError With the cause code.
     """
-    state = status(directory)
-    if state != "signed-in":
-        raise ChatGptError(state)
-    name = _helper_name()
-    argv, options = _command(manager, name, directory,
-                             ["token", "--min-validity-seconds", str(int(min_validity_seconds))])
     try:
-        result = manager.runner(argv, timeout=timeout, **options)
-    except TimeoutError as exc:
-        _remove_helper(manager, name)
+        with resource_lock(directory / "refresh.lock", timeout=timeout):
+            state = status(directory)
+            if state != "signed-in":
+                raise ChatGptError(state)
+            name = _helper_name()
+            argv, options = _command(
+                manager, name, directory,
+                ["token", "--min-validity-seconds", str(int(min_validity_seconds))])
+            try:
+                result = manager.runner(argv, timeout=timeout, **options)
+            except TimeoutError as exc:
+                _remove_helper(manager, name)
+                raise ChatGptError("unavailable") from exc
+            except OSError as exc:
+                raise ChatGptError("helper-failed") from exc
+            if result.timed_out:
+                _remove_helper(manager, name)
+                raise ChatGptError("unavailable")
+            answer = _answer(result.stdout)
+            code = answer.get("status") if answer else None
+            if (result.ok and code == "ok" and set(answer) == {"status", "token", "expires"}
+                    and isinstance(answer["token"], str) and _TOKEN_RE.fullmatch(answer["token"])
+                    and type(answer["expires"]) in (int, float)
+                    and (type(answer["expires"]) is int or math.isfinite(answer["expires"]))
+                    and answer["expires"] >= (time() + min_validity_seconds) * 1000):
+                _unmark(directory)
+                return answer["token"]
+            if code == "sign-in-again":
+                _mark(directory)
+            raise ChatGptError(
+                code if isinstance(code, str) and code in HELPER_CODES else "helper-failed")
+    except ResourceLockError as exc:
         raise ChatGptError("unavailable") from exc
-    except OSError as exc:
-        raise ChatGptError("helper-failed") from exc
-    if result.timed_out:
-        _remove_helper(manager, name)
-        raise ChatGptError("unavailable")
-    answer = _answer(result.stdout)
-    code = answer.get("status") if answer else None
-    if (result.ok and code == "ok" and set(answer) == {"status", "token", "expires"}
-            and isinstance(answer["token"], str) and _TOKEN_RE.fullmatch(answer["token"])
-            and type(answer["expires"]) in (int, float)
-            and (type(answer["expires"]) is int or math.isfinite(answer["expires"]))
-            and answer["expires"] >= (time() + min_validity_seconds) * 1000):
-        _unmark(directory)
-        return answer["token"]
-    if code == "sign-in-again":
-        _mark(directory)
-    raise ChatGptError(code if isinstance(code, str) and code in HELPER_CODES else "helper-failed")
 
 
 class SignIn:

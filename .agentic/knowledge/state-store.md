@@ -116,7 +116,8 @@ and test_web_ownership.py::test_cli_attaches_and_fences_state_and_external_effec
 
 `run_lock` gives independent stores/processes exclusive kernel ownership on a
 stable per-run file. Thread nesting is allowed only within the same StateStore.
-`admission_lock` is short and contains local capacity/uniqueness reservation;
+Normal `admission_lock` capacity sections contain only local reservations;
+project destruction retains the explicit full barrier through authorized cleanup.
 `execution_slot` keeps initialization/cleanup visible before/after active state.
 Locks release on process death and their files are never unlinked during normal
 operation. A held lock, not its file's age, proves a live conductor.
@@ -136,3 +137,26 @@ all saves, including Cancel. Activation clears and saves the flag/clock before
 consuming dispatch authority or performing a forge/provisioning effect. A true
 flag with executor/task progress is corrupt; a missing field is refused with the
 run directory to delete, without repair or conversion.
+
+
+## Concurrent resource ownership
+
+`project_barrier()` excludes admission and acquires every known lifecycle and
+execution scope before yielding. This includes reservations whose run state is
+terminal or already removed. Profile-contained state places stable kernel files under the server home
+identified by its path, in `resource-locks/state/<canonical-state-root-hash>/`.
+External state keeps `<state root>/locks`. Windows profile deletion therefore
+cannot unlink held kernel inodes. Do not
+remove these files while the server/runs are active. Admission reentrancy covers
+its entire kernel and operator scope. JSON publication uses unique temporary
+files and fencing immediately before replacement. Journals remain in each run's
+own directory and each live conductor holds that run's lifecycle lock.
+
+Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.
+
+
+Kernel lock placement depends only on the canonical state-root path. Profile-contained
+state uses the server home identified by the `profiles/<profile>/...` path layout,
+with locks outside the deletable profile. External state keeps `<state root>/locks`.
+Changing ambient ADORE home cannot split ownership. A clone containing retained state
+is kept during optional clone removal.

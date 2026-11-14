@@ -106,7 +106,7 @@ from adore.repository_auth import (
     verify_connection,
 )
 from adore.selection import start_blocker, start_preparation
-from adore.state import StateError, StateStore
+from adore.state import LockHeldError, StateError, StateStore
 from adore.util import (
     CommandResult,
     CommandRunner,
@@ -4336,19 +4336,19 @@ def create_app(home: str | Path | None = None,
             item = project(name, user)
             if not item.archived:
                 state = _store_for(profiles, item)
-                if not state.acquire_lock():
-                    raise _error(409, "project_has_active_work")
                 try:
-                    if (state.invalid_runs()
-                            or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
-                                   for run in state.list_runs())
-                            or web.has_unfinished_operations(item.name)):
-                        raise _error(409, "project_has_active_work")
-                    item.archived = True
-                    profiles.save(item)
-                    web.audit(user["id"], "project-archived", item.name)
-                finally:
-                    state.release_lock()
+                    with state.project_barrier():
+                        if (any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
+                                for run in state.list_runs())
+                                or web.has_unfinished_operations(item.name)):
+                            raise _error(409, "project_has_active_work")
+                        item.archived = True
+                        profiles.save(item)
+                        web.audit(user["id"], "project-archived", item.name)
+                except LockHeldError as exc:
+                    raise _error(409, "project_has_active_work") from exc
+                except StateError as exc:
+                    raise _error(503, "run_state_corrupt") from exc
             return _profile_view(profiles, item)
 
     @app.post("/api/v1/projects/{name}/restore")
@@ -4358,6 +4358,8 @@ def create_app(home: str | Path | None = None,
         with config_lock:
             item = project(name, user)
             if item.archived:
+                if web.has_unfinished_operations(item.name):
+                    raise _error(409, "project_has_active_work")
                 item.archived = False
                 profiles.save(item)
                 web.audit(user["id"], "project-restored", item.name)
@@ -4398,16 +4400,20 @@ def create_app(home: str | Path | None = None,
         if web.has_unfinished_operations(item.name):
             raise _error(409, "project_has_active_work")
         state = _store_for(profiles, item)
-        if state.invalid_runs():
-            raise _error(503, "run_state_corrupt")
-        if any(run.lifecycle not in _DELETABLE_RUN_LIFECYCLES for run in state.list_runs()):
-            raise _error(409, "project_has_active_work")
-        if body.remove_clone and not clone_view(item)["removable"]:
-            raise _error(409, "clone_not_removable")
         try:
-            operation = web.enqueue(user["id"], item.name, "delete",
-                                    "remove-clone" if body.remove_clone else "",
-                                    body.idempotency_key)
+            with state.project_barrier():
+                if any(run.lifecycle not in _DELETABLE_RUN_LIFECYCLES
+                       for run in state.list_runs()):
+                    raise _error(409, "project_has_active_work")
+                if body.remove_clone and not clone_view(item)["removable"]:
+                    raise _error(409, "clone_not_removable")
+                operation = web.enqueue(user["id"], item.name, "delete",
+                                        "remove-clone" if body.remove_clone else "",
+                                        body.idempotency_key)
+        except LockHeldError as exc:
+            raise _error(409, "project_has_active_work") from exc
+        except StateError as exc:
+            raise _error(503, "run_state_corrupt") from exc
         except WebStoreError as exc:
             raise _store_error(409, exc) from exc
         web.audit(user["id"], "project-delete-requested", item.name)

@@ -188,3 +188,23 @@ A busy-owner marker prints `cancellation requested; awaiting confirmed stop`;
 exit zero then means the request was accepted, not that cleanup completed.
 An unavailable result is reported as unconfirmed with a nonzero exit.
 Admission-only performs no reconciliation of other jobs.
+
+
+## Concurrent resource ownership
+
+Both forms of profile deletion require the project barrier before changing any
+profile data. `--remove-resources` retains it through verified resource release,
+profile removal and optional clone removal; no admission or run cleanup can race
+that boundary. A live execution slot blocks deletion even after its saved run is
+terminal or absent. Clone reinspection never prunes another run's registrations.
+Monitoring pause still stops automatic pickup without cancelling active jobs.
+
+Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.
+
+
+## Diagnostic and lifecycle boundaries
+
+Profile-bound admission rechecks immutable identity and archive state after the
+barrier; a stale loaded CLI cannot admit into an archived/deleted project.
+Clone previews use saved namespaced worktree paths. Conduct diagnostics use a
+per-run process log. Tests: `test_shared_resources.py`.

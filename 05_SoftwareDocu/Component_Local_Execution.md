@@ -119,3 +119,16 @@ separate from the container internet switch. See
 
 
 The managed native Pi argv carries the selected thinking level to stages and model diagnostics.
+
+
+## Concurrent resource ownership
+
+Managed Pi installation uses a dedicated bounded tools lock (330-second maximum
+acquisition wait), a unique verified staging prefix and atomic directory publication.
+Published packages remain immutable and `managed_pi`/`verify_pi` do not acquire the
+installation lock. Native control receipts, process scopes, output and fresh Pi
+agent directories remain per run. Existing Windows Jobs and Linux cgroup ownership
+checks continue to fence interruption and cleanup; no process-global environment
+is modified for project settings.
+
+Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.

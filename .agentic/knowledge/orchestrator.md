@@ -356,3 +356,19 @@ Cancel of an admitted native job whose pinned plan has no resource receipt
 proves absence of its exact local-control directory before removing the worktree.
 Any unrecorded control entry blocks cleanup and preserves state; no process is
 assumed absent merely from missing saved resource identity.
+
+
+## Concurrent resource ownership
+
+Each production conductor owns its configuration, backend, executor, secrets,
+IO and diagnostics. Resource branch/worktree/container identities include a stable
+project suffix, so two profiles targeting the same repository/ticket remain distinct.
+A branch template using only the ticket number receives the same suffix.
+Checkpoint, publication, handoff, provisioning and teardown verify the derived
+branch/container, saved worktree and native IO ownership before effects. Cleanup
+retains stateless, corrupt, foreign, active and human-owned resources; verified
+terminal resources use path-bound immutable release. It never force-deletes an
+unproven husk. A human merge remains done if cleanup is refused, with a saved
+resource-cleanup-retained diagnostic. ADORE never merges or repeats target tests.
+
+Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.

@@ -147,3 +147,16 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 ## Deleted identity reuse
 
 `delete_summary` removes exactly a verified deleted job's summary and refreshes its optional JSONL mirror; absent/disabled stores are untouched. `stats --rebuild` serializes its whole read/write batch under the conductor lock, preventing stale summary resurrection during delete/restart. Offline integration/rebuild-lock proof: tests/test_drift_recovery.py.
+
+
+## Concurrent resource ownership
+
+Summary upsert/deletion and mirror replacement share bounded database/mirror
+writer locks across processes. SQLite transactions end before snapshot export;
+connections close explicitly, and SQLite busy handling is bounded to one second.
+The mirror and HTML reports publish complete fsynced sibling files atomically.
+A failed export preserves the previous complete mirror and raises `MetricsError`;
+committed SQLite rows remain authoritative. Concurrent terminal summaries cannot
+overwrite one another's snapshot. The database cannot also be its JSONL mirror.
+
+Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.

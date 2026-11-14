@@ -462,3 +462,6 @@ Initial queued execution has the required current-state execution_pending flag;
 all readers freeze active work until its durable activation. Admission-only never
 reconciles another job. Cancel distinguishes an accepted request from saved
 stopping and cannot use marker fallback to mutate a foreign run target.
+
+
+Concurrent production resource names include a canonical-state-root project suffix; cleanup requires exact saved/path/runtime ownership and preserves stateless or foreign resources. Project archive/deletion exclude every live run/cleanup reservation.

@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 # IMPORTS
+from contextlib import closing, contextmanager
 import csv
 from dataclasses import asdict, dataclass, fields
 from datetime import UTC, datetime, timedelta
@@ -35,6 +36,7 @@ import sqlite3
 from typing import Any
 
 from adore.branding import PRODUCT_ACRONYM
+from adore.resource_lock import ResourceLockError, atomic_write, resource_lock
 from adore.state import StateStore
 from adore.util import iso_to_datetime
 
@@ -118,23 +120,28 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
     """
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path)
+    connection = sqlite3.connect(path, timeout=1)
     columns = ", ".join(
         f"{f.name} {'REAL' if f.type == 'float' else 'INTEGER' if f.type == 'int' else 'TEXT'}"
         + (" PRIMARY KEY" if f.name == "run_id" else "")
         for f in fields(RunSummary)
     )
-    connection.execute(f"CREATE TABLE IF NOT EXISTS {_TABLE} ({columns})")
-    existing = {
-        str(row[1])
-        for row in connection.execute(f"PRAGMA table_info({_TABLE})").fetchall()
-    }
-    if existing != {item.name for item in fields(RunSummary)}:
+    try:
+        connection.execute(f"CREATE TABLE IF NOT EXISTS {_TABLE} ({columns})")
+        existing = {
+            str(row[1])
+            for row in connection.execute(f"PRAGMA table_info({_TABLE})").fetchall()
+        }
+        if existing != {item.name for item in fields(RunSummary)}:
+            raise MetricsError(
+                f"metrics database {path} was written by another ADORE build; "
+                "delete it to start fresh"
+            )
+    except (sqlite3.DatabaseError, MetricsError) as exc:
         connection.close()
-        raise MetricsError(
-            f"metrics database {path} was written by another ADORE build; "
-            "delete it to start fresh"
-        )
+        if isinstance(exc, MetricsError):
+            raise
+        raise MetricsError("metrics database unavailable: " + str(exc)) from exc
     return connection
 
 
@@ -341,6 +348,27 @@ def summarize_run(store: StateStore, run_id: str,
     return summary
 
 
+@contextmanager
+def _summary_mutation(db_path, export_jsonl):
+    """@brief Serialize mutation and mirror publication across processes.
+    @exception MetricsError Busy or corrupt storage; committed SQLite remains truth.
+    """
+    path = Path(db_path).resolve()
+    try:
+        with resource_lock(path.with_name(path.name + ".write.lock")):
+            # Sharing a mirror across stores still must not interleave writes.
+            if export_jsonl:
+                mirror = Path(export_jsonl).resolve()
+                if mirror == path:
+                    raise MetricsError("metrics database and JSONL mirror must be different files")
+                with resource_lock(mirror.with_name(mirror.name + ".write.lock")):
+                    yield
+            else:
+                yield
+    except (ResourceLockError, sqlite3.DatabaseError, OSError) as exc:
+        raise MetricsError("metrics mutation failed: " + str(exc)) from exc
+
+
 def record_summary(db_path: str | Path, summary: RunSummary,
                    export_jsonl: str | Path = "") -> None:
     """
@@ -352,20 +380,20 @@ def record_summary(db_path: str | Path, summary: RunSummary,
     @param[in]  summary The summary to persist.
     @param[in]  export_jsonl Mirror path ("" = no mirror).
     """
-    names = [f.name for f in fields(RunSummary)]
-    with _connect(db_path) as connection:
-        connection.execute(
-            f"INSERT OR REPLACE INTO {_TABLE} ({', '.join(names)}) "
-            f"VALUES ({', '.join('?' * len(names))})",
-            [getattr(summary, name) for name in names],
-        )
-    if export_jsonl:
-        mirror = Path(export_jsonl)
-        mirror.parent.mkdir(parents=True, exist_ok=True)
-        rows = load_summaries(db_path)
-        with mirror.open("w", encoding="utf-8") as handle:
-            for row in rows:
-                handle.write(json.dumps(asdict(row), ensure_ascii=False) + "\n")
+    with _summary_mutation(db_path, export_jsonl):
+        names = [f.name for f in fields(RunSummary)]
+        with closing(_connect(db_path)) as connection, connection:
+            connection.execute(
+                f"INSERT OR REPLACE INTO {_TABLE} ({', '.join(names)}) "
+                f"VALUES ({', '.join('?' * len(names))})",
+                [getattr(summary, name) for name in names],
+            )
+        if export_jsonl:
+            mirror = Path(export_jsonl)
+            mirror.parent.mkdir(parents=True, exist_ok=True)
+            rows = load_summaries(db_path)
+            atomic_write(mirror, "".join(json.dumps(asdict(row), ensure_ascii=False) + "\n"
+                                       for row in rows))
 
 
 def delete_summary(db_path: str | Path, run_id: str, export_jsonl: str = "") -> None:
@@ -375,16 +403,18 @@ def delete_summary(db_path: str | Path, run_id: str, export_jsonl: str = "") -> 
     @param[in] export_jsonl Optional current summary mirror.
     @exception MetricsError Unsupported store schema.
     """
-    if not db_path or not Path(db_path).exists():
+    if not db_path:
         return
-    with _connect(db_path) as connection:
-        connection.execute(f"DELETE FROM {_TABLE} WHERE run_id=?", (run_id,))
-    if export_jsonl:
-        mirror = Path(export_jsonl)
-        mirror.parent.mkdir(parents=True, exist_ok=True)
-        with mirror.open("w", encoding="utf-8") as handle:
-            for row in load_summaries(db_path):
-                handle.write(json.dumps(asdict(row), ensure_ascii=False) + "\n")
+    with _summary_mutation(db_path, export_jsonl):
+        if not Path(db_path).exists():
+            return
+        with closing(_connect(db_path)) as connection, connection:
+            connection.execute(f"DELETE FROM {_TABLE} WHERE run_id=?", (run_id,))
+        if export_jsonl:
+            mirror = Path(export_jsonl)
+            mirror.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write(mirror, "".join(json.dumps(asdict(row), ensure_ascii=False) + "\n"
+                                       for row in load_summaries(db_path)))
 
 
 def load_summaries(db_path: str | Path,
@@ -399,7 +429,7 @@ def load_summaries(db_path: str | Path,
     if not Path(db_path).is_file():
         return []
     names = [f.name for f in fields(RunSummary)]
-    with _connect(db_path) as connection:
+    with closing(_connect(db_path)) as connection, connection:
         rows = connection.execute(
             f"SELECT {', '.join(names)} FROM {_TABLE} ORDER BY ended_at"
         ).fetchall()
@@ -426,7 +456,7 @@ def load_analytical_summaries(db_path: str | Path) -> list[RunSummary]:
     try:
         if path.is_symlink() or not path.is_file():
             raise MetricsError("invalid metrics source")
-        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as connection:
             names = [str(row[1]) for row in connection.execute(
                 f"PRAGMA table_info({_TABLE})").fetchall()]
             fields_by_name = {f.name: f for f in fields(RunSummary)}
@@ -562,7 +592,7 @@ def render_html(summaries: list[RunSummary], out_path: str | Path) -> Path:
     )
     path = Path(out_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(document, encoding="utf-8")
+    atomic_write(path, document)
     return path
 
 

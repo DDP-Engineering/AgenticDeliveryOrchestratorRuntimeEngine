@@ -479,3 +479,19 @@ It passes the existing `_MAX_EVIDENCE` bound, saves sanitized receipt text befor
 removal and never serializes the receipt. Public conductor and handoff tests
 verify the integration and no-artifact publication; completion and approval
 policy remain separate from these isolation primitives.
+
+
+## Concurrent resource ownership
+
+Shared worktree registry operations and checkpoint sequences use a bounded lock
+keyed by the resolved Git common directory, including linked-worktree clones.
+Remote fetch has a separate key; network publication and executor sessions do not
+hold the registry lock. Git config repair respects `config.lock` and atomically
+publishes only the unchanged inspected source. Run removal never prunes other
+worktree registrations. Production worktree directory names include a stable
+project suffix derived from the canonical state root. Invalid/escaping/linked run
+paths fail with `IsolationError`. Warm container provisioning verifies repository,
+worktree and IO mounts before reuse and starts its immutable ID. `release_owned`
+returns exact removed executor/proxy/network names after full path/identity proof.
+
+Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
