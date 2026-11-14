@@ -143,13 +143,85 @@ No DCP data/application, real forge, provider, Pi session or Docker/Podman daemo
 was used. Native Jobs/cgroup and container ownership contracts are simulated
 at their adapters; real project execution with host delegation, service-account
 credentials and model/runtime access remains operator-owned acceptance.
-The existing browser/menu contracts from WK-06 are not re-run or claimed as
-new browser proof here; four-locale help grammar and the production bundle were
-verified after this change.
+Four-locale help grammar and the production bundle were verified in the first
+acceptance phase. The coordinator activated the final umbrella pass after commit
+`f3aa5384936c53cd864bb13b7375c27c552b4498`; the results below supersede the
+initial full-suite deferral.
 
-Per the user's explicit sequencing instruction, the complete umbrella proof
-(`aegis check --strict --run`, whole pytest/frontend/Chromium validation) is
-reserved for one post-commit pass after an explicit coordinator message. This
-inventory does not claim that pending full pass passed. The previously reported
-native/container Pi guard-text discrepancy must be reported separately if it
-persists during that pass; no global test has been silently excluded here.
+## Final umbrella validation
+
+The full commands ran once each, separately so one failure could not suppress
+another suite. No Pi-guard case or other Python case was deselected.
+
+| Check | Observed initial result |
+| --- | --- |
+| `uv run --frozen --extra web python -m pytest -q -ra --tb=short --durations=15` | Exit 1: 3502 passed, 111 failed, 15 skipped, 0 deselected, 1 Starlette/httpx deprecation warning; 1555.89 s. |
+| `uv run --frozen ruff check adore tests` | Exit 0, all passed. |
+| `npm test` in `04_Software/web` | Exit 0: 181 passed, 0 failed/skipped/cancelled; includes 13 help tests. |
+| `npm run build:e2e` | Exit 0: UI/E2E TypeScript and isolated Vite build/fingerprint; existing large-chunk advisory. |
+| `npx playwright test` | Exit 1 at configured 1800 s bound: 175 passed, 24 failed, 116 did not run; 315 selected. Suite and teardown reported two global timeout errors. |
+| `python 02_Tools/internal/check_release_consistency.py --require-artifacts` | Exit 0: 0.15.0 metadata, committed frontend fingerprint/fresh temporary build and archive integrity. |
+| `python 02_Tools/internal/check_release_notes.py --since 50ac624` | Exit 0; later task-base comparison `--since e0a62729` also passed after the new note. |
+
+The 15 Python skips are Windows prerequisites: unavailable symlink creation,
+POSIX executable/PATH semantics and related clone/isolation/cleanup cases. They
+were reported by pytest, not hidden through a selection expression. No automated
+deployment/setup-script test, real forge, provider, executor or target repository
+suite ran.
+
+### Corrections and focused proof
+
+The 111 Python failures included two pre-existing defects listed below. The other
+109 now have focused green proof. Three product repairs preserve existing behavior:
+queued models retain omitted fields distinctly from explicit null; confirmed
+environment preparation keeps its declared 202 success status; private request
+directory/write denial returns sanitized 503 before enqueue without changing saved
+configuration or credentials. There is no schema change or legacy reader.
+
+Fixtures now consume the actual durable configuration result, select domain audit
+evidence independently of operation completion, assert schema 18, bind canonical
+retry/container/worktree identities, model per-run CLI locks and queued Cancel,
+provide native-plan probe inputs and isolate ambient statistics paths. The local
+schema 0 metrics database that exposed the last issue was preserved unchanged.
+
+Focused Python proof after repairs: 62 import/typed-input/credential cases; 126
+passing domain/ownership cases plus 2 platform skips (the one remaining environment
+status failure was then corrected); 8 CLI mutation cases; 8 native/container
+readiness variants; 35 transport/status/role/metrics/configuration-worker cases;
+and 9 actual worker overlap/capacity/storage cases. These commands overlap: they
+are not added into a fabricated new full-suite total. Changed-file Ruff passed.
+
+The browser fixture now gives project consumers their exact registered owners.
+Its existing seed/reset lifecycle removes only terminal simulated Start 42/44
+trials, under the same run locks as the fake conductor, with unfinished-operation
+and active-owner refusal. It retains operation/audit history and all other runs.
+Interceptors consume completed domain bodies; stale browser delivery is delayed
+after the old operation releases its protected server resource. Layout checks
+measure controls simultaneously and verify a scrolled summary panel's viewport
+bounds, retaining its size/alignment limits. Draft and diagnostics tests follow
+the current retained-draft and Technical details workflows.
+
+Only the initial 24 failed and 116 unrun Chromium IDs were selected next:
+`npx playwright test --last-failed` completed with 128 passed, 12 failed, 0 unrun
+in 18.8 minutes. A 12-case focused selection then passed 11 and exposed one remaining role-text
+selector error; the final 2-case run passed both the corrected audit selector and
+changed malformed-workflow interceptor. The 12-case selection included a repeated
+Start 44 across dashboard/jobs to prove fixture reset independence. Across these
+recorded runs, 314 distinct original scenarios have green evidence and one baseline
+scenario remains failed, with 0 unrun. This is aggregate coverage, not a new full
+all-green run. Successful original cases were not rerun as a whole suite.
+
+### Pre-existing failures kept outside WK-07
+
+| Case | Evidence and boundary |
+| --- | --- |
+| Python `test_pi_installation.py::test_managed_pi_ships_the_reviewed_guard` | Native and container Pi guard sources differ at byte 689. Both sources and test are unchanged across 50ac624..f3aa538. An isolated temporary baseline snapshot reproduces the same assertion. |
+| Python `test_web_setting_catalog.py::test_setting_catalog_lists_every_configuration_key` | Setting catalog ordering differs at index 35. Catalog/test are unchanged across the umbrella; an isolated baseline snapshot reproduces it. |
+| Chromium `shell.spec.ts` / `glossary defines supported human actions with essential field help visible` | Missing `enrollment-help-url`, `enrollment-help-identity` and URL `aria-describedby`. Test blob is identical at 50ac624; the first-step rendering is identical (SHA256 `7da58849c668a269cf963b8739dcd27d789b58db59627fcd2943e84649e73748`). Active REQ-UX-072cf049/REQ-UX-2761363b and Web Interface guidance still require help. Classification uses identical source and the observed current failure, not a separately executed baseline browser run. |
+
+These are recorded failures, not accepted green checks. Their requirements or
+assertions were not weakened to make this worker acceptance appear green. The
+complete Python suite and browser suite are therefore not reported as a single
+all-green final run. Release acceptance or separately scoped baseline corrections
+remain coordinator decisions. No commit, push, merge, delivery archive change or
+DCP operation was performed by this validation task.

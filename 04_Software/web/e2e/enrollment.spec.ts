@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
+import { configurationResponse } from "./configuration";
 import { dirname, join } from "node:path";
 import { enrollmentCopy } from "../src/enrollmentCopy";
 import { connectionCopy } from "../src/agentConnection";
@@ -24,7 +25,7 @@ test("guided import waits for automatic environment preparation before saving", 
   await page.getByRole("checkbox", {name:/Create the ADORE labels/}).uncheck();
   let ready = false, creates = 0;
   await page.route("**/api/v1/projects/setup-environment", async route => {
-    const value = await (await route.fetch()).json();
+    const value = await (await configurationResponse(await route.fetch(), page.request)).json();
     await route.fulfill({status:202, json:{...value, status:"running", stage:"building_executor", error:null}});
   });
   await page.route("**/api/v1/environment-preparations/*", route => route.fulfill({json:{
@@ -205,7 +206,7 @@ test("malformed workflow preview and probe responses never display successful ev
   await enter(page); await verification(page, "direct-corrupt-evidence");
   for (const workflow of [undefined, null, "other", true]) {
     await page.route("**/setup-preview",async route=>{
-      const response = await route.fetch(), value = await response.json();
+      const response = await configurationResponse(await route.fetch(), page.request), value = await response.json();
       if (workflow === undefined) delete value.workflow; else value.workflow = workflow;
       await route.fulfill({json:value});
     });
@@ -218,7 +219,7 @@ test("malformed workflow preview and probe responses never display successful ev
   await page.locator(".verify-action").getByRole("button",{name:"Recheck environment",exact:true}).click();
   for (const workflow of [undefined, null, "other", true]) {
     await page.route("**/setup-check",async route=>{
-      const response = await route.fetch(), value = await response.json();
+      const response = await configurationResponse(await route.fetch(), page.request), value = await response.json();
       if (workflow === undefined) delete value.workflow; else value.workflow = workflow;
       await route.fulfill({json:value});
     });
@@ -336,7 +337,7 @@ test("native enrollment reports the Node failure under Pi on the server", async 
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByText(/Pi and Node installations on the server/)).toHaveCount(0);
   await validate(page);
-  const preview = await (await previewResponse).json();
+  const preview = await (await configurationResponse(await previewResponse, page.request)).json();
   const checks = { git: true, forge_cli: true, forge_auth: true, container_runtime: true,
     executor_cli: false };
   await page.route("**/setup-check", route => route.fulfill({ json: {
@@ -474,10 +475,22 @@ test("Back and review changes retain values and invalidate dependent checks", as
 
 test("pending preview becomes stale on upstream edit; corrupt or stale readiness cannot claim success", async ({ page }) => {
   await enter(page); await verification(page, "e2e-stale");
+  await validate(page);
   let release!: () => void;
+  let announce!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/setup-preview", async route => { await gate; await route.continue(); });
+  const received = new Promise<void>(resolve => { announce = resolve; });
+  let held=false;
+  await page.route("**/setup-preview", async route => {
+    if(held) return route.continue();
+    held=true;
+    // Hold stale delivery after the actual worker releases the enrollment resource.
+    const response=await configurationResponse(await route.fetch(),page.request);
+    announce();await gate;
+    await route.fulfill({status:response.status(),json:await response.json()}).catch(()=>undefined);
+  });
   await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
+  await received;
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByLabel("Maximum executor launches", { exact: false })).toHaveValue("20");
   await page.getByLabel("Maximum executor launches", { exact: false }).fill("8");
@@ -492,7 +505,7 @@ test("pending preview becomes stale on upstream edit; corrupt or stale readiness
   await expect(page.getByRole("alert")).toBeFocused();
   await page.unroute("**/setup-check");
   await page.route("**/setup-check", async route => {
-    const response = await route.fetch();
+    const response = await configurationResponse(await route.fetch(), page.request);
     const value = await response.json();
     await route.fulfill({ json: { ...value, status: "verified", checks: { ...value.checks, git: false } } });
   });

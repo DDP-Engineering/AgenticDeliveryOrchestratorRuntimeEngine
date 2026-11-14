@@ -81,6 +81,12 @@ class FakeMutationEngine:
         self.store = store
 
     def retry(self, run_id: str) -> bool:
+        if self.store is not None:
+            with StateStore(self.store.root).run_lock(run_id):
+                return self._retry(run_id)
+        return self._retry(run_id)
+
+    def _retry(self, run_id: str) -> bool:
         self.calls.append(("retry", run_id))
         if self.store is not None:
             run = self.store.load(run_id)
@@ -90,14 +96,25 @@ class FakeMutationEngine:
         return True
 
     def cancel(self, run_id: str, *, outcome: str = "cancelled") -> bool:
+        if self.store is not None:
+            from adore.state import LockHeldError
+
+            try:
+                with StateStore(self.store.root).run_lock(run_id):
+                    run = self.store.load(run_id)
+                    run.lifecycle, run.outcome = "cancelled", outcome
+                    self.store.save(run)
+            except LockHeldError:
+                return self.store.request_cancel(run_id)
         self.calls.append(("cancel", run_id, outcome))
         return True
 
     def delete(self, run_id: str, *, owned_resources: bool = False) -> None:
         """@brief Record the guarded deletion boundary and emulate state removal."""
-        self.calls.append(("delete", run_id))
         if self.store is not None:
-            self.store.delete_run(run_id)
+            with StateStore(self.store.root).run_lock(run_id):
+                self.store.delete_run(run_id)
+        self.calls.append(("delete", run_id))
 
     def reset(self, run_id: str, stage: str) -> bool:
         self.calls.append(("reset", run_id, stage))
@@ -573,23 +590,32 @@ def test_cli_operator_mutations_refuse_a_live_lock(
     monkeypatch: pytest.MonkeyPatch,
     argv: list[str],
 ) -> None:
-    """@brief Retry/cancel/delete/reset fail closed without touching live work."""
+    """@brief Run ownership blocks mutations; Cancel only queues a request to its live owner."""
+    from contextlib import ExitStack
+
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
-    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="failed"))
-    engine = FakeMutationEngine()
+    lifecycle = "working" if argv[0] == "cancel" else "failed"
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle=lifecycle))
+    before = (store.run_dir("run-1") / "state.json").read_bytes()
+    engine = FakeMutationEngine(StateStore(store.root))
     monkeypatch.setattr(
         "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: engine
     )
-    assert store.acquire_lock()
-    try:
-        assert main(["-c", config, *argv]) == EXIT_ERROR
-        assert "holds the lock" in capsys.readouterr().out
+    with ExitStack() as locks:
+        if argv[0] == "reset":
+            assert store.acquire_lock()
+            locks.callback(store.release_lock)
+        else:
+            locks.enter_context(store.run_lock("run-1"))
+        assert main(["-c", config, *argv]) == (EXIT_OK if argv[0] == "cancel" else EXIT_ERROR)
+        output = capsys.readouterr().out
+        if argv[0] == "cancel":
+            assert "cancellation requested" in output and store.cancel_requested("run-1")
+        else:
+            assert "holds the lock" in output or "owned by another conductor" in output
         assert engine.calls == []
-        assert store.exists("run-1")
-        assert store.lock_info()["pid"] == os.getpid()
-    finally:
-        store.release_lock()
+        assert (store.run_dir("run-1") / "state.json").read_bytes() == before
 
 
 @pytest.mark.parametrize(

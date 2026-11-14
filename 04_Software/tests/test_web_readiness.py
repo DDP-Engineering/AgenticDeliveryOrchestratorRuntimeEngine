@@ -398,6 +398,11 @@ def test_workflow_is_read_only_file_information(tmp_path, monkeypatch, backend, 
     text = path.read_text(encoding="utf-8").replace('repo_path = "../project"',
                                                   f'repo_path = "{clone.as_posix()}"')
     if backend == "local":
+        from tests.test_local_execution import local_fixture
+
+        native = tmp_path / "native-fixture"
+        native.mkdir()
+        local_fixture(native, monkeypatch)
         text = text.replace('backend = "container"', 'backend = "local"')
         start = text.index("required_tool_checks = [")
         end = text.index("]", start) + 1

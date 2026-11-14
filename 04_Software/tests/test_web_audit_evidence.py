@@ -31,6 +31,13 @@ from tests.test_web_enrollment import (  # noqa: F401
 )
 from tests.test_web_transfer import _review, _source
 
+
+# LOCAL HELPERS
+def _domain_change(web):
+    """@brief Select domain evidence independently of its separate operation completion."""
+    return next(row for row in web.recent_audit() if row["action"] != "operation-finished")
+
+
 # PUBLIC API
 
 
@@ -114,7 +121,7 @@ def test_audit_row_without_evidence_is_corrupt(tmp_path):
     """@brief Every audit row the current build writes has evidence; one without it fails closed."""
     web = WebStore(tmp_path / "web.db")
     with sqlite3.connect(web.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 17
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 18
         connection.execute(
             "INSERT INTO audit(actor_id,action,project,detail,created_at) "
             "VALUES (1,'old','alpha','historic','2020-01-01T00:00:00+00:00')"
@@ -187,7 +194,7 @@ def test_config_prepare_apply_discard_truthful_values(tmp_path):
             json={"key": "budgets.max_iterations", "value": "12", "revision": current},
         )
         assert staged.status_code == 200
-        event = app.state.web_store.recent_audit()[0]
+        event = _domain_change(app.state.web_store)
         assert event["phase"] == "prepare" and event["result"] == "prepared"
         assert event["before"] == {"value": 20} and event["after"] == {"value": 12}
         assert event["base_revision"] == current
@@ -198,7 +205,7 @@ def test_config_prepare_apply_discard_truthful_values(tmp_path):
                   "base_revision": staged.json()["base_revision"]},
         )
         assert applied.status_code == 200
-        event = app.state.web_store.recent_audit()[0]
+        event = _domain_change(app.state.web_store)
         assert event["result"] == "applied" and event["before"] == {"value": 20}
         fresh = applied.json()["revision"]
         client.post(
@@ -210,7 +217,7 @@ def test_config_prepare_apply_discard_truthful_values(tmp_path):
             client.delete("/api/v1/projects/alpha/config/pending", headers=headers).status_code
             == 200
         )
-        assert app.state.web_store.recent_audit()[0]["result"] == "discarded"
+        assert _domain_change(app.state.web_store)["result"] == "discarded"
 
 
 def test_access_update_rolls_back_when_audit_write_fails(tmp_path):
@@ -537,28 +544,28 @@ def test_enrollment_and_exact_import_evidence_has_known_identity_and_stopped_res
         body = _body(tmp_path)
         response = client.post("/api/v1/projects/setup-preview", json=body, headers=headers)
         assert response.status_code == 200
-        assert app.state.web_store.recent_audit()[0]["result"] == "prepared"
+        assert _domain_change(app.state.web_store)["result"] == "prepared"
         created = client.post(
             "/api/v1/projects/setup-create",
             json={**body, "revision": response.json()["revision"]},
             headers=headers,
         )
         assert created.status_code == 200, created.text
-        event = app.state.web_store.recent_audit()[0]
+        event = _domain_change(app.state.web_store)
         assert event["result"] == "applied" and event["project_id"] == created.json()["id"]
         assert event["before"] == {"exists": False}
         assert event["after"] == {"exists": True, "pickup": "stopped"}
         import_body = _import_body(tmp_path / "import")
         preview = client.post("/api/v1/projects/import-preview", json=import_body, headers=headers)
         assert preview.status_code == 200, preview.text
-        assert app.state.web_store.recent_audit()[0]["action"] == "toml-import-prepared"
+        assert _domain_change(app.state.web_store)["action"] == "toml-import-prepared"
         imported = client.post(
             "/api/v1/projects/import",
             json={**import_body, "revision": preview.json()["revision"]},
             headers=headers,
         )
         assert imported.status_code == 200, imported.text
-        event = app.state.web_store.recent_audit()[0]
+        event = _domain_change(app.state.web_store)
         assert event["action"] == "project-imported" and event["result"] == "applied"
         assert (
             event["project_id"] == imported.json()["id"] and event["after"]["pickup"] == "stopped"
@@ -572,7 +579,7 @@ def test_transfer_evidence_distinguishes_import_clone_and_preparation(tmp_path, 
     with TestClient(app) as client:
         headers, body, _preview, _raw = _source(client, app, tmp_path, method)
         reviewed, preview = _review(client, body, headers)
-        event = app.state.web_store.recent_audit()[0]
+        event = _domain_change(app.state.web_store)
         assert event["result"] == "prepared" and event["phase"] == "prepare"
         assert event["base_revision"] == body["source_revision"]
         assert event["action"] == (
@@ -580,7 +587,7 @@ def test_transfer_evidence_distinguishes_import_clone_and_preparation(tmp_path, 
         )
         result = client.post("/api/v1/projects/transfer-create", json=reviewed, headers=headers)
         assert result.status_code == 200, result.text
-        event = app.state.web_store.recent_audit()[0]
+        event = _domain_change(app.state.web_store)
         assert event["result"] == "applied" and event["project_id"] == result.json()["id"]
         assert event["candidate_revision"] == preview["config_revision"]
         assert event["base_revision"] == body["source_revision"]
@@ -635,7 +642,7 @@ def test_enrollment_rollback_retains_uncertain_attempt(tmp_path, monkeypatch):
         assert result.status_code >= 400
         assert "private audit" not in result.text
         assert app.state.profiles.list_profiles() == []
-        event = app.state.web_store.recent_audit()[0]
+        event = _domain_change(app.state.web_store)
         assert event["action"] == "project-created" and event["result"] == "uncertain"
         assert event["after"] is None and event["project_id"] is None
         assert "private audit" not in json.dumps(event)

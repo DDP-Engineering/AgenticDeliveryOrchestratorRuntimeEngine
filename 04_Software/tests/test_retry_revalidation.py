@@ -57,7 +57,8 @@ def retry_fixture(tmp_path, monkeypatch, system="Windows", agent="pi", iid=7):
     engine.store.delete_run(run.run_id)  # Rename the fixture, without a second active job.
     run.run_id = f"{agent}-job-{iid}"
     run.ticket_iid = iid
-    run.branch = f"adore/{agent}-{iid}"
+    run.branch = engine._branch_name(run.run_id, iid)
+    run.container = engine._container_name(run.run_id)
     run.worktree = str(work)
     run.lifecycle, run.stage = "failed", "design"
     run.iterations = 3

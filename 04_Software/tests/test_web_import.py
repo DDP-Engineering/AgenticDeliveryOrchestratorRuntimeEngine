@@ -58,6 +58,18 @@ def _csrf(client):
 
 
 # PUBLIC API / CONTRACT TESTS
+def test_import_explicit_null_display_name_is_refused(tmp_path):
+    """@brief Transport preserves explicit null instead of converting it to an omitted field."""
+    home = tmp_path / "home"
+    with TestClient(create_app(home)) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        response = client.post("/api/v1/projects/import-preview", headers=headers,
+                               json={"config_text": _document(tmp_path), "display_name": None})
+        assert response.status_code == 400, response.text
+        assert response.json()["detail"]["issues"][0]["code"] == "invalid_display_name"
+        assert ProfileStore(home).list_profiles() == []
+
+
 def test_raw_import_preview_derives_identity_and_binds_exact_file(tmp_path):
     """@brief Preview without an ID and publish only the reviewed raw TOML."""
     home = tmp_path / "home"

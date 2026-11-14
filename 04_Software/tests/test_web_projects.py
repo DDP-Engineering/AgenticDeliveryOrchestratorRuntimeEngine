@@ -22,7 +22,8 @@ from adore.state import RunState, StateStore
 from adore.util import CommandResult
 from adore.web.app import create_app
 from adore.wizard import run_wizard
-from fastapi.testclient import TestClient
+
+from tests.configuration_client import TestClient
 
 
 def test_project_directory_filters_with_grants_and_status(tmp_path):

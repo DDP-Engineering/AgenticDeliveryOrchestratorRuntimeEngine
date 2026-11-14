@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "fixed"
+topic = { en = "Setup", fr = "Configuration", de = "Einrichtung", ro = "Configurare" }
+text = { en = "Imports keep default project names, and setup reports its actual result.", fr = "Les imports gardent les noms proposés et la configuration indique son résultat réel.", de = "Importe behalten vorgeschlagene Projektnamen; die Einrichtung zeigt ihr tatsächliches Ergebnis.", ro = "Importurile păstrează numele propuse, iar configurarea arată rezultatul real." }
+
+[[release.entry]]
+category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Brief Windows file contention no longer interrupts concurrent jobs.", fr = "Un bref conflit d’accès aux fichiers Windows n’interrompt plus les tâches simultanées.", de = "Kurze Dateizugriffskonflikte unter Windows unterbrechen parallele Aufträge nicht mehr.", ro = "Conflictele scurte de acces la fișiere în Windows nu mai întrerup lucrările simultane." }
 

@@ -134,3 +134,17 @@ before projecting redacted Settings evidence.
 ## Staged project capacity feedback
 
 Staging publishes under the short project admission boundary so a confirmed lower N fences later reservations. Safe apply may return `capacity_below_occupancy`, retaining both active bytes and candidate while the reduced ceiling already holds new work. Project status restores the caller's durable outcome after navigation or reload; a 202 acceptance never becomes a saved-settings notification by itself. See [Project capacity](Component_Project_Capacity.md).
+
+## Typed dispatch fidelity
+
+Protected request serialization retains the Pydantic field set: omitted optional
+fields stay absent and explicitly supplied null stays explicit after worker
+rehydration. Import identity derivation therefore sees the exact submitted
+meaning. The registered handler declares its success status (200 by default,
+202 for the four environment-preparation routes), which is retained in the
+confirmed outcome. Initial configuration acceptance remains separate from it.
+Request-directory or private-record write denial returns sanitized HTTP503
+before any operation is queued; existing configuration and credentials remain
+intact. Public proof: test_web_import.py explicit/default identity cases,
+test_web_bundle_import.py reviewed environment202, and storage-negative cases
+in test_web_configuration_worker.py and test_executor_settings.py.

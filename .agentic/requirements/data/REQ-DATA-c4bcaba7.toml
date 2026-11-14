@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-DATA-c4bcaba7"
+
+title = "Preserve omitted and explicit optional fields across configuration dispatch"
+
+status = "active"
+
+requirement = """
+When a typed configuration request is dispatched to its worker, ADORE shall preserve omitted optional fields distinctly from explicitly supplied values including null.
+"""
+
+verification = "Submit an import without display_name and observe derived identity after actual queue consumption; supply explicit null and observe typed400 with no project publication."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "05_SoftwareDocu/Component_Configuration_Worker.md"]
+
+linked_tests = ["04_Software/tests/test_web_import.py::test_raw_import_preview_derives_identity_and_binds_exact_file", "04_Software/tests/test_web_import.py::test_import_explicit_null_display_name_is_refused"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

@@ -3673,7 +3673,7 @@ def create_app(home: str | Path | None = None,
         return job
 
     @app.post("/api/v1/projects/transfer-environment", status_code=202)
-    @configuration.route(scope="global", lane="long", resource="enrollment")
+    @configuration.route(scope="global", lane="long", resource="enrollment", success_status=202)
     def prepare_transfer_environment(body: ReviewedTransferInput, request: Request,
                                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         _preview, candidate = reviewed_transfer(body, request)
@@ -3751,7 +3751,7 @@ def create_app(home: str | Path | None = None,
         return preview, candidate
 
     @app.post("/api/v1/projects/setup-environment", status_code=202)
-    @configuration.route(scope="global", lane="long", resource="enrollment")
+    @configuration.route(scope="global", lane="long", resource="enrollment", success_status=202)
     def prepare_setup_environment(body: ReviewedProjectInput,
                                   user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         _preview, candidate = reviewed_setup(body)
@@ -3878,14 +3878,14 @@ def create_app(home: str | Path | None = None,
         return preview
 
     @app.post("/api/v1/projects/import-environment", status_code=202)
-    @configuration.route(scope="global", lane="long", resource="enrollment")
+    @configuration.route(scope="global", lane="long", resource="enrollment", success_status=202)
     def prepare_import_environment(body: ProjectImportInput,
                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         _preview, config = _reviewed_import(profiles, body)
         return prepare_environment(config, user, body.name)
 
     @app.post("/api/v1/projects/import/bundle-environment", status_code=202)
-    @configuration.route(scope="global", lane="long", resource="enrollment")
+    @configuration.route(scope="global", lane="long", resource="enrollment", success_status=202)
     def prepare_bundle_environment(body: ProjectBundleImportInput,
                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """Prepare the execution environment bound to the reviewed complete ZIP."""

@@ -123,7 +123,9 @@ def test_unsupported_ledger_names_the_file_and_keeps_job(tmp_path, monkeypatch, 
     run_id = _run(tmp_path, 12, "failed")
     with sqlite3.connect(profiles.home / "deletion-audit.db") as db:
         db.execute("PRAGMA user_version=99")
-    monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda *a, **kw: object())
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda *a, **kw: type("Engine", (), {})()
+    )
     assert main(["--profile", "alpha", "delete", run_id, "--force"]) != 0
     assert "deletion-audit.db" in capsys.readouterr().out
     assert StateStore(tmp_path / "state").exists(run_id)

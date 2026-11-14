@@ -333,9 +333,9 @@ protected input/result corruption and deterministic thread barriers, plus a sing
 owned configuration process for HTTP-to-worker consumption. Managed image build
 barriers prove B/global progress and free image edit locks without any real runtime.
 Targeted frontend configuration/help tests and the required static build verify the
-browser wait contract. Full umbrella validation stays deferred by user instruction.
+browser wait contract. The WK-07 post-commit validation record below supersedes the initial deferral.
 
-WK-06 proof uses isolated current profile/state/identity stores and offline conductors/configuration consumers. Targeted HTTP/core/storage/help contracts plus projectCapacity browser journeys cover occupancy 2 -> staged N=1, continuing admitted jobs, occupancy-1 refusal, four locales and narrow layout. Browser screenshots use the disposable 18765 fixture; no DCP, forge/model/runtime acceptance or target-repository checks run. Full integrated validation remains deferred to the umbrella final.
+WK-06 proof uses isolated current profile/state/identity stores and offline conductors/configuration consumers. Targeted HTTP/core/storage/help contracts plus projectCapacity browser journeys cover occupancy 2 -> staged N=1, continuing admitted jobs, occupancy-1 refusal, four locales and narrow layout. Browser screenshots use the disposable 18765 fixture; no DCP, forge/model/runtime acceptance or target-repository checks run. The umbrella final validation is recorded in WK-07 acceptance.
 
 Review-boundary proof additionally covers two reserved initial runs started serially after staged N reduction, corrupt project/run/control heartbeat isolation, credential-bearing endpoint exclusion and truthful staged notices for increases/unrelated edits in all four locales.
 
@@ -347,4 +347,16 @@ contracts with actual controlled Direct/AEGIS process scenarios. Windows state
 sharing errors have bounded local retries and persistent-denial/refencing proof.
 Operational smoke stages current source onto extracted portable runtimes only in
 auto-cleaned OS temporary directories; final delivery archives remain unchanged.
-Complete umbrella validation stays deferred until the explicit post-commit request.
+The coordinator explicitly activated final validation at f3aa538: whole Python,
+Ruff, frontend unit/help, isolated UI/E2E build and artifact checks ran once.
+Python exposed configuration dispatch fidelity defects and stale domain/ownership
+fixtures; focused corrections preserve actual confirmed statuses and fail-closed
+boundaries. Native/container Pi guard bytes and setting-catalog ordering reproduce
+at baseline50ac624 and remain explicit pre-existing failures. The initial Chromium
+selection reached its1800s global bound (175 pass,24 fail,116 unrun); only its
+failed/unrun selection completed (128 pass,12 fail), followed by focused12-case
+(11 pass) and2-case (both pass) corrections. Aggregate unique coverage is314 green,
+1 baseline enrollment-help discrepancy,0 unrun; this is not a single all-green
+suite. That help test and rendering are unchanged at the baseline; its assertions
+and active guidance requirements remain explicit. See
+01_Documentation/Worker_Acceptance.md for final counts and limitations.

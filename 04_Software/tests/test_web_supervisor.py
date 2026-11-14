@@ -59,6 +59,10 @@ def project(profiles, name, limit=1):
     text = text.replace('repo_path = "../project"',
                         'repo_path = ' + json.dumps(str(root / "clone")))
     text = text.replace('root = "worktrees"', 'root = ' + json.dumps(str(root / "work")))
+    text = text.replace('db_path = ".adore/metrics.db"',
+                        'db_path = ' + json.dumps(str(root / "metrics.db")))
+    text = text.replace('export_jsonl = ".adore/metrics/runs.jsonl"',
+                        'export_jsonl = ' + json.dumps(str(root / "metrics.jsonl")))
     text = text.replace('max_concurrent_runs = 1', f'max_concurrent_runs = {limit}')
     text = text.replace('publish_checkpoints = true', 'publish_checkpoints = false')
     text = text.replace('poll_interval_seconds = 60', 'poll_interval_seconds = 1')

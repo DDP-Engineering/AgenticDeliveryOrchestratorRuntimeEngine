@@ -84,8 +84,11 @@ def test_configured_statistics_database_drives_project_global_and_exports(
 @pytest.mark.parametrize("content", [None, "not sqlite", 'db_path = 42', 'db_path = 0',
                                      'db_path = false', 'db_path = ["bad"]',
                                      'db_path = ""', 'db_path = "\\u0000"', 'broken = ['])
-def test_configured_statistics_database_missing_or_invalid_never_uses_default(tmp_path, content):
+def test_configured_statistics_database_missing_or_invalid_never_uses_default(
+    tmp_path, monkeypatch, content,
+):
     """@brief Missing configured files stay absent; invalid config/database fails closed."""
+    monkeypatch.chdir(tmp_path)
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     database = tmp_path / "custom.db"

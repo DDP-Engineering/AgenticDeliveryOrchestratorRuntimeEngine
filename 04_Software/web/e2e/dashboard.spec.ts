@@ -6,6 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import {settingsSave} from "./settings-actions";
 import { test, expect, type Page } from "@playwright/test";
+import { configurationResponse } from "./configuration";
 import { setPickup } from "./pickup";
 
 // Browser traffic stays on the owned test server; API calls use relative URLs.
@@ -105,26 +106,26 @@ test("CSRF and expired candidate revisions fail closed", async ({ page }) => {
   const body = { key: "budgets.max_iterations", value: "12", revision: before.revision };
   expect((await page.request.post("/api/v1/projects/beta/config/pending", { data: body })).status()).toBe(403);
   const headers = { "X-CSRF-Token": csrf };
-  const staged = await page.request.post("/api/v1/projects/beta/config/pending", { headers, data: body });
+  const staged = await configurationResponse(await page.request.post("/api/v1/projects/beta/config/pending", { headers, data: body }), page.request);
   expect(staged.status()).toBe(200);
   const pending = await staged.json();
   try {
-    const rejected = await page.request.post("/api/v1/projects/beta/config/apply", {
+    const rejected = await configurationResponse(await page.request.post("/api/v1/projects/beta/config/apply", {
       headers, data: { candidate_revision: "0".repeat(64), base_revision: pending.base_revision },
-    });
+    }), page.request);
     expect(rejected.status()).toBe(409);
     expect((await rejected.json()).detail.code).toBe("stale_pending_revision");
     const unchanged = await (await page.request.get("/api/v1/projects/beta/config")).json();
     expect(unchanged.revision).toBe(before.revision);
-    const applied = await page.request.post("/api/v1/projects/beta/config/apply", {
+    const applied = await configurationResponse(await page.request.post("/api/v1/projects/beta/config/apply", {
       headers, data: { candidate_revision: pending.candidate_revision, base_revision: pending.base_revision },
-    });
+    }), page.request);
     expect(applied.status()).toBe(200);
-    const stale = await page.request.post("/api/v1/projects/beta/config/pending", { headers, data: body });
+    const stale = await configurationResponse(await page.request.post("/api/v1/projects/beta/config/pending", { headers, data: body }), page.request);
     expect(stale.status()).toBe(409);
     expect((await stale.json()).detail.code).toBe("stale_config_revision");
   } finally {
-    await page.request.delete("/api/v1/projects/beta/config/pending", { headers });
+    await configurationResponse(await page.request.delete("/api/v1/projects/beta/config/pending", { headers }), page.request);
   }
 });
 

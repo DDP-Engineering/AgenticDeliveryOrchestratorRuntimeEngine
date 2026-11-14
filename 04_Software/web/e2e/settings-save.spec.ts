@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import {test, expect} from "@playwright/test";
+import {configurationResponse} from "./configuration";
 import {discardSettings,settingsImpact,settingsSave} from "./settings-actions";
 
 test("one Save commits several ordinary setting edits without an impact dialog", async ({page}) => {
@@ -46,10 +47,10 @@ test("one Save commits several ordinary setting edits without an impact dialog",
  } finally {
   const me=await(await page.request.get("/api/v1/me")).json();
   const headers={"X-CSRF-Token":me.csrf};
-  await page.request.delete(endpoint+"/pending",{headers});
+  await configurationResponse(await page.request.delete(endpoint+"/pending",{headers}), page.request);
   const current=await(await page.request.get(endpoint)).json();
-  const staged=await page.request.post(endpoint+"/pending",{headers,data:{key:"settings.batch",revision:current.revision,value:JSON.stringify(keys.map(key=>({key,value:String(before.config.polling[key.split(".")[1]])})))}});
-  if(staged.ok()){const c=await staged.json();await page.request.post(endpoint+"/apply",{headers,data:{base_revision:c.base_revision,candidate_revision:c.candidate_revision}});}
+  const staged=await configurationResponse(await page.request.post(endpoint+"/pending",{headers,data:{key:"settings.batch",revision:current.revision,value:JSON.stringify(keys.map(key=>({key,value:String(before.config.polling[key.split(".")[1]])})))}}), page.request);
+  if(staged.ok()){const c=await staged.json();await configurationResponse(await page.request.post(endpoint+"/apply",{headers,data:{base_revision:c.base_revision,candidate_revision:c.candidate_revision}}), page.request);}
  }
 });
 
@@ -88,10 +89,10 @@ test("important multi-setting Save confirms exact values and keeps cancelled edi
   if(await page.locator(".settings-save-bar").count() && await settingsSave(page).isEnabled())await discardSettings(page);
   const me=await(await page.request.get("/api/v1/me")).json();
   const headers={"X-CSRF-Token":me.csrf};
-  await page.request.delete(endpoint+"/pending",{headers});
+  await configurationResponse(await page.request.delete(endpoint+"/pending",{headers}), page.request);
   const current=await(await page.request.get(endpoint)).json();
-  const staged=await page.request.post(endpoint+"/pending",{headers,data:{key:"budgets.max_iterations",revision:current.revision,value:String(before.config.budgets.max_iterations)}});
-  if(staged.ok()){const c=await staged.json();await page.request.post(endpoint+"/apply",{headers,data:{base_revision:c.base_revision,candidate_revision:c.candidate_revision}});}
+  const staged=await configurationResponse(await page.request.post(endpoint+"/pending",{headers,data:{key:"budgets.max_iterations",revision:current.revision,value:String(before.config.budgets.max_iterations)}}), page.request);
+  if(staged.ok()){const c=await staged.json();await configurationResponse(await page.request.post(endpoint+"/apply",{headers,data:{base_revision:c.base_revision,candidate_revision:c.candidate_revision}}), page.request);}
  }
 });
 
@@ -105,14 +106,18 @@ test("dirty settings guard navigation and background refresh without losing inva
  const row=page.locator('[id="setting-budgets.max_iterations"]');await row.getByRole("button").click();await row.getByRole("spinbutton").fill("");
  const url=page.url();let prompts=0;
  page.on("dialog",async dialog=>{prompts++;expect(dialog.type()).toBe("confirm");await dialog.dismiss();});
- await page.getByRole("tab",{name:"Summary",exact:true}).click();await expect(page).toHaveURL(url);
+ // Validly retained drafts allow navigation; returning restores even invalid values.
+ await page.getByRole("tab",{name:"Summary",exact:true}).click();await expect(page).not.toHaveURL(url);
+ await page.getByRole("tab",{name:"Settings",exact:true}).click();await expect(page).toHaveURL(url);
+ await page.locator('[data-setting-purpose="implementation"] > summary').click();
+ await expect(row.getByRole("spinbutton")).toHaveValue("");
  let reads=0;
  page.on("request", request=>{if(request.method()==="GET"&&request.url().endsWith("/config"))reads++;});
  const projectPoll=page.waitForResponse(response=>response.url().endsWith("/api/v1/projects"));
  await page.evaluate(()=>document.dispatchEvent(new Event("visibilitychange")));
  await projectPoll;
  await expect(row.getByRole("spinbutton")).toHaveValue("");await expect(settingsSave(page)).toBeDisabled();
- expect(reads).toBe(0);expect(prompts).toBe(1);
+ expect(reads).toBe(0);expect(prompts).toBe(0);
  await discardSettings(page);await page.getByRole("tab",{name:"Summary",exact:true}).click();await expect(page).not.toHaveURL(url);
 });
 
@@ -125,7 +130,7 @@ test("a mismatched important preview cannot prepare or apply settings and remain
  let writes=0;page.on("request",r=>{if(r.method()==="POST" && /config\/(pending|apply)$/.test(r.url()))writes++;});
  await page.goto(`/projects/${id}/configuration`);await page.locator('[data-setting-purpose="implementation"] > summary').click();
  const row=page.locator('[id="setting-budgets.max_iterations"]');await row.getByRole("button").click();await row.getByRole("spinbutton").fill(String(before.config.budgets.max_iterations+1));
- await page.route("**/config/preview",async route=>{const response=await route.fetch();const body=await response.json();body.proposed_value["budgets.max_iterations"]=999;body.value=JSON.stringify(body.proposed_value);await route.fulfill({response,json:body});});
+ await page.route("**/config/preview",async route=>{const response=await configurationResponse(await route.fetch(),page.request);const body=await response.json();body.proposed_value["budgets.max_iterations"]=999;body.value=JSON.stringify(body.proposed_value);await route.fulfill({status:response.status(),json:body});});
  await settingsSave(page).click();await expect(page.getByRole("alert").first()).toBeVisible();await expect(settingsImpact(page)).toHaveCount(0);await expect(settingsSave(page)).toBeEnabled();
  await expect(row.getByRole("spinbutton")).toHaveValue(String(before.config.budgets.max_iterations+1));expect(writes).toBe(0);expect((await(await page.request.get(endpoint)).json()).revision).toBe(before.revision);
  await page.unroute("**/config/preview");await settingsSave(page).click();await expect(settingsImpact(page)).toBeVisible();await discardSettings(page);
@@ -142,7 +147,7 @@ test("recovered pending settings display their values and save as one bound batc
  const me=await(await page.request.get("/api/v1/me")).json();const headers={"X-CSRF-Token":me.csrf};
  const keys=["polling.poll_interval_seconds","polling.poll_jitter_seconds"],values=[82,8];
  try {
-  const prepared=await page.request.post(endpoint+"/pending",{headers,data:{key:"settings.batch",revision:before.revision,value:JSON.stringify(keys.map((key,i)=>({key,value:String(values[i])})))}});expect(prepared.ok()).toBe(true);const pending=await prepared.json();
+  const prepared=await configurationResponse(await page.request.post(endpoint+"/pending",{headers,data:{key:"settings.batch",revision:before.revision,value:JSON.stringify(keys.map((key,i)=>({key,value:String(values[i])})))}}), page.request);expect(prepared.ok()).toBe(true);const pending=await prepared.json();
   await page.goto(`/projects/${id}/configuration`);await page.locator('[data-setting-purpose="tickets"] > summary').click();
   for(const [i,key] of keys.entries()) await expect(page.locator('[id="setting-'+key+'"]').getByRole("spinbutton")).toHaveValue(String(values[i]));
   const replacement=page.waitForRequest(r=>r.method()==="POST"&&r.url().endsWith("/config/pending"));
@@ -150,9 +155,9 @@ test("recovered pending settings display their values and save as one bound batc
   await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   const current=await(await page.request.get(endpoint)).json();expect(keys.map(k=>current.config.polling[k.split(".")[1]])).toEqual(values);
  } finally {
-  await page.request.delete(endpoint+"/pending",{headers});const current=await(await page.request.get(endpoint)).json();
-  const restore=await page.request.post(endpoint+"/pending",{headers,data:{key:"settings.batch",revision:current.revision,value:JSON.stringify(keys.map(key=>({key,value:String(before.config.polling[key.split(".")[1]])})))}});
-  if(restore.ok()){const c=await restore.json();await page.request.post(endpoint+"/apply",{headers,data:{base_revision:c.base_revision,candidate_revision:c.candidate_revision}});}
+  await configurationResponse(await page.request.delete(endpoint+"/pending",{headers}), page.request);const current=await(await page.request.get(endpoint)).json();
+  const restore=await configurationResponse(await page.request.post(endpoint+"/pending",{headers,data:{key:"settings.batch",revision:current.revision,value:JSON.stringify(keys.map(key=>({key,value:String(before.config.polling[key.split(".")[1]])})))}}), page.request);
+  if(restore.ok()){const c=await restore.json();await configurationResponse(await page.request.post(endpoint+"/apply",{headers,data:{base_revision:c.base_revision,candidate_revision:c.candidate_revision}}), page.request);}
  }
 });
 
@@ -166,7 +171,7 @@ for(const outcome of ["saved","stale","corrupt"] as const){
   const endpoint=`/api/v1/projects/${id}/config`;const before=await(await page.request.get(endpoint)).json();const me=await(await page.request.get("/api/v1/me")).json();const headers={"X-CSRF-Token":me.csrf};
   const value="recovered-test-agent";
   try {
-   const prepared=await page.request.post(endpoint+"/pending",{headers,data:{key:"agent.slug",value,revision:before.revision}});expect(prepared.ok()).toBe(true);const pending=await prepared.json();
+   const prepared=await configurationResponse(await page.request.post(endpoint+"/pending",{headers,data:{key:"agent.slug",value,revision:before.revision}}), page.request);expect(prepared.ok()).toBe(true);const pending=await prepared.json();
    await page.goto(`/projects/${id}`);await page.getByRole("tab",{name:"Settings",exact:true}).click();await page.locator('[data-setting-purpose="technical"] > summary').click();
    await expect(page.locator('[id="setting-agent.slug"]').getByRole("button",{name:/^Edit /})).toHaveCount(0);
    await expect(settingsSave(page)).toBeEnabled();
@@ -193,9 +198,9 @@ for(const outcome of ["saved","stale","corrupt"] as const){
    const current=await(await page.request.get(endpoint)).json();expect(current.config.agent.slug).toBe(outcome==="saved"?value:before.config.agent.slug);
   } finally {
    await page.unroute("**/config/pending");await page.unroute("**/config/apply");
-   await page.request.delete(endpoint+"/pending",{headers});const current=await(await page.request.get(endpoint)).json();
-   const restore=await page.request.post(endpoint+"/pending",{headers,data:{key:"agent.slug",value:before.config.agent.slug,revision:current.revision}});
-   if(restore.ok()){const c=await restore.json();await page.request.post(endpoint+"/apply",{headers,data:{base_revision:c.base_revision,candidate_revision:c.candidate_revision}});}
+   await configurationResponse(await page.request.delete(endpoint+"/pending",{headers}), page.request);const current=await(await page.request.get(endpoint)).json();
+   const restore=await configurationResponse(await page.request.post(endpoint+"/pending",{headers,data:{key:"agent.slug",value:before.config.agent.slug,revision:current.revision}}), page.request);
+   if(restore.ok()){const c=await restore.json();await configurationResponse(await page.request.post(endpoint+"/apply",{headers,data:{base_revision:c.base_revision,candidate_revision:c.candidate_revision}}), page.request);}
   }
  });
 }

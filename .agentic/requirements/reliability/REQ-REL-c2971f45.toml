@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-c2971f45"
+
+title = "Retain declared handler success status in configuration outcomes"
+
+status = "active"
+
+requirement = """
+When a configuration handler completes successfully, ADORE shall retain its declared HTTP success status in the durable confirmed outcome.
+"""
+
+verification = "Execute the reviewed bundle environment route through the configuration worker and observe original202 outcome, while ordinary settings outcomes remain200; stale revision and missingCSRF remain refused."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "05_SoftwareDocu/Component_Configuration_Worker.md"]
+
+linked_tests = ["04_Software/tests/test_web_bundle_import.py::test_bundle_environment_preparation_binds_review_and_does_not_publish", "04_Software/tests/test_web_configuration_worker.py::test_worker_confirms_existing_save_and_stale_second_save"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

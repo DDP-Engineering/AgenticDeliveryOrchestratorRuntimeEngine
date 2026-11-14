@@ -22,6 +22,34 @@ from tests.test_web_pending_config import _headers, _project
 
 
 # PUBLIC API / TESTS
+def test_request_directory_failure_is_sanitized_and_publishes_nothing(tmp_path, monkeypatch):
+    """@brief Storage denial before queue publication preserves bytes and hides private errors."""
+    from pathlib import Path
+
+    profiles, path, _state = _project(tmp_path)
+    app = create_app(profiles.home)
+    before = path.read_bytes()
+    original = Path.mkdir
+
+    def denied(target, *args, **kwargs):
+        if target == app.state.configuration_tasks.directory:
+            raise OSError("fixture-private-storage-error")
+        return original(target, *args, **kwargs)
+
+    with TestClient(app) as client:
+        headers = _headers(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        monkeypatch.setattr(Path, "mkdir", denied)
+        response = client.put("/api/v1/projects/alpha/config", headers=headers, json={
+            "key": "budgets.max_iterations", "value": "12", "revision": revision,
+        })
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] == "configuration_failed"
+        assert "fixture-private" not in response.text
+        assert app.state.web_store.pending_configuration() == []
+        assert path.read_bytes() == before
+
+
 def test_existing_save_route_returns_durable_acceptance_before_effect(tmp_path):
     """@brief An existing settings route accepts work without publishing early."""
     profiles, path, _ = _project(tmp_path)

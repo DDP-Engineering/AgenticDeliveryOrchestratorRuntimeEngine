@@ -196,10 +196,16 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
 test("jobs table shows compact columns and sorts on the server", async ({ page }) => {
   await signIn(page); await page.goto("/jobs?view=jobs");
   const toolbar=page.locator(".jobs-toolbar");
-  const tabsBox=(await toolbar.getByRole("tablist").boundingBox())!;
-  const scopeBox=(await toolbar.locator("#jobs-project").boundingBox())!;
-  expect(scopeBox.x).toBeGreaterThan(tabsBox.x+tabsBox.width);
-  expect(Math.abs(scopeBox.y-tabsBox.y)).toBeLessThan(8);
+  // Capacity loads above the toolbar; measure both controls in the same layout frame.
+  await expect.poll(()=>toolbar.evaluate(node=>{
+    const tabs=node.querySelector('[role="tablist"]')!.getBoundingClientRect();
+    const scope=node.querySelector('#jobs-project')!.getBoundingClientRect();
+    return {ordered:scope.x>tabs.right,offset:Math.abs(scope.y-tabs.y)};
+  })).toEqual({ordered:true,offset:expect.any(Number)});
+  await expect.poll(()=>toolbar.evaluate(node=>Math.abs(
+    node.querySelector('#jobs-project')!.getBoundingClientRect().y-
+    node.querySelector('[role="tablist"]')!.getBoundingClientRect().y,
+  ))).toBeLessThan(8);
   await expect(page.locator("#job-search-help")).toHaveCount(0);
   await expect(page.locator("#job-search")).not.toHaveAttribute("aria-describedby");
   await expect(page.locator("#job-search")).toHaveAttribute("maxlength","80");
@@ -1308,9 +1314,14 @@ test("compact summary and Jobs toolbar fit desktop and narrow screens", async ({
   const summary=page.locator(".project-summary-window");
   await expect(summary.locator(".summary-fact")).toHaveCount(7);
   await expect(summary.locator(".summary-job-window")).toContainText("Actual beta collision");
+  // The capacity panel precedes this panel; prove the summary itself fits one viewport.
+  await expect(page.locator(".project-capacity .capacity-facts")).toBeVisible();
+  await summary.scrollIntoViewIfNeeded();
   const summaryBox=(await summary.boundingBox())!;
-  expect(summaryBox.y+summaryBox.height).toBeLessThanOrEqual(768);
-  await page.screenshot({path:info.outputPath("summary-one-screen.png")});
+  expect(summaryBox.height).toBeLessThanOrEqual(768);
+  expect(summaryBox.y).toBeGreaterThanOrEqual(0);
+  expect(Math.round(summaryBox.y+summaryBox.height)).toBeLessThanOrEqual(768);
+  await page.screenshot({path:info.outputPath("summary-panel-one-screen.png")});
 
   await page.goto("/jobs?view=jobs");
   const toolbar=page.locator(".jobs-toolbar");

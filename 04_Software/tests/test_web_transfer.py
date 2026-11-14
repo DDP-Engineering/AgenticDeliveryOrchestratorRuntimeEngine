@@ -338,7 +338,8 @@ def test_transfer_rechecks_role_inside_confirmation(tmp_path, monkeypatch):
 
         monkeypatch.setattr(web_app, "_prepare_project", revoke)
         response = client.post("/api/v1/projects/transfer-create", json=reviewed, headers=headers)
-        assert response.status_code == 401, response.text
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"]["code"] == "permission_revoked"
         assert not app.state.profiles.profile_dir("target").exists()
 
 

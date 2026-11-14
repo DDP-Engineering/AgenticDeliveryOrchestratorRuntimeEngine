@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-67679bff"
+
+title = "Refuse unavailable private configuration request storage before admission"
+
+status = "active"
+
+requirement = """
+When protected configuration request storage cannot be created or written, the API shall refuse submission with a sanitized HTTP503 outcome before queue publication.
+"""
+
+verification = "Inject mkdir denial and atomic replacement failure; observe503 without raw error text, unchanged active configuration/provider credentials and no pending configuration command."
+
+affected_paths = ["04_Software/adore/web/configuration.py", "04_Software/adore/web/app.py", "05_SoftwareDocu/Component_Configuration_Worker.md"]
+
+linked_tests = ["04_Software/tests/test_web_configuration_worker.py::test_request_directory_failure_is_sanitized_and_publishes_nothing", "04_Software/tests/test_executor_settings.py::test_private_write_failure_preserves_credentials"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
+import { configurationResponse } from "./configuration";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, rmdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -64,7 +65,7 @@ test("raw import shows automatic environment progress and can retry a failed bui
   const text = await document(page, "e2e-auto-environment-retry");
   let outcome: "running" | "failed" | "ready" = "running", imports = 0;
   await page.route("**/api/v1/projects/import-environment", async route => {
-    const value = await (await route.fetch()).json();
+    const value = await (await configurationResponse(await route.fetch(), page.request)).json();
     await route.fulfill({status:202, json:{...value, status:"running", stage:"building_executor", error:null}});
   });
   await page.route("**/api/v1/environment-preparations/*", route => route.fulfill({json:{
@@ -116,7 +117,8 @@ test("complete exported ZIP validates automatically and imports config and image
   const project=projects.find((row:{name:string})=>row.name==="e2e-zip-import");
   expect(project.pickup_state).toBe("stopped");
   expect(await (await page.request.get(`/api/v1/projects/${project.id}/config/raw`)).text()).toBe(text);
-  expect((await (await page.request.get(`/api/v1/projects/${project.id}/executor-recipe`)).json()).available).toBe(true);
+  const recipe=await configurationResponse(await page.request.get(`/api/v1/projects/${project.id}/executor-recipe`),page.request);
+  expect((await recipe.json()).available).toBe(true);
   const exported=await page.request.get(`/api/v1/projects/${project.id}/config/raw?download=true&include_build=true`);
   expect(exported.status()).toBe(200);
   expect(exported.headers()["content-type"]).toContain("application/zip");
@@ -134,8 +136,8 @@ test("ZIP errors and corrupt preview evidence keep the single Import disabled", 
   await expect(dialog.getByRole("alert")).toContainText("complete project ZIP");
   const bytes=bundle(await document(page,"e2e-zip-invalid-preview"));
   await page.route("**/api/v1/projects/import/bundle-preview",async route=>{
-    const response=await route.fetch(),preview=await response.json();
-    await route.fulfill({response,json:{...preview,bundle_revision:"invalid"}});
+    const response=await configurationResponse(await route.fetch(),page.request),preview=await response.json();
+    await route.fulfill({status:response.status(),json:{...preview,bundle_revision:"invalid"}});
   });
   await selectZip(bytes);await expect(dialog.getByRole("alert")).toContainText(/unexpected/i);
   await expect(submit).toBeDisabled();
@@ -220,7 +222,7 @@ test("raw import rejects unreadable files, invalid TOML and corrupt preview evid
   await expect(dialog.getByRole("alert")).toContainText("config");
   await expect(submit).toBeDisabled();
   await page.route("**/api/v1/projects/import-preview", async route => {
-    const response = await route.fetch();
+    const response = await configurationResponse(await route.fetch(), page.request);
     const preview = await response.json();
     await route.fulfill({ json: { ...preview, revision: "invalid" } });
   });
@@ -235,7 +237,7 @@ test("raw import explains state-folder conflicts and stale validation", async ({
   const text = await document(page, "e2e-raw-remedy");
   const submit = dialog.getByRole("button", { name: copy.confirm, exact: true });
   await page.route("**/api/v1/projects/import-preview", async route => {
-    const preview = await (await route.fetch()).json();
+    const preview = await (await configurationResponse(await route.fetch(), page.request)).json();
     await route.fulfill({ json: { ...preview, review: null, validation: {
       structural_valid: false, issues: [{ field: "state.store_root", code: "state_root_already_owned" }],
     } } });

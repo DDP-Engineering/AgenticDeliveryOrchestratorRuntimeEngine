@@ -81,3 +81,23 @@ authority/deadline refusal after handler completion is uncertain. Owned disposab
 model cleanup retains only worker/ancestry authority with bounded eight-second commands.
 
 Staged configuration publication shares the short project admission boundary. A reduced N can remain staged with capacity_below_occupancy while its lower admission ceiling already holds new work; other project settings remain independent. Project status restores the caller’s durable result after reload; see project-capacity.md.
+
+## Typed dispatch fidelity
+
+Protected request serialization retains the Pydantic field set: omitted optional
+fields stay absent and explicitly supplied null stays explicit after worker
+rehydration. Import identity derivation therefore sees the exact submitted
+meaning. The registered handler declares its success status (200 by default,
+202 for the four environment-preparation routes), which is retained in the
+confirmed outcome. Initial configuration acceptance remains separate from it.
+Request-directory or private-record write denial returns sanitized HTTP503
+before any operation is queued; existing configuration and credentials remain
+intact. Public proof: test_web_import.py explicit/default identity cases,
+test_web_bundle_import.py reviewed environment202, and storage-negative cases
+in test_web_configuration_worker.py and test_executor_settings.py.
+
+Browser acceptance fixtures await the public operation result for domain
+assertions and intercepted evidence; acceptance/status tests still inspect the
+initial202. A delayed old enrollment preview is delivered only after its actual
+operation has completed, preserving stale-generation coverage independently of
+the protected enrollment resource's serialization.

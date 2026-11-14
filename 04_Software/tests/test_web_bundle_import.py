@@ -28,8 +28,9 @@ from adore.profiles import ProfileStore
 from adore.recipe_sources import LEGAL_HEADER, Definition, Recipe, parse_recipe, recipe_archive
 from adore.state import StateStore
 from adore.web.app import create_app
-from fastapi.testclient import TestClient
 import pytest
+
+from tests.configuration_client import TestClient
 
 
 # LOCAL HELPERS

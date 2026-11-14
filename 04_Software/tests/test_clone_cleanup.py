@@ -229,15 +229,16 @@ def test_delete_preview_reports_the_clone_for_administrators(tmp_path):
             "removable": True,
             "reason": "",
         }
-        StateStore(store.default_store_root("proj")).save(
-            RunState(run_id="run-h", ticket_iid=1, lifecycle="handed-off")
-        )
         from adore.config import load_config
         from adore.isolation import WorktreeManager
 
         config = load_config(store.config_path("proj"))
         worktrees = WorktreeManager(config.worktree.repo_path, config.worktree.root)
-        worktrees.path_for("run-h").mkdir(parents=True)
+        folder = worktrees.path_for("run-h")
+        folder.mkdir(parents=True)
+        StateStore(store.default_store_root("proj")).save(
+            RunState(run_id="run-h", ticket_iid=1, lifecycle="handed-off", worktree=str(folder))
+        )
         kept = client.get("/api/v1/projects/proj/delete-preview").json()["clone"]
         assert kept["removable"] is False and kept["reason"] == "worktrees"
         client.delete("/api/v1/session")
@@ -395,6 +396,7 @@ def test_own_failed_run_worktree_does_not_block_before_the_sweep(tmp_path):
         ],
         check=True,
     )
+    run.worktree = str(Path(config.worktree.root) / "run-f")
     assert project_clone_decision(store, "proj", config, [run]).removable
     # The same worktree still linked after the sweep keeps the clone.
     assert _decide(store).reason == "worktrees"

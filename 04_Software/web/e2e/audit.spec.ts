@@ -43,7 +43,11 @@ test("change evidence is scannable, server filtered and retention stays in admin
   await expect(page.locator(".audit-policy-form input[name=retention_days]")).toHaveValue("0");
   // Worker and storage are compact indicators in one row; one shared volume is one line.
   const row = page.locator(".system-status-row");
-  await expect(row.getByText("Control worker", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Workers", exact: true })).toBeVisible();
+  const roles=page.locator(".worker-roles");
+  await expect(roles).toContainText("Supervisor");
+  await expect(roles).toContainText("Configuration worker");
+  await expect(roles.getByRole("listitem").filter({hasText:/Project worker ·/})).toHaveCount(2);
   await expect(row.getByText("Storage", { exact: true })).toBeVisible();
   await expect(page.getByText(/Shows whether the command worker|Shows free space where ADORE/)).toHaveCount(0);
   await expect(page.getByText(/share this volume/)).toBeVisible();

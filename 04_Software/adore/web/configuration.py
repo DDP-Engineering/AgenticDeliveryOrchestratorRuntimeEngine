@@ -112,18 +112,22 @@ class ConfigurationTasks:
         self.submit_lock = Lock()
         self.directory = profiles.home / "configuration-tasks"
 
-    def route(self, *, scope="project", lane="fast", resource=""):
+    def route(self, *, scope="project", lane="fast", resource="", success_status=200):
         """@brief Wrap a typed endpoint; HTTP always submits, worker invokes its body.
         @param[in] scope Explicit project or global domain; no active-profile fallback.
         @param[in] lane Fixed bounded fast, long or global worker lane.
+        @param[in] success_status Existing handler success status retained in its durable outcome.
         """
         if scope not in ("project", "global") or lane not in ("fast", "long", "global", "settings"):
             raise ValueError("invalid configuration scope")
+        if type(success_status) is not int or success_status not in (200, 202):
+            raise ValueError("invalid configuration success status")
 
         def decorate(handler):
             """@brief Retain the typed handler and wrap HTTP calls with durable submission."""
             signature = inspect.signature(handler)
-            self.handlers[handler.__name__] = (handler, signature, scope, lane, resource)
+            self.handlers[handler.__name__] = (
+                handler, signature, scope, lane, resource, success_status)
 
             @wraps(handler)
             def submit(*args, **kwargs):
@@ -170,7 +174,7 @@ class ConfigurationTasks:
                     if key in ("user", "_user"):
                         continue
                     if isinstance(value, BaseModel):
-                        payload[key] = value.model_dump(mode="json")
+                        payload[key] = value.model_dump(mode="json", exclude_unset=True)
                     elif isinstance(value, Request):
                         payload[key] = {
                             "method": value.method,
@@ -211,11 +215,16 @@ class ConfigurationTasks:
                 with self.submit_lock:
                     if len(self.web.pending_configuration()) >= MAX_PENDING:
                         raise HTTPException(503, detail={"code": "configuration_queue_full"})
-                    self.directory.mkdir(parents=True, exist_ok=True)
-                    if self.directory.is_symlink():
-                        raise WebStoreError("configuration storage is corrupt")
-                    target = self.directory / (reference + ".request.json")
-                    write_private_record(target, encoded)
+                    try:
+                        self.directory.mkdir(parents=True, exist_ok=True)
+                        if self.directory.is_symlink():
+                            raise WebStoreError("configuration storage is corrupt")
+                        target = self.directory / (reference + ".request.json")
+                        write_private_record(target, encoded)
+                    except OSError as exc:
+                        raise HTTPException(
+                            503, detail={"code": "configuration_failed"}
+                        ) from exc
                     try:
                         operation = self.web.enqueue_configuration(
                             actor["id"],
@@ -626,7 +635,8 @@ class ConfigurationWorker:
                 or envelope["handler"] not in self.tasks.handlers
             ):
                 raise WebStoreError("configuration request is corrupt")
-            handler, signature, scope, lane, resource = self.tasks.handlers[envelope["handler"]]
+            handler, signature, scope, lane, resource, success_status = self.tasks.handlers[
+                envelope["handler"]]
             if (
                 envelope["scope"] != scope
                 or (
@@ -690,6 +700,7 @@ class ConfigurationWorker:
             current = _OPERATION.set(operation["id"])
             handler_started = True
             body = handler(**arguments)
+            code = success_status
             handler_completed = True
             effect_guard(revision=False)
         except HTTPException as exc:

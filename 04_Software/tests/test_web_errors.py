@@ -20,7 +20,8 @@ import re
 from adore.profiles import ProfileStore
 from adore.web.app import create_app
 from adore.web.store import WebStoreError
-from fastapi.testclient import TestClient
+
+from tests.configuration_client import TestClient
 
 # CONSTANTS
 _CODE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")

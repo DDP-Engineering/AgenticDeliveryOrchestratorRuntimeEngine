@@ -9,6 +9,7 @@ import {settingsSaveCopy} from "../src/settingsSave";
 import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
 import { connectionRowVisible, settingVisible } from "../src/settings";
 import { test, expect, type Page } from "@playwright/test";
+import { configurationResponse } from "./configuration";
 import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
 
 async function openSettings(page: Page, name = "alpha", user = "admin") {
@@ -33,7 +34,7 @@ test.afterEach(async ({ page }) => {
   if (me.ok()) {
     const session = await me.json();
     await page.request.patch("/api/v1/me/preferences", {headers:{"X-CSRF-Token":session.csrf},data:{language:"en"}});
-    if (session.user.role === "admin") await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": session.csrf } });
+    if (session.user.role === "admin") await configurationResponse(await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": session.csrf } }), page.request);
   }
 });
 
@@ -565,10 +566,10 @@ test("settings background restores a prepared edit with a newer saved revision",
   await openSettings(page);
   const current = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const session = await (await page.request.get("/api/v1/me")).json();
-  const preview = await page.request.post("/api/v1/projects/alpha/config/preview", {
+  const preview = await configurationResponse(await page.request.post("/api/v1/projects/alpha/config/preview", {
     headers: { "X-CSRF-Token": session.csrf },
     data: { key: "settings.batch", revision: current.revision, value: JSON.stringify([{ key: "budgets.max_iterations", value: "23" }]) },
-  });
+  }), page.request);
   expect(preview.ok()).toBe(true);
   const candidate = await preview.json();
   const next = { ...current, revision: "b".repeat(64), model_connection: null };
@@ -925,10 +926,10 @@ test(`typed Implementation control reviews and applies ${setting}`, async ({page
   const [section,name] = key.split(".");
   const value = before.config[section][name];
   const current = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  const prepared = await page.request.post("/api/v1/projects/alpha/config/pending", {headers:{"X-CSRF-Token":csrf},data:{key,value:typeof value === "object" ? JSON.stringify(value) : String(value),revision:current.revision}});
+  const prepared = await configurationResponse(await page.request.post("/api/v1/projects/alpha/config/pending", {headers:{"X-CSRF-Token":csrf},data:{key,value:typeof value === "object" ? JSON.stringify(value) : String(value),revision:current.revision}}), page.request);
   expect(prepared.ok()).toBe(true);
   const candidate = await prepared.json();
-  const result = await page.request.post("/api/v1/projects/alpha/config/apply", {headers:{"X-CSRF-Token":csrf},data:{candidate_revision:candidate.candidate_revision,base_revision:candidate.base_revision}});
+  const result = await configurationResponse(await page.request.post("/api/v1/projects/alpha/config/apply", {headers:{"X-CSRF-Token":csrf},data:{candidate_revision:candidate.candidate_revision,base_revision:candidate.base_revision}}), page.request);
   expect(result.ok()).toBe(true);
  }
 });

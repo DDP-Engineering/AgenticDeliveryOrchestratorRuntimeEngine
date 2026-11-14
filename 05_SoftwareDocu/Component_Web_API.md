@@ -945,3 +945,28 @@ returns a typed service error naming `execution-plan.json` for explicit deletion
 ## Project capacity and worker diagnostics
 
 The authorized project `/capacity` projection combines effective/saved concurrency, occupied/free slots, queued causes and the caller's latest durable operations. It excludes credentials and owner handles. `/system/workers` is administrator-only and separates supervisor/configuration/project/run/control roles. `/ready` names unavailable server components; a missing project worker is local. Staged lower N fences admission immediately while active config remains bound to current jobs. See [Project capacity](Component_Project_Capacity.md); targeted proof is `tests/test_web_project_status.py`.
+
+## Typed dispatch fidelity
+
+Protected request serialization retains the Pydantic field set: omitted optional
+fields stay absent and explicitly supplied null stays explicit after worker
+rehydration. Import identity derivation therefore sees the exact submitted
+meaning. The registered handler declares its success status (200 by default,
+202 for the four environment-preparation routes), which is retained in the
+confirmed outcome. Initial configuration acceptance remains separate from it.
+Request-directory or private-record write denial returns sanitized HTTP503
+before any operation is queued; existing configuration and credentials remain
+intact. Public proof: test_web_import.py explicit/default identity cases,
+test_web_bundle_import.py reviewed environment202, and storage-negative cases
+in test_web_configuration_worker.py and test_executor_settings.py.
+
+The offline Chromium server gives each project command consumer its registered
+owner handle. It keeps supervisor/configuration observation separate, and resets
+only terminal simulated Start trials by exact project/run identity under the same
+run lock as the fake conductor; active or unfinished trials are refused. Browser
+API setup/assertions and response interceptors explicitly consume durable
+configuration outcomes, while transport tests retain the initial202 contract.
+Delayed-response scenarios hold a completed old result after its server resource
+is free, so they test stale browser delivery rather than overlapping enrollment
+publication. Capacity content may move panels during initial loading; layout
+checks use simultaneous measurements and panel viewport bounds.

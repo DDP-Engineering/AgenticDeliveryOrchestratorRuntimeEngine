@@ -79,20 +79,22 @@ def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
             ticket = int(argv[-1])
             run_id = derive_run_id("gitlab", "group/subgroup/project", ticket)
             run = RunState(run_id, ticket, workflow="direct", stage="build")
-            state.save(run)
-            state.save_ticket(run_id, {"iid": ticket, "title": f"Offline ticket {ticket}"})
-            state.journal(run_id, "picked", ticket=ticket)
-            context = json.loads(_env["ADORE_WORKER_CONTEXT"])
-            owner = WorkerOwner(context["owner_id"], context["owner_generation"], context["role"],
-                                context["project_id"], context["run_id"])
-            web = WebStore(profiles.home / "web.db")
-            run_owner = web.register_worker("run", project_id=owner.project_id, run_id=run_id)
-            web.acknowledge_start(
-                context["operation_id"], owner=owner,
-                generation=context["generation"], run_id=run_id, run_owner=run_owner)
-            run.lifecycle, run.stage = "done", "done"
-            state.save(run)
-            web.clear_worker(run_owner)
+            with state.run_lock(run_id):
+                state.save(run)
+                state.save_ticket(run_id, {"iid": ticket, "title": f"Offline ticket {ticket}"})
+                state.journal(run_id, "picked", ticket=ticket)
+                context = json.loads(_env["ADORE_WORKER_CONTEXT"])
+                owner = WorkerOwner(
+                    context["owner_id"], context["owner_generation"], context["role"],
+                    context["project_id"], context["run_id"])
+                web = WebStore(profiles.home / "web.db")
+                run_owner = web.register_worker("run", project_id=owner.project_id, run_id=run_id)
+                web.acknowledge_start(
+                    context["operation_id"], owner=owner,
+                    generation=context["generation"], run_id=run_id, run_owner=run_owner)
+                run.lifecycle, run.stage = "done", "done"
+                state.save(run)
+                web.clear_worker(run_owner)
             return 0
         if argv[-1] == "43":
             return 7
@@ -352,6 +354,22 @@ def main() -> None:
             path.write_bytes(text.encode("utf-8"))
             return {"provider": value}
 
+        def reset_simulated_starts(name: str) -> None:
+            """@brief Remove only terminal offline Start trials from this fixture project."""
+            profile = profiles.load(name)
+            state = StateStore(profile.store_root or profiles.default_store_root(name))
+            for ticket in (42, 44):
+                run_id = derive_run_id("gitlab", "group/subgroup/project", ticket)
+                with state.run_lock(run_id):
+                    if not (state.run_dir(run_id) / "state.json").exists():
+                        continue
+                    if (store.has_unfinished_operations(name)
+                            or store.worker_heartbeats(role="run", project_id=profile.project_id,
+                                                       run_id=run_id)
+                            or state.load(run_id).lifecycle not in {"done", "failed", "cancelled"}):
+                        raise HTTPException(409, "offline Start trial is still owned or unfinished")
+                    state.delete_run(run_id)
+
         @app.post("/__e2e__/jobs")
         def jobs_fixture(request: Request, mode: str = "seed") -> dict:
             """
@@ -365,6 +383,9 @@ def main() -> None:
                 "seed", "reset", "mutate", "corrupt", "legacy-timestamp", "direct",
             }:
                 raise HTTPException(403, "test runner header and supported mode required")
+            if mode in {"seed", "reset", "direct"}:
+                for name in ("alpha", "beta"):
+                    reset_simulated_starts(name)
             roots = [StateStore(home / "state" / name) for name in ("alpha", "beta")]
             if mode in {"mutate", "corrupt", "legacy-timestamp"}:
                 path = roots[0].run_dir("ux-working") / "state.json"
@@ -521,17 +542,22 @@ def main() -> None:
         store = app.state.web_store
         developer = store.create_user("developer", "test-password", "developer")
         store.set_memberships(developer["id"], ["alpha"])
-        worker = CommandWorker(profiles, store, runner=simulated_command,
-            actions=("start", "retry", "restart", "cancel", "delete"))
         stop = Event()
 
         @asynccontextmanager
         async def lifespan(_app):
             """@brief Stop and join the isolated worker on graceful shutdown."""
+            supervisor = store.register_worker("supervisor")
+            store.set_worker_activity(supervisor, "idle")
             config_owner = store.register_worker("configuration")
             project_owners = [
                 store.register_worker("project", project_id=profiles.load(name).project_id)
                 for name in ("alpha", "beta")]
+            commands = [
+                CommandWorker(profiles, store, runner=simulated_command,
+                    project_id=owner.project_id, execution_owner=owner,
+                    actions=("start", "retry", "restart", "cancel", "delete"))
+                for owner in project_owners]
             configuration = ConfigurationWorker(app.state.configuration_tasks, owner=config_owner)
             control_errors = []
 
@@ -539,32 +565,30 @@ def main() -> None:
                 """@brief Consume durable configuration with the same offline API collaborators."""
                 try:
                     while not stop.is_set():
+                        store.touch_worker(supervisor)
                         store.touch_worker(config_owner)
                         for owner in project_owners:
                             store.touch_worker(owner)
                         configuration.tick()
+                        for command in commands:
+                            command.run_pending()
                         stop.wait(0.025)
                 except BaseException as exc:
                     control_errors.append(exc)
 
             control_thread = Thread(target=control, daemon=True)
             control_thread.start()
-            thread = Thread(target=lambda: worker.run_forever(
-                interval=0.05, heartbeat_interval=0.1, stop=stop), daemon=True)
-            thread.start()
             try:
                 yield
             finally:
                 stop.set()
-                thread.join(timeout=3)
                 control_thread.join(timeout=3)
                 configuration.close()
                 for owner in project_owners:
                     store.clear_worker(owner)
                 if control_thread.is_alive() or control_errors:
                     raise RuntimeError("offline configuration worker did not stop cleanly")
-                if thread.is_alive():
-                    raise RuntimeError("offline worker did not stop")
+                store.clear_worker(supervisor)
 
         app.router.lifespan_context = lifespan
         server = uvicorn.Server(uvicorn.Config(

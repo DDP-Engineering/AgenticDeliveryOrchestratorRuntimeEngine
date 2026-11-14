@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Preserve omitted import identity fields and original environment acceptance statuses through durable configuration; refuse private request storage failures with sanitized service errors.
 - Bound transient Windows run-state sharing contention so concurrent readers do not interrupt jobs; persistent failures preserve evidence and current ownership fences.
 
 ### Changed
