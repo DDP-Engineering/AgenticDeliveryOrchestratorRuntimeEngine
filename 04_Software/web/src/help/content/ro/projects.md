@@ -58,6 +58,8 @@ Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce
 
 Rezumatul arată și limita paralelă, locurile libere și joburile în coadă în dreptunghiuri compacte lângă informațiile operaționale.
 
+Setări, Statistici, Istoric și Acces nu repetă panoul de capacitate a proiectului.
+
 1. Alegeți **Acces la repository**. Introduceți adresa serverului forge și un token de acces creat pe forge, apoi **Verifică și conectează**. Aceasta confirmă contul și accesul de citire la repository. Tokenul rămâne pe server, niciodată în browser. Alternativ, autentificați instrumentul forge sub contul de serviciu ADORE.
 2. Alegeți **Verifică cerințele gazdei**. Detaliile acoperă Git, instrumentul de linie de comandă al repository-ului, autentificarea în repository, motorul de containere, Pi din imagine, plus autentificarea ChatGPT a serverului pentru un abonament ChatGPT, imaginea proxyului de rețea când [accesul la internet](/help/executors#internet) este dezactivat și cheia de căutare web când Brave sau Tavily are nevoie de una. Pentru un proiect care rulează direct pe server, **Execuție locală** înlocuiește rândurile pentru motorul de containere și imagine: verifică versiunea compatibilă de Node, Pi administrat de ADORE și credențialele furnizorului. Rândul separat **Workflow** identifică fluxul fără să execute AEGIS. Aceasta nu este o lucrare completă și nu dovedește permisiunea de push.
 3. Rulați **Testează conexiunea AI** în Setări, așa cum este descris în [Executori și modele](/help/executors#test-connection).

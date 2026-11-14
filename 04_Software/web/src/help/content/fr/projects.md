@@ -58,6 +58,8 @@ Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le 
 
 Le résumé affiche aussi la limite parallèle, les places libres et les tâches en file dans des rectangles compacts avec les informations opérationnelles.
 
+Paramètres, Statistiques, Historique et Accès ne répètent pas le panneau de capacité du projet.
+
 1. Choisissez **Accès au dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.
 2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, Pi dans l’image, ainsi que la connexion ChatGPT du serveur pour un abonnement ChatGPT, l’image du proxy réseau quand l’[accès Internet](/help/executors#internet) est désactivé et la clé de recherche web quand Brave ou Tavily en demande une. Pour un projet exécuté directement sur le serveur, **Exécution locale** remplace les lignes du moteur de conteneur et de l’image : elle vérifie la version compatible de Node, Pi géré par ADORE et les identifiants du fournisseur. La ligne **Workflow** identifie séparément le workflow sans exécuter AEGIS. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.
 3. Lancez **Tester la connexion IA** dans Paramètres, comme décrit dans [Exécuteurs et modèles](/help/executors#test-connection).

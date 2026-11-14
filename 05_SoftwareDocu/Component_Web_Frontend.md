@@ -1124,3 +1124,5 @@ Project Settings hides the Save/Discard bar when the draft is clean, including w
 `settingsDrafts.ts` retains bounded editable values/base revision per account and immutable project in tab session storage. It stores no full configuration or credentials. Navigation and reload retain unsaved values; stale revisions block Save and corrupt retention requires explicit discard. Save/discard/logout clear drafts. Storage failure retains memory and presents recovery guidance. Ticket submission busy flags are per project; an operation in A cannot disable B.
 
 See [Project capacity](Component_Project_Capacity.md). Proof: `web/tests/projectStatus.test.mjs`, `web/e2e/projectCapacity.spec.ts` and targeted settings/help regressions. All new copy and help ship in en/fr/de/ro.
+
+Project capacity appears only in Summary facts and the Jobs Capacity table; Settings, Statistics, History and Access have no separate capacity panel.

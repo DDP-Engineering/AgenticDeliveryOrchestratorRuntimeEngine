@@ -1400,7 +1400,6 @@ export default function App() {
 
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
-          {projectTab!=="overview"&&projectTab!=="jobs"&&<ProjectCapacity key={`${session.user.id}:${selected}`} project={selected} locale={locale} request={request} refresh={viewRefresh}/>}
           {projectTab === "overview" && <>
           <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
             <dl className="summary-facts">

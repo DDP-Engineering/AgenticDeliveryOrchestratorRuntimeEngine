@@ -15,6 +15,11 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+[[release.entry]]
+category = "fixed"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Capacity appears only in Summary and the Capacity tab.", fr = "La capacité apparaît uniquement dans le résumé et l’onglet Capacité.", de = "Kapazität erscheint nur in der Übersicht und im Tab Kapazität.", ro = "Capacitatea apare doar în Rezumat și în tab-ul Capacitate." }
+
 
 [[release.entry]]
 category = "improved"
