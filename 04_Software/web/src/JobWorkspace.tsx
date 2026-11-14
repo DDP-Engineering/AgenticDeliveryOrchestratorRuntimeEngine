@@ -10,6 +10,7 @@ import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
 import { jobCopy, directCopy, workflowStageLabel } from "./jobCopy";
 import { SessionView } from "./SessionView";
+import { InstructionComposer } from "./InstructionComposer";
 import { JobDetails } from "./JobDetails";
 import { commandAllowed, IncompleteJobs, readJobDetail, readJobPage, readExecutorOutput, type ExecutorOutput, type Job, type JobPage } from "./jobModel";
 import { recoveryCopy } from "./recoveryCopy";
@@ -277,7 +278,7 @@ export function JobWorkspace(props: Props) {
       stageLabel={workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)} stageName={stage => workflowStageLabel(stage, visibleDetail.workflow, t)}
       statusLabel={visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}
       directEvidence={visibleDetail.direct ? <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} /> : null}
-      sessions={active=><SessionView key={detailKey} project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} />}
+      sessions={active=><div key={detailKey}><SessionView project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} /><InstructionComposer project={visibleDetail.project_id} run={visibleDetail.run_id} locale={locale} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} /></div>}
       consumption={consumptionView(visibleDetail, true)}
       output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />}
       timeline={<ObservedTimeline key={detailKey} events={visibleDetail.timeline ?? []} workflow={visibleDetail.workflow} date={date} t={t} unknown={copy.unknown} />} />}

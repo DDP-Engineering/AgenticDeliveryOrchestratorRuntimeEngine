@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-84b2d01e"
+title = "Deliver queued instructions through acknowledged Pi commands"
+status = "active"
+requirement = "While a Pi session is running, its existing RPC stdin owner shall send wrapped pending now instructions with steer and after instructions with follow_up."
+verification = "Fake Pi records both command types, literal loader-wrapped text, same single process and unchanged cancellation."
+affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/prompts.py", "04_Software/adore/prompts/live/instruction.md", "04_Software/adore/executor/base.py"]
+linked_tests = ["04_Software/tests/test_pi_rpc.py", "04_Software/tests/test_instructions.py"]
+spec = "specs/REQ-FUNC-84b2d01e.md"
+priority = "normal"
+created = 2026-11-14
+updated = 2026-11-14

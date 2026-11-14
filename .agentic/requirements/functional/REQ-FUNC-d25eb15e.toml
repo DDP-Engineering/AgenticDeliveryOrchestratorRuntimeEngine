@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-d25eb15e"
+title = "Refuse instructions outside working jobs"
+status = "active"
+requirement = "If a job is not working, the instructions POST shall return HTTP 409 job_not_working without enqueuing text."
+verification = "POST to finished, parked and handoff jobs and inspect conflict code and unchanged inbox."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_jobs.py"]
+spec = "specs/REQ-FUNC-84b2d01e.md"
+priority = "normal"
+created = 2026-11-14
+updated = 2026-11-14

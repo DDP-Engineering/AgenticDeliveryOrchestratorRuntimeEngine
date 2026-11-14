@@ -1624,3 +1624,28 @@ and diagnostics retain masking. Archive copies reject links and oversize/change 
 Accepted archived pages and EOF retain their exact pagination across hidden views.
 Only live cursors or an initial history read not yet accepted resume automatically;
 failed/interrupted initial history remains retryable.
+
+## Instructions to the running agent
+
+In job details, Agent sessions includes an instruction composer below the live view.
+Administrators and assigned project developers can queue text while the job is working,
+including between sessions and with no prior session. Send now uses Pi steer after
+current tools; Send when finished uses follow_up when Pi has no more work. Neither
+interrupts tools. Text is literal, 1..4000 Unicode characters without NUL; a job retains
+at most 256 instructions until explicit deletion.
+
+Queued means no persisted Pi receipt. Delivered means Pi acknowledged acceptance,
+not completion. Pending text enters the next fresh prompt after human discussion; only
+its successful initial Pi acknowledgement marks it delivered. Failure/restart retains
+unacknowledged text. Malformed files remain unsent with explicit local evidence.
+The current-schema inbox has no migration or compatibility reader.
+
+Each delivery records id, author, mode and transport in the run journal, and the exact
+text is copied once as an ADORE comment to the source ticket using durable marker-based
+notification replay. Forge errors retry independently of Pi delivery.
+GET/POST /api/v1/jobs/{project_id}/{run_id}/instructions are authenticated no-store reads/
+writes; POST additionally uses existing CSRF and Cancel grants, exact {text,mode} input
+and 409 job_not_working outside working. Literal responses retain job identity and the
+browser fences switched-job completions. No extra tab, setting, navigation or Pi loop
+is introduced; existing cancellation, session liveness/continuity and archives remain.
+See Component_Instructions.md for bounds, corruption refusals and offline proof.

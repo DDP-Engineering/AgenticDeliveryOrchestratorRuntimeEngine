@@ -69,6 +69,7 @@ from adore.executor_recipes import RecipeStore, effective_recipe_config, recipe_
 from adore.forge import ForgeError, ForgeResponseError
 from adore.forge_labels import ensure_labels, project_labels
 from adore.gitea_auth import GiteaAuthError, portable_tea_runner
+from adore.instructions import InstructionError, InstructionInbox, validate_instruction
 from adore.isolation import ContainerManager, IsolationError
 from adore.pi_providers import (
     CHATGPT,
@@ -236,6 +237,24 @@ _DELETABLE_RUN_LIFECYCLES = (*_TERMINAL_RUN_LIFECYCLES, "handoff-pending")
 
 
 # DATA MODELS / TYPEDEFINITIONS
+class InstructionInput(BaseModel):
+    """@brief Strict literal instruction request using the existing mutation grants."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    text: str = Field(min_length=1, max_length=4000)
+    mode: Literal["now", "after"]
+
+    @field_validator("text")
+    @classmethod
+    def instruction_text(cls, value: str) -> str:
+        """@brief Reject NUL and invalid Unicode without trimming the operator's text."""
+        try:
+            validate_instruction(value, "now")
+        except InstructionError as exc:
+            raise ValueError("invalid instruction text") from exc
+        return value
+
+
 class Credentials(BaseModel):
     """@brief Browser username/password input."""
 
@@ -5294,6 +5313,50 @@ def create_app(home: str | Path | None = None,
                     if item.project_id == project_id)
         root = Path(item.store_root or profiles.default_store_root(item.name)) / "runs" / run_id
         return item, root
+
+    @app.get("/api/v1/jobs/{project_id}/{run_id}/instructions")
+    def job_instructions(project_id: str, run_id: str,
+                         user: Annotated[dict, Depends(principal)]) -> JSONResponse:
+        """@brief Read literal instructions for one authorized composite job identity."""
+        item, root = session_run(project_id, run_id, user)
+        try:
+            rows, notices = InstructionInbox(root).read()
+        except InstructionError as exc:
+            raise _error(503, "instruction_storage_unavailable") from exc
+        if item not in job_projects(user, project_id):
+            raise JobReadError("job_snapshot_changed", 409)
+        return JSONResponse({"project_id": project_id, "run_id": run_id,
+                             "instructions": rows, "notices": notices},
+                            headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/v1/jobs/{project_id}/{run_id}/instructions")
+    def send_job_instruction(project_id: str, run_id: str, body: InstructionInput,
+                             user: Annotated[dict, Depends(mutation)]) -> JSONResponse:
+        """@brief Queue text atomically using the same project grants as job cancellation."""
+        item = project(project_id, user)
+        if item.project_id != project_id or not re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
+            raise _error(404, "run_not_found")
+        if item.archived:
+            raise _error(409, "project_archived")
+        store = _store_for(profiles, item)
+        try:
+            run = store.load(run_id)
+        except FileNotFoundError as exc:
+            raise _error(404, "run_not_found") from exc
+        except StateError as exc:
+            raise _error(503, "run_state_corrupt") from exc
+        if run.lifecycle != "working":
+            raise _error(409, "job_not_working")
+        try:
+            row = InstructionInbox(store.run_dir(run_id)).enqueue(user, body.text, body.mode)
+        except InstructionError as exc:
+            code = str(exc)
+            if code in ("instruction_busy", "instruction_limit"):
+                raise _error(409, code) from exc
+            raise _error(503, "instruction_storage_unavailable") from exc
+        return JSONResponse({"project_id": project_id, "run_id": run_id,
+                             "instruction": row}, headers={"Cache-Control": "no-store"})
 
     @app.get("/api/v1/jobs/{project_id}/{run_id}/sessions")
     def job_sessions(project_id: str, run_id: str,

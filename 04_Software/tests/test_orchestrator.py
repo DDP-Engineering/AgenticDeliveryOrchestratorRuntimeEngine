@@ -5151,3 +5151,97 @@ def test_failed_validate_session_does_not_record_approval_evidence(tmp_path: Pat
     assert len(executor.prompts) == 1
     assert not any(event["event"] == "validation-accepted"
                    for event in engine.store.read_journal(run.run_id))
+
+
+@pytest.mark.parametrize("forge_failure", ["none", "outage", "response-lost"])
+def test_instruction_prompt_delivery_and_independent_ticket_replay(
+    tmp_path, monkeypatch, forge_failure
+):
+    """@brief Direct conduction acknowledges fallback and replays one ticket comment."""
+    from adore.instructions import InstructionInbox
+
+    engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.recovery.retry_backoff_seconds = [0]
+    forge.ticket_comments[42] = "Human discussion before extra instructions."
+    original_comments = forge.list_comments
+    queued = []
+
+    def comments(iid):
+        """@brief Simulate an operator queuing text between claim and fresh Pi startup."""
+        root = engine.store.run_dir("github-owner-repo-7")
+        if root.exists() and not queued:
+            queued.append(
+                InstructionInbox(root).enqueue(
+                    {"id": 7, "username": "operator"}, "  INSTRUCTION_LITERAL $text\n", "after"
+                )
+            )
+        return original_comments(iid)
+
+    monkeypatch.setattr(forge, "list_comments", comments)
+    original_run = executor.run_gate
+
+    def acknowledge(*args, **kwargs):
+        """@brief Only the fake Pi acknowledgement, never composing, consumes fallback."""
+        assert kwargs.get("instructions") is not None, "conductor instruction handoff missing"
+        prompt = args[3]
+        assert "INSTRUCTION_LITERAL" in prompt
+        box = InstructionInbox(engine.store.run_dir("github-owner-repo-7"))
+        assert box.read()[0][0]["delivery"] is None
+        kwargs["instructions"].prompt_accepted()
+        return original_run(*args, **kwargs)
+
+    executor.run_gate = acknowledge
+    executor.attempts.append(direct_edit(worktrees))
+    original_post = forge.post_comment
+    failed = []
+
+    def posting(iid, body):
+        """@brief Only instruction comment transport fails; other lifecycle notices work."""
+        if body.startswith("Instruction from") and forge_failure != "none" and not failed:
+            failed.append(True)
+            if forge_failure == "response-lost":
+                original_post(iid, body)
+            raise ForgeError("synthetic instruction comment outage")
+        return original_post(iid, body)
+
+    monkeypatch.setattr(forge, "post_comment", posting)
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "awaiting-approval", run.outcome
+    assert (
+        InstructionInbox(engine.store.run_dir(run.run_id)).read()[0][0]["delivery"]["how"]
+        == "prompt"
+    )
+    for _ in range(2):
+        engine.poll_once()
+    events = [
+        e for e in engine.store.read_journal(run.run_id) if e["event"] == "instruction-delivered"
+    ]
+    assert len(events) == 1 and events[0]["id"] == queued[0]["id"]
+    assert events[0]["mode"] == "after" and events[0]["how"] == "prompt"
+    comments = [
+        body for body in forge.ticket_comments.values() if body.startswith("Instruction from")
+    ]
+    assert len(comments) == 1 and queued[0]["text"] in comments[0]
+    assert comments[0].startswith("Instruction from operator via ADORE (when finished)")
+    assert not engine.store.load(run.run_id).notification_outbox
+
+
+def test_delivered_instruction_receipt_recovers_record_after_conductor_restart(tmp_path):
+    """@brief A persisted Pi receipt reconstructs its journal/outbox once through public polling."""
+    from adore.instructions import InstructionInbox
+
+    engine, forge, *_ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "done"
+    engine.store.save(run)
+    box = InstructionInbox(engine.store.run_dir(run.run_id))
+    row = box.enqueue({"id": 7, "username": "operator"}, "Receipt survived restart", "now")
+    box.acknowledge(row["id"], "steer")
+    engine.poll_once()
+    engine.poll_once()
+    events = [
+        e for e in engine.store.read_journal(run.run_id) if e["event"] == "instruction-delivered"
+    ]
+    assert len(events) == 1
+    assert sum("Receipt survived restart" in text for text in forge.ticket_comments.values()) == 1

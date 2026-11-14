@@ -46,6 +46,7 @@ from adore.branding import (
 from adore.execution import SHELL_HEADER, ExecutionPaths, redact_output
 from adore.executor import pi_rpc
 from adore.executor.base import ExecTarget, Executor, GateRun
+from adore.instructions import InstructionDelivery
 from adore.isolation import IsolationError
 from adore.pi_installation import GUARD, ManagedPi
 from adore.pi_providers import pi_provider
@@ -190,6 +191,7 @@ class FileProtocolExecutor(Executor):
         archive_stem: str = "",
         package_secrets: dict[str, str] | None = None,
         cancel: Callable[[], bool] | None = None,
+        instructions: InstructionDelivery | None = None,
     ) -> GateRun:
         """
         @brief      Run one gate headless; read every result from files.
@@ -611,6 +613,7 @@ class PiExecutor(FileProtocolExecutor):
         timeout: float | None = None,
         archive_stem: str = "",
         cancel: Callable[[], bool] | None = None,
+        instructions: InstructionDelivery | None = None,
         package_secrets: dict[str, str] | None = None,
     ) -> GateRun:
         """
@@ -626,6 +629,7 @@ class PiExecutor(FileProtocolExecutor):
         @param[in]  prompt Gate instruction, sent over stdin.
         @param[in]  timeout Stage wall-clock bound.
         @param[in]  archive_stem Optional immutable archive name stem.
+        @param[in]  instructions Optional acknowledgement-bound instruction handoff.
         @param[in]  cancel Cancellation check polled during the run.
         @param[in]  package_secrets Known credentials for bounded package-job retention.
         @return     A GateRun: exit 0 completed, 1 failed, 124 timed out,
@@ -706,7 +710,7 @@ class PiExecutor(FileProtocolExecutor):
 
             result = pi_rpc.run_pi_rpc(
                 spawn_rpc, argv, dict(PI_RPC_ENV), prompt,
-                timeout=timeout, cancelled=cancel,
+                timeout=timeout, cancelled=cancel, instructions=instructions,
                 output_path=output_path, stderr_path=stderr_path,
                 redact=redact,
             )

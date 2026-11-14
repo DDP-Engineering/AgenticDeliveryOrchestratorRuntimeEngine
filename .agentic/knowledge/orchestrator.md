@@ -376,3 +376,18 @@ Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive an
 Every new/resumed execution reservation reads admission_limit: a valid current staged lower N already holds new work until occupancy is below it, while admitted jobs continue with unchanged active revision. Staged increases grant no capacity. Corrupt/stale pending evidence raises StateError with explicit deletion guidance. See project-capacity.md and test_web_project_status.py.
 
 After a lower N, already-started executors continue, while queued initial reservations wait for actual start capacity. Pending reservations retain their dispatch evidence; they do not block each other indefinitely. Initial activation rechecks current N atomically in the conductor as well as limiting supervisor dispatch.
+
+## Instruction receipts and ticket replay
+
+REQ-FUNC-5942c3b1: _launch_stage captures a pending InstructionDelivery snapshot and
+places its literal wrappers after any human thread in both direct/AEGIS prompts.
+The executor's actual prompt acknowledgement owns consumption, never composition.
+REQ-DATA-2df9e8ef / REQ-REL-73d642d7: persisted receipts reconcile at launch, after
+the gate and during public run polling. The conductor saves an instruction outbox
+record with deterministic id before one instruction-delivered journal event containing
+id, user, mode and how. It copies exact text once to the source ticket with the
+existing durable marker/replay/backoff seam after RPC. Instruction-comment failure
+keeps its outbox without failing the job, blocking Pi stages or explicit Retry; other
+notification gates remain. Offline public conduction/restart tests include a forge
+outage and a successful post whose response is lost. See instructions.md for storage
+bounds and remote-ack/local-persistence crash limitations.

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-bf7c7916"
+title = "Compose instructions below the agent session"
+status = "active"
+requirement = "While viewing Agent sessions, authorized operators shall see a composer below the session including empty working sessions, queued and Pi-acknowledged delivered instructions, and the current-tool waiting note with fenced job-bound updates."
+verification = "Offline browser sends both modes, checks literal text and status meaning, empty session access, disabled finished composer, and delayed job-switch responses without resetting scope/list/header."
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/InstructionComposer.tsx", "04_Software/web/src/instructionModel.ts", "04_Software/web/src/instructionCopy.ts", "04_Software/adore/release_notes.toml", "04_Software/adore/web/static/", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/instructions.test.mjs", "04_Software/web/src/styles.css", "04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md"]
+linked_tests = ["04_Software/web/tests/instructions.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+spec = "specs/REQ-FUNC-84b2d01e.md"
+priority = "normal"
+created = 2026-11-14
+updated = 2026-11-14

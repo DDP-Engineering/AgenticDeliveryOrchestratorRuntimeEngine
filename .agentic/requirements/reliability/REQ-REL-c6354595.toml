@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-c6354595"
+title = "Keep unacknowledged instructions queued"
+status = "active"
+requirement = "Unless Pi positively acknowledges the matching instruction command, ADORE shall retain that instruction as queued for a subsequent session."
+verification = "Fake Pi success false, missing/wrong acknowledgement, exit and restart leave queued files; matching success marks delivered."
+affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/instructions.py"]
+linked_tests = ["04_Software/tests/test_pi_rpc.py", "04_Software/tests/test_instructions.py"]
+spec = "specs/REQ-FUNC-84b2d01e.md"
+priority = "normal"
+created = 2026-11-14
+updated = 2026-11-14

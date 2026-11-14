@@ -28,7 +28,7 @@ model-connection challenge, logs or forge status comments.
 
 ## 3. Implementation Overview
 
-`PromptCatalog()` loads the 26 filenames in `FRAGMENTS` from
+`PromptCatalog()` loads the 27 filenames in `FRAGMENTS` from
 `Path(__file__).with_name("prompts")`. There is no configurable alternate path,
 process-global cache or reload mechanism. The `prompts/` resource directory is
 not a Python package; the sibling `prompts.py` is the importable module.
@@ -44,7 +44,7 @@ Only Python standard-library `pathlib`, `string` and `types` are used.
 `Orchestrator.from_config` creates one catalog and shares it with the conductor
 and `build_executor` / `PiExecutor`. Direct conductor and standalone Pi launcher
 construction each defaults to eager loading, or accepts an already loaded catalog.
-The executor-neutral gate interface and RPC protocol do not depend on the catalog.
+The optional instruction handoff renders through this shared catalog; the RPC wire format remains Pi-owned.
 
 ## 5. Inputs And Outputs
 
@@ -155,3 +155,12 @@ explicitly adds the new direct resource rather than regenerating old fixtures.
 Build the wheel in temporary storage and compare every `adore/prompts/` path and
 byte with the source inventory. Portable inclusion is inspected through its
 unchanged-wheel installation route; deployment tools have no automated tests.
+
+## Live instruction wrapper
+
+The fixed inventory also includes live/instruction.md. InstructionDelivery renders
+its user and text placeholders once as literal values, naming the ADORE interface
+and author. Both initial-prompt fallback and live commands use this same shipped
+loader resource. Headers remain excluded; no trimming, redaction or reparsing applies
+to authorized instruction text. Protocol, receipt and composition ordering belong to
+Component_Instructions.md and Component_Orchestrator.md.

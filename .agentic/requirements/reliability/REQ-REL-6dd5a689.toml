@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-6dd5a689"
+title = "Skip corrupt queued instruction files"
+status = "active"
+requirement = "If an inbox instruction is malformed or unsafe to read, ADORE shall leave it unsent and expose value-free refusal evidence."
+verification = "Inject malformed JSON, identity mismatch, schema mismatch and linked files; valid neighbors still deliver while notices identify refusal."
+affected_paths = ["04_Software/adore/instructions.py", "04_Software/adore/executor/pi_rpc.py"]
+linked_tests = ["04_Software/tests/test_instructions.py"]
+spec = "specs/REQ-FUNC-84b2d01e.md"
+priority = "normal"
+created = 2026-11-14
+updated = 2026-11-14

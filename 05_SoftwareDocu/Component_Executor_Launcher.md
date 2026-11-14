@@ -427,3 +427,17 @@ never become sanitized operational tails presented as transcripts. Archive desti
 parents reject symlinks and Windows reparse points before any write. Raw files use
 exclusive creation inside the new guarded archive directory. Public fixtures prove
 missing output and real Windows junction/Linux symlink refusal.
+
+## Acknowledged instructions
+
+Executor.run_gate accepts an optional InstructionDelivery handoff; PiExecutor forwards
+it to the existing run_pi_rpc loop for native/container targets. File-protocol doubles
+leave it unacknowledged. The existing single stdin queue sends steer/follow_up beside
+the cancel tick, only after the initial prompt starts; abort/timeout takes precedence.
+Exact command/id success acknowledges live records; matching started prompt success
+acknowledges only its captured fallback. Failed spawn, rejected/missing acknowledgement
+and early exit preserve Queued across session end/restart. Late responses during the
+existing stats grace are matched too. No second writer or agent loop is added.
+Launch-owned live.json, kernel liveness, bounded literal stdout/archive and sanitized
+operational tails, stderr, questions and diagnostics keep their existing policies.
+See Component_Instructions.md; targeted fake-Pi proof is in test_pi_rpc.py.

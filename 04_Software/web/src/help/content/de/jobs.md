@@ -107,6 +107,16 @@ Administratoren und zugewiesene Entwickler sehen den Text wie aufgezeichnet, ein
 
 Der aktuelle Versuch steht während der Agentenausführung zuerst als **Live**. Dieser Reiter aktualisiert abgeschlossene Nachrichten und Werkzeugaufrufe/-ergebnisse alle drei Sekunden, solange der Auftrag läuft und diese Ansicht und der Browserreiter sichtbar sind. **Agent arbeitet** nennt das unfertige Werkzeug oder Denken; Textfragmente werden nicht gestreamt. Eine unvollständige Zeile wartet auf ihren Abschluss. Nach einem Startende bleibt das endgültige Archiv verfügbar und die Ansicht folgt dem nächsten Live-Start. Ein gewähltes älteres Archiv bleibt bei Aktualisierungen und Reiterwechseln ausgewählt. Die Abfragen stoppen, wenn der Auftrag nicht mehr läuft oder die Ansicht oder der Browserreiter verborgen ist.
 
+### Anweisungen senden {#instructions}
+
+Geben Sie unter der Live-Ansicht in **Agentensitzungen** eine **Anweisung für den Agenten** ein und wählen Sie **Jetzt senden** oder **Nach Abschluss senden**. Administratoren und dem Projekt zugewiesene Entwickler können während der Bearbeitung Anweisungen einreihen, auch zwischen Sitzungen oder vor der ersten Sitzung. Verwenden Sie 1–4000 Zeichen ohne NUL; jeder Job behält höchstens 256 Anweisungen.
+
+**Wartend** bedeutet, dass Pi den Empfang noch nicht bestätigt hat. **Übermittelt** bedeutet eine Empfangsbestätigung von Pi, keinen Abschluss der Arbeit. Der Text bleibt unverändert. Abgelehnte oder unbestätigte Anweisungen bleiben für die nächste Sitzung eingereiht, nach der menschlichen Diskussion in deren Eingabe. Fehlerhafte Anweisungen bleiben mit einem Ablehnungsnachweis ungesendet. Nach Ende der Bearbeitung ist das Senden nicht verfügbar.
+
+Jede Übermittlung wird im Job aufgezeichnet und einmal als ADORE-Kommentar ins Ticket kopiert. Ein vorübergehend fehlgeschlagener Kommentar wird unabhängig wiederholt und macht die Übermittlung an Pi nicht rückgängig.
+
+> **Jetzt senden** wartet auf die laufenden Werkzeuge und unterbricht sie nicht. **Nach Abschluss senden** wartet, bis der Agent keine weitere Arbeit hat.
+
 ## Jobbudgets {#budgets}
 
 Jobdetails zeigen **Executorstarts** (zum Beispiel 9 / 20) und **Aktive Arbeit (Sekunden)** neben den aktuellen Projektgrenzen, unabhängig von Tokenstatistiken. Ab 90 % erscheint ein Hinweis; bei Erreichen soll die Grenze vor dem Fortsetzen erhöht werden. Die Startvorgabe ist 20 bei Registrierung und `adore init`.

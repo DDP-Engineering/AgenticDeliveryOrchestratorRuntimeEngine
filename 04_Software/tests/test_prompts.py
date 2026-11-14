@@ -146,8 +146,13 @@ def test_all_shipped_fragments_match_original_bytes(prompts):
     catalog = prompts.PromptCatalog()
     inventory = {p.relative_to(prompts.PROMPT_ROOT).as_posix()
                  for p in prompts.PROMPT_ROOT.rglob("*.md")}
-    assert inventory == set(BASELINE["fragments"]) | {"direct/implementation.md"}
+    assert inventory == set(BASELINE["fragments"]) | {
+        "direct/implementation.md", "live/instruction.md",
+    }
     assert inventory == set(prompts.FRAGMENTS)
+    assert catalog.render("live/instruction.md", user="Author $user", text="  $text\n🙂") == (
+        "Instruction from Author $user via the ADORE interface:\n\n  $text\n🙂\n"
+    )
     for fragment, expected in BASELINE["fragments"].items():
         actual = catalog.render(fragment, **BASELINE["values"])
         assert actual.encode("utf-8") == expected.encode("utf-8"), fragment
@@ -155,9 +160,9 @@ def test_all_shipped_fragments_match_original_bytes(prompts):
 
 
 @pytest.mark.parametrize("bad", [None, b"\xff", b"$9", b"missing license"])
-def test_direct_resource_is_eagerly_required(resources, prompts, tmp_path, bad):
-    """@brief The direct fragment is required even for construction of an AEGIS conductor."""
-    fragment = "direct/implementation.md"
+@pytest.mark.parametrize("fragment", ["direct/implementation.md", "live/instruction.md"])
+def test_direct_resource_is_eagerly_required(resources, prompts, tmp_path, bad, fragment):
+    """@brief Direct and live fragments are eagerly required for every conductor."""
     path = resources / fragment
     path.parent.mkdir(exist_ok=True)
     if bad is None:
@@ -283,7 +288,9 @@ def test_shipped_placeholder_sets_are_complete(prompts):
     """@brief Every shipped placeholder has an exact captured caller value."""
     for fragment in prompts.FRAGMENTS:
         body = (prompts.PROMPT_ROOT / fragment).read_bytes().decode()[len(prompts.LEGAL_PREFIX):]
-        assert set(Template(body).get_identifiers()) <= BASELINE["values"].keys()
+        expected = ({"user", "text"} if fragment == "live/instruction.md"
+                    else BASELINE["values"].keys())
+        assert set(Template(body).get_identifiers()) <= expected
 
 
 def test_production_factory_shares_one_eager_catalog(prompts, monkeypatch, tmp_path):
@@ -395,3 +402,25 @@ def test_review_callers_preserve_original_bytes(tmp_path, monkeypatch):
 
 
 # END OF FILE
+
+
+
+@pytest.mark.parametrize("workflow", ["aegis", "direct"])
+def test_instruction_fallback_follows_literal_human_thread(tmp_path, workflow):
+    """@brief Both prompt contracts place pending wrappers after the human discussion."""
+    from adore.instructions import InstructionDelivery, InstructionInbox
+
+    engine, forge, *_ = make_engine(tmp_path)
+    run = make_run(engine)
+    inbox = InstructionInbox(engine.store.run_dir(run.run_id))
+    text = "  password=SYNTHETIC $user\n<script>🙂</script>\n"
+    inbox.enqueue({"id": 7, "username": "operator"}, text, "now")
+    delivery = InstructionDelivery(inbox, engine.prompts)
+    if workflow == "aegis":
+        prompt = engine._stage_prompt(run, forge.ticket, task("build"), "", "Human thread",
+                                      delivery.suffix)
+    else:
+        prompt = engine._direct_prompt(run, forge.ticket, "", "Human thread", delivery.suffix)
+    assert prompt.index("Human thread") < prompt.index(text)
+    assert text in prompt and "operator" in prompt and "ADORE interface" in prompt
+    assert inbox.read()[0][0]["delivery"] is None

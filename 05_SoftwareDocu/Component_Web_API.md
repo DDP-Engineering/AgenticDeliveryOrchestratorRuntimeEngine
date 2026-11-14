@@ -974,3 +974,17 @@ checks use simultaneous measurements and panel viewport bounds.
 ## Current capacity projection
 
 The authorized project capacity read adds explicit `paused` and `job_counts` for working, publishing, clarification, approval, review and pending handoff. Counts exclude terminal jobs and execution-pending reservations, which remain in the queue. These are current observations, not history or logs; stored formats are unchanged.
+
+## Job instruction API
+
+GET/POST /api/v1/jobs/{project_id}/{run_id}/instructions use composite identities and
+Cache-Control: no-store. Reads use existing authorized job snapshots; POST uses the
+same principal, CSRF and project grant as Cancel and refuses archived profiles. The
+strict payload is exactly {text,mode}; text is 1..4000 Unicode characters without NUL,
+mode now/after. Invalid requests return 422 without writing files. A saved lifecycle
+other than working returns 409 job_not_working. A full 256-record inbox returns 409
+instruction_limit; short writer contention returns 409 instruction_busy. Unavailable
+or unsafe storage returns a value-free 503. Responses include exact project_id/run_id;
+GET returns instructions and refusal notices, POST the created instruction.
+The API writes only the atomic inbox, never Pi stdin, conductor state or a forge comment.
+See Component_Instructions.md and the targeted instruction cases in test_web_jobs.py.

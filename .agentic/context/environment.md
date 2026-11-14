@@ -383,3 +383,14 @@ Producer-to-session offline cases drive a fake RPC process through live and arch
 HTTP reads with synthetic known binding/package credentials and key-hint/Bearer values;
 operational output masking is checked independently. No actual credentials/provider
 are involved. Raw archive hardlink and size-bound cases fail closed.
+
+## Instruction delivery offline checks
+
+Instruction proof uses temporary physical run/profile inboxes and the existing fake
+Pi RPC subprocess, fake forge and isolated 18765 browser server. It does not run Pi,
+a provider, a container or a real forge write. Targeted instruction/storage/RPC/
+launcher/prompt/session/API/conductor cases and model/help/LA-03 browser journeys
+cover acknowledgements, restart, malformed files, grants, scope races and locales.
+The existing production build/stamper includes the new composer and four-locale help.
+Full integrated suites and Linux symlink acceptance remain parent-owned for this child;
+no AEGIS --run or global frontend validation runs here.

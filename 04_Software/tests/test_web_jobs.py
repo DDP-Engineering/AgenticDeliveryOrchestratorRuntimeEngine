@@ -1081,3 +1081,94 @@ def test_event_stage_context_corruption_fails_closed(tmp_path, name, detail):
         response = client.get("/api/v1/jobs-page")
         assert response.status_code == 503
         assert response.json()["detail"]["code"] == "run_journal_corrupt"
+
+
+@pytest.mark.parametrize("role", ["admin", "developer"])
+def test_job_instruction_api_is_authorized_literal_and_no_store(tmp_path, role):
+    """@brief Working jobs accept literal instructions even before a live session exists."""
+    from adore.instructions import InstructionInbox
+
+    _, items, stores, app = _fixture(tmp_path)
+    if role == "developer":
+        dev = app.state.web_store.create_user("dev", "longer-password", "developer")
+        app.state.web_store.set_memberships(dev["id"], ["alpha"])
+    with TestClient(app) as client:
+        _login(client) if role == "admin" else _login(client, "dev", "longer-password")
+        csrf = client.get("/api/v1/me").json()["csrf"]
+        path = f"/api/v1/jobs/{items[0].project_id}/same/instructions"
+        text = "  password=SYNTHETIC\n<script>$text🙂</script>\n"
+        result = client.post(
+            path, json={"text": text, "mode": "now"}, headers={"x-csrf-token": csrf}
+        )
+        assert result.status_code == 200, result.text
+        assert result.headers["cache-control"] == "no-store"
+        data = result.json()
+        assert (data["project_id"], data["run_id"]) == (items[0].project_id, "same")
+        assert data["instruction"]["text"] == text
+        assert data["instruction"]["delivery"] is None
+        rows = client.get(path)
+        assert rows.headers["cache-control"] == "no-store"
+        assert rows.json()["instructions"] == [data["instruction"]]
+        assert client.post(path, json={"text": "no CSRF", "mode": "now"}).status_code == 403
+        if role == "developer":
+            other = path.replace(items[0].project_id, items[1].project_id)
+            assert (
+                client.post(
+                    other,
+                    json={"text": "no grant", "mode": "after"},
+                    headers={"x-csrf-token": csrf},
+                ).status_code
+                == 404
+            )
+            assert not InstructionInbox(stores[1].run_dir("same")).read()[0]
+        box = InstructionInbox(stores[0].run_dir("same"))
+        box.acknowledge(data["instruction"]["id"], "steer")
+        assert client.get(path).json()["instructions"][0]["delivery"]["how"] == "steer"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"text": "", "mode": "now"},
+        {"text": "x" * 4001, "mode": "now"},
+        {"text": "a\0b", "mode": "after"},
+        {"text": 3, "mode": "now"},
+        {"text": "valid", "mode": "invalid"},
+        {"text": "valid", "mode": "now", "extra": 1},
+    ],
+)
+def test_job_instruction_api_refuses_invalid_input_without_writes(tmp_path, body):
+    """@brief Strict request boundaries refuse bad instruction text and shape."""
+    from adore.instructions import InstructionInbox
+
+    _, items, stores, app = _fixture(tmp_path)
+    with TestClient(app) as client:
+        _login(client)
+        csrf = client.get("/api/v1/me").json()["csrf"]
+        response = client.post(
+            f"/api/v1/jobs/{items[0].project_id}/same/instructions",
+            json=body,
+            headers={"x-csrf-token": csrf},
+        )
+        assert response.status_code == 422, response.text
+    assert InstructionInbox(stores[0].run_dir("same")).read() == ([], [])
+
+
+@pytest.mark.parametrize(
+    "lifecycle", ["done", "cancelled", "parked-clarification", "handoff-pending"]
+)
+def test_job_instruction_api_refuses_nonworking_job(tmp_path, lifecycle):
+    """@brief Saved lifecycle decides whether an instruction can enter the inbox."""
+    _, items, stores, app = _fixture(tmp_path)
+    _state(stores[0], "same", lifecycle=lifecycle)
+    with TestClient(app) as client:
+        path = f"/api/v1/jobs/{items[0].project_id}/same/instructions"
+        assert client.post(path, json={"text": "valid", "mode": "now"}).status_code == 401
+        _login(client)
+        csrf = client.get("/api/v1/me").json()["csrf"]
+        response = client.post(
+            path, json={"text": "valid", "mode": "now"}, headers={"x-csrf-token": csrf}
+        )
+        assert (
+            response.status_code == 409 and response.json()["detail"]["code"] == "job_not_working"
+        )

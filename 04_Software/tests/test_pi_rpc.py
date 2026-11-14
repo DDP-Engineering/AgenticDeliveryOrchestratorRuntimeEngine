@@ -916,3 +916,172 @@ def test_public_diagnostic_normalizer_bounds_canonical_records():
                     {"stdout": text + "\n" + text, "stderr": ""}):
         with pytest.raises(StateError):
             validate_diagnostics(invalid)
+
+
+@pytest.mark.parametrize("ack", ["success", "rejected", "wrong-command", "missing"])
+def test_live_instruction_rpc_acknowledgement_and_restart(tmp_path, ack):
+    """@brief The sole RPC writer steers/follows up; false or absent ack retains text."""
+    import inspect
+
+    from adore.instructions import InstructionDelivery, InstructionInbox
+
+    assert "instructions" in inspect.signature(run_pi_rpc).parameters, "RPC inbox polling missing"
+    root = tmp_path / "runs" / "one"
+    root.mkdir(parents=True)
+    box = InstructionInbox(root)
+    delivery = InstructionDelivery(box, PromptCatalog())
+
+    def response(command, **values):
+        """@brief Build a synthetic command acknowledgement."""
+        return {"type": "response", "command": command, "success": True, **values}
+
+    segments = [
+        {"dir": "stdin", "record": {"type": "prompt"}},
+        {"dir": "stdout", "record": response("prompt", data={"disposition": "started"})},
+        {"dir": "stdin", "record": {"type": "steer"}},
+        {
+            "dir": "stdout",
+            "record": response(
+                "steer" if ack != "wrong-command" else "follow_up", success=ack != "rejected"
+            ),
+        },
+        {
+            "dir": "stdout",
+            "record": {
+                "type": "message_end",
+                "message": {"role": "user", "content": "NOW_LITERAL"},
+            },
+        },
+        {"dir": "stdin", "record": {"type": "follow_up"}},
+        {"dir": "stdout", "record": response("follow_up")},
+        {
+            "dir": "stdout",
+            "record": {
+                "type": "message_end",
+                "message": {"role": "user", "content": "AFTER_LITERAL"},
+            },
+        },
+        {"dir": "stdout", "record": {"type": "agent_settled", "aborted": False}},
+        {"dir": "stdin", "record": {"type": "get_session_stats"}},
+        {"dir": "stdout", "record": response("get_session_stats")},
+    ]
+    if ack == "missing":
+        segments.pop(3)
+    fixture = tmp_path / "instruction-rpc.jsonl"
+    fixture.write_text("\n".join(json.dumps(row) for row in segments) + "\n", encoding="utf-8")
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    fake.command = [sys.executable, "-I", str(FAKE), str(fixture), "--record", str(fake.record)]
+    queued = []
+
+    def queue_during_session():
+        """@brief Enqueue only after the fake has received the initial stage prompt."""
+        if not queued and fake.commands():
+            queued.extend(
+                [
+                    box.enqueue({"id": 7, "username": "operator"}, "  NOW_LITERAL $text\n", "now"),
+                    box.enqueue({"id": 7, "username": "operator"}, "AFTER_LITERAL", "after"),
+                ]
+            )
+        return False
+
+    result = run_pi_rpc(
+        fake,
+        ["pi"],
+        {},
+        PROMPT,
+        timeout=3,
+        cancelled=queue_during_session,
+        instructions=delivery,
+        output_path=root / "output.jsonl",
+        **FAST,
+    )
+    assert result.exit_code == 0 and fake.all_exited()
+    commands = fake.commands()
+    assert [row["type"] for row in commands] == [
+        "prompt",
+        "steer",
+        "follow_up",
+        "get_session_stats",
+    ]
+    assert (
+        "  NOW_LITERAL $text\n" in commands[1]["message"] and "operator" in commands[1]["message"]
+    )
+    rows = {row["id"]: row for row in InstructionInbox(root).read()[0]}
+    assert bool(rows[queued[0]["id"]]["delivery"]) is (ack == "success")
+    assert rows[queued[1]["id"]]["delivery"]["how"] == "follow_up"
+    if ack != "success":
+        restarted = InstructionDelivery(InstructionInbox(root), PromptCatalog())
+        assert "NOW_LITERAL" in restarted.suffix and "AFTER_LITERAL" not in restarted.suffix
+
+
+@pytest.mark.parametrize("fault", ["spawn", "reject", "early-exit", "accepted"])
+def test_prompt_fallback_receipt_requires_actual_pi_acceptance(tmp_path, fault):
+    """@brief Fallback prompt composition and failed startup never consume an instruction."""
+    import inspect
+
+    from adore.instructions import InstructionDelivery, InstructionInbox
+
+    assert "instructions" in inspect.signature(run_pi_rpc).parameters, "RPC prompt receipt missing"
+    root = tmp_path / "runs" / "one"
+    root.mkdir(parents=True)
+    box = InstructionInbox(root)
+    box.enqueue({"id": 7, "username": "operator"}, "PENDING_LITERAL", "now")
+    delivery = InstructionDelivery(box, PromptCatalog())
+    fixture = "run_tool_calls_chatgpt" if fault == "accepted" else "failed_invalid_api_key"
+    fake = FakePi(tmp_path, fixture)
+    if fault in ("reject", "early-exit"):
+        rejected = tmp_path / "rejected.jsonl"
+        records = [{"dir": "stdin", "record": {"type": "prompt"}}]
+        if fault == "reject":
+            records.append(
+                {
+                    "dir": "stdout",
+                    "record": {
+                        "id": "initial",
+                        "type": "response",
+                        "command": "prompt",
+                        "success": False,
+                        "error": "rejected",
+                    },
+                }
+            )
+        else:
+            records.append({"dir": "stdout", "record": {"type": "agent_start"}})
+        rejected.write_text("\n".join(json.dumps(row) for row in records) + "\n")
+        fake.command = [sys.executable, "-I", str(FAKE), str(rejected), "--crash-after", "1"]
+    if fault == "spawn":
+
+        def spawn(*args):
+            raise FileNotFoundError("fake missing Pi")
+    else:
+        spawn = fake
+    result = run_pi_rpc(
+        spawn, ["pi"], {}, PROMPT + delivery.suffix, instructions=delivery, timeout=3, **FAST
+    )
+    assert (result.exit_code == 0) is (fault == "accepted")
+    assert bool(box.read()[0][0]["delivery"]) is (fault == "accepted")
+
+
+
+def test_cancellation_takes_precedence_over_live_instruction_dispatch(tmp_path):
+    """@brief Cancel retains newly queued text without sending steer or follow_up."""
+    from adore.instructions import InstructionDelivery, InstructionInbox
+
+    root = tmp_path / "runs" / "one"
+    root.mkdir(parents=True)
+    box = InstructionInbox(root)
+    delivery = InstructionDelivery(box, PromptCatalog())
+    fake = FakePi(tmp_path, "run_aborted_chatgpt", "--hang")
+    queued = []
+
+    def cancel():
+        """@brief Simulate an instruction arriving at the same boundary as cancellation."""
+        if not queued:
+            queued.append(box.enqueue({"id": 7, "username": "operator"}, "Pending", "now"))
+        return True
+
+    result = run_pi_rpc(fake, ["pi"], {}, PROMPT, instructions=delivery,
+                        cancelled=cancel, timeout=3, **FAST)
+    assert result.outcome == "cancelled" and fake.all_exited()
+    assert not any(row["type"] in ("steer", "follow_up") for row in fake.commands())
+    assert box.read()[0][0]["delivery"] is None

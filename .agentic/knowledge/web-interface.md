@@ -1413,3 +1413,25 @@ and diagnostics retain masking. Archive copies reject links and oversize/change 
 Accepted archived pages and EOF retain their exact pagination across hidden views.
 Only live cursors or an initial history read not yet accepted resume automatically;
 failed/interrupted initial history remains retryable.
+
+## Job instructions inside Agent sessions
+
+REQ-FUNC-6bfce004 / REQ-SEC-a076c292 / REQ-DATA-1d84dc79 / REQ-FUNC-d25eb15e:
+GET/POST /api/v1/jobs/{project_id}/{run_id}/instructions are authenticated no-store
+responses with exact composite identity. POST uses existing mutation CSRF and Cancel
+project grants, strict {text,mode}, and saved working lifecycle; non-working is 409
+job_not_working, invalid text/mode is 422, full/busy inbox is a closed 409, unsafe
+storage is value-free 503. The web writes the inbox only; no direct Pi/forge effect.
+REQ-UX-bf7c7916: keyed InstructionComposer follows SessionView within the retained
+Agent sessions slot and remains available between/without sessions while working.
+It shows literal Queued/Delivered rows, receipt-not-completion meaning and the current
+tools waiting note in en/fr/de/ro. InstructionModel and request generations/sequence
+checks fence identity and stale reads/sends. Working views poll receipts every three
+seconds while visible; terminal views read retained rows with disabled sending.
+No tab/scope/list/Projects redesign occurs. Proof: instruction API cases in
+test_web_jobs.py, web/tests/instructions.test.mjs and LA-03 jobs.spec.ts journeys.
+
+A lifecycle change or completed send during an instruction GET queues one trailing
+fresh read. Working-to-terminal changes therefore settle acknowledged delivery after
+an older pre-ack snapshot, then stop timed polling. LA-03 terminal-transition browser
+proof holds the old response and observes Delivered without another polling interval.

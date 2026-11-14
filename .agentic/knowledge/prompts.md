@@ -18,7 +18,7 @@ transport. Delivery assembly belongs to `deployment-and-packaging.md`.
 ## Purpose and boundaries
 
 The catalog reads application-owned AEGIS-stage, direct implementation,
-recovery, review and system fragments
+recovery, review, live instruction and system fragments
 from fixed package resources and renders literal caller data. Conditions, order,
 joins, sanitization and thread rendering remain in the callers. Pi's own prompt,
 repository instructions, AEGIS payload and model-connection challenge have other
@@ -52,7 +52,7 @@ owners.
 | Change requested | Start with | Focused verification |
 |---|---|---|
 | Resource/render boundary | `PromptCatalog`, `LEGAL_PREFIX`, `FRAGMENTS` | `test_prompts.py` loader and negative contracts |
-| Prompt wording/inventory | `adore/prompts/{direct,stage,recovery,review,system}/` and callers | `test_prompts.py` original-byte and caller matrices |
+| Prompt wording/inventory | `adore/prompts/{direct,stage,recovery,review,live,system}/` and callers | `test_prompts.py` original-byte and caller matrices |
 | Packaging inclusion | Hatch wheel tree and `02_Tools/create_package.py` | Manual complete wheel path/byte check; inspect unchanged-wheel portable install |
 
 ## Key behaviors
@@ -84,3 +84,11 @@ owners.
 - `04_Software/tests/test_prompts.py` — loader boundaries, byte/caller proof and shared ownership.
 - `04_Software/tests/fixtures/prompts/{baseline,network-baseline}.json` — original-code expected text; never regenerate from the extracted renderer.
 - `05_SoftwareDocu/Component_Prompts.md` — resource and integration contract.
+
+## Live instruction resource
+
+REQ-FUNC-84b2d01e: the fixed inventory includes live/instruction.md.
+InstructionDelivery renders user/text once as literal data for both live commands
+and next-prompt fallback. The wrapper names the author and ADORE interface.
+Resource/header/UTF-8/template refusal remains eager. Explicit inventory/live body
+and placeholder oracles in test_prompts.py preserve all historical captures.

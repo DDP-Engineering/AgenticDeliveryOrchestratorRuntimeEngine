@@ -231,3 +231,16 @@ Raw archive source absence fails closed instead of substituting an operational t
 Archive destination parents reject symlink/reparse redirection before writes; raw
 outputs are exclusively created. Public missing-source and real junction/symlink
 fixtures cover these boundaries through run_gate.
+
+## Acknowledged instruction handoff
+
+REQ-FUNC-84b2d01e / REQ-REL-c6354595 / REQ-FUNC-5942c3b1: the optional
+InstructionDelivery run_gate handoff reaches run_pi_rpc on native/container targets.
+Only the existing stdin queue writes; after initial prompt started success, each
+tick sends new now/after records as steer/follow_up once per session, next to cancel.
+Abort/timeout takes priority. Matching command/id success saves receipt; false, wrong
+or missing ack leaves Queued. A matching initial prompt acknowledgement consumes only
+its captured fallback; spawn/render/rejection never does. The existing stats grace
+can receive late instruction responses. File-only doubles leave records queued.
+The launch-owned marker, kernel liveness and literal bounded stdout archive stay intact.
+Proof: instruction/fallback/cancel cases in test_pi_rpc.py; storage routes to instructions.md.

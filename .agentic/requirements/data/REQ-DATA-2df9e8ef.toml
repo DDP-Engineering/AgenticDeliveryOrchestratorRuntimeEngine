@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-2df9e8ef"
+title = "Journal acknowledged instruction delivery once"
+status = "active"
+requirement = "When instruction delivery is acknowledged, ADORE shall record one instruction-delivered journal event with instruction id, user, mode and delivery method."
+verification = "Reconcile after simulated persistence interruption/restart and assert exactly one event for a delivered id."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py"]
+spec = "specs/REQ-FUNC-84b2d01e.md"
+priority = "normal"
+created = 2026-11-14
+updated = 2026-11-14

@@ -69,6 +69,7 @@ from adore.executor.diagnostics import record_diagnostics
 from adore.executor.launcher import build_executor
 from adore.forge import Comment, Forge, ForgeError, Ticket, build_forge
 from adore.identity import AgentIdentity
+from adore.instructions import InstructionDelivery, InstructionError, InstructionInbox
 from adore.isolation import (
     CheckpointConflictError,
     CheckpointProtocolError,
@@ -714,7 +715,7 @@ class Orchestrator:
             run = self.store.load(run_id)
         except (FileNotFoundError, StateError):
             return False
-        if run.notification_outbox:
+        if any(item.get("kind") != "instruction" for item in run.notification_outbox):
             self.log(f"retry {run_id}: required notification is still pending")
             return False
         if run.lifecycle != "failed":
@@ -1842,21 +1843,32 @@ class Orchestrator:
         grace_of = getattr(self.executor, "cancel_grace_seconds", None)
         cancel_grace = grace_of(execute) if grace_of is not None else None
         options = {} if cancel_grace is None else {"cancel": self._cancel_check(run)}
+        instructions = InstructionDelivery(
+            InstructionInbox(self.store.run_dir(run.run_id)), self.prompts,
+            on_delivery=lambda: self._record_instruction_deliveries(run),
+            report=lambda notice: self._instruction_notice(run, notice),
+        )
+        self._record_instruction_deliveries(run)
         with self._watch_cancellation(run, grace=cancel_grace):
             result = self.executor.run_gate(
                 execute,
                 run.worktree,
                 self._io_dir(run.run_id),
-                (self._direct_prompt(run, ticket, failure_context, thread) if task is None
-                 else self._stage_prompt(run, ticket, task, failure_context, thread)),
+                (self._direct_prompt(run, ticket, failure_context, thread, instructions.suffix)
+                 if task is None else self._stage_prompt(
+                     run, ticket, task, failure_context, thread, instructions.suffix)),
                 timeout=timeout,
                 archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
+                instructions=instructions,
                 **({"package_secrets": {**self.secrets,
                                         **({chatgpt.TOKEN_VARIABLE: token}
                                            if self.config.executor.provider == CHATGPT else {})}}
                    if self.config.container.system_packages else {}),
                 **options,
             )
+        self._record_instruction_deliveries(run)
+        if any(item.get("kind") == "instruction" for item in run.notification_outbox):
+            self._retry_outbox(run)
         self._journal_usage(run, run.stage, result)
         self._journal_artifacts(run, run.stage, result)
         if self._handoff_at_boundary(run):
@@ -1929,6 +1941,7 @@ class Orchestrator:
         task: AegisTask,
         failure_context: str,
         thread: str,
+        instructions: str = "",
     ) -> str:
         """@brief Compose a stage-bounded prompt without duplicating AEGIS procedure."""
         aegis = "python .agentic/aegis.py"
@@ -1956,6 +1969,8 @@ class Orchestrator:
             ))
         if thread:
             parts.append(self.prompts.render("stage/human-thread.md", thread=thread))
+        if instructions:
+            parts.append(instructions)
         parts.extend(self._execution_notices())
         parts.append(self.prompts.render(
             "stage/closing.md", questions_file=self.questions_file,
@@ -1977,12 +1992,14 @@ class Orchestrator:
 
     def _direct_prompt(
         self, run: RunState, ticket: Ticket, failure_context: str, thread: str,
+        instructions: str = "",
     ) -> str:
         """@brief Compose a complete direct implementation request using literal ticket data.
         @param[in] run Run identity retained at the shared launch boundary.
         @param[in] ticket Ticket title and description, never parsed as templates.
         @param[in] failure_context Sanitized evidence from the preceding failed attempt.
         @param[in] thread Human discussion passed to this fresh session.
+        @param[in] instructions Snapshot wrappers included only in this fresh prompt.
         @return The implementation request and applicable execution notices.
         """
         parts = [
@@ -1995,6 +2012,8 @@ class Orchestrator:
                                              context=_sanitize(failure_context)))
         if thread:
             parts.append(self.prompts.render("stage/human-thread.md", thread=thread))
+        if instructions:
+            parts.append(instructions)
         parts.extend(self._execution_notices())
         return "\n\n".join(parts)
 
@@ -2688,6 +2707,46 @@ class Orchestrator:
             self.store.save(run)
         return comment_id
 
+    def _instruction_notice(self, run: RunState, notice: str) -> None:
+        """@brief Retain explicit value-free refusal evidence once for each local cause."""
+        events = self.store.read_journal(run.run_id)
+        if not any(event.get("event") == "instruction-refused" and
+                   event.get("reason") == notice for event in events):
+            self.store.journal(run.run_id, "instruction-refused", reason=notice)
+
+    def _record_instruction_deliveries(self, run: RunState) -> None:
+        """@brief Reconcile durable Pi receipts into one journal event and stable outbox.
+        @param[in,out] run Exclusively owned conductor state; no forge I/O occurs here.
+        @note Persist outbox before journal so an interrupted recording is recoverable.
+        """
+        try:
+            rows, notices = InstructionInbox(self.store.run_dir(run.run_id)).read()
+        except InstructionError as exc:
+            self._instruction_notice(run, str(exc))
+            return
+        for notice in notices:
+            self._instruction_notice(run, notice)
+        recorded = {event.get("id") for event in self.store.read_journal(run.run_id)
+                    if event.get("event") == "instruction-delivered"}
+        for row in rows:
+            if row["delivery"] is None or row["id"] in recorded:
+                continue
+            identity = row["id"]
+            if not any(item.get("id") == identity for item in run.notification_outbox):
+                mode = "now" if row["mode"] == "now" else "when finished"
+                marker = self.identity.make_marker(run.run_id, "instruction", notification=identity)
+                body = (f"Instruction from {row['user']['username']} via ADORE ({mode})\n\n"
+                        + row["text"] + "\n" + marker)
+                run.notification_outbox.append({
+                    "id": identity, "kind": "instruction", "surface": "ticket",
+                    "resource": run.ticket_iid, "edit_id": None, "body": body,
+                    "attempts": 0, "next_attempt_at": utc_now_iso(), "last_error": "",
+                })
+                self.store.save(run)
+            self.store.journal(run.run_id, "instruction-delivered", id=identity,
+                               user=row["user"], mode=row["mode"], how=row["delivery"]["how"])
+            recorded.add(identity)
+
     def _required_comment(
         self,
         run: RunState,
@@ -2946,6 +3005,7 @@ class Orchestrator:
 
     def _reconcile_one(self, run: RunState, summary: dict[str, Any]) -> None:
         """@brief Advance one exclusively owned lifecycle and its notifications."""
+        self._record_instruction_deliveries(run)
         if self._handoff_at_boundary(run):
             return
         if run.lifecycle != "publishing" and self._cancel_if_requested(run):
@@ -2955,7 +3015,7 @@ class Orchestrator:
         if run.notification_outbox:
             summary["notifications"] += self._retry_outbox(run)
             run = self.store.load(run.run_id)
-            if run.notification_outbox:
+            if any(item.get("kind") != "instruction" for item in run.notification_outbox):
                 return
             if run.lifecycle == "parked-clarification" and not self._settle_parked(run):
                 return

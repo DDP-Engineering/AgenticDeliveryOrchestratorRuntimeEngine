@@ -1037,3 +1037,9 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .session-usage { display: flex; gap: 16px; flex-wrap: wrap; }
 .session-usage dd { margin: 0; }
 @media (max-width: 640px) { .job-resources { grid-template-columns: minmax(0,1fr); } .job-detail-commands { gap: 10px; } .job-detail-commands .job-detail-tabs { flex-basis: 100%; gap: 14px; } }
+
+.instruction-composer { display: grid; gap: 8px; min-width: 0; border-top: 1px solid var(--border); margin-top: 18px; padding-top: 18px; }
+.instruction-composer textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; }
+.instruction-list { display: grid; gap: 12px; padding-left: 22px; min-width: 0; }
+.instruction-list li { min-width: 0; overflow-wrap: anywhere; }
+.instruction-list pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; font: .875rem/1.5 var(--font-mono,monospace); }

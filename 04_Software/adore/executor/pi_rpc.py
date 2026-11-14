@@ -47,6 +47,7 @@ import time
 from typing import IO, Any
 
 from adore.executor.diagnostics import normalize_diagnostics, protocol_diagnostics
+from adore.instructions import InstructionDelivery
 
 # CONSTANTS
 
@@ -556,6 +557,7 @@ def run_pi_rpc(
     *,
     timeout: float | None = None,
     cancelled: Callable[[], bool] | None = None,
+    instructions: InstructionDelivery | None = None,
     output_path: Path | None = None,
     stderr_path: Path | None = None,
     redact: Callable[[str], str] | None = None,
@@ -572,6 +574,7 @@ def run_pi_rpc(
     @param[in]  env Variables added for this process only.
     @param[in]  prompt Stage prompt; sent over stdin, never through argv.
     @param[in]  timeout Stage wall-clock bound; None means no deadline.
+    @param[in]  instructions Optional durable inbox handoff; this loop alone sends commands.
     @param[in]  cancelled Polled check; True requests a cancel (abort).
     @param[in]  output_path Bounded evidence copy of Pi's records.
     @param[in]  stderr_path Bounded copy of Pi's diagnostics.
@@ -614,6 +617,7 @@ def run_pi_rpc(
     protocol = ""      # protocol failure sentence
     rejected = ""      # prompt rejection text
     settled: bool | None = None
+    prompt_accepted = False
     last = {"stop": None, "error": ""}
     abort_deadline = 0.0
     try:
@@ -628,6 +632,9 @@ def run_pi_rpc(
                     launch.send({"id": _ABORT_ID, "type": "abort"})
             elif now >= abort_deadline:
                 break
+            if not stop and prompt_accepted and instructions is not None:
+                for command in instructions.poll():
+                    launch.send(command)
             limit = abort_deadline if stop else deadline
             wait = POLL_SECONDS if limit is None else min(POLL_SECONDS, limit - now)
             facts = launch.next(wait)
@@ -657,9 +664,15 @@ def run_pi_rpc(
                     stop = "protocol"
                     protocol = f"Pi did not start a run (disposition {facts['disposition']!r})"
                     break
+                if facts["command"] == "prompt" and not prompt_accepted:
+                    prompt_accepted = True
+                    if instructions is not None:
+                        instructions.prompt_accepted()
             elif kind == "response" and facts["command"] == "parse":
                 stop, protocol = "protocol", "Pi could not parse an ADORE command"
                 break
+            elif kind == "response" and instructions is not None:
+                instructions.command_response(facts["id"], facts["command"], facts["success"])
             elif kind == "assistant":
                 numbers = facts["usage"]
                 if numbers is None:
@@ -677,7 +690,7 @@ def run_pi_rpc(
             elif kind == "settled":
                 settled = facts["aborted"]
         if settled is False and not stop:
-            _cross_check(launch, usage, result, stats_grace)
+            _cross_check(launch, usage, result, stats_grace, instructions)
     finally:
         result.process_exit = launch.shutdown(exit_grace)
         launch.join()
@@ -690,7 +703,8 @@ def run_pi_rpc(
     return result
 
 
-def _cross_check(launch: _Launch, usage: PiUsage, result: PiRpcResult, grace: float) -> None:
+def _cross_check(launch: _Launch, usage: PiUsage, result: PiRpcResult, grace: float,
+                 instructions: InstructionDelivery | None = None) -> None:
     """
     @brief      Compare the per-turn sums with Pi's session totals once.
     @details    A mismatch is noted in the evidence; the per-turn sum stays the
@@ -699,6 +713,7 @@ def _cross_check(launch: _Launch, usage: PiUsage, result: PiRpcResult, grace: fl
     @param[in]  usage Per-turn sums.
     @param[in,out] result Receives a note on mismatch.
     @param[in]  grace Seconds allowed for the answer.
+    @param[in]  instructions Accept any late matching instruction acknowledgement.
     """
     launch.send({"id": _STATS_ID, "type": "get_session_stats"})
     until = time.monotonic() + grace
@@ -710,7 +725,11 @@ def _cross_check(launch: _Launch, usage: PiUsage, result: PiRpcResult, grace: fl
             continue
         if facts["kind"] == "eof":
             return
-        if facts["kind"] != "response" or facts["id"] != _STATS_ID:
+        if facts["kind"] != "response":
+            continue
+        if facts["id"] != _STATS_ID:
+            if instructions is not None:
+                instructions.command_response(facts["id"], facts["command"], facts["success"])
             continue
         tokens = facts["tokens"]
         if facts["success"] and tokens is not None:

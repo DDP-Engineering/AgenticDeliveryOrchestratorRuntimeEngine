@@ -107,6 +107,16 @@ Administrators and developers assigned to this project see text exactly as recor
 
 The current attempt is listed first as **Live** while the agent is running. This tab updates completed messages and tool calls/results every three seconds while the job is working and this view and browser tab are visible. **Agent is working** names the unfinished tool or thinking; text fragments do not stream. A partial record waits until its line is complete. When a launch ends, its final archive remains available and the view follows the next live launch. Selecting an earlier archive keeps your choice during refreshes and tab changes. Polling stops when the job leaves working or the view or browser tab is hidden.
 
+### Sending instructions {#instructions}
+
+Below the live view in **Agent sessions**, enter an **Instruction for the agent** and choose **Send now** or **Send when finished**. Administrators and developers assigned to the project can queue instructions while the job is working, including between sessions or before any session appears. Use 1–4000 characters without NUL; each job retains at most 256 instructions.
+
+**Queued** means Pi has not acknowledged the instruction. **Delivered** means Pi acknowledged receipt, not that the work is complete. Text is preserved exactly. A rejected or unacknowledged instruction stays queued for the next session, whose prompt includes it after the human discussion. A malformed instruction stays unsent with refusal evidence. Sending is unavailable after the job leaves working.
+
+Each delivery is recorded in the job and copied once to the ticket as an ADORE comment. A temporary ticket-comment failure is retried independently and does not undo Pi delivery.
+
+> **Send now** waits for the current tools to finish and does not interrupt them. **Send when finished** waits until the agent has no more work.
+
 ## Job budgets {#budgets}
 
 Job details shows **Executor launches** (for example 9 / 20) and **Active work (seconds)** beside the current project limits, independently of token statistics. At 90% it warns that a limit is near; at the limit it asks you to raise it before resuming. The default launch limit is 20 in both enrollment and `adore init`.

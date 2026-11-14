@@ -107,6 +107,16 @@ Administratorii și dezvoltatorii alocați proiectului văd textul exact cum a f
 
 Încercarea curentă apare prima, ca **În direct**, cât timp agentul rulează. Fila actualizează mesajele încheiate și apelurile/rezultatele instrumentelor la fiecare trei secunde, doar când lucrarea este în execuție, iar această vizualizare și fila browserului sunt vizibile. **Agentul lucrează** numește instrumentul neterminat sau raționamentul; fragmentele de text nu sunt transmise continuu. O linie parțială așteaptă completarea. La încheierea unei lansări, arhiva finală rămâne disponibilă, iar vizualizarea urmărește următoarea lansare în direct. Alegerea unei arhive anterioare se păstrează la actualizări și schimbări de filă. Citirea periodică se oprește când lucrarea nu mai este în execuție sau când vizualizarea ori fila browserului este ascunsă.
 
+### Trimiterea instrucțiunilor {#instructions}
+
+Sub vizualizarea live din **Sesiunile agentului**, introdu o **Instrucțiune pentru agent** și alege **Trimite acum** sau **Trimite la final**. Administratorii și dezvoltatorii alocați proiectului pot pune instrucțiuni în așteptare cât timp jobul lucrează, inclusiv între sesiuni sau înaintea primei sesiuni. Folosește 1–4000 de caractere fără NUL; fiecare job păstrează cel mult 256 de instrucțiuni.
+
+**În așteptare** înseamnă că Pi nu a confirmat primirea. **Livrată** înseamnă că Pi a confirmat primirea, nu finalizarea lucrării. Textul este păstrat exact. O instrucțiune refuzată sau neconfirmată rămâne în așteptare pentru următoarea sesiune, după discuția umană în promptul acesteia. O instrucțiune incorectă rămâne netrimisă, cu dovezi ale refuzului. Trimiterea nu mai este disponibilă după ce jobul nu mai lucrează.
+
+Fiecare livrare este înregistrată în job și copiată o singură dată pe tichet, într-un comentariu ADORE. Un eșec temporar al comentariului este reîncercat separat și nu anulează livrarea către Pi.
+
+> **Trimite acum** așteaptă terminarea instrumentelor curente și nu le întrerupe. **Trimite la final** așteaptă până când agentul nu mai are de lucru.
+
 ## Bugetele jobului {#budgets}
 
 Detaliile afișează **Lansări executor** (de exemplu 9 / 20) și **Lucru activ (secunde)** lângă limitele actuale ale proiectului, independent de statisticile de tokenuri. La 90% apare avertizarea de apropiere; la limită se cere majorarea înainte de reluare. Limita implicită este 20 în înrolare și `adore init`.

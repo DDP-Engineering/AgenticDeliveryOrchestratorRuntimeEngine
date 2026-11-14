@@ -519,3 +519,20 @@ release; backend-only executor removal cannot infer proxy/network ownership.
 REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
 
 Initial activation retries brief local admission-lock contention at most 25 times with 20 ms waits outside the project lock. Exhaustion keeps queued dispatch unchanged for a later attempt. Real process-pool overlap and explicit operator-lock refusal/recovery are targeted public regressions.
+
+## Durable instruction handoff
+
+Before a fresh direct/AEGIS stage, _launch_stage captures an InstructionDelivery
+snapshot and appends its literal shipped wrappers after any human thread. Composition
+never marks receipt; Pi's matching prompt-start acknowledgement does. New instructions
+use the same launcher/RPC handoff. Persisted delivered receipts reconcile at launch,
+after the gate and during public run polling after restart.
+
+The conductor saves deterministic instruction notification ids in the existing outbox
+before appending one instruction-delivered event (id, user, mode, how). Forge I/O occurs
+after RPC through existing marker lookup, retry schedule and replay; the ticket comment
+is Instruction from <user> via ADORE (<now|when finished>) followed by the exact text.
+Instruction comment failure does not mark the job failed, block another Pi stage, undo
+delivery or prevent explicit Retry; other required-notification gates remain.
+Component_Instructions.md and the public offline instruction tests in test_orchestrator.py
+describe interruption/replay and posted-but-response-lost duplicate suppression.

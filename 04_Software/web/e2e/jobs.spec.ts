@@ -1596,3 +1596,141 @@ test("compact summary and Jobs toolbar fit desktop and narrow screens", async ({
   await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   await page.screenshot({path:info.outputPath("settings-clean.png")});
 });
+
+
+test("LA-03 queues both modes below empty live sessions and polls acknowledged delivery",async({page},info)=>{
+  await signIn(page);
+  const rows:Array<Record<string,unknown>>=[];let acknowledged=false;
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[]}}));
+  await page.route("**/instructions",async route=>{
+    const parts=new URL(route.request().url()).pathname.split("/"),project=parts[4],run=parts[5];
+    if(route.request().method()==="POST"){
+      const body=route.request().postDataJSON();
+      const row={schema:1,id:String(rows.length+1).padStart(32,"0"),user:{id:1,username:"admin"},created_at:"2026-11-14T10:00:00Z",...body,delivery:null,last_error:""};
+      rows.push(row);return route.fulfill({json:{project_id:project,run_id:run,instruction:row}});
+    }
+    return route.fulfill({json:{project_id:project,run_id:run,instructions:rows.map((row,i)=>acknowledged&&i===0?{...row,delivery:{at:"2026-11-14T10:00:01Z",how:"steer"}}:row),notices:[]}});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  const detail=page.locator(".job-details");
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  const composer=detail.getByRole("region",{name:"Instructions",exact:true});
+  await expect(detail.locator(".agent-sessions")).toContainText("No completed agent sessions recorded.");
+  await expect(composer.getByText(/waits for the current tools/)).toBeVisible();
+  const liveBox=await detail.locator(".agent-sessions").boundingBox(),composerBox=await composer.boundingBox();
+  expect(composerBox!.y).toBeGreaterThan(liveBox!.y);
+  const text="  password=SYNTHETIC\n<script>$text🙂</script>\n";
+  await composer.getByLabel("Instruction for the agent",{exact:true}).fill(text);
+  await composer.getByRole("button",{name:"Send now",exact:true}).click();
+  await expect(composer.getByText("Queued",{exact:true})).toBeVisible();
+  expect(rows[0].text).toBe(text);expect(rows[0].mode).toBe("now");
+  expect(await composer.locator("pre").first().textContent()).toBe(text);
+  acknowledged=true;
+  await expect(composer.getByText("Delivered",{exact:true})).toBeVisible();
+  await expect(composer.getByText(/acknowledged receipt, not/)).toBeVisible();
+  await composer.getByLabel("Instruction for the agent",{exact:true}).fill("After current work");
+  await composer.getByRole("button",{name:"Send when finished",exact:true}).click();
+  await expect(composer.getByText("Queued",{exact:true})).toBeVisible();
+  expect(rows[1].mode).toBe("after");
+  await expect(detail.getByRole("tab")).toHaveText(["Activity","Agent sessions","Artifacts","Technical information"]);
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({path:info.outputPath("instructions-390.png"),fullPage:true});
+  await page.goto("/jobs?project=alpha&run=ux-approval");
+  await page.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(page.getByLabel("Instruction for the agent",{exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"Send now",exact:true})).toBeDisabled();
+});
+
+for(const delayed of ["read","send"])test(`LA-03 stale instruction ${delayed} cannot affect another project job`,async({page})=>{
+  await signIn(page);
+  let release=()=>{},started=false;
+  const waiting=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[]}}));
+  const projects=await(await page.request.get("/api/v1/projects")).json();
+  const alpha=projects.find((p:{name:string})=>p.name==="alpha").id;
+  const beta=projects.find((p:{name:string})=>p.name==="beta").id;
+  await page.route("**/instructions",async route=>{
+    const parts=new URL(route.request().url()).pathname.split("/"),project=parts[4],run=parts[5];
+    const post=route.request().method()==="POST";
+    const old={schema:1,id:"a".repeat(32),user:{id:1,username:"admin"},created_at:"2026-11-14T10:00:00Z",mode:"now",text:"Old project text",delivery:null,last_error:""};
+    if(project===alpha&&((delayed==="send"&&post)||(delayed==="read"&&!post))){started=true;await waiting;}
+    return route.fulfill({json:post?{project_id:project,run_id:run,instruction:old}:{project_id:project,run_id:run,instructions:project===alpha?[old]:[],notices:[]}});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  await page.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  if(delayed==="send"){
+    await page.getByLabel("Instruction for the agent",{exact:true}).fill("Old project text");
+    await page.getByRole("button",{name:"Send now",exact:true}).click();
+  }
+  await expect.poll(()=>started).toBe(true);
+  await page.getByRole("button",{name:"Close",exact:true}).click();
+  await page.locator("#jobs-project").selectOption(beta);
+  await page.locator(".action-jobs-table a.strong").filter({hasText:"Actual beta collision"}).click();
+  await page.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await page.getByLabel("Instruction for the agent",{exact:true}).fill("New project draft");
+  release();
+  await expect(page.getByLabel("Instruction for the agent",{exact:true})).toHaveValue("New project draft");
+  await expect(page.locator(".instruction-list")).not.toContainText("Old project text");
+  await expect(page.locator(".job-detail-title")).toContainText("Actual beta collision");
+});
+
+for(const [locale,tab,title,button] of [["fr","Sessions de l’agent","Instructions","Envoyer maintenant"],["de","Agentensitzungen","Anweisungen","Jetzt senden"],["ro","Sesiunile agentului","Instrucțiuni","Trimite acum"]])test(`LA-03 localized composer in ${locale}`,async({page})=>{
+  await signIn(page);
+  await page.goto("/account");
+  const [savedLanguage]=await Promise.all([
+    page.waitForResponse(response=>response.url().endsWith("/api/v1/me/preferences")&&response.request().method()==="PATCH"),
+    page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale),
+  ]);
+  expect(savedLanguage.ok()).toBe(true);
+  try {
+    await page.route("**/sessions",route=>route.fulfill({json:{sessions:[]}}));
+    await page.goto("/jobs?project=alpha&run=ux-working");
+    await page.getByRole("tab",{name:tab,exact:true}).click();
+    await expect(page.getByRole("region",{name:title,exact:true})).toBeVisible();
+    await expect(page.getByRole("button",{name:button,exact:true})).toBeDisabled();
+  } finally {
+    await page.goto("/account");
+    const [resetLanguage]=await Promise.all([
+      page.waitForResponse(response=>response.url().endsWith("/api/v1/me/preferences")&&response.request().method()==="PATCH"),
+      page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption("en"),
+    ]);
+    expect(resetLanguage.ok()).toBe(true);
+  }
+});
+
+
+test("LA-03 terminal transition refreshes a delayed pre-ack instruction read",async({page})=>{
+  await page.clock.install();
+  await signIn(page);
+  let terminal=false,reads=0,release:()=>void=()=>{};
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/api/v1/jobs/*/ux-working",async route=>{
+    const response=await route.fetch(),data=await response.json();
+    if(terminal){data.job.lifecycle="failed";data.job.status_group="terminal";}
+    return route.fulfill({response,json:data});
+  });
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[]}}));
+  await page.route("**/instructions",async route=>{
+    const parts=new URL(route.request().url()).pathname.split("/");
+    const read=++reads;
+    const instruction={schema:1,id:"a".repeat(32),user:{id:1,username:"admin"},created_at:"2026-11-14T10:00:00Z",mode:"now",text:"Acknowledged before session end",delivery:read===1?null:{at:"2026-11-14T10:00:01Z",how:"steer"},last_error:""};
+    if(read===1)await held;
+    return route.fulfill({json:{project_id:parts[4],run_id:parts[5],instructions:[instruction],notices:[]}});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  await page.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect.poll(()=>reads).toBe(1);
+  terminal=true;
+  const refreshed=page.waitForResponse(response=>/\/api\/v1\/jobs\/[^/]+\/ux-working$/.test(response.url()));
+  await page.clock.fastForward(16000);await refreshed;
+  await expect(page.locator(".job-detail-meta")).toContainText("Failed");
+  release();
+  const composer=page.getByRole("region",{name:"Instructions",exact:true});
+  await expect(composer.getByText("Delivered",{exact:true})).toBeVisible();
+  await expect(composer.getByText("Queued",{exact:true})).toHaveCount(0);
+  await expect(composer.getByLabel("Instruction for the agent",{exact:true})).toBeDisabled();
+  const finalReads=reads;
+  await page.clock.fastForward(6000);
+  expect(reads).toBe(finalReads);
+});

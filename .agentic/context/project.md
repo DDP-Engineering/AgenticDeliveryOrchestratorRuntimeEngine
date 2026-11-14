@@ -487,3 +487,18 @@ credentials and key-hint/Bearer-shaped values. Package jobs archive this file wi
 post-gate masking or truncation to operational tail size. Returned operational tails,
 stderr, questions and normalized diagnostics remain sanitized; no stored recording is
 rewritten. Raw archive copies enforce recording identity and byte bounds.
+
+## Operator instructions to Pi
+
+Agent sessions includes a four-locale composer below the live/empty session for
+working jobs. Existing Cancel project grants and CSRF guard literal 1..4000-character
+now/after instructions in a bounded atomic per-run inbox (256 retained records).
+The existing Pi RPC stdin owner sends steer/follow_up and persists delivery only on
+matching positive acknowledgement. Pending fallback follows the human thread in
+the next fresh prompt and requires its actual accepted prompt acknowledgement.
+Malformed files remain unsent with value-free evidence; unacknowledged text survives
+session end/restart. Deterministic outbox ids and journal events record each delivery
+and copy the exact text once to the ticket through independent durable forge replay.
+Queued/Delivered names Pi receipt, not completion. Existing compact saved header,
+Jobs/Tickets scopes/list behavior, Projects, cancellation, live liveness/continuity
+and literal session archives remain. See knowledge/instructions.md.

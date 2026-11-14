@@ -1200,3 +1200,22 @@ and diagnostics retain masking. Archive copies reject links and oversize/change 
 Accepted archived pages and EOF retain their exact pagination across hidden views.
 Only live cursors or an initial history read not yet accepted resume automatically;
 failed/interrupted initial history remains retryable.
+
+## Agent instruction composer
+
+JobWorkspace places the keyed InstructionComposer below SessionView within Agent
+sessions, including working states with empty history or between-session queues.
+It retains the existing compact four-tab header, scopes/list state and Projects.
+InstructionModel validates literal Unicode, receipt shapes, duplicate ids and exact
+request/response project/run identity. Generation/sequence guards ignore old-job or
+pre-send reads; ref locking prevents duplicate clicks. The composer polls while visible,
+shows Queued/Delivered (Pi receipt, not completion), preserves literal text in pre
+elements and explains that Send now waits for tools without interrupting them.
+Terminal jobs expose retained instructions with a disabled composer. Copy/help is
+en/fr/de/ro; tests/instructions.test.mjs and LA-03 jobs.spec.ts journeys cover transport,
+empty sessions, both modes, delayed scope/job switching, locales and narrow width.
+
+A lifecycle change or completed send during an instruction GET queues one trailing
+fresh read. Working-to-terminal changes therefore settle acknowledged delivery after
+an older pre-ack snapshot, then stop timed polling. LA-03 terminal-transition browser
+proof holds the old response and observes Delivered without another polling interval.

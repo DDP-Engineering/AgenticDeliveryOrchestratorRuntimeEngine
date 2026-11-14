@@ -107,6 +107,16 @@ Administrateurs et développeurs affectés au projet voient le texte tel qu’en
 
 La tentative actuelle apparaît en premier avec **En direct** pendant l’exécution de l’agent. Cet onglet actualise les messages terminés et les appels/résultats d’outils toutes les trois secondes, uniquement si la tâche est en cours et si cette vue et l’onglet du navigateur sont visibles. **L’agent travaille** indique l’outil inachevé ou la réflexion ; les fragments de texte ne sont pas diffusés. Une ligne partielle attend sa fin. À la fin d’un lancement, son archive finale reste disponible et la vue suit le lancement suivant en direct. Le choix d’une archive antérieure reste conservé lors des actualisations et changements d’onglet. La lecture périodique s’arrête si la tâche quitte l’état en cours ou si la vue ou l’onglet du navigateur est masqué.
 
+### Envoyer des instructions {#instructions}
+
+Sous la vue en direct dans **Sessions de l’agent**, saisissez une **Instruction pour l’agent**, puis choisissez **Envoyer maintenant** ou **Envoyer à la fin**. Les administrateurs et développeurs affectés au projet peuvent envoyer des instructions pendant le travail, même entre deux sessions ou avant la première. Utilisez 1 à 4000 caractères sans NUL ; chaque tâche conserve au plus 256 instructions.
+
+**En attente** signifie que Pi n’a pas accusé réception. **Transmise** signifie que Pi a accusé réception, sans confirmer la fin du travail. Le texte est conservé exactement. Une instruction refusée ou sans accusé reste en attente pour la prochaine session, après la discussion humaine dans sa consigne. Une instruction malformée reste non envoyée avec une preuve du refus. L’envoi devient indisponible lorsque la tâche ne travaille plus.
+
+Chaque transmission est enregistrée dans la tâche et copiée une seule fois sur le ticket en commentaire ADORE. Un échec temporaire du commentaire est réessayé séparément et n’annule pas la transmission à Pi.
+
+> **Envoyer maintenant** attend la fin des outils en cours sans les interrompre. **Envoyer à la fin** attend que l’agent n’ait plus de travail.
+
 ## Budgets du travail {#budgets}
 
 Le détail affiche **Lancements de l’exécuteur** (par exemple 9 / 20) et **Travail actif (secondes)** avec les limites actuelles du projet, indépendamment des statistiques de jetons. À 90 %, il signale une limite proche ; à la limite, il demande de l’augmenter avant la reprise. La limite initiale est 20 dans l’inscription et `adore init`.

@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+from adore.instructions import InstructionDelivery
 from adore.util import CommandResult
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -117,6 +118,7 @@ class Executor(ABC):
         archive_stem: str = "",
         package_secrets: dict[str, str] | None = None,
         cancel: Callable[[], bool] | None = None,
+        instructions: InstructionDelivery | None = None,
     ) -> GateRun:
         """
         @brief      Launch the executor for a single workflow gate.
@@ -133,6 +135,7 @@ class Executor(ABC):
         @param[in]  archive_stem Optional immutable archive name stem.
         @param[in]  package_secrets Optional known credentials for bounded and
                                    redacted package-enabled gate retention.
+        @param[in]  instructions Optional acknowledgement-bound instruction handoff.
         @param[in]  cancel Cancellation check, passed only when
                            `cancel_grace_seconds` returns a value.
         @return     A GateRun describing the outcome.

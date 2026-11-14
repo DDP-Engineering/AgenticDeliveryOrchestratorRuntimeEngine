@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-73d642d7"
+title = "Replay instruction ticket comments independently"
+status = "active"
+requirement = "For each delivered instruction, ADORE shall copy its text once to the source ticket using stable durable notification replay independently of Pi delivery success."
+verification = "Fake forge outage and posted-then-error response preserve delivered state and replay one marker-bound ticket comment without failing the working run."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py"]
+spec = "specs/REQ-FUNC-84b2d01e.md"
+priority = "normal"
+created = 2026-11-14
+updated = 2026-11-14

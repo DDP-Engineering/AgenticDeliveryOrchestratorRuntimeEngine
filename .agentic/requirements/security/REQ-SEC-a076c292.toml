@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-a076c292"
+title = "Refuse unauthorized job instructions"
+status = "active"
+requirement = "If a caller is unauthenticated or lacks the job project grant, the instruction API shall refuse access through the existing authentication and hidden-project responses."
+verification = "Exercise missing session, CSRF and unauthorized project requests with no inbox creation."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_jobs.py"]
+spec = "specs/REQ-FUNC-84b2d01e.md"
+priority = "normal"
+created = 2026-11-14
+updated = 2026-11-14
