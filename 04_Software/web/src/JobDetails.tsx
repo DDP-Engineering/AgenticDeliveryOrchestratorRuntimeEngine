@@ -23,7 +23,7 @@ type Tab = "activity" | "sessions" | "details";
 type Props = {
   job: Job; locale: Locale; t: (key: MessageKey) => string; admin: boolean; busy: boolean;
   onClose: () => void; onCommand: (action: "retry" | "cancel" | "restart", job: Job) => void;
-  request:<T>(path:string)=>Promise<T>; sessions: (active:boolean,target?:{id:string;sequence:number},toolbarHost?:HTMLElement|null)=>ReactNode; consumption: ReactNode; output: ReactNode; directEvidence?: ReactNode;
+  request:<T>(path:string)=>Promise<T>; sessions: (active:boolean,target?:{id:string;sequence:number},toolbarHost?:HTMLElement|null,maximized?:boolean)=>ReactNode; consumption: ReactNode; output: ReactNode; directEvidence?: ReactNode;
   stageLabel: string; stageName: (stage: string) => string; statusLabel: string;
 };
 
@@ -33,6 +33,30 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
   const [selected, setSelected] = useState<Tab>("activity");
   const [sessionsVisited,setSessionsVisited]=useState(false);
   const [sessionControls,setSessionControls]=useState<HTMLDivElement|null>(null);
+  const [maximized,setMaximized]=useState(false);
+  const detailPanel=useRef<HTMLElement>(null),maximizeButton=useRef<HTMLButtonElement>(null);
+  useEffect(()=>{if(selected!=="sessions")setMaximized(false);},[selected]);
+  useEffect(()=>{
+    const panel=detailPanel.current;
+    if(!maximized||!panel)return;
+    // Keep the same conversation mounted while making the surrounding page inert.
+    const siblings:{element:HTMLElement;inert:boolean}[]=[];
+    for(let parent:HTMLElement=panel;parent.parentElement;parent=parent.parentElement){
+      for(const child of parent.parentElement.children)if(child!==parent&&child instanceof HTMLElement){siblings.push({element:child,inert:child.inert});child.inert=true;}
+    }
+    const overflow=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    const keyboard=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"){event.preventDefault();event.stopPropagation();setMaximized(false);maximizeButton.current?.focus({preventScroll:true});}
+      if(event.key==="Tab"){
+        const focusable=Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]')).filter(element=>element.tabIndex>=0&&element.getClientRects().length>0&&!element.closest("[hidden], [inert]"));
+        const first=focusable[0],last=focusable.at(-1);
+        if(first&&last&&(event.shiftKey?document.activeElement===first:document.activeElement===last)){event.preventDefault();(event.shiftKey?last:first).focus();}
+      }
+    };
+    document.addEventListener("keydown",keyboard,true);
+    return()=>{document.body.style.overflow=overflow;siblings.forEach(({element,inert})=>{element.inert=inert;});document.removeEventListener("keydown",keyboard,true);};
+  },[maximized]);
   useEffect(()=>{if(selected==="sessions")setSessionsVisited(true);},[selected]);
   const chat = conversationCopy[locale];
   const [activityPage,setActivityPage]=useState(0);
@@ -78,7 +102,7 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
   // Only leading editorial comments are omitted from the readable question. The exact source stays below it.
   const readableQuestion = job.waiting.reason?.replace(/^(?:\s*<!--[\s\S]*?-->\s*)+/, "") ?? "";
   const markdown = (source: string) => <ForgeMarkdown source={source} imageLabel={ticketCopy[locale].imageNotLoaded} codeLabel={ticketCopy[locale].code} tableLabel={ticketCopy[locale].table} />;
-  return <section className="panel detail-panel job-details" aria-label={`${t("ticket")} #${job.ticket_iid}`}>
+  return <section ref={detailPanel} className={`panel detail-panel job-details${maximized?" session-maximized":""}`} role={maximized?"dialog":undefined} aria-modal={maximized?true:undefined} aria-label={`${t("ticket")} #${job.ticket_iid}`}>
     <header className="job-detail-header">
       <div className="job-detail-commands">    <div className="job-detail-tabs" role="tablist" aria-label={copy.details} ref={tabs}>
       {tabList.map(tab => <button key={tab} id={`${prefix}-${tab}-tab`} role="tab" aria-selected={selected === tab} aria-controls={`${prefix}-${tab}`} tabIndex={selected === tab ? 0 : -1}
@@ -88,7 +112,6 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
 <div className="job-detail-links">{job.ticket_url && <a href={job.ticket_url} target="_blank" rel="noreferrer">{sessionText.showTicket} ↗</a>}<button className="ghost job-detail-close" onClick={onClose}>{t("close")}</button></div></div>
       <div className="job-detail-title"><h2><span>{t("ticket")} #{job.ticket_iid} · </span>{job.ticket_title || copy.titleUnknown}</h2></div>
       <div className="job-detail-meta"><StatusBadge code={job.lifecycle}>{statusLabel}</StatusBadge><span>{t("stage")}: <strong>{stageLabel}</strong></span><span>{directCopy[locale].workflow}: {job.workflow === "direct" ? directCopy[locale].direct : "AEGIS"}</span><span>{job.project_display_name}</span>
-        <div ref={setSessionControls} className="job-session-controls" hidden={selected!=="sessions"}/>
         {commands.length > 0 && <details className="job-actions"><summary>{text.actions}</summary><div className="job-action-menu">
           {commands.map(action => <div key={action}><p className="field-hint">{action === "restart" ? recoveryCopy[locale].help : action === "retry" ? copy.retryHelp : copy.cancelHelp}</p>
             <button className={action === "retry" ? "ghost" : "danger"} disabled={busy} onClick={() => onCommand(action, job)}>{action === "restart" ? recoveryCopy[locale].restart : t(action)}</button></div>)}
@@ -96,6 +119,10 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
       </div>
     </header>
     <div className="job-detail-grid"><div className="job-detail-main">
+      <div className="job-session-controls" hidden={selected!=="sessions"}>
+        <div className="job-session-toolbar-slot" ref={setSessionControls}/>
+        <button ref={maximizeButton} className="ghost session-maximize" aria-pressed={maximized} onClick={()=>setMaximized(value=>!value)}><span aria-hidden="true">{maximized?"↙":"⛶"}</span> {maximized?chat.restore:chat.maximize}</button>
+      </div>
       <section className="job-human-actions">
         {stableExecutionDrift(job) && <p className="notice" role="note">{recoveryCopy[locale].drift}</p>}
         {job.stage_failures > 0 && <p className="notice" role="status">{copy.stageFailures.replace("{count}", String(job.stage_failures))}</p>}
@@ -111,7 +138,7 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
       {!events.length&&<p>{copy.unknown}</p>}
     </section>
     <section id={`${prefix}-sessions`} role="tabpanel" tabIndex={0} aria-labelledby={`${prefix}-sessions-tab`} hidden={selected !== "sessions"} className="job-detail-content">
-      {(selected === "sessions" || sessionsVisited) && sessions(selected === "sessions",sessionTarget,sessionControls)}
+      {(selected === "sessions" || sessionsVisited) && sessions(selected === "sessions",sessionTarget,sessionControls,maximized)}
     </section>
     <section id={`${prefix}-details`} role="tabpanel" tabIndex={0} aria-labelledby={`${prefix}-details-tab`} hidden={selected !== "details"} className="job-detail-content">
       {question&&<section className="job-question"><h3>{text.question}</h3><p className="notice">{text.activeQuestion}</p>{readableQuestion?markdown(readableQuestion):<p>{text.missingQuestion}</p>}</section>}

@@ -1099,11 +1099,18 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 
 /* Fit the conversation to the viewport, independent of transcript length. */
 .job-detail-header { margin-bottom:12px; }
-.job-session-controls { flex:1 1 420px; min-width:0; }
+.job-session-controls { display:flex; align-items:center; gap:10px; min-width:0; margin-bottom:10px; }
+.job-session-toolbar-slot { flex:1; min-width:0; }
 .job-session-controls[hidden] { display:none; }
 .job-session-controls .session-toolbar { margin:0; gap:10px; color:var(--muted); }
-.session-toolbar label { display:flex; align-items:center; gap:10px; font-weight:650; white-space:nowrap; }
+.session-toolbar label { display:flex; flex-direction:row; align-items:center; gap:10px; font-weight:650; white-space:nowrap; }
 .session-toolbar select { flex:1; width:auto; min-width:0; }
+.session-live { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.session-maximize { flex:none; white-space:nowrap; }
+.job-details.session-maximized { position:fixed; inset:8px; z-index:1100; margin:0; padding:12px 18px; overflow:auto; background:var(--surface); }
+.session-maximized .job-detail-title, .session-maximized .job-detail-meta, .session-maximized .job-resources { display:none; }
+.session-maximized .job-detail-grid { grid-template-columns:minmax(0,1fr); }
+.session-maximized .job-detail-header { margin-bottom:8px; }
 .job-detail-content[id$="-sessions"] { padding-top:0; }
 .agent-sessions { min-height:0; position:relative; }
 .session-chat-window { box-sizing:border-box; height:55vh; min-height:0; max-height:calc(100dvh - 24px); flex:none; overflow-y:auto; overflow-anchor:none; contain:layout size; border:0; border-radius:0; padding:0 8px 0 0; }
@@ -1118,7 +1125,9 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .instruction-actions { grid-column:2; grid-row:auto; align-self:end; display:flex; gap:8px; align-items:center; }
 .session-new-messages { position:absolute; right:12px; bottom:calc(var(--session-footer-height, 0px) + 12px); z-index:2; margin:0; background:var(--surface); box-shadow:0 2px 8px #0002; }
 @media(max-width:640px) {
- .job-session-controls { flex-basis:100%; }
+ .job-session-controls { flex-wrap:wrap; }
+ .job-session-toolbar-slot { flex-basis:calc(100% - 135px); }
+ .job-details.session-maximized { inset:0; padding:8px; border-radius:0; }
  .instruction-composer { grid-template-columns:minmax(0,1fr); }
  .instruction-actions { grid-column:1; grid-row:auto; justify-content:flex-end; flex-wrap:wrap; }
 }

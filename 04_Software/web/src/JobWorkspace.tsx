@@ -277,7 +277,7 @@ export function JobWorkspace(props: Props) {
       stageLabel={workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)} stageName={stage => workflowStageLabel(stage, visibleDetail.workflow, t)}
       statusLabel={visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}
       directEvidence={visibleDetail.direct ? <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} /> : null}
-      sessions={(active,target,toolbarHost)=><SessionView key={detailKey} project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} target={target} toolbarHost={toolbarHost} />}
+      sessions={(active,target,toolbarHost,maximized)=><SessionView key={detailKey} project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} target={target} toolbarHost={toolbarHost} maximized={maximized} />}
       consumption={consumptionView(visibleDetail, true)}
       output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />} />}
     {!run && <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>

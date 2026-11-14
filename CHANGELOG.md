@@ -37,6 +37,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Maximize and restore Agent sessions without losing the conversation or draft; align session controls above the chat.
+
 - Compact session controls and message actions; flatten the conversation and keep its viewport height bounded.
 
 - Merge job evidence into Activity, Agent sessions and Job details, with branch/review metadata and collapsed diagnostic.

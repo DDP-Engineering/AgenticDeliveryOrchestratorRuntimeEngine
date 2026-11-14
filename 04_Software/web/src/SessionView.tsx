@@ -19,7 +19,7 @@ import {readSessions,readSessionPage,shouldPollSession,applySessionActivity,type
 type Request=<T>(path:string,method?:string,body?:unknown,csrf?:string)=>Promise<T>;
 
 /** Follow a launch with fenced cursor reads; explicit history selection owns the view. */
-export function SessionView({project,run,workflow,locale,admin,request,t,lifecycle,active,csrf,target,toolbarHost}:{toolbarHost?:HTMLElement|null;csrf:string;target?:{id:string;sequence:number};project:string;run:string;workflow:"aegis"|"direct";locale:Locale;admin:boolean;request:Request;t:(key:MessageKey)=>string;lifecycle:string;active:boolean}) {
+export function SessionView({project,run,workflow,locale,admin,request,t,lifecycle,active,csrf,target,toolbarHost,maximized=false}:{maximized?:boolean;toolbarHost?:HTMLElement|null;csrf:string;target?:{id:string;sequence:number};project:string;run:string;workflow:"aegis"|"direct";locale:Locale;admin:boolean;request:Request;t:(key:MessageKey)=>string;lifecycle:string;active:boolean}) {
   const copy=sessionCopy[locale],chat=conversationCopy[locale],instructionsText=instructionCopy[locale];
   const [instructions,setInstructions]=useState<Instruction[]>([]);
   const [newMessages,setNewMessages]=useState(false);
@@ -160,13 +160,14 @@ export function SessionView({project,run,workflow,locale,admin,request,t,lifecyc
     const observer=new ResizeObserver(schedule);
     observer.observe(footer);
     if(node.parentElement)observer.observe(node.parentElement);
+    if(toolbarHost)observer.observe(toolbarHost);
     const header=toolbarHost?.closest("header");if(header)observer.observe(header);
     window.addEventListener("resize",schedule);
     document.addEventListener("scroll",scrolled,true);
     window.visualViewport?.addEventListener("resize",schedule);
     fit();
     return()=>{cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener("resize",schedule);document.removeEventListener("scroll",scrolled,true);window.visualViewport?.removeEventListener("resize",schedule);};
-  },[active,visible,toolbarHost]);
+  },[active,visible,toolbarHost,maximized]);
   const results=new Map(items.filter(item=>item.kind==="tool_result").map(item=>[item.call_id,item]));
   const calls=new Set(items.filter(item=>item.kind==="tool_call").map(item=>item.call_id));
   const markdown=(source:string)=><ForgeMarkdown source={source} imageLabel={ticketCopy[locale].imageNotLoaded} codeLabel={ticketCopy[locale].code} tableLabel={ticketCopy[locale].table}/>;

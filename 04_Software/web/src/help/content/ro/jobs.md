@@ -105,11 +105,13 @@ Detaliile înlocuiesc lista din care au fost deschise. Deasupra titlului sunt **
 
 **Sesiunile agentului** deschide sesiunea curentă sau ultima sesiune încheiată. Conversația arată promptul inițial, răspunsurile agentului, mesajele utilizatorului și apelurile/rezultatele instrumentelor care pot fi extinse. Răspunsurile folosesc Markdown lizibil. Mesajele apar direct, cu un singur autor; raționamentul și instrumentele pot fi extinse. Consumul rămâne în panoul din dreapta.
 
-Eticheta Sesiune stă lângă selector, în zona de status a jobului. Conversația folosește înălțimea disponibilă și se derulează în interior când apar mesaje noi. Butoanele de trimitere sunt în dreapta câmpului pe ecrane late și sub el pe ecrane înguste.
+Sesiune, selectorul și activitatea în direct sunt pe același rând, deasupra conversației, aliniate cu lățimea acesteia. Conversația folosește înălțimea disponibilă și se derulează în interior când apar mesaje noi. Butoanele de trimitere sunt în dreapta câmpului pe ecrane late și sub el pe ecrane înguste.
 
 Istoricul se încarcă progresiv fără scurtarea textului păstrat. Mesajele noi sunt urmărite automat doar când ești la final; **Mesaje noi** te aduce înapoi. Selectorul păstrează celelalte încercări, iar **Sesiunea curentă** revine la lucrul în direct.
 
 Lansările noi păstrează explicit prompturile trimise și ora mesajelor. Sesiunile vechi arată doar ce a fost înregistrat. Drepturile administratorilor și dezvoltatorilor alocați rămân aceleași; costurile structurate rămân doar pentru administratori.
+
+**Maximizează** folosește toată pagina pentru sesiune. **Restabilește** sau Escape revine la afișarea normală. Sesiunea selectată, mesajele și mesajul netrimis se păstrează.
 
 ### Trimiterea instrucțiunilor {#instructions}
 

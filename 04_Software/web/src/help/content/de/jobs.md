@@ -105,11 +105,13 @@ Die Detailansicht ersetzt ihre Ursprungsliste. **Aktivität**, **Agentensitzunge
 
 **Agentensitzungen** öffnet die aktuelle oder zuletzt abgeschlossene Sitzung. Die Unterhaltung zeigt die ursprüngliche Anweisung, Agentenantworten, Benutzernachrichten sowie ausklappbare Werkzeugaufrufe und Ergebnisse. Antworten verwenden lesbares Markdown. Nachrichten erscheinen direkt mit einer Autorenzeile; Überlegungen und Werkzeuge lassen sich aufklappen. Der Verbrauch bleibt rechts.
 
-Die Bezeichnung Sitzung steht neben der Auswahl im Jobstatusbereich. Die Unterhaltung nutzt die verfügbare Bildschirmhöhe und scrollt bei neuen Nachrichten intern. Die Sendeschaltflächen stehen auf breiten Bildschirmen rechts neben dem Textfeld, auf schmalen darunter.
+Sitzung, Auswahl und Live-Aktivität stehen in einer Zeile direkt über der Unterhaltung und nutzen deren Breite. Die Unterhaltung nutzt die verfügbare Bildschirmhöhe und scrollt bei neuen Nachrichten intern. Die Sendeschaltflächen stehen auf breiten Bildschirmen rechts neben dem Textfeld, auf schmalen darunter.
 
 Der Verlauf lädt schrittweise, ohne gespeicherten Nachrichtentext zu kürzen. Neue Nachrichten werden nur am unteren Ende automatisch verfolgt; **Neue Nachrichten** führt dorthin zurück. Die Sitzungsauswahl erhält frühere Versuche, **Aktuelle Sitzung** führt zur laufenden Arbeit.
 
 Neue Starts speichern ausgehende Anweisungen und Nachrichtenzeiten ausdrücklich. Frühere Sitzungen zeigen nur vorhandene Aufzeichnungen. Zugriffsrechte für Administratoren und zugewiesene Entwickler bleiben unverändert; strukturierte Kosten bleiben Administratoren vorbehalten.
+
+**Maximieren** nutzt die ganze Seite für die Sitzung. **Wiederherstellen** oder Escape kehrt zur normalen Ansicht zurück. Gewählte Sitzung, Nachrichten und Entwurf bleiben erhalten.
 
 ### Anweisungen senden {#instructions}
 

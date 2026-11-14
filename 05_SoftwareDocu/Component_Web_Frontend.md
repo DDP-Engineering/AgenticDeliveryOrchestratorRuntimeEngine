@@ -1324,8 +1324,9 @@ is the current published-code result; execution archives remain operational evid
 
 ## Compact session viewport
 
-SessionView portals its selector into the job status header; Session is an inline
-label and each live option includes Live only once. The transcript is a flat list,
+SessionView portals its selector into a toolbar directly above the transcript,
+within the same main column. Session, the selector and live activity share one row;
+the label explicitly uses horizontal flex direction. Each live option includes Live only once. The transcript is a flat list,
 with author/time and content rather than nested Prompt/Initial prompt cards. The
 message composer places its action buttons to the right of the textarea on wide
 screens and below it on narrow screens. Message text and durable send semantics stay
@@ -1336,3 +1337,10 @@ height, observing header/footer size and viewport changes. CSS size/layout conta
 keeps message growth inside the scroll area; the height never derives from transcript
 length. New messages is an overlay so its appearance does not resize the conversation.
 Only the chat scrolls as content grows; expanded tools have no second vertical scroll.
+
+Maximize uses a fixed page-filling JobDetails panel and hides the job metadata and
+resource sidebar. Restore, Escape or leaving Agent sessions returns to normal. The
+SessionView stays mounted, retaining the selected session, transcript and composer
+draft. The background becomes inert, focus stays within the maximized panel and
+body scrolling is restored on exit/unmount. Viewport fitting reruns for mode changes
+and toolbar resizing; no executor or stored session data changes.

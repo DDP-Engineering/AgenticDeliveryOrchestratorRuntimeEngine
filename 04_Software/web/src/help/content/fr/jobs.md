@@ -105,11 +105,13 @@ Le détail remplace sa liste d’origine. **Activité**, **Sessions de l’agent
 
 **Sessions de l’agent** ouvre la session actuelle ou la dernière session terminée. La conversation montre la consigne initiale, les réponses de l’agent, les messages utilisateur et les appels/résultats d’outils dépliables. Les réponses utilisent Markdown. Les messages apparaissent directement avec un seul auteur ; le raisonnement et les outils peuvent être dépliés. La consommation reste dans le panneau droit.
 
-Le libellé Session est à côté du sélecteur dans la zone d’état du travail. La conversation tient dans la hauteur disponible et défile à l’intérieur à l’arrivée des messages. Les boutons d’envoi sont à droite du champ sur grand écran et dessous sur petit écran.
+Session, son sélecteur et l’activité en direct partagent une ligne juste au-dessus de la conversation, sur sa largeur. La conversation tient dans la hauteur disponible et défile à l’intérieur à l’arrivée des messages. Les boutons d’envoi sont à droite du champ sur grand écran et dessous sur petit écran.
 
 L’historique se charge progressivement sans raccourcir le texte conservé. Les nouveaux messages défilent automatiquement uniquement en bas ; **Nouveaux messages** permet d’y revenir. Le sélecteur conserve les autres tentatives et **Session actuelle** revient au travail en direct.
 
 Les nouveaux lancements conservent explicitement les consignes envoyées et l’heure des messages. Les anciennes sessions montrent uniquement ce qui a été enregistré. Les droits des administrateurs et développeurs affectés restent identiques ; les coûts structurés restent réservés aux administrateurs.
+
+**Agrandir** utilise toute la page pour les sessions. **Rétablir** ou Échap revient à la vue normale. La session choisie, les messages et le brouillon sont conservés.
 
 ### Envoyer des instructions {#instructions}
 

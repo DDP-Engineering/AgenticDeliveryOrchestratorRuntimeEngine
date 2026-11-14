@@ -59,7 +59,7 @@ text = { en = "Send instructions now or after current work, with queued and ackn
 [[release.entry]]
 category = "improved"
 topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
-text = { en = "Read prompts and chat, then send or queue messages directly in the conversation.", fr = "Lisez les consignes et échanges, puis envoyez ou mettez vos messages en attente.", de = "Anweisungen und Chat lesen, Nachrichten direkt senden oder einreihen.", ro = "Citește prompturile și conversația, apoi trimite mesaje direct sau în așteptare." }
+text = { en = "Read chat, send or queue messages, and maximize the conversation without losing your draft.", fr = "Lisez, envoyez ou mettez en attente ; agrandissez la conversation sans perdre le brouillon.", de = "Chat lesen, senden oder einreihen; die Unterhaltung ohne Entwurfsverlust maximieren.", ro = "Citește, trimite sau pune mesaje în așteptare și maximizează conversația păstrând mesajul netrimis." }
 
 [[release.entry]]
 category = "new"
@@ -69,7 +69,7 @@ text = { en = "Read recorded prompts, agent text, tools and usage from completed
 [[release.entry]]
 category = "improved"
 topic = { en = "Jobs and Tickets", fr = "Tâches et Tickets", de = "Aufträge und Tickets", ro = "Lucrări și Tichete" }
-text = { en = "Separate scoped pages, automatic ticket reads and four compact job-detail tabs.", fr = "Pages séparées par périmètre, lecture automatique des tickets et quatre onglets de tâche.", de = "Getrennte Bereichsseiten, automatisches Ticketlesen und vier kompakte Auftragsreiter.", ro = "Pagini separate cu domenii, citirea automată a tichetelor și patru file compacte ale lucrării." }
+text = { en = "Separate scoped pages, automatic ticket reads and three compact job-detail tabs.", fr = "Pages séparées par périmètre, lecture automatique des tickets et trois onglets de tâche.", de = "Getrennte Bereichsseiten, automatisches Ticketlesen und drei kompakte Auftragsreiter.", ro = "Pagini separate cu domenii, citirea automată a tichetelor și trei file compacte ale lucrării." }
 
 [[release.entry]]
 category = "fixed"

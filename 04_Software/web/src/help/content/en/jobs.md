@@ -105,11 +105,13 @@ The detail replaces its originating list while open. Above the title are **Activ
 
 **Agent sessions** opens the current session, or the latest completed session. The conversation shows the initial prompt, agent replies, user messages and expandable tool calls/results. Agent replies use readable Markdown. Messages appear inline with a single author label; reasoning and tools can be expanded. Usage remains in the right-hand Consumption panel.
 
-The Session label sits beside its selector in the job status area. The conversation fits the available screen height and scrolls internally as messages arrive. Send now and Queue message sit beside the message box on wide screens, below it on narrow screens.
+Session, its selector and the live activity indicator share a row directly above the conversation, aligned with its width. The conversation fits the available screen height and scrolls internally as messages arrive. Send now and Queue message sit beside the message box on wide screens, below it on narrow screens.
 
 History loads progressively without shortening retained message text. New messages follow automatically only while you are at the bottom; use **New messages** to return after reading earlier messages. The session selector keeps other attempts available, and **Current session** returns to live work.
 
 New launches explicitly retain their outgoing prompts and message times. Earlier sessions show only what was recorded. Administrators and assigned developers retain the same access; structured costs remain administrator-only.
+
+Use **Maximize** to fill the page with Agent sessions. **Restore** or Escape returns to the normal view. The selected session, messages and unsent draft are preserved.
 
 ### Sending instructions {#instructions}
 
