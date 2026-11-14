@@ -372,3 +372,7 @@ unproven husk. A human merge remains done if cleanup is refused, with a saved
 resource-cleanup-retained diagnostic. ADORE never merges or repeats target tests.
 
 Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.
+
+Every new/resumed execution reservation reads admission_limit: a valid current staged lower N already holds new work until occupancy is below it, while admitted jobs continue with unchanged active revision. Staged increases grant no capacity. Corrupt/stale pending evidence raises StateError with explicit deletion guidance. See project-capacity.md and test_web_project_status.py.
+
+After a lower N, already-started executors continue, while queued initial reservations wait for actual start capacity. Pending reservations retain their dispatch evidence; they do not block each other indefinitely. Initial activation rechecks current N atomically in the conductor as well as limiting supervisor dispatch.

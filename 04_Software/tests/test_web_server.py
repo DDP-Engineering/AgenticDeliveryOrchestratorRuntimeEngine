@@ -67,9 +67,12 @@ def test_api_health_and_worker_readiness_are_distinct(tmp_path):
         assert missing.json()["detail"]["code"] == "worker_unavailable"
         web = app.state.web_store
         owner = web.register_worker("supervisor")
+        web.register_worker("configuration")
         web.touch_worker(owner)
-        assert client.get("/api/v1/ready").json() == {
-            "status": "ready", "worker": "ready", "activity": "idle"}
+        ready = client.get("/api/v1/ready").json()
+        assert (ready["status"], ready["worker"], ready["activity"]) == ("ready", "ready", "idle")
+        assert ready["components"]["supervisor"]["heartbeat"] == "recent"
+        assert ready["components"]["configuration"]["heartbeat"] == "recent"
         web.set_worker_activity(owner, "busy")
         assert client.get("/api/v1/ready").json()["activity"] == "busy"
         web.clear_worker(owner)

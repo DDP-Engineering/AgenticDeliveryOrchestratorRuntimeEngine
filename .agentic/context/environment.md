@@ -334,3 +334,10 @@ owned configuration process for HTTP-to-worker consumption. Managed image build
 barriers prove B/global progress and free image edit locks without any real runtime.
 Targeted frontend configuration/help tests and the required static build verify the
 browser wait contract. Full umbrella validation stays deferred by user instruction.
+
+WK-06 proof uses isolated current profile/state/identity stores and offline conductors/configuration consumers. Targeted HTTP/core/storage/help contracts plus projectCapacity browser journeys cover occupancy 2 -> staged N=1, continuing admitted jobs, occupancy-1 refusal, four locales and narrow layout. Browser screenshots use the disposable 18765 fixture; no DCP, forge/model/runtime acceptance or target-repository checks run. Full integrated validation remains deferred to the umbrella final.
+
+Review-boundary proof additionally covers two reserved initial runs started serially after staged N reduction, corrupt project/run/control heartbeat isolation, credential-bearing endpoint exclusion and truthful staged notices for increases/unrelated edits in all four locales.
+
+
+REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.

@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-42643886"
+
+title = "Project capacity and queue projection"
+
+status = "active"
+
+requirement = """
+When an authorized user opens project Summary or Jobs, ADORE shall report that project's canonical concurrency limit (default one), occupied and free slots, queued job count and evidenced wait causes without treating another busy project as a server outage.
+"""
+
+verification = "Seed two independent projects with occupied, queued, run-owned and staged work; assert scoped counts and reasons through HTTP and browser, including corrupt state/config refusal."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py", "04_Software/adore/web/status.py", "04_Software/web/src/App.tsx", "04_Software/web/src/ProjectCapacity.tsx", "04_Software/web/src/projectStatus.ts", "04_Software/web/src/styles.css", "04_Software/web/e2e/projectCapacity.spec.ts", "04_Software/web/e2e/server.py", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/adore/web/static/", "04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/en/tickets.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/fr/tickets.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/de/tickets.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/web/src/help/content/ro/tickets.md"]
+
+linked_tests = ["04_Software/tests/test_web_project_status.py", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/web/e2e/projectCapacity.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

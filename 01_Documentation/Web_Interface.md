@@ -1529,3 +1529,15 @@ Start remains available with monitoring paused; queued Starts wait for capacity.
 The supervisor does not conduct jobs. A separate configuration consumer handles
 existing pause/resume/delete commands; protected configuration candidates have
 their own consumer contract. No host-wide single-job ceiling is imposed.
+
+## Project capacity and retained work
+
+Project Summary, Settings and Jobs show the selected project's effective parallel limit, occupied/free slots, queued job count and request causes. Global Jobs names each project's capacity card. Causes distinguish a full project, missing project worker, operation on the same job, staged lower limit and awaiting dispatch. Queued counts include submitted requests and admitted jobs awaiting dispatch, not unread forge tickets. A busy project does not block another project's Start or settings.
+
+Implementation retains one canonical `polling.max_concurrent_runs`, default 1. A staged lower N already fences Start/Retry/resume admission without cancelling existing admitted jobs. Safe apply still waits for unfinished work; reductions below occupancy explain the conflict and keep the candidate. Staged increases wait for safe application. Discard removes the staged ceiling.
+
+Ordinary unsaved editable Settings values survive navigation and refresh in the same account/project/browser tab, bound to their base revision. Explicit Save/Discard and logout clear them. Credentials remain in separate protected editors. Storage failure asks the operator to keep the page open or discard; stale or corrupt drafts cannot be saved blindly. Latest own Start/Retry/Cancel/settings outcomes are restored from durable server evidence without resubmitting; acceptance remains distinct from success.
+
+System status separates supervisor, configuration, project, job and control roles. Heartbeat freshness, observed activity and free slots are distinct. Server readiness requires supervisor and configuration contact and names unavailable server components; missing project workers remain local. Settings for monitoring, backend, runtime, image/preparation, agent/model, budgets and policies remain project-owned.
+
+After a lower N, already-started executors continue, while queued initial reservations wait for actual start capacity. Pending reservations retain their dispatch evidence; they do not block each other indefinitely. Initial activation rechecks current N atomically in the conductor as well as limiting supervisor dispatch.

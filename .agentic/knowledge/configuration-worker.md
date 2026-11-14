@@ -79,3 +79,5 @@ with null for absent/stale evidence and deletion guidance for corrupt/foreign da
 Exact inspected operation IDs bind each claim to its chosen lane/resource. Final
 authority/deadline refusal after handler completion is uncertain. Owned disposable
 model cleanup retains only worker/ancestry authority with bounded eight-second commands.
+
+Staged configuration publication shares the short project admission boundary. A reduced N can remain staged with capacity_below_occupancy while its lower admission ceiling already holds new work; other project settings remain independent. Project status restores the caller’s durable result after reload; see project-capacity.md.

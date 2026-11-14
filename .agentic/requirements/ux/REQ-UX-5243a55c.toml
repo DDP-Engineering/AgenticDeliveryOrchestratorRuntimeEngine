@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-UX-5243a55c"
+
+title = "Resume followed project operations after navigation"
+
+status = "active"
+
+requirement = """
+When an authorized user revisits a project after submitting Start, Retry, Cancel or settings, ADORE shall display the persisted operation result or pending state for that project without claiming acceptance as completed success.
+"""
+
+verification = "Submit pending and failed/uncertain operations, navigate/refresh, verify same operation IDs and truthful localized status, with access and mismatching transport refused."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py", "04_Software/web/src/App.tsx", "04_Software/web/src/ProjectCapacity.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/projectStatus.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/i18n.ts"]
+
+linked_tests = ["04_Software/tests/test_web_project_status.py", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/web/e2e/projectCapacity.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

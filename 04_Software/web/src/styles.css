@@ -1005,3 +1005,13 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .account-action-dialog::backdrop { background: rgba(4, 20, 15, .6); }
 .account-action-dialog h2 { overflow-wrap: anywhere; }
 .account-password-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+
+/* Scoped capacity and worker facts share the existing responsive panels. */
+.capacity-facts { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: .5rem 0; }
+.capacity-facts dt { color: var(--muted); font-size: .875rem; }
+.capacity-facts dd { margin: .2rem 0 0; font-weight: 650; }
+.project-capacity .panel-heading { margin-bottom: .5rem; }
+.capacity-queue, .project-operations ul, .worker-roles ul { padding-left: 1.25rem; overflow-wrap: anywhere; }
+.project-operations li, .worker-roles li { margin: .4rem 0; }
+.project-operations summary { cursor: pointer; }
+.worker-roles { min-width: 0; }

@@ -4,8 +4,7 @@ L’Administration couvre les comptes utilisateurs, l’accès aux projets, la s
 
 > Tout ce qui figure sur cette page exige le rôle Administrateur.
 
-
-Un battement récent indique que le superviseur est disponible. **Occupé** indique une commande, une vérification ou une tâche en cours ; **Activité inconnue** indique une preuve indisponible. Les projets avancent indépendamment, avec des tâches parallèles selon leur limite. Les commandes de configuration ont un worker distinct. Les démarrages attendent une place ; une annulation autorisée peut atteindre une tâche active.
+L’état système distingue **Superviseur**, **Service de configuration**, **Service du projet** et les services de tâche/contrôle actifs. Un contact récent ne prouve ni une place libre ni le succès d’une opération. L’activité est En activité, Inactif ou inconnue. Un service de projet absent affecte uniquement le projet nommé. La disponibilité serveur nomme le superviseur ou le service de configuration indisponible ; les pannes de projet restent locales.
 
 ## Utilisateurs {#users}
 
@@ -35,7 +34,7 @@ Un développeur qui a accès voit le projet et peut démarrer, relancer ou annul
 
 Sous **Administration**, ouvrez [État du système](/admin/status). Il s’actualise seul.
 
-- **Agent de contrôle** affiche **Prêt** au repos, **Occupé** en traitement, **Activité inconnue** si la preuve manque, **Indisponible**, **Échec de la vérification** ou **Vérification…**. Un battement récent ne confirme pas l’accès à la forge, aux exécuteurs ou aux modèles.
+- **Services** sépare les rôles du serveur et des projets, avec contact et activité. Les places libres sont dans Capacité du projet.
 - **Stockage** indique **Espace disponible**, **Espace disque faible** ou **Échec de la vérification du stockage**. Il mesure l’espace disque libre pour la base de comptes d’ADORE et le dossier d’état des tâches de chaque projet, regroupés par volume physique. Un disque partagé donne une seule ligne ; plusieurs disques donnent un tableau **Volume**, **Libre** et **État**. Moins de 1 Gio libre est considéré comme faible, et une mesure en échec n’est jamais présentée comme de l’espace libre.
 - **Conservation de l'audit** définit la durée de conservation de l’historique des changements. Les limites actuelles (ou **Illimité**) apparaissent au-dessus du formulaire. Définissez **Conserver pendant (jours)** (jours entiers, de 0 à 36500) et **Limite des données d'audit (Mio)** (de 0 à 1024, fractions admises) puis choisissez **Enregistrer**. Zéro ou vide signifie illimité. Les deux limites s’appliquent indépendamment et les plus anciens événements sont supprimés en premier. Le message après l’enregistrement indique combien d’événements ont été supprimés. La limite de taille compte le texte d’audit stocké, pas le fichier de base de données sur le disque. Les tâches, les journaux d’exécution et les comptes sont conservés.
 

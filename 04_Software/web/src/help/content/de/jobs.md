@@ -122,3 +122,10 @@ Die Zusammenfassung zeigt Versuch, Aufzeichnungszeit, Ergebnis und Exitcode. Kla
 Ein Start ohne belegte Erfassung oder mit gelöschtem Snapshot ist ausdrücklich nicht verfügbar; rohe Archive werden nie ersatzweise gelesen. Beschädigte Nachweise werden abgelehnt. Bestehende Jobs können bis zu einem späteren Start ohne Ausgabe bleiben; diese Ansicht startet nichts.
 
 Wenn **Verbrauch** nicht lädt, nutzen Sie **Verbrauch aktualisieren** neben dem Fehler. Jobnachweise und Wiederherstellung bleiben getrennt. Beschädigte Quellen erfordern weiterhin eine Untersuchung durch den Betreiber.
+
+
+## Projektkapazität {#project-capacity}
+
+**Projektkapazität** unter Übersicht und Aufträge zeigt die wirksame Parallelgrenze, belegte/freie Plätze, wartende Aufträge und den Grund: Projektlimit, fehlender Projektdienst, laufender Vorgang desselben Auftrags oder vorgemerktes kleineres Limit. Die Warteschlange zählt eingereichte Anfragen und aufgenommene Aufträge vor ihrem Start, keine nicht angeforderten Tickets. Ein volles Projekt blockiert keine anderen. **Ihre letzten Vorgänge** stellt gespeicherte Start-, Wiederholungs-, Abbruch- und Einstellungsergebnisse nach Navigation oder Neuladen wieder her. Eingereiht und In Bearbeitung bedeuten nicht Bestätigt.
+
+Ein vorgemerktes kleineres Limit hält neue Starts und Wiederaufnahmen bereits zurück, bis die Belegung darunter liegt; bereits laufende Aufträge laufen weiter; eingereihte Reservierungen warten auf einen Ausführungsplatz. Es erhöht niemals die aktive Grenze. Die sichere Anwendung wartet weiterhin auf unfertige Arbeit; gespeicherter Wert und Kandidat bleiben bis Speichern oder Änderungen verwerfen sichtbar.

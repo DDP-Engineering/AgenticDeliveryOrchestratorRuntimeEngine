@@ -79,3 +79,12 @@ External container/native execution retains its existing resource ownership and
 cleanup receipts. Local process death proves inability to make new conductor
 effects; it never proves the outcome of an already dispatched remote action.
 Such interrupted work remains uncertain and is not automatically replayed.
+
+## Staged admission reductions and status
+
+ProjectWorker shares `adore.capacity.admission_limit` with the conductor. A current staged lower `polling.max_concurrent_runs` immediately holds new admissions and resumptions until occupancy is below N; existing children are not cancelled. The saved configuration revision is retained for admitted jobs. Staged increases remain inactive until safe apply. Supervisor/configuration readiness is distinct from each project's worker and free slots; see [Project capacity](Component_Project_Capacity.md).
+
+Queued working/execution_pending reservations retain launch authority but wait for the current dispatch ceiling. Real helper-process regressions prove two reservations start serially after N2→N1, while two executors already started before reduction continue together. Later Start remains queued.
+
+
+REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.

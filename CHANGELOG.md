@@ -14,6 +14,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Show per-project capacity, queue causes and separate worker roles; retain Settings drafts and durable operation results across navigation/refresh. Staged lower job limits fence new admission while existing jobs continue.
+
+
 - Execute scoped settings, checks and reviewed environment preparation in an independent
   bounded configuration worker; confirm durable outcomes, fence revisions/rights and
   preserve fast project saves, global administration and immediate admission controls.

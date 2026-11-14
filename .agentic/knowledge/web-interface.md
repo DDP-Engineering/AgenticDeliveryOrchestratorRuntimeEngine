@@ -8,6 +8,32 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+
+## Routing
+
+Use for authenticated HTTP/project grants, dashboard settings, job/ticket views, navigation and administration. Start at web/app.py and web/src/App.tsx; tests route by component. Capacity/worker/draft feedback routes to project-capacity.md, durable long controls to configuration-worker.md, and process dispatch to web-supervisor.md.
+
+## Purpose and boundaries
+
+The API authenticates and authorizes explicit immutable project targets; React renders scoped evidence and administrator actions. Durable consumers execute queued operations and the conductor owns job effects. The web never merges.
+
+## Public interface
+
+Same-origin `/api/v1` sessions, authorized project/jobs/settings/operations and administrator system endpoints; bundled dashboard routes. New capacity/status reads and retained draft transport are documented in project-capacity.md.
+
+## Invariants
+
+Project settings and pending candidates have explicit project/revision binding. Protected credentials stay out of ordinary browser draft persistence. Accepted work differs from confirmed results; heartbeat differs from free execution capacity. A busy project cannot impose a global job lock.
+
+## Key behaviors
+
+REQ-FUNC-42643886, REQ-REL-329421d1, REQ-UX-0f6e2c63, REQ-UX-5243a55c and REQ-FUNC-ed8e4793: see project-capacity.md. Existing interface contracts and focused seams follow below.
+
+## Files
+
+`04_Software/adore/web/app.py`, `store.py`, `jobs.py`, `tickets.py`; `04_Software/web/src/App.tsx` and scoped UI modules; `tests/test_web_*`, `web/tests/*` and `web/e2e/*` provide per-feature proof.
+
+
 The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; the CLI bridge is dispatched by a single-home supervisor into independent project/run processes, with explicitly owned cancellation signals reaching active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
 
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
@@ -1330,3 +1356,6 @@ publication; unsafe application retains a staged conflict. Global account/access
 transactions stay short and independent. Shared ChatGPT has its own server resource.
 See configuration-worker.md and Component_Configuration_Worker.md for bounded lanes,
 image reservations, storage/refusal and browser/test integration.
+
+
+Project tabs and named global Jobs cards show scoped slots, queued causes, staged limits and latest own durable operations. SettingsList retains ordinary drafts in per-account/project sessionStorage, bound to base revision, through navigation/reload. Explicit save/discard/logout clear retention; stale/corrupt drafts cannot save. System status lists separate roles and component-named readiness keeps missing project workers local. See project-capacity.md for source/test routing.

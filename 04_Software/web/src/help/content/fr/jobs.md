@@ -122,3 +122,10 @@ Le résumé affiche la tentative, son heure, le résultat et le code de sortie. 
 Un lancement sans capture prouvée ou un instantané supprimé est explicitement indisponible ; aucune archive brute ne sert de repli. Les preuves corrompues sont refusées. Un travail existant peut rester sans sortie jusqu’à un lancement ultérieur ; cette vue n’en démarre aucun.
 
 Si **Consommation** ne se charge pas, utilisez **Actualiser la consommation** près de l’erreur. Preuves et récupération restent séparées. Une source corrompue nécessite toujours l’intervention de l’opérateur.
+
+
+## Capacité du projet {#project-capacity}
+
+**Capacité du projet** dans Résumé et Tâches montre la limite effective, les places occupées/libres, les tâches en file et la cause : limite du projet, service indisponible, opération sur la même tâche ou limite réduite préparée. La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. **Vos dernières opérations** retrouve vos résultats Démarrer, Réessayer, Annuler et paramètres après navigation ou rechargement. En file et En cours ne signifient pas Confirmé.
+
+Une limite réduite préparée retient déjà les nouveaux démarrages et reprises jusqu’à ce que l’occupation passe sous la limite ; les tâches déjà en cours continuent ; les réservations en file attendent une place d’exécution. Elle n’augmente jamais la limite active. L’application sûre attend les travaux inachevés ; la valeur enregistrée et le candidat restent visibles jusqu’à Enregistrer ou Abandonner les modifications.

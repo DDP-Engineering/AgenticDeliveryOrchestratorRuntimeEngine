@@ -130,11 +130,14 @@ test("system status distinguishes busy, idle and unknown activity", async ({page
   await page.getByRole("button", {name:"Sign in",exact:true}).click();
   await expect(page.getByRole("heading", {name:"Overview",exact:true})).toBeVisible();
   let activity = "busy";
-  await page.route("**/api/v1/ready", route => route.fulfill({json:{status:"ready",worker:"ready",activity}}));
-  for (const [value,label] of [["busy","Busy"],["idle","Ready"],["unknown","Activity unknown"]]) {
+  await page.route("**/api/v1/system/workers", route => route.fulfill({json:{workers:[{
+    role:"supervisor",project_id:"",run_id:"",heartbeat:activity==="unknown"?"stale":"recent",activity,
+    updated_at:"2026-11-14T01:00:00+00:00",
+  }]}}));
+  for (const [value,label] of [["busy","Working"],["idle","Idle"],["unknown","Activity unknown"]]) {
     activity = value; await page.goto("/admin/status");
-    await expect(page.locator(".system-indicator").filter({hasText:"Control worker"})).toContainText(label);
-    await expect(page.locator(".system-indicator").filter({hasText:"Control worker"})).toContainText("Queued commands may wait");
+    await expect(page.locator(".worker-roles")).toContainText(label);
+    await expect(page.locator(".worker-roles")).toContainText("activity and free slots are separate");
     await page.goto("/");
   }
 });

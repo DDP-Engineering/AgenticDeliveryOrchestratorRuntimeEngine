@@ -48,7 +48,7 @@ Es gelten folgende Regeln:
 - Identitäts- und Laufzeitänderungen erfordern zusätzlich pausierte Überwachung. Wählen Sie **Überwachung pausieren** in Übersicht und lassen Sie aktive Arbeit enden; die Pause unterbricht keinen Auftrag.
 - Budgets gelten vor dem nächsten Versuch oder Fortsetzen bei erhaltenem Verbrauch und Fortschritt. Siehe [Jobbudgets](#budgets).
 
-Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespeicherte Einstellungen verworfen werden. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
+Ungespeicherte bearbeitbare Werte bleiben in diesem Browsertab für dasselbe Konto und Projekt beim Navigieren und Neuladen erhalten. **Änderungen verwerfen** entfernt sie; Abmelden löscht gespeicherte Entwürfe. Zugangsdaten bleiben in getrennten Editoren. Ist Browserspeicher nicht verfügbar, lassen Sie die Seite offen oder verwerfen Sie den Entwurf. Eine geänderte Serverrevision blockiert Speichern bis zum Verwerfen und Neuladen.
 
 Speichern und Prüfen laufen getrennt von Aufträgen und langen Vorbereitungen. Erst das bestätigte Ergebnis gilt als gespeichert. Pause/Fortsetzen der Überwachung und Abbruchsignale benötigen keinen freien Auftragsplatz. Eine unverträgliche Änderung bleibt mit einem ausdrücklichen Konflikt für dieses Projekt vorbereitet; laufende Aufträge und andere Projekte behalten ihre Einstellungen.
 
@@ -84,3 +84,12 @@ Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherst
 
 
 **Implementierung** (`build`) nutzt `workflow.stage_timeout_overrides` oder `budgets.per_gate_timeout_seconds`. Bei AEGIS begrenzt **Validierung** (`validate`) ebenfalls die Agentensitzung. ADORE startet keine zusätzlichen Tests; der Agent wählt lokale und CI-Prüfungen gemäß den Repository-Anweisungen.
+
+
+## Projektkapazität {#project-capacity}
+
+**Limit aktiver Aufträge** unter Implementierung ist die einzige Parallelgrenze des Projekts (`polling.max_concurrent_runs`), Standard **1**. Überwachung, lokale Ausführung oder Container, Docker/Podman/WSL, Image, Vorbereitung, Agent, Modell, Budgets und Richtlinien gehören zu diesem Projekt. Ein belegtes Projekt blockiert keine Einstellungen anderer Projekte.
+
+Ein vorgemerktes kleineres Limit hält neue Starts und Wiederaufnahmen bereits zurück, bis die Belegung darunter liegt; bereits laufende Aufträge laufen weiter; eingereihte Reservierungen warten auf einen Ausführungsplatz. Es erhöht niemals die aktive Grenze. Die sichere Anwendung wartet weiterhin auf unfertige Arbeit; gespeicherter Wert und Kandidat bleiben bis Speichern oder Änderungen verwerfen sichtbar.
+
+Verbindungsentwürfe werden nur gültig gespeichert. Korrigieren Sie eine ungültige Adresse oder behalten Sie sie im Speicher; Zugangsdaten gelangen nie in gespeicherte Entwürfe.

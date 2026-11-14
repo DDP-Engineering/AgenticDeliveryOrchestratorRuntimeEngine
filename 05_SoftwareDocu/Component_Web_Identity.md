@@ -267,3 +267,9 @@ configuration. The project worker stays alive independently; demonstrated comman
 process death makes only that command incarnation’s unfinished claims uncertain.
 This build accepts web schema 18 only; delete `web.db` and `web.db.initialized`
 if the store is refused and a fresh start is intended.
+
+## Scoped operation status reads
+
+`WebStore.project_operation_status(project_id, actor_id)` returns validated unfinished project requests and latest own request per action through short read-only queries. HTTP grants are checked before this call. Public capacity/status projections omit owner capabilities, process identifiers, credential payloads and other actors' completed outcomes. Corrupt queue evidence fails closed. Proof: `tests/test_web_project_status.py`.
+
+Scoped heartbeat reads select rows in SQL before decoding timestamps/activity, preventing another project’s corrupt observation from poisoning a selected project or server readiness.

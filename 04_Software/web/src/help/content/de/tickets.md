@@ -9,7 +9,7 @@ Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt.
 
 ## So funktioniert die Aufnahme {#how-pickup-works}
 
-Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle und auf dem Reiter Zusammenfassung des Projekts als **Aktiv** oder **Pausiert** angezeigt wird. Solange die Überwachung Aktiv ist, prüft ADORE das Repository in regelmäßigen Abständen auf bereite Tickets (standardmäßig alle 60 Sekunden; siehe **Abfrageintervall (Sekunden)** unter [Projekteinstellungen](/help/settings)). Es nimmt zuerst das geeignete Ticket mit der höchsten Priorität (P1, dann P2, dann P3), danach mit der niedrigsten Nummer, und bearbeitet jeweils einen Auftrag.
+Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle und auf dem Reiter Zusammenfassung des Projekts als **Aktiv** oder **Pausiert** angezeigt wird. Solange die Überwachung Aktiv ist, prüft ADORE das Repository in regelmäßigen Abständen auf bereite Tickets (standardmäßig alle 60 Sekunden; siehe **Abfrageintervall (Sekunden)** unter [Projekteinstellungen](/help/settings)). Es nimmt zuerst das geeignete Ticket mit der höchsten Priorität (P1, dann P2, dann P3), danach mit der niedrigsten Nummer, und bearbeitet Aufträge bis zur Parallelgrenze des Projekts.
 
 Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 

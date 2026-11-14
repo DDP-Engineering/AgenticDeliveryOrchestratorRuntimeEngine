@@ -500,3 +500,9 @@ Non-budget binding preserves scalar types as well as values: boolean false and n
 
 
 `executor.thinking` is optional: omit it or use an empty string for Pi default. An explicit level must be supported by the selected exact provider and model in the pinned Pi catalog; unknown models have no explicit levels, and custom endpoints support only `off`. The selected level reaches both jobs and Test AI connection.
+
+## Project concurrency and staged reductions
+
+`polling.max_concurrent_runs` is the sole project parallel-job limit, default 1, shared by CLI admission, supervisor dispatch and web Settings/portable transfer. It is a positive integer; there is no separate parallelism boolean. A current reviewed pending candidate can only lower admission capacity before safe application. Saved and effective values are distinct during staging; queued starts/resumptions wait until occupied slots are below the effective ceiling. Already admitted jobs continue against their unchanged active revision. Staged increases wait for safe application, and explicit discard removes the staged lower ceiling. Corrupt or stale pending evidence refuses admission and names the pending record to inspect/discard.
+
+After a lower N, already-started executors continue, while queued initial reservations wait for actual start capacity. Pending reservations retain their dispatch evidence; they do not block each other indefinitely. Initial activation rechecks current N atomically in the conductor as well as limiting supervisor dispatch.

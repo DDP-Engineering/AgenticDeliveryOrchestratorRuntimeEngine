@@ -51,6 +51,7 @@ from adore import __version__, chatgpt, doctor, metrics
 from adore.aegis import RUN_KINDS
 from adore.branding import EXECUTOR_BASE_IMAGE, EXECUTOR_NAME
 from adore.build_bundle import BuildBundleError, export_build_bundle
+from adore.capacity import admission_limit
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
 from adore.clone_cleanup import project_clone_decision
 from adore.config import (
@@ -160,6 +161,7 @@ from adore.web.repository_source import (
     clone as clone_repository,
 )
 from adore.web.settings_batch import BATCH_KEY, parse_batch
+from adore.web.status import capacity_status, occupied_slots, worker_status
 from adore.web.store import WebStore, WebStoreError
 from adore.web.tickets import (
     RunReadError,
@@ -2992,10 +2994,28 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/ready")
     def ready() -> dict:
-        """@brief Require a recent control-worker heartbeat for readiness."""
-        if not web.worker_ready():
-            raise _error(503, "worker_unavailable")
-        return {"status": "ready", "worker": "ready", "activity": web.worker_activity()}
+        """@brief Name unavailable server components; project failures remain scoped."""
+        rows = (web.worker_heartbeats(role="supervisor", project_id="")
+                + web.worker_heartbeats(role="configuration", project_id=""))
+        components = {role: worker_status(rows, role) for role in ("supervisor", "configuration")}
+        unavailable = [role for role, item in components.items() if item["heartbeat"] != "recent"]
+        if unavailable:
+            raise HTTPException(503, detail={"code": "worker_unavailable",
+                                             "components": unavailable})
+        return {"status": "ready", "worker": "ready",
+                "activity": components["supervisor"]["activity"], "components": components}
+
+    @app.get("/api/v1/system/workers")
+    def system_workers(_user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief Separate server roles and each project's workers without process identifiers."""
+        rows = web.worker_heartbeats()
+        result = [worker_status(rows, role) for role in ("supervisor", "configuration")]
+        for item in profiles.list_profiles():
+            if not item.archived:
+                result.append(worker_status(rows, "project", item.project_id))
+        result.extend(worker_status(rows, row["role"], row["project_id"], row["run_id"])
+                      for row in rows if row["role"] in ("run", "command"))
+        return {"workers": result}
 
     @app.get("/api/v1/system/storage")
     def storage_status(_user: Annotated[dict, Depends(administrator)]) -> dict:
@@ -4023,6 +4043,53 @@ def create_app(home: str | Path | None = None,
     def project_detail(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
         return _profile_view(profiles, project(name, user))
 
+    @app.get("/api/v1/projects/{name}/capacity")
+    def project_capacity(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Read current scoped slots, queue causes and the caller's durable feedback."""
+        item = project(name, user)
+        try:
+            config = load_config(profiles.config_path(item.name))
+            if validate_config(config):
+                raise _error(503, "config_corrupt")
+        except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+        state = _store_for(profiles, item)
+        if state.invalid_runs():
+            raise _error(503, "run_state_corrupt")
+        queued, recent = web.project_operation_status(item.project_id, user["id"])
+        try:
+            workers = web.worker_heartbeats(project_id=item.project_id)
+            workers += web.worker_heartbeats(role="supervisor", project_id="")
+            workers += web.worker_heartbeats(role="configuration", project_id="")
+            result = capacity_status(item.project_id, admission_limit(config), state,
+                                     state.list_runs(), workers, queued,
+                                     archived=item.archived,
+                                     active_limit=config.polling.max_concurrent_runs)
+        except StateError as exc:
+            raise _error(503, "project_capacity_unavailable", str(exc)) from exc
+        pending = (_read_pending_config(profiles.profile_dir(item.name) / "pending_config.json")
+                   if user["role"] == "admin" else None)
+        result.update(active_limit=config.polling.max_concurrent_runs,
+                      staged_change=pending is not None, staged_limit=None, recent_operations=[])
+        if pending is not None:
+            active_text = profiles.config_path(item.name).read_text(encoding="utf-8")
+            _public_pending_config(pending, active_text=active_text)
+            proposed = _config_from_bytes(pending["candidate_text"].encode("utf-8"))
+            result["staged_limit"] = proposed.polling.max_concurrent_runs
+        for operation in recent:
+            if operation["action"] == "configure" and user["role"] != "admin":
+                continue
+            view = {key: operation[key] for key in ("id", "action", "status", "result", "reason")}
+            if operation["action"] == "configure":
+                outcome = configuration.outcome(operation)
+                if outcome and outcome["status_code"] >= 400:
+                    detail = (outcome["body"].get("detail", {})
+                              if isinstance(outcome["body"], dict) else {})
+                    view["reason"] = (detail.get("code", "configuration_failed")
+                                      if isinstance(detail, dict) else "configuration_failed")
+            result["recent_operations"].append(view)
+        return result
+
     @app.post("/api/v1/projects/{name}/repository-connection")
     @configuration.route(lane="long")
     def connect_repository(name: str, body: RepositoryConnectionInput,
@@ -4883,8 +4950,14 @@ def create_app(home: str | Path | None = None,
                 before={"value": _candidate_value(
                     tomllib.loads(raw.decode()), body.key, body.value)},
             )
-            effect_guard()
-            _write_pending_config(pending_path, value)
+            # Publication and admission share one short boundary. A confirmed
+            # staged reduction cannot race a later reservation at the old limit.
+            try:
+                with _store_for(profiles, item).admission_lock():
+                    effect_guard()
+                    _write_pending_config(pending_path, value)
+            except LockHeldError as exc:
+                raise _error(409, "project_has_active_work") from exc
             web.confirm_change(
                 attempt,
                 after={"value": _candidate_value(tomllib.loads(changed), body.key, body.value)},
@@ -4965,6 +5038,10 @@ def create_app(home: str | Path | None = None,
             if not state.acquire_lock():
                 raise _error(409, "project_has_active_work")
             try:
+                if (any(key == "polling.max_concurrent_runs" for key, _ in members)
+                        and proposed.polling.max_concurrent_runs
+                        < len(occupied_slots(state, state.list_runs()))):
+                    raise _error(409, "capacity_below_occupancy")
                 if (
                     state.invalid_runs()
                     or any(

@@ -20,6 +20,7 @@ import { SortHeader } from "./SortHeader";
 import { readConsumption, consumptionIdentity } from "./statistics";
 import type { JobConsumption } from "./metrics";
 import { JobAmounts } from "./StatisticsEvidence";
+import { workerCopy } from "./projectStatus";
 import { statisticsCopy } from "./statisticsCopy";
 
 export type JobProject = { id: string; name: string; display_name?: string; archived: boolean; paused: boolean };
@@ -78,6 +79,7 @@ export function JobWorkspace(props: Props) {
   const [usageReload, setUsageReload] = useState(0);
   const revision = useRef({ key: "", snapshot: "" });
   const [worker, setWorker] = useState("checking");
+  const [workerComponents,setWorkerComponents]=useState<Array<"supervisor"|"configuration">>([]);
   const project = projects.find(item => item.id === scope);
   const ids = projects.map(item => item.id).sort().join(",");
   const { offset, ...selection } = filters;
@@ -194,7 +196,10 @@ export function JobWorkspace(props: Props) {
     const check = async () => {
       try {
         await request("/ready"); if (active) setWorker("ready");
-      } catch (cause) { if (active) setWorker(cause instanceof ApiError && cause.code === "worker_unavailable" ? "unavailable" : "error"); }
+      } catch (cause) { if (active) {
+        setWorker(cause instanceof ApiError && cause.code === "worker_unavailable" ? "unavailable" : "error");
+        setWorkerComponents(cause instanceof ApiError ? cause.components ?? [] : []);
+      } }
     };
     void check(); const stop = startVisiblePolling(() => void check(), 5000);
     return () => { active = false; stop(); };
@@ -257,7 +262,7 @@ export function JobWorkspace(props: Props) {
   return <div className={`job-workspace${compactOverview ? " overview-workspace" : ""}${props.summaryHeader ? " project-summary-window" : ""}`}>
     {!run && props.summaryHeader?.(unreadable.length ? null : visible)}
     {/* Scope selection lives with the page; worker status appears only when it needs attention. */}
-    {["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>}
+    {["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" && workerComponents.length ? workerComponents.map(role=>`${workerCopy[locale][role]} · ${workerCopy[locale].missing}`).join("; ") : copy.workerError}</span></div>}
     {!!operationError && <p className="alert" role="alert">{describeError(locale, operationError)}</p>}
     {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && <p>{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}</p>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}{operation.status === "pending" && <p>{t("workerQueueHelp")}</p>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
     {!run && mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} /></label><label>{t("status")}<select value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div>

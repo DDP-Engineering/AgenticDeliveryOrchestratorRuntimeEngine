@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "See project slots, queues and workers; keep unsaved settings and operation results on return.", fr = "Places, files et services par projet ; paramètres non enregistrés et résultats conservés au retour.", de = "Projektplätze, Warteschlangen und Dienste; Entwürfe und Vorgangsergebnisse bleiben erhalten.", ro = "Vezi locurile, cozile și workerii proiectului; setările nesalvate și rezultatele rămân la revenire." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
 text = { en = "Save project settings and control monitoring while other projects work or prepare tools.", fr = "Enregistrez les paramètres et contrôlez la surveillance pendant le travail des autres projets.", de = "Projekteinstellungen und Überwachung bleiben während anderer Arbeiten bedienbar.", ro = "Salvați setări și controlați monitorizarea cât timp alte proiecte lucrează sau pregătesc unelte." }
 

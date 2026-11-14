@@ -130,3 +130,7 @@ unsupported cache stays unchanged with the staged candidate retained. A cache fa
 racing after an already applied change becomes uncertain. Project/global operation
 history canonicalizes the global empty scope as null and validates opaque references
 before projecting redacted Settings evidence.
+
+## Staged project capacity feedback
+
+Staging publishes under the short project admission boundary so a confirmed lower N fences later reservations. Safe apply may return `capacity_below_occupancy`, retaining both active bytes and candidate while the reduced ceiling already holds new work. Project status restores the caller's durable outcome after navigation or reload; a 202 acceptance never becomes a saved-settings notification by itself. See [Project capacity](Component_Project_Capacity.md).

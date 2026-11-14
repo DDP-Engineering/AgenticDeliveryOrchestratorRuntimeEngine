@@ -1116,3 +1116,11 @@ screens. No API, stored format or dependency change is required.
 The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
 
 Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.
+
+## Retained project drafts and durable feedback
+
+`ProjectCapacity.tsx` renders scoped slots, queue causes, staged settings and latest own server-backed results on project tabs and named global Jobs cards. `WorkerStatus` distinguishes server and project roles in System status. Heartbeat is a contact observation; active work and free slots are separate.
+
+`settingsDrafts.ts` retains bounded editable values/base revision per account and immutable project in tab session storage. It stores no full configuration or credentials. Navigation and reload retain unsaved values; stale revisions block Save and corrupt retention requires explicit discard. Save/discard/logout clear drafts. Storage failure retains memory and presents recovery guidance. Ticket submission busy flags are per project; an operation in A cannot disable B.
+
+See [Project capacity](Component_Project_Capacity.md). Proof: `web/tests/projectStatus.test.mjs`, `web/e2e/projectCapacity.spec.ts` and targeted settings/help regressions. All new copy and help ship in en/fr/de/ro.

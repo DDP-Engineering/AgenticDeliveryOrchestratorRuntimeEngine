@@ -510,3 +510,12 @@ The profile-bound admission guard runs inside short admission transactions and
 before queued execution. It rejects archived, deleted or replaced profiles while
 leaving monitoring pause independent. Full cleanup uses path-bound companion
 release; backend-only executor removal cannot infer proxy/network ownership.
+
+## Reviewed lower admission ceiling
+
+`_has_capacity` uses `adore.capacity.admission_limit` for every new/resumed reservation. A hash-bound current staged lower N is already effective even while normal safe configuration apply is refused. The active bytes stay unchanged, so admitted jobs preserve their configuration revision and continue. Staged increases do not grant capacity; corrupt/stale candidate evidence raises StateError with explicit record-discard guidance. Occupancy two, staged N=1, continued admissions and occupancy one/zero boundaries are proved in `tests/test_web_project_status.py`.
+
+
+REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
+
+Initial activation retries brief local admission-lock contention at most 25 times with 20 ms waits outside the project lock. Exhaustion keeps queued dispatch unchanged for a later attempt. Real process-pool overlap and explicit operator-lock refusal/recovery are targeted public regressions.

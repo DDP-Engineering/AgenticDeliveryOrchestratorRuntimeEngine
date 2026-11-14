@@ -122,3 +122,10 @@ Rezumatul arată încercarea, ora înregistrării, rezultatul și codul de ieși
 O lansare fără captură dovedită sau cu snapshotul șters este explicit indisponibilă; arhivele brute nu sunt citite ca alternativă. Dovezile corupte sunt refuzate. Joburile existente pot rămâne fără ieșire până la o lansare ulterioară; această vizualizare nu pornește niciuna.
 
 Dacă **Consum** nu se încarcă, folosește **Actualizează consumul** lângă eroare. Dovezile și recuperarea rămân separate. O sursă coruptă necesită în continuare investigarea operatorului.
+
+
+## Capacitatea proiectului {#project-capacity}
+
+**Capacitatea proiectului** din Rezumat și Lucrări arată limita efectivă, locurile ocupate/libere, joburile în coadă și cauza: limita proiectului, worker indisponibil, operație pe același job sau limita redusă pregătită. Coada numără cererile trimise și joburile admise care așteaptă lansarea, nu tichetele nesolicitate. Un proiect plin nu le blochează pe celelalte. **Ultimele tale operații** recuperează rezultatele salvate pentru Pornește, Reîncearcă, Anulează și setări după navigare ori reîncărcare. În coadă și În desfășurare nu înseamnă Confirmat.
+
+O limită redusă pregătită oprește deja pornirile și reluările noi până când ocuparea scade sub ea; joburile deja pornite continuă; rezervările în coadă așteaptă un loc de execuție. Nu mărește niciodată limita activă. Aplicarea sigură așteaptă în continuare lucrul neterminat; valoarea salvată și candidatul rămân vizibile până la Salvează sau Renunță la modificări.

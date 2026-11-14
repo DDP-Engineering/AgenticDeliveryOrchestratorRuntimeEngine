@@ -58,3 +58,7 @@ consumed execution/publication. Restart does not replay uncertain operations.
 - `04_Software/adore/web/worker_context.py`: effect ancestry fence.
 - `04_Software/tests/test_web_supervisor.py`, `tests/supervisor_helper.py`: offline real processes.
 - `05_SoftwareDocu/Component_Web_Worker.md`, `Component_Worker_Processes.md`: process contracts.
+
+ProjectWorker uses shared admission_limit to respect current staged lower N before dispatching new commands/polls. Existing children continue with unchanged active config bytes; corrupt staged evidence refuses dispatch. Read-only role/capacity diagnostics route to project-capacity.md. Focused proof includes test_web_project_status.py.
+
+After a lower N, already-started executors continue, while queued initial reservations wait for actual start capacity. Pending reservations retain their dispatch evidence; they do not block each other indefinitely. Initial activation rechecks current N atomically in the conductor as well as limiting supervisor dispatch.

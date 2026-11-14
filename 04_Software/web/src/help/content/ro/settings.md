@@ -48,7 +48,7 @@ Reguli aplicabile:
 - Schimbările de identitate sau mediu cer și monitorizare în pauză. Alege **Pune monitorizarea în pauză** în Sumar și așteaptă terminarea lucrărilor active; pauza nu întrerupe un job.
 - Bugetele se aplică înaintea următoarei încercări sau reluări și păstrează consumul și progresul. Vezi [Bugetele jobului](#budgets).
 
-Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
+Valorile editabile nesalvate rămân în fila browserului pentru același cont și proiect la navigare și reîncărcare. **Renunță la modificări** le șterge; deconectarea curăță drafturile păstrate. Credențialele rămân în editorii separați. Dacă stocarea browserului este indisponibilă, ține pagina deschisă sau renunță la draft. O revizie schimbată pe server blochează Salvează până renunți la modificări și reîncarci.
 
 Salvările și verificările rulează separat de lucrări și pregătiri lungi. Așteptați rezultatul confirmat înainte de a considera schimbarea salvată. Pauza/reluarea monitorizării și semnalul de anulare nu cer un loc liber pentru lucrări. O schimbare incompatibilă rămâne pregătită pentru proiect cu un conflict explicit; lucrările active și celelalte proiecte își păstrează setările.
 
@@ -84,3 +84,12 @@ Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, 
 
 
 **Implementare** (`build`) folosește `workflow.stage_timeout_overrides` sau limita generală `budgets.per_gate_timeout_seconds`. Pentru AEGIS, **Validare** (`validate`) limitează tot sesiunea agentului. ADORE nu rulează teste suplimentare; agentul alege verificările locale și CI conform instrucțiunilor repository-ului.
+
+
+## Capacitatea proiectului {#project-capacity}
+
+**Limita lucrărilor active** din Implementare este unica limită de joburi paralele a proiectului (`polling.max_concurrent_runs`), implicit **1**. Monitorizarea, backend-ul local/container, runtime-ul Docker/Podman/WSL, imaginea, pregătirea, agentul, modelul, bugetele și politicile aparțin acestui proiect. Un proiect ocupat nu împiedică salvarea setărilor altuia.
+
+O limită redusă pregătită oprește deja pornirile și reluările noi până când ocuparea scade sub ea; joburile deja pornite continuă; rezervările în coadă așteaptă un loc de execuție. Nu mărește niciodată limita activă. Aplicarea sigură așteaptă în continuare lucrul neterminat; valoarea salvată și candidatul rămân vizibile până la Salvează sau Renunță la modificări.
+
+Drafturile conexiunii sunt păstrate numai când sunt valide. Corectează un endpoint invalid sau păstrează-l în memorie; credențialele nu intră în drafturile păstrate.

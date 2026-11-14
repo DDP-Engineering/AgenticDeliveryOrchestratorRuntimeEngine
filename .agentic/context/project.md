@@ -483,3 +483,8 @@ Unsafe apply retains its staged candidate and running executor snapshots remain 
 Managed default image preparation runs in the durable worker with short process-birth
 reservations and persisted value-free progress; no config lock spans probes/builds.
 See knowledge/configuration-worker.md for exact contracts and focused proof.
+
+Project Summary/Settings/Jobs now expose scoped effective/saved N, occupied/free slots, queued causes and latest own durable outcomes. Ordinary editable drafts survive navigation/reload in per-account/project/tab sessionStorage; save/discard/logout clear them and stale/corrupt evidence blocks Save. A current staged lower N already fences new/resumed admission while active config bytes remain unchanged and pending reservations wait under current actual-start capacity. System status separates server/project roles; readiness names unavailable supervisor/configuration components, with project absence local.
+
+
+REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.

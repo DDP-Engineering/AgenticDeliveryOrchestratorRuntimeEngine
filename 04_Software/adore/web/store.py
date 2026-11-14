@@ -565,15 +565,17 @@ class WebStore:
         @exception WebStoreError Corrupt persisted timestamps or scope.
         """
         with self._ownership_connect() as connection:
+            selectors, parameters = ["status='active'"], []
+            for field, value in (("role", role), ("project_id", project_id), ("run_id", run_id)):
+                if value is not None:
+                    selectors.append(field + "=?")
+                    parameters.append(value)
             rows = connection.execute(
-                "SELECT * FROM worker_owners WHERE status='active'").fetchall()
+                "SELECT * FROM worker_owners WHERE " + " AND ".join(selectors),
+                parameters).fetchall()
         result = []
         for row in rows:
             self._worker_record(row)
-            if ((role is not None and row["role"] != role)
-                    or (project_id is not None and row["project_id"] != project_id)
-                    or (run_id is not None and row["run_id"] != run_id)):
-                continue
             try:
                 stamp = datetime.fromisoformat(row["updated_at"])
                 if stamp.tzinfo is None:
@@ -1651,6 +1653,27 @@ class WebStore:
                 "SELECT * FROM operations WHERE action='configure' AND status IN "
                 "('pending','running') ORDER BY id LIMIT 257").fetchall()
         return [self._operation_with_current_project(row) for row in rows]
+
+    def project_operation_status(self, project_id: str, actor_id: int) -> tuple[list, list]:
+        """@brief Read project queue and latest own operations through short local reads.
+        @param[in] project_id Explicit immutable project identity, authorized by caller.
+        @param[in] actor_id Authenticated account, never inferred from active profile.
+        @return Validated unfinished queue and latest own request for each action.
+        @exception WebStoreError Invalid identity or corrupt stored request.
+        """
+        if (not isinstance(project_id, str) or not re.fullmatch(r"[a-f0-9]{32}", project_id)
+                or type(actor_id) is not int or actor_id < 1):
+            raise WebStoreError("invalid operation status scope")
+        with self._ownership_connect() as connection:
+            queued = connection.execute(
+                "SELECT * FROM operations WHERE project_id=? AND status IN "
+                "('pending','running') ORDER BY id", (project_id,)).fetchall()
+            recent = connection.execute(
+                "SELECT o.* FROM operations o JOIN (SELECT MAX(id) AS id FROM operations "
+                "WHERE project_id=? AND actor_id=? GROUP BY action) latest ON o.id=latest.id "
+                "ORDER BY o.id DESC", (project_id, actor_id)).fetchall()
+        return ([self._operation_record(row) for row in queued],
+                [self._operation_record(row) for row in recent])
 
     def has_unfinished_operations(self, project: str) -> bool:
         """@brief Check for other queued/executing operations before a project edit."""

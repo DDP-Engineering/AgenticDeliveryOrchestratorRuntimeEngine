@@ -122,3 +122,10 @@ The summary shows the attempt, recorded time, result and exit code. Expand **std
 A launch without proven capture, or a deleted snapshot, is explicitly unavailable; raw archives are never used as a fallback. Corrupt evidence is refused. Existing jobs can remain unavailable until a later executor launch records evidence; this view never starts one.
 
 If **Consumption** cannot load, use **Refresh consumption** beside the error. Job evidence and recovery controls remain separate. A corrupt source still requires operator investigation.
+
+
+## Project capacity {#project-capacity}
+
+**Project capacity** on Summary and Jobs shows the effective parallel limit, occupied/free slots, queued jobs and the cause: project limit, unavailable project worker, another operation on the same job or a staged lower limit. The queue counts submitted requests and admitted jobs waiting for dispatch, not unrequested forge tickets. A project at capacity does not block other projects. **Your latest operations** restores your own saved Start, Retry, Cancel and settings results after navigation or reload. Queued and In progress do not mean Confirmed.
+
+A staged lower limit already stops new starts and resumptions until occupancy falls below it; already-running jobs continue; queued reservations wait for a current execution place. It never raises the active limit. Safe application still waits for unfinished work; the saved value and staged candidate remain visible until Save or Discard changes.

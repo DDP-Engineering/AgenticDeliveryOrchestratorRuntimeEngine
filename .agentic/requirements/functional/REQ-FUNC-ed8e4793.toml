@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-ed8e4793"
+
+title = "Reject unsafe capacity edits with truthful feedback"
+
+status = "active"
+
+requirement = """
+If a reviewed concurrency limit is below current project occupancy, ADORE shall refuse application with a capacity-specific conflict while retaining the staged candidate and active configuration with the staged lower limit already fencing new admission until occupancy is below it.
+"""
+
+verification = "Stage valid and invalid N; apply below occupancy and assert specific 409 plus unchanged active bytes, retained candidate and no new admission at occupancy two or one for N=1; apply in idle B and inspect portable export/import canonical default."
+
+affected_paths = ["04_Software/adore/capacity.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/app.py", "04_Software/adore/release_notes.toml", "04_Software/web/src/errors.ts", "04_Software/web/src/settingHelp.ts"]
+
+linked_tests = ["04_Software/tests/test_web_project_status.py", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/web/e2e/projectCapacity.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

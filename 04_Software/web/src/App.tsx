@@ -4,6 +4,9 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { ProjectCapacity, WorkerStatus as WorkerRoles } from "./ProjectCapacity";
+import { readDraft, writeDraft, clearDraft, clearPrivateDrafts } from "./settingsDrafts";
+import { workerCopy } from "./projectStatus";
 import { completedConfiguration } from "./configurationTasks";
 import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
@@ -86,7 +89,6 @@ const metricsTabLabels: Record<MetricsTab, MessageKey> = {
   summary: "metricsTabSummary", usage: "metricsTabUsage", quality: "metricsTabQuality",
   trends: "metricsTabTrends", projects: "metricsTabProjects",
 };
-type WorkerStatus = "checking" | "ready" | "busy" | "unknown" | "unavailable" | "error";
 type StorageStatus = { threshold_bytes: number; low: boolean; volumes: Array<{ scope: "home" | "project"; project: string | null; free_bytes: number; total_bytes: number; low: boolean; volume_id: string }> };
 type AuditPolicy = { retention_days: number | null; max_bytes: number | null };
 
@@ -113,7 +115,12 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     const detail = payload?.detail;
-    if (typeof detail?.code === "string") throw new ApiError(detail.code, typeof detail.message === "string" ? detail.message : "");
+    if (typeof detail?.code === "string") {
+      const failure=new ApiError(detail.code,typeof detail.message === "string" ? detail.message : "");
+      if (detail.code==="worker_unavailable" && Array.isArray(detail.components) && detail.components.length>0
+        && detail.components.every((role:unknown)=>role==="supervisor"||role==="configuration")) failure.components=detail.components;
+      throw failure;
+    }
     throw new ApiError("request_failed", `HTTP ${response.status}`);
   }
   if (!response.headers.get("content-type")?.includes("application/json")) {
@@ -182,7 +189,6 @@ export default function App() {
   const [users, setUsers] = useState<AccountUser[]>([]);
   const [auditPolicy, setAuditPolicy] = useState<AuditPolicy | null>(null);
   const [adminMenuOpen, setAdminMenuOpen] = useState(true);
-  const [workerStatus, setWorkerStatus] = useState<WorkerStatus>("checking");
   const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
   const [storageError, setStorageError] = useState(false);
   const [projectReadiness, setProjectReadiness] = useState<ProjectReadiness | null>(null);
@@ -688,24 +694,6 @@ export default function App() {
     }
   }, [page, isAdmin, selected, viewRefresh, session?.user.id]);
 
-  useEffect(() => {
-    if (page !== "administration" || !isAdmin) return;
-    let active = true;
-    const check = async () => {
-      try {
-        const response = await fetch("/api/v1/ready", { cache: "no-store" });
-        const code = response.ok ? "" : (await response.json().catch(() => ({})))?.detail?.code;
-        const activity = response.ok ? (await response.json()).activity : null;
-        if (active) setWorkerStatus(response.ok ? activity === "busy" ? "busy" : activity === "idle" ? "ready" : "unknown" : code === "worker_unavailable" ? "unavailable" : "error");
-      } catch {
-        if (active) setWorkerStatus("error");
-      }
-    };
-    setWorkerStatus("checking");
-    void check();
-    const stopPolling = startVisiblePolling(() => void check(), 5000);
-    return () => { active = false; stopPolling(); };
-  }, [page, isAdmin]);
 
   useEffect(() => {
     if (page !== "administration" || !isAdmin) return;
@@ -898,7 +886,6 @@ export default function App() {
     setUsage(null); setUsageScope(""); setAllUsage(null); setUsageSortKey("date"); setUsageSortDescending(false);
     setConfig(null); setPendingConfig(null); setPrices([]);
     setUsers([]); setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationVisible(false);
-    setWorkerStatus("checking");
     setNotice(""); setLastRefresh(null);
   };
 
@@ -921,10 +908,16 @@ export default function App() {
     catch (cause) { setError(cause); }
   };
 
+  useEffect(()=>{
+    // The project panel recovers its own durable feedback; controls never inherit another project's busy flag.
+    operationSubmission.current += 1; operationBusy.current=false;operationId.current=null;
+    setOperationSubmitting(false);setOperation(null);setOperationVisible(false);
+  },[selected]);
+
   const signOut = async () => {
     if (enrollmentGuard.current && !enrollmentGuard.current()) return;
     try { await request("/session", "DELETE", undefined, (session ?? passwordSession)?.csrf); }
-    finally { setSession(null); setPasswordSession(null); clearPrivateView(); window.history.pushState(null, "", "/"); }
+    finally { clearPrivateDrafts(sessionStorage); setSession(null); setPasswordSession(null); clearPrivateView(); window.history.pushState(null, "", "/"); }
   };
 
   const operate = async (action: "start" | "retry" | "cancel" | "pause" | "resume", target = "", projectId = selected) => {
@@ -1404,6 +1397,7 @@ export default function App() {
 
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
+          <ProjectCapacity key={`${session.user.id}:${selected}`} project={selected} locale={locale} request={request} refresh={viewRefresh}/>
           {projectTab === "overview" && <>
           <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
             <dl className="summary-facts">
@@ -1449,7 +1443,7 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={selected} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={configBusy || isAdmin && !pendingReady && !pendingReadFailed} readFailed={pendingReadFailed} stale={settingsStale} onSave={saveSettings} onDiscard={discardPendingConfig} registerGuard={registerSettingsGuard} setPollBlocked={blockSettingsEdits} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>{ invalidateSettingsPoll(); setConfig(current=>current?{...current,model_connection:value}:current); }} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
+          {projectConfig && <SettingsList key={selected} account={session.user.id} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={configBusy || isAdmin && !pendingReady && !pendingReadFailed} readFailed={pendingReadFailed} stale={settingsStale} onSave={saveSettings} onDiscard={discardPendingConfig} registerGuard={registerSettingsGuard} setPollBlocked={blockSettingsEdits} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>{ invalidateSettingsPoll(); setConfig(current=>current?{...current,model_connection:value}:current); }} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
                   <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <>{String(settingValue(projectConfig.config, "executor.provider") ?? "") === CHATGPT && <ChatGptSignIn setPollBlocked={blockChatGpt} key={`${session.user.id}:chatgpt`} locale={locale} read={() => request("/chatgpt-sign-in")} start={() => request(`/projects/${encodeURIComponent(selected)}/chatgpt-sign-in`, "POST", undefined, session.csrf)} complete={(redirect_url: string) => request("/chatgpt-sign-in", "PUT", {redirect_url}, session.csrf)} cancel={() => request("/chatgpt-sign-in/pending", "DELETE", undefined, session.csrf)} disconnect={() => request("/chatgpt-sign-in", "DELETE", undefined, session.csrf)} />}{(String(settingValue(projectConfig.config, "executor.provider") ?? "") !== CHATGPT || searchKeyNeeded(projectConfig.config)) && <ExecutorCredentials embedded setPollBlocked={blockCredentials} key={`${session.user.id}:${selected}:${projectConfig.revision}`} provider={String(settingValue(projectConfig.config, "executor.provider") ?? "")} project={selectedProject.id} revision={projectConfig.revision} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>{ invalidateSettingsPoll(); setConfig(current=>current?{...current,model_connection:null}:current); }} />}</>}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />
                   {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
                     {priceModel ? <form key={`${selected}:${priceModel}`} ref={priceFormRef} className="form-grid" onChange={event=>updatePriceDraft(event.currentTarget)} onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
@@ -1467,6 +1461,7 @@ export default function App() {
         </>}
 
         {page === "jobs" && projectsState === "ready" && projects.length > 0 && <>
+          {projects.filter(item=>!jobScope || item.id===jobScope).map(item=><ProjectCapacity key={item.id} project={item.id} name={item.display_name || item.name} locale={locale} request={request} refresh={viewRefresh}/>)}
           <div className="jobs-toolbar">
             {jobsSubtabs}
             <label className="jobs-scope" htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>
@@ -1485,7 +1480,7 @@ export default function App() {
             <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form></>}</section>
           <section className="panel wide-panel" role="status" aria-live="polite">
             <div className="system-status-row">
-              <span className="system-indicator"><span>{t("workerReadiness")}</span><strong className={`readiness readiness-${workerStatus}`}>{t(workerStatus === "ready" ? "workerReady" : workerStatus === "busy" ? "workerBusy" : workerStatus === "unknown" ? "workerActivityUnknown" : workerStatus === "unavailable" ? "workerUnavailable" : workerStatus === "error" ? "workerCheckFailed" : "workerChecking")}</strong><small>{t("workerQueueHelp")}</small></span>
+              <WorkerRoles locale={locale} projects={projects} request={request}/>
               <span className="system-indicator"><span>{t("storageStatus")}</span><strong className={`readiness readiness-${storageError ? "error" : storageStatus?.low ? "unavailable" : storageStatus ? "ready" : "checking"}`}>{t(storageError ? "storageCheckFailed" : storageStatus?.low ? "storageLow" : storageStatus ? "storageHealthy" : "workerChecking")}</strong></span>
             </div>
             {storageGroups.length === 1 ? <p className="muted">{t("storageShared").replace("{free}", gib(storageGroups[0].free)).replace("{total}", gib(storageGroups[0].total))}</p>
@@ -1679,9 +1674,9 @@ function SettingsImpactDialog({config, candidate, edits, project, paused, locale
   </dialog>;
 }
 
-function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate=null, config, localIdentity, settings, t, locale, canEdit, disabled: externallyDisabled, stale: externallyStale=false, readFailed=false, onSave, onDiscard, registerGuard, setPollBlocked, actions, children, header, executorBefore, executorAfter, executorAuthentication }: {
+function SettingsList({ executorOnly=false, account=0, project, revision, csrf, branchCandidate=null, config, localIdentity, settings, t, locale, canEdit, disabled: externallyDisabled, stale: externallyStale=false, readFailed=false, onSave, onDiscard, registerGuard, setPollBlocked, actions, children, header, executorBefore, executorAfter, executorAuthentication }: {
   executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode;
-  project?:string; revision?:string; csrf?:string; branchCandidate?:PendingConfig|null;
+  account?:number; project?:string; revision?:string; csrf?:string; branchCandidate?:PendingConfig|null;
   header?:ReactNode; actions?:ReactNode; children?:ReactNode; executorOnly?:boolean;
   config:Record<string,unknown>; localIdentity?:Config["local_execution"]; settings:SettingMeta[];
   t:(key:MessageKey)=>string; locale:Locale; canEdit:boolean; disabled:boolean; stale?:boolean; readFailed?:boolean;
@@ -1697,7 +1692,10 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     && connectionRowVisible(row.key,settingValue(config,"executor.provider"))));
   const recoveredEditors = (values:SettingDrafts) => new Set(rows.filter(row=>values[row.editKey]!==undefined
     && (row.input!=="connection" || row.key==="executor.model")).map(row=>row.key));
-  const [drafts, setDrafts] = useState<SettingDrafts>(()=>exactRecovery ? {} : recoverSettingDrafts(config,rows,branchCandidate));
+  const [retained] = useState(()=>canEdit && project ? readDraft(sessionStorage,account,project) : null);
+  const [retainedInvalid,setRetainedInvalid] = useState(!!retained && "corrupt" in retained);
+  const [retentionError,setRetentionError] = useState(false);
+  const [drafts, setDrafts] = useState<SettingDrafts>(()=>retained && "drafts" in retained ? retained.drafts : exactRecovery ? {} : recoverSettingDrafts(config,rows,branchCandidate));
   const [editing, setEditing] = useState<Set<string>>(()=>recoveredEditors(drafts));
   const [saving, setSaving] = useState(false), [conflict, setConflict] = useState(false);
   const disabled = externallyDisabled || saving || readFailed;
@@ -1709,7 +1707,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     }
     wasSaving.current=saving;
   }, [saving]);
-  const base = useRef({config,rows,revision});
+  const base = useRef({config,rows,revision:retained && "revision" in retained ? retained.revision : revision});
   const live = useRef({config,rows,revision}); live.current = {config,rows,revision};
   const pendingRevision = useRef(branchCandidate?.candidate_revision || "");
   const prepared = prepareSettingDrafts(base.current.config,base.current.rows,drafts);
@@ -1717,7 +1715,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   const alreadyApplied = !!branchCandidate && branchCandidate.candidate_revision === revision;
   useLayoutEffect(() => { setPollBlocked(dirty || saving || !!branchCandidate && !alreadyApplied); });
   useLayoutEffect(() => () => setPollBlocked(false), [setPollBlocked]);
-  const stale = externallyStale || conflict || dirty && base.current.revision !== revision
+  const stale = retainedInvalid || externallyStale || conflict || dirty && base.current.revision !== revision
     || !!branchCandidate && branchCandidate.base_revision !== revision && !alreadyApplied;
   const saveCopy = settingsSaveCopy[locale];
   useEffect(() => {
@@ -1734,12 +1732,20 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     } else if (!dirty && revisionChanged) { setDrafts({}); setEditing(new Set()); }
     pendingRevision.current = next;
   }, [branchCandidate?.candidate_revision, revision, dirty, saving]);
+  useLayoutEffect(() => {
+    if (!canEdit || !project || retainedInvalid) return;
+    if (dirty && base.current.revision) setRetentionError(!writeDraft(sessionStorage,account,project,{
+      revision:base.current.revision,drafts,editing:[...editing],
+    }));
+    else if (!saving) {clearDraft(sessionStorage,account,project);setRetentionError(false);}
+  },[account,project,dirty,drafts,editing,saving,canEdit,retainedInvalid]);
   useEffect(() => {
-    registerGuard(dirty || saving ? ()=>!saving && window.confirm(saveCopy.leave) : null);
-    const unload = (event:BeforeUnloadEvent) => { if (dirty || saving) {event.preventDefault();event.returnValue="";} };
+    // Retained drafts can travel across views; an in-flight confirmation/save stays guarded.
+    registerGuard(saving || retentionError ? ()=>!saving && window.confirm(saveCopy.leave) : null);
+    const unload = (event:BeforeUnloadEvent) => { if (retentionError) {event.preventDefault();event.returnValue="";} };
     window.addEventListener("beforeunload",unload);
     return () => {registerGuard(null);window.removeEventListener("beforeunload",unload);};
-  }, [dirty,saving,saveCopy.leave,registerGuard]);
+  }, [saving,retentionError,saveCopy.leave,registerGuard]);
   const draftFor = (row:SettingRow) => drafts[row.editKey] ?? settingDraftValue(row,config);
   const updateDraft = (row:SettingRow,value:string) => {
     setPollBlocked(true);
@@ -1762,7 +1768,8 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     setSaving(true);
     try {
       if (await onSave(prepared.edits,base.current.revision)) {
-        base.current=live.current;setDrafts({});setEditing(new Set());setConflict(false);
+        base.current=live.current;setDrafts({});setEditing(new Set());setConflict(false);setRetainedInvalid(false);
+        if(project)clearDraft(sessionStorage,account,project);
       }
     } finally {setSaving(false);}
   };
@@ -1772,7 +1779,8 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     setSaving(true);
     try {
       if (await onDiscard()) {
-        base.current=live.current;setDrafts({});setEditing(new Set());setConflict(false);
+        base.current=live.current;setDrafts({});setEditing(new Set());setConflict(false);setRetainedInvalid(false);
+        if(project)clearDraft(sessionStorage,account,project);
       }
     } finally {setSaving(false);}
   };
@@ -1864,11 +1872,13 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   return <section ref={settingsPanel} tabIndex={-1} className="panel" id="project-settings">
     {header ?? <div className="panel-heading"><div className="heading-with-help"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{!executorOnly && <HelpLink topic={CONTEXT_TOPICS.projectSettings} locale={locale} />}</div>{actions}</div>}
     {!canEdit && <p className="muted">{copy.readOnly}</p>}
-    {canEdit && (dirty || branchCandidate || readFailed || saving) && <div ref={saveBar} tabIndex={-1} className="settings-save-bar" aria-label={saveCopy.save}>
+    {canEdit && (dirty || retainedInvalid || branchCandidate || readFailed || saving) && <div ref={saveBar} tabIndex={-1} className="settings-save-bar" aria-label={saveCopy.save}>
       <div><span role="status" aria-live="polite">{dirty ? saveCopy.dirty.replace("{count}",String(prepared.edits.length+prepared.invalid.length)) : readFailed ? copy.readFailed : saveCopy.prepared}</span>
-      {stale && <p role="alert">{saveCopy.stale}</p>}
+      {stale && <p role="alert">{retainedInvalid ? workerCopy[locale].corrupt : saveCopy.stale}</p>}
+      {retentionError && <p role="alert">{workerCopy[locale].retention}</p>}
+      {dirty && !retentionError && <p className="field-hint">{workerCopy[locale].retained}</p>}
       {(prepared.invalid.length>0 || branchInvalid) && <p role="alert">{saveCopy.invalid}</p>}</div>
-      <div className="button-row"><button type="button" className="ghost" disabled={externallyDisabled || saving || !dirty && !branchCandidate && !readFailed} onClick={()=>void discardAll()}>{saveCopy.discard}</button>
+      <div className="button-row"><button type="button" className="ghost" disabled={externallyDisabled || saving || !dirty && !retainedInvalid && !branchCandidate && !readFailed} onClick={()=>void discardAll()}>{saveCopy.discard}</button>
       <button type="button" className="primary" disabled={disabled || stale || prepared.invalid.length>0 || branchInvalid || !prepared.edits.length && !alreadyApplied && !exactRecovery} onClick={()=>void saveAll()}>{saving ? saveCopy.saving : saveCopy.save}</button></div>
     </div>}
     {children}

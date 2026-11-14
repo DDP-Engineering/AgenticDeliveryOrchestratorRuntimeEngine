@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-REL-329421d1"
+
+title = "Scoped worker readiness diagnostics"
+
+status = "active"
+
+requirement = """
+When worker status is requested, ADORE shall distinguish supervisor, configuration and project/run workers with heartbeat freshness separate from activity and project admission availability.
+"""
+
+verification = "Exercise missing/stale/corrupt heartbeats and independent project workers; assert component-named readiness and project-local failure in API and browser."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/status.py", "04_Software/adore/web/store.py", "04_Software/adore/web/supervisor.py", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/ProjectCapacity.tsx", "04_Software/web/src/projectStatus.ts", "04_Software/web/e2e/issue37.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py", "04_Software/web/src/help/content/en/administration.md", "04_Software/web/src/help/content/fr/administration.md", "04_Software/web/src/help/content/de/administration.md", "04_Software/web/src/help/content/ro/administration.md"]
+
+linked_tests = ["04_Software/tests/test_web_project_status.py", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/web/e2e/projectCapacity.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

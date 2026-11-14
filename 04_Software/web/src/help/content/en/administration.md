@@ -4,8 +4,7 @@ Administration covers user accounts, project access, system health and the recor
 
 > Everything on this page requires the Administrator role.
 
-
-A recent heartbeat means the supervisor is available. **Busy** means a worker is executing a command, project poll or job; **Activity unknown** means activity evidence is unavailable. Projects progress independently, with parallel jobs up to each project’s limit. Configuration commands have a separate worker. Queued starts wait for capacity; authorized cancellation can reach active work.
+System status lists **Supervisor**, **Configuration worker**, **Project worker** and active job/control workers separately. A recent heartbeat shows contact, not a free execution slot or successful operation. Activity is Working, Idle or unknown. A missing project worker affects its named project. Server readiness names an unavailable supervisor or configuration worker; project-worker failures remain local.
 
 ## Users {#users}
 
@@ -35,7 +34,7 @@ A developer with access sees the project and can start, retry or cancel its jobs
 
 Under **Administration**, open [System status](/admin/status). It refreshes by itself.
 
-- **Control worker** shows **Ready** when idle, **Busy** while processing, **Activity unknown** when the activity evidence is missing, **Unavailable**, **Status check failed** or **Checking…**. A recent heartbeat does not confirm forge, executor or model reachability.
+- **Workers** separates server and project roles, with heartbeat and activity. Free job slots are in Project capacity.
 - **Storage** reads **Space available**, **Low disk space** or **Storage check failed**. It measures free disk space for the ADORE account database and each project's job state folder, grouped by physical volume. One shared disk gets a single line; several disks get a **Volume**, **Free** and **Status** table. Below 1 GiB free counts as low, and a failed measurement is never shown as free space.
 - **Audit retention** sets how long change history is kept. The current limits (or **Unlimited**) appear above the form. Set **Keep for days** (whole days, 0 to 36500) and **Audit data limit (MiB)** (0 to 1024, fractions allowed) and choose **Save**. Zero or blank means unlimited. The two limits apply independently and the oldest events are removed first. The notice after saving reports how many events were deleted. The size limit counts stored audit text, not the database file on disk. Jobs, run journals and accounts are kept.
 

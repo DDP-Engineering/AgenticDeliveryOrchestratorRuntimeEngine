@@ -55,6 +55,7 @@ from adore.branding import (
     EXECUTOR_BASE_IMAGE,
     EXECUTOR_NAME,
 )
+from adore.capacity import admission_limit, initial_start_slots
 from adore.config import Config, branch_naming_preview, egress_policy, load_config, validate_budgets
 from adore.execution import (
     ContainerBackend,
@@ -445,15 +446,7 @@ class Orchestrator:
             or run.lifecycle == "parked-clarification" and run.parked_polls == 0
         ))
         occupied.discard(excluding)
-        limit = self.config.polling.max_concurrent_runs
-        if self.config.source_path is not None:
-            try:
-                limit = load_config(self.config.source_path).polling.max_concurrent_runs
-            except (OSError, ValueError, TypeError) as exc:
-                raise StateError("cannot read current project capacity") from exc
-        if type(limit) is not int or limit < 1:
-            raise StateError("invalid current project capacity")
-        return len(occupied) < limit
+        return len(occupied) < admission_limit(self.config)
 
     def _reserve_execution(self, run: RunState) -> bool:
         """@brief Reserve a resumed executor place before any execution-side effects."""
@@ -492,7 +485,8 @@ class Orchestrator:
         """@brief Conduct or reconcile one owned run, without claiming another ticket.
         @param[in] run_id Exact reserved run identity.
         @param[in] config_revision Optional exact loaded-configuration SHA-256 binding.
-        @return True after handling this run; False for an uncertain interrupted start.
+        @return True after handling this run; False when capacity defers an initial
+                start or interrupted authority cannot safely be replayed.
         @exception ValueError The bound configuration revision changed.
         @exception LockHeldError The requested run belongs to another owner.
         """
@@ -534,10 +528,27 @@ class Orchestrator:
         @param[in] revision The queued dispatch revision being consumed.
         @return Whether forge claim completed; a failure remains explicit and stopped.
         """
-        run.execution_pending = False
-        self.store.save(run)
-        self.store.save_dispatch(run.run_id, revision, started=True)
-        self.store.journal(run.run_id, "execution-started", config_revision=revision)
+        with contextlib.ExitStack() as activation:
+            # Concurrent run children may reach this short transaction together.
+            # Retry only brief local contention, holding no project lock while waiting.
+            for attempt in range(25):
+                try:
+                    activation.enter_context(self.store.admission_lock())
+                    break
+                except LockHeldError:
+                    if attempt == 24:
+                        return False
+                    time.sleep(0.02)
+            if self.store.invalid_runs():
+                raise StateError("corrupt run state prevents safe initial execution")
+            occupied = initial_start_slots(self.store, self.store.list_runs())
+            occupied.discard(run.run_id)
+            if len(occupied) >= admission_limit(self.config):
+                return False
+            run.execution_pending = False
+            self.store.save(run)
+            self.store.save_dispatch(run.run_id, revision, started=True)
+            self.store.journal(run.run_id, "execution-started", config_revision=revision)
         try:
             self.forge.remove_labels(run.ticket_iid, [self.config.labels.lifecycle.ready])
             self.forge.add_labels(run.ticket_iid, [self.config.labels.lifecycle.working])

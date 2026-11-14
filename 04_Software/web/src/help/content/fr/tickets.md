@@ -9,7 +9,7 @@ Le démarrage est confirmé après l’enregistrement durable et la prise en cha
 
 ## Comment fonctionne la prise en charge {#how-pickup-works}
 
-Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer une tâche à la fois.
+Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer les tâches jusqu’à la limite parallèle du projet.
 
 Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 

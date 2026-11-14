@@ -528,13 +528,20 @@ def main() -> None:
         @asynccontextmanager
         async def lifespan(_app):
             """@brief Stop and join the isolated worker on graceful shutdown."""
-            configuration = ConfigurationWorker(app.state.configuration_tasks)
+            config_owner = store.register_worker("configuration")
+            project_owners = [
+                store.register_worker("project", project_id=profiles.load(name).project_id)
+                for name in ("alpha", "beta")]
+            configuration = ConfigurationWorker(app.state.configuration_tasks, owner=config_owner)
             control_errors = []
 
             def control():
                 """@brief Consume durable configuration with the same offline API collaborators."""
                 try:
                     while not stop.is_set():
+                        store.touch_worker(config_owner)
+                        for owner in project_owners:
+                            store.touch_worker(owner)
                         configuration.tick()
                         stop.wait(0.025)
                 except BaseException as exc:
@@ -552,6 +559,8 @@ def main() -> None:
                 thread.join(timeout=3)
                 control_thread.join(timeout=3)
                 configuration.close()
+                for owner in project_owners:
+                    store.clear_worker(owner)
                 if control_thread.is_alive() or control_errors:
                     raise RuntimeError("offline configuration worker did not stop cleanly")
                 if thread.is_alive():

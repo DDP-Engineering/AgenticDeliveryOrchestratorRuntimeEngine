@@ -32,6 +32,7 @@ import sys
 from threading import Event, Thread
 import time
 
+from adore.capacity import admission_limit
 from adore.config import load_config, validate_config
 from adore.polling import PollCadence
 from adore.profiles import ProfileError, ProfileStore
@@ -248,7 +249,7 @@ class ProjectWorker:
         if state.invalid_runs():
             raise StateError("corrupt run state prevents project dispatch")
         runs = state.list_runs()
-        limit = config.polling.max_concurrent_runs
+        limit = admission_limit(config)
         occupied = state.execution_slots() | {
             run.run_id for run in runs if run.lifecycle in ("working", "handoff-pending")
             or run.lifecycle == "parked-clarification" and run.parked_polls == 0}

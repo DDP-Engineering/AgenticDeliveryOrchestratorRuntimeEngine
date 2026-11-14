@@ -9,7 +9,7 @@ Pornirea este confirmată după admiterea durabilă și preluarea lucrării de c
 
 ## Cum funcționează preluarea {#how-pickup-works}
 
-Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În pauză** în tabelul Proiecte și în fila Rezumat a proiectului. Cât timp monitorizarea este Activă, ADORE verifică repository-ul pentru tichete pregătite la un interval regulat (60 de secunde implicit; vezi **Interval de verificare (secunde)** în [Setările proiectului](/help/settings)). Preia mai întâi tichetul eligibil cu cea mai mare prioritate (P1, apoi P2, apoi P3), apoi pe cel cu numărul cel mai mic, și avansează o lucrare pe rând.
+Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În pauză** în tabelul Proiecte și în fila Rezumat a proiectului. Cât timp monitorizarea este Activă, ADORE verifică repository-ul pentru tichete pregătite la un interval regulat (60 de secunde implicit; vezi **Interval de verificare (secunde)** în [Setările proiectului](/help/settings)). Preia mai întâi tichetul eligibil cu cea mai mare prioritate (P1, apoi P2, apoi P3), apoi pe cel cu numărul cel mai mic, și avansează lucrările până la limita paralelă a proiectului.
 
 Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 

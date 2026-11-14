@@ -48,7 +48,7 @@ Règles applicables :
 - Les changements d’identité ou d’environnement exigent aussi la surveillance en pause. Choisissez **Suspendre la surveillance** dans Résumé et laissez le travail actif se terminer ; la pause n’interrompt pas une tâche.
 - Les budgets s’appliquent avant la prochaine tentative ou reprise, en conservant consommation et progression. Voir [Budgets du travail](#budgets).
 
-La navigation et le rechargement de la page demandent confirmation avant d’abandonner les modifications. Les brefs blocages de fichier Windows sont réessayés automatiquement ; si l’enregistrement échoue, vérifiez l’accès au fichier et réessayez **Enregistrer**.
+Les valeurs modifiables non enregistrées restent dans cet onglet pour le même compte et projet pendant la navigation et le rechargement. **Abandonner les modifications** les supprime ; la déconnexion efface les brouillons. Les identifiants restent dans leurs éditeurs distincts. Si le stockage du navigateur est indisponible, gardez la page ouverte ou abandonnez le brouillon. Une révision serveur modifiée bloque Enregistrer jusqu’à l’abandon et au rechargement.
 
 Les enregistrements et vérifications sont séparés des tâches et des longues préparations. Attendez le résultat confirmé avant de considérer un changement enregistré. La pause/reprise de la surveillance et le signal d’annulation ne nécessitent pas de place libre. Un changement incompatible reste préparé pour ce projet avec un conflit explicite ; les tâches actives et les autres projets gardent leurs paramètres.
 
@@ -84,3 +84,12 @@ Si les limites actuelles sont illisibles, le détail conserve la consommation, l
 
 
 **Implémentation** (`build`) utilise `workflow.stage_timeout_overrides` ou `budgets.per_gate_timeout_seconds`. Avec AEGIS, **Validation** (`validate`) limite aussi la session de l’agent. ADORE ne lance aucun test supplémentaire ; l’agent choisit les contrôles locaux et CI selon les instructions du dépôt.
+
+
+## Capacité du projet {#project-capacity}
+
+**Limite de tâches actives** dans Implémentation est l’unique limite parallèle du projet (`polling.max_concurrent_runs`), **1** par défaut. Surveillance, exécution locale ou conteneur, moteur Docker/Podman/WSL, image, préparation, agent, modèle, budgets et politiques appartiennent à ce projet. Un projet occupé ne bloque pas l’enregistrement des autres.
+
+Une limite réduite préparée retient déjà les nouveaux démarrages et reprises jusqu’à ce que l’occupation passe sous la limite ; les tâches déjà en cours continuent ; les réservations en file attendent une place d’exécution. Elle n’augmente jamais la limite active. L’application sûre attend les travaux inachevés ; la valeur enregistrée et le candidat restent visibles jusqu’à Enregistrer ou Abandonner les modifications.
+
+Les brouillons de connexion sont conservés uniquement s’ils sont valides. Corrigez une adresse invalide ou gardez-la en mémoire ; les identifiants ne sont jamais conservés dans le brouillon.

@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-3b737a5c"
+
+title = "Queue initial dispatch under current project capacity"
+
+status = "active"
+
+requirement = """
+When a project limit is reduced before an admitted job starts execution, ADORE shall retain its queued dispatch authority until actual execution-start capacity is available while leaving already-running executors uninterrupted.
+"""
+
+verification = "Reserve two jobs at N2, reduce to N1 before real helper executor entry, assert one entry and the second remains pending, release first and observe second entry; separately start both before reduction and prove both continue without cancellation; direct conduct_run also defers the second pending start."
+
+affected_paths = ["04_Software/adore/capacity.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/supervisor.py", "04_Software/adore/web/status.py", "04_Software/web/src/projectStatus.ts"]
+
+linked_tests = ["04_Software/tests/test_web_project_status.py::test_reduced_limit_preserves_reservations_and_bounds_actual_executor_starts", "04_Software/tests/test_web_project_status.py::test_staged_reduction_fences_admission_and_preserves_existing_jobs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

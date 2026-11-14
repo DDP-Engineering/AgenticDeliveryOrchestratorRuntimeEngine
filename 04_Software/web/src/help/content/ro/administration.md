@@ -35,7 +35,7 @@ Un dezvoltator cu acces vede proiectul și îi poate porni, reîncerca sau anula
 
 Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actualizează singură.
 
-- **Lucrătorul de control** afișează **Pregătit** în repaus, **Ocupat** în lucru, **Activitate necunoscută** fără dovadă, **Indisponibil**, **Verificarea stării a eșuat** sau **Se verifică…**. Un semnal recent nu confirmă accesul la forge, executori sau modele.
+- **Workeri** separă rolurile serverului și proiectelor, cu heartbeat și activitate. Locurile libere sunt în Capacitatea proiectului.
 - **Stocare** afișează **Spațiu disponibil**, **Spațiu pe disc redus** sau **Verificarea stocării a eșuat**. Măsoară spațiul liber pe disc pentru baza de date de conturi ADORE și pentru dosarul de stare al lucrărilor fiecărui proiect, grupat pe volum fizic. Un singur disc partajat primește o singură linie; mai multe discuri primesc un tabel **Volum**, **Liber** și **Stare**. Sub 1 GiB liber se consideră redus, iar o măsurătoare eșuată nu este afișată niciodată ca spațiu liber.
 - **Păstrarea auditului** stabilește cât timp se păstrează istoricul modificărilor. Limitele curente (sau **Nelimitat**) apar deasupra formularului. Setați **Păstrează (zile)** (zile întregi, de la 0 la 36500) și **Limită date audit (MiB)** (de la 0 la 1024, fracții permise) și alegeți **Salvează**. Zero sau gol înseamnă nelimitat. Cele două limite se aplică independent, iar cele mai vechi evenimente sunt eliminate primele. Notificarea de după salvare raportează câte evenimente au fost șterse. Limita de dimensiune numără textul de audit stocat, nu fișierul bazei de date de pe disc. Lucrările, jurnalele de execuție și conturile se păstrează.
 

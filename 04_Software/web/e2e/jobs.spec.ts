@@ -120,13 +120,13 @@ test("overview uses compact attention and active tables without reporting noise"
 });
 
 test("overview surfaces worker faults and withholds corrupt active evidence", async ({ page }) => {
-  await page.route("**/api/v1/ready", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"worker_unavailable"}}' }));
+  await page.route("**/api/v1/ready", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"worker_unavailable","components":["supervisor"]}}' }));
   await page.route("**/api/v1/jobs-page?*", route => {
     if (new URL(route.request().url()).searchParams.get("status_group") === "active") return route.fulfill({ status: 200, contentType: "application/json", body: '{"complete":false}' });
     return route.continue();
   });
   await signIn(page);
-  await expect(page.getByText("Worker unavailable or heartbeat stale", { exact: true })).toBeVisible();
+  await expect(page.getByText("Supervisor · No heartbeat", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Incomplete job response", exact: true })).toBeVisible();
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
 });
@@ -358,9 +358,9 @@ test("clarification candidate and draft actions open actual saved locations and 
 
 test("missing evidence and stale worker activity do not fabricate telemetry or actions", async ({ page }) => {
   await signIn(page);
-  await page.route("**/api/v1/ready", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"worker_unavailable"}}' }));
+  await page.route("**/api/v1/ready", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"worker_unavailable","components":["supervisor"]}}' }));
   await page.goto("/jobs?project=alpha&run=ux-missing");
-  await expect(page.getByText("Worker unavailable or heartbeat stale", { exact: true })).toBeVisible();
+  await expect(page.getByText("Supervisor · No heartbeat", { exact: true })).toBeVisible();
   const detail = page.locator(".detail-panel");
   await expect(detail.getByRole("heading", { name: /Ticket title not recorded/ })).toBeVisible();
   await expect(detail).toContainText("no human intervention is currently requested");

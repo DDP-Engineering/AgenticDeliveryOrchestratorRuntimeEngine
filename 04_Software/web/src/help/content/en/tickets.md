@@ -9,7 +9,7 @@ Start is confirmed after the job is durably admitted and taken by the worker. Th
 
 ## How pickup works {#how-pickup-works}
 
-Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances one job at a time.
+Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances jobs up to this project’s parallel limit.
 
 An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 

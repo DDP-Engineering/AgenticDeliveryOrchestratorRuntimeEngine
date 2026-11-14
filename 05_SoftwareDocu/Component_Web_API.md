@@ -941,3 +941,7 @@ Settings GET reads current checked execution-plan evidence and never probes the 
 or Git. An absent/stale plan is unknown until an explicit host check or reviewed
 configuration application records the current plan. Corrupt/foreign plan evidence
 returns a typed service error naming `execution-plan.json` for explicit deletion.
+
+## Project capacity and worker diagnostics
+
+The authorized project `/capacity` projection combines effective/saved concurrency, occupied/free slots, queued causes and the caller's latest durable operations. It excludes credentials and owner handles. `/system/workers` is administrator-only and separates supervisor/configuration/project/run/control roles. `/ready` names unavailable server components; a missing project worker is local. Staged lower N fences admission immediately while active config remains bound to current jobs. See [Project capacity](Component_Project_Capacity.md); targeted proof is `tests/test_web_project_status.py`.

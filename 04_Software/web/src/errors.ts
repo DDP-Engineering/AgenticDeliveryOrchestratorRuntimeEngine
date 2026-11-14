@@ -10,6 +10,7 @@ import type { Locale } from "./i18n";
 export class ApiError extends Error {
   code: string;
   detail: string;
+  components?: Array<"supervisor"|"configuration">;
   constructor(code: string, detail = "") {
     super(code);
     this.name = "ApiError";
@@ -29,6 +30,8 @@ export const repositoryConnectionHelp: Record<Locale, string> = {
 /** Localized sentences for every API and client error code. */
 export const errorMessages: Record<Locale, Record<string, string>> = {
   en: {
+    project_capacity_unavailable: "Project capacity cannot be read safely. Inspect the named project data before starting work.",
+    capacity_below_occupancy: "The limit is below this project’s occupied slots. New starts already respect the lower limit; existing jobs continue.",
     recipe_invalid: "Choose a valid Dockerfile or a complete source ZIP without credentials (up to 18 MiB).",
     recipe_context_incomplete: "Include the files referenced by COPY or ADD in the source ZIP.",
     recipe_dockerfile_unsupported: "The definition contains unsupported syntax or an unresolved build argument.",
@@ -183,6 +186,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "The server sent an unexpected response.",
   },
   fr: {
+    project_capacity_unavailable: "La capacité du projet est illisible. Vérifiez les données du projet indiquées avant de démarrer.",
+    capacity_below_occupancy: "La limite est inférieure aux places occupées du projet. Les nouveaux démarrages respectent déjà la limite réduite ; les tâches continuent.",
     recipe_invalid: "Choisissez un Dockerfile valide ou un ZIP source complet sans identifiants (18 Mio maximum).",
     recipe_context_incomplete: "Incluez les fichiers référencés par COPY ou ADD dans le ZIP source.",
     recipe_dockerfile_unsupported: "La définition contient une syntaxe non prise en charge ou un argument non résolu.",
@@ -337,6 +342,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Le serveur a envoyé une réponse inattendue.",
   },
   de: {
+    project_capacity_unavailable: "Die Projektkapazität kann nicht sicher gelesen werden. Prüfen Sie die genannten Projektdaten.",
+    capacity_below_occupancy: "Das Limit liegt unter den belegten Projektplätzen. Neue Starts beachten das kleinere Limit bereits; laufende Aufträge bleiben aktiv.",
     recipe_invalid: "Wählen Sie eine gültige Dockerfile oder ein vollständiges Quell-ZIP ohne Zugangsdaten (bis 18 MiB).",
     recipe_context_incomplete: "Nehmen Sie die von COPY oder ADD verwendeten Dateien in das Quell-ZIP auf.",
     recipe_dockerfile_unsupported: "Die Definition enthält nicht unterstützte Syntax oder ein unaufgelöstes Build-Argument.",
@@ -491,6 +498,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Der Server hat eine unerwartete Antwort gesendet.",
   },
   ro: {
+    project_capacity_unavailable: "Capacitatea proiectului nu poate fi citită sigur. Verifică datele proiectului indicate înainte de pornire.",
+    capacity_below_occupancy: "Limita este sub locurile ocupate ale proiectului. Pornirile noi respectă deja limita redusă; joburile existente continuă.",
     recipe_invalid: "Alege un Dockerfile valid sau un ZIP sursă complet, fără credențiale (maximum 18 MiB).",
     recipe_context_incomplete: "Include în ZIP fișierele folosite de instrucțiunile COPY sau ADD.",
     recipe_dockerfile_unsupported: "Definiția conține sintaxă nesuportată sau un argument de construire nerezolvat.",

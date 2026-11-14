@@ -48,7 +48,7 @@ Rules that apply:
 - Identity and runtime changes also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.
 - Budget limits apply before the next attempt or resume, preserving consumed work and progress. See [Job budgets](#budgets).
 
-Navigation and browser reload ask before discarding unsaved settings edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
+Unsaved editable values stay in this browser tab for the same account and project through navigation and reload. **Discard changes** removes them; signing out clears retained drafts. Credentials stay in their separate editors. If browser storage is unavailable, keep the page open or discard the draft. A server revision change blocks Save until you discard and reload.
 
 Settings saves and checks run separately from jobs and long tool preparation. Wait for the confirmed result before treating a change as saved. Pause/Resume monitoring and cancellation signalling do not need a free job slot. An incompatible change remains prepared for this project with an explicit conflict; running jobs and other projects keep their settings.
 
@@ -84,3 +84,12 @@ If current limits cannot be read, the detail keeps saved consumption, evidence a
 
 
 **Implementation** (`build`) uses `workflow.stage_timeout_overrides` or the general `budgets.per_gate_timeout_seconds`. For AEGIS, **Validation** (`validate`) bounds the agent session too. ADORE does not run additional tests; the agent selects local and CI checks according to the repository instructions.
+
+
+## Project capacity {#project-capacity}
+
+**Active job limit** in Implementation is the project’s single parallel-job limit (`polling.max_concurrent_runs`), default **1**. Monitoring, execution backend, Docker/Podman/WSL runtime, image, preparation, agent, model, budgets and policies belong to this project. A busy project never prevents another project from saving its settings.
+
+A staged lower limit already stops new starts and resumptions until occupancy falls below it; already-running jobs continue; queued reservations wait for a current execution place. It never raises the active limit. Safe application still waits for unfinished work; the saved value and staged candidate remain visible until Save or Discard changes.
+
+Connection drafts are retained only when valid. Correct an invalid endpoint or keep it in memory; credentials never enter retained drafts.

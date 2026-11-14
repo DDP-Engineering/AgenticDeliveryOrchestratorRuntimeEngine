@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-UX-0f6e2c63"
+
+title = "Retain project settings drafts through navigation"
+
+status = "active"
+
+requirement = """
+When an administrator navigates between projects or refreshes, Settings shall restore the same account and project's unsaved editable values bound to their base revision until explicit save or discard.
+"""
+
+verification = "Edit A without saving, navigate B, refresh and return A; assert isolated values, retained invalid input and stale-revision refusal; check browser storage excludes credentials."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settingsDrafts.ts", "04_Software/web/src/projectStatus.ts", "04_Software/web/e2e/projectCapacity.spec.ts", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/web/src/help/content/en/settings.md", "04_Software/web/src/help/content/fr/settings.md", "04_Software/web/src/help/content/de/settings.md", "04_Software/web/src/help/content/ro/settings.md"]
+
+linked_tests = ["04_Software/tests/test_web_project_status.py", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/web/e2e/projectCapacity.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14
