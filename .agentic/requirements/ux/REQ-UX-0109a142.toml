@@ -16,4 +16,4 @@ linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/executo
 spec = ""
 priority = "normal"
 created = 2026-10-07
-updated = 2026-10-07
+updated = 2026-11-14

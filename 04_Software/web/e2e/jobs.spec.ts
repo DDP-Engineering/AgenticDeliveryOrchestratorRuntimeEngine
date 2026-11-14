@@ -25,9 +25,31 @@ test.beforeEach(async ({ request }) => {
   expect(response.ok()).toBe(true);
 });
 test.afterEach(async ({ request, page }) => {
-  await page.goto("about:blank");
-  const response = await request.post("/__e2e__/jobs?mode=reset", { headers: { "X-ADORE-E2E": "local-test" } });
-  expect(response.ok()).toBe(true);
+  // Only teardown ignores late callbacks: active-body route errors still fail the test.
+  // Waiting for all handlers would hang on deliberately held response fixtures.
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  try {
+    await page.goto("about:blank", { timeout: 5_000 });
+  } finally {
+    try {
+      const session = await page.request.get("/api/v1/me", { timeout: 5_000 });
+      if (session.status() !== 401) {
+        expect(session.ok()).toBe(true);
+        const me = await session.json();
+        const reset = await page.request.patch("/api/v1/me/preferences", {
+          headers: { "X-CSRF-Token": me.csrf },
+          data: { language: "en", theme: "light" }, timeout: 5_000,
+        });
+        expect(reset.ok()).toBe(true);
+        expect(await reset.json()).toMatchObject({ language: "en", theme: "light" });
+      }
+    } finally {
+      const response = await request.post("/__e2e__/jobs?mode=reset", {
+        headers: { "X-ADORE-E2E": "local-test" }, timeout: 5_000,
+      });
+      expect(response.ok()).toBe(true);
+    }
+  }
 });
 
 test("LA-02 live append, hidden views and history selection keep cursor state", async ({page}) => {
@@ -1117,14 +1139,33 @@ test("host prerequisite explanations support four locales and dark theme", async
   await signIn(page);
   for (const [locale, status] of [["fr", "! Intervention nécessaire"], ["de", "! Handlung erforderlich"], ["ro", "! Necesită intervenție"], ["en", "! Action needed"]]) {
     await page.goto("/account");
-    await page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale);
+    const [saved] = await Promise.all([
+      page.waitForResponse(response => response.url().endsWith("/api/v1/me/preferences") &&
+        response.request().method() === "PATCH" && response.request().postDataJSON()?.language === locale),
+      page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale),
+    ]);
+    expect(saved.ok()).toBe(true);
+    expect(await saved.json()).toMatchObject({ language: locale });
+    await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await page.goto("/projects/alpha");
     await page.getByRole("button", { name: /Check host prerequisites|Vérifier les prérequis|Host-Voraussetzungen prüfen|Verifică cerințele gazdei/ }).click();
     await expect(page.locator(".readiness-result").filter({hasText:status})).toBeVisible();
     await expect(page.locator(".readiness-metadata")).toHaveCount(0);
   }
-  await page.goto("/account"); await page.getByLabel("Theme", { exact: true }).selectOption("dark");
-  await page.goto("/projects/alpha"); await page.getByRole("button", { name: /Check host prerequisites|Vérifier les prérequis|Host-Voraussetzungen prüfen|Verifică cerințele gazdei/ }).click();
+  await page.goto("/account");
+  const [savedTheme] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith("/api/v1/me/preferences") &&
+      response.request().method() === "PATCH" && response.request().postDataJSON()?.theme === "dark"),
+    page.getByLabel("Theme", { exact: true }).selectOption("dark"),
+  ]);
+  expect(savedTheme.ok()).toBe(true);
+  expect(await savedTheme.json()).toMatchObject({ theme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.goto("/projects/alpha");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
+  await expect(page.locator(".readiness-result").filter({ hasText: "! Action needed" })).toBeVisible();
+  await expect(page.locator(".readiness-metadata")).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("readiness-dark.png"), fullPage: true });
 });
 

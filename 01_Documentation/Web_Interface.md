@@ -334,10 +334,14 @@ The suite covers sign-in/out, incorrect credentials, admin/developer and
 project access, CSRF, configuration staging/applying and stale revisions,
 route reload/Back, a 390px viewport and worker success/failure/idempotency.
 It uses one worker, no retries, a default 30-second per-test timeout and a
-30-minute browser-suite limit. The statistics journey covering four locales
+45-minute browser-suite limit. The statistics journey covering four locales
 and both themes has a 60-second case budget and restores account preferences
 in afterEach, including after failure. The test server has a fixture-only shutdown route so
-normal teardown also removes its temporary home on Windows. Forced termination
+normal teardown also removes its temporary home on Windows. Jobs fixtures detach
+page routes only in afterEach so held responses cannot stall cleanup or leak
+cancellation errors into the next test. Bounded authenticated cleanup restores
+English/light even after a failed test; readiness locale/theme changes await
+confirmed persistence before navigation. Forced termination
 can leave an `adore-e2e-*` directory in the system temporary directory.
 
 Failures retain screenshots and traces under `web/test-results/`. The HTML

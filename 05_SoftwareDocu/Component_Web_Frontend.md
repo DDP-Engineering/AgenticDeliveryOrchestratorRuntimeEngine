@@ -806,11 +806,17 @@ acceptance. API and external command boundaries remain simulated offline.
 
 `npm run validate` runs the Node helper suite, UI/E2E TypeScript checks,
 an isolated Vite build in `.e2e-dist` and the Playwright Chromium journeys.
-`playwright.config.ts` bounds the complete browser suite to 1800 seconds, with
+`playwright.config.ts` bounds the complete browser suite to 2700 seconds (45 minutes), with
 default 30-second test and 10-second assertion limits, one worker and no retries;
 the eight-way statistics locale/theme journey has a 60-second test budget.
 Locale journeys await the successful preference-save response so their final
-English restore persists before the disposable browser context closes.
+English restore persists before the disposable browser context closes. Jobs
+teardown detaches page routes with ignoreErrors only after the body ends, without
+waiting for intentionally held responses; errors raised during the active body
+remain test failures. Five-second navigation/API deadlines bound page shutdown,
+authenticated CSRF preference restoration to English/light and job-fixture reset.
+Readiness locale/theme checks await confirmed saves and assert dark theme before
+and after navigation.
 It owns failure
 screenshots/traces and the private fixture server. `e2e/server.py` creates
 temporary profiles, identity/state stores and a real API/worker with simulated

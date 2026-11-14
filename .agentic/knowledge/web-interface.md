@@ -56,6 +56,14 @@ budget. Its file-scoped afterEach restores authenticated English/light preferenc
 through bounded CSRF-checked API requests, including after a body timeout;
 suite, navigation, action and assertion limits remain unchanged.
 
+The complete offline Chromium suite has a45-minute total limit; ordinary case,
+action, navigation and assertion limits remain unchanged. Jobs afterEach detaches
+page routes without waiting for intentionally held callbacks, then uses bounded
+navigation/authenticated API cleanup to restore English/light and reset jobs.
+Only teardown ignores detached-handler errors; active-body errors still fail.
+Readiness locale/theme saves are confirmed before navigation, with dark DOM
+assertions both before and after it. Historical30-minute proof records stay unchanged.
+
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 
 Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics → Agent and model**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Agent and model groups executor settings in Settings. Interval, jitter and backoff remain visible; standalone CLI startup mode (`polling.mode`) stays in TOML/raw configuration and the effective catalog. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
