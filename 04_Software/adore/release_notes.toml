@@ -17,6 +17,11 @@ version = "Unreleased"
 
 
 [[release.entry]]
+category = "fixed"
+topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
+text = { en = "Recorded messages without a message time are displayed correctly.", fr = "Les messages enregistrés sans heure s’affichent correctement.", de = "Aufgezeichnete Nachrichten ohne Zeitangabe werden korrekt angezeigt.", ro = "Mesajele înregistrate fără ora mesajului sunt afișate corect." }
+
+[[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "Jobs and Tickets are separate; job budgets sit beside paginated activity.", fr = "Travaux et Tickets sont séparés ; les budgets accompagnent l’activité paginée.", de = "Jobs und Tickets sind getrennt; Jobbudgets stehen neben der paginierten Aktivität.", ro = "Lucrări și Tichete sunt separate; bugetele stau lângă activitatea paginată." }

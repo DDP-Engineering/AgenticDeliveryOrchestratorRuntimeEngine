@@ -1699,3 +1699,8 @@ are omitted to prevent duplicates. Recorded messages carry optional at/instructi
 fields, validated at the browser boundary. Text is not shortened by the reader within
 its 16 MiB item bound; the existing 32 MiB producer and 64 MiB source ceilings remain.
 Historical evidence is displayed as recorded; missing text is never reconstructed.
+
+Optional session message time is validated only when present. Its absence means
+unknown time and does not invalidate an otherwise readable JSONL record. Explicitly
+malformed times still produce a refused-record notice. Damaged or previously truncated
+source text is not reconstructed by this correction.

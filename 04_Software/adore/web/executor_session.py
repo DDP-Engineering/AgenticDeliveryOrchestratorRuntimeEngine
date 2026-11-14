@@ -368,7 +368,7 @@ def read_session(run: Path, attempt_id: str, cursor: int = 0, limit: int = 200,
                     try:
                         record = _object(line, "job_evidence_corrupt")
                         batch = _items(record, include_cost)
-                        stamp = _stamp(record.get("adore_at"), "job_evidence_corrupt")
+                        stamp = _stamp(record.get("adore_at", ""), "job_evidence_corrupt")
                         if stamp:
                             for item in batch:
                                 item["at"] = stamp

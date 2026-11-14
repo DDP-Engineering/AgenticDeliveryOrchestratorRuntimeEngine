@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep valid session records readable when their optional message timestamp is absent.
+
 - Restore concise four-locale repository URL and project-identity guidance in enrollment with accessible field associations.
 
 - Keep project identity visible through brief Windows metadata read contention and refuse unreadable identity scans.
