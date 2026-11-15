@@ -25,13 +25,23 @@ Key components:
   operator surfaces;
 - `tests/` - fully offline unit/contract suite.
 
-Run locally:
+Prepare the source environment from the repository root:
 
 ```text
-python -m pip install -e ".[dev]"
-python -m pytest -q
-python -m ruff check adore tests
+python 02_Tools/setup/setup_development_environment.py
+python 02_Tools/build/build_web_assets.py
 ```
+
+The setup command installs the locked Python web/development dependency groups
+and frontend dependencies. Development dependencies are a dependency group,
+not a `dev` package extra. See the [tools guide](../02_Tools/README.md) for
+package creation and optional source-checkout services.
+
+`config.example.toml` is the source template. A local `config.toml` and `.env`
+are ignored by Git. Keep user data, worktrees and credentials out of commits.
+The application sources, prompts, Pi helpers, container recipe assets and
+compiled `adore/web/static/` bundle are required package inputs. Python/frontend
+caches and browser-test reports can be regenerated.
 
 Repositories with AEGIS use its installed companion and schema-1 contract;
 `adore/aegis.py` defines the supported version range. Repositories without AEGIS

@@ -578,7 +578,7 @@ Bei Bestätigung der geführten Registrierung oder eines Konfigurationsimports b
 
 ## Originalkonfiguration importieren {#import-project}
 
-Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei \`config.toml\`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau.
+Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei \`config.toml\`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau. Nur aktuelle Konfigurationsschlüssel werden akzeptiert. Entfernen Sie jeden von der Prüfung genannten nicht unterstützten Schlüssel; ADORE verändert die Datei nicht.
 
 Wählen Sie die vollständige exportierte ZIP direkt: Konfiguration und Image-Definitionen werden zusammen importiert. ADORE prüft auch den Quellgraphen, die Image-Zuordnung und vorhandene Definitionen. Eine andere Definition mit demselben Root-Image-Namen wird abgelehnt. TOML-Dateien dürfen bis zu 512 KiB, ZIPs bis zu 18 MiB groß sein. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei. Siehe [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml).
 
@@ -1432,7 +1432,7 @@ When you confirm guided enrollment or a raw import, ADORE prepares missing share
 
 ## Import raw configuration {#import-project}
 
-In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 \`config.toml\` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes.
+In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 \`config.toml\` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes. Only current configuration keys are accepted. Remove each unsupported key named by validation; ADORE leaves the file unchanged.
 
 Select a complete exported ZIP directly; its configuration and image definitions are imported together. ADORE also checks the source graph, image correspondence and existing definitions. A different definition already using the root image name is refused. TOML files may be up to 512 KiB and ZIPs up to 18 MiB. Use the included Compose file to build images separately on the destination server. See [Settings → Export raw configuration](/help/settings#toml).
 
@@ -2286,7 +2286,7 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 
 ## Importer la configuration brute {#import-project}
 
-Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 \`config.toml\` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.
+Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 \`config.toml\` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration. Seules les clés de configuration actuelles sont acceptées. Supprimez chaque clé non prise en charge indiquée par la validation ; ADORE ne modifie pas le fichier.
 
 Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).
 
@@ -3141,7 +3141,7 @@ La confirmarea înrolării ghidate sau a unui import de configurație, ADORE pre
 
 ## Importă configurația brută {#import-project}
 
-În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog ZIP-ul exportat sau fișierul UTF-8 \`config.toml\`. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează configurația octet cu octet.
+În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog ZIP-ul exportat sau fișierul UTF-8 \`config.toml\`. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează configurația octet cu octet. Sunt acceptate doar cheile configurației curente. Elimină fiecare cheie nesuportată indicată de validare; ADORE păstrează fișierul nemodificat.
 
 Selectează direct ZIP-ul exportat complet: configurația și definițiile imaginilor sunt importate împreună. ADORE verifică și graful surselor, corespondența imaginii și definițiile existente. O definiție diferită care folosește deja numele imaginii principale este refuzată. Fișierele TOML pot avea până la 512 KiB, iar ZIP-urile până la 18 MiB. Construiește imaginile separat pe serverul destinație, folosind fișierul Compose inclus. Vezi [Setări → Exportă configurația brută](/help/settings#toml).
 

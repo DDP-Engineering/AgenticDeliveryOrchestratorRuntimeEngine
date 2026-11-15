@@ -851,12 +851,14 @@ def test_cost_cap_zero_is_explicit_opt_out_and_invalid_inputs_fail_closed(tmp_pa
 
 
 @pytest.mark.parametrize("legacy", ['"npm test"', 'true', '["old"]'])
-def test_removed_direct_check_is_ignored_without_rewriting_profile(tmp_path, legacy):
+def test_removed_direct_check_is_refused_without_rewriting_profile(tmp_path, legacy):
+    """@brief Removed settings fail closed and leave the operator's file unchanged."""
     text = MINIMAL_VALID + '\n[workflow]\nverify_command = ' + legacy + '\n'
     path = tmp_path / "config.toml"
     path.write_text(text, encoding="utf-8")
     config = load_config(path)
     assert not hasattr(config.workflow, "verify_command")
     assert "verify_command" not in config.to_dict()["workflow"]
-    assert not any("verify_command" in issue for issue in validate_config(config))
+    expected = "[workflow] unknown key 'verify_command': remove it from config.toml"
+    assert expected in validate_config(config)
     assert path.read_text(encoding="utf-8") == text

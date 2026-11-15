@@ -11,9 +11,10 @@ ADORE guides agents and observes their recorded workflow. AEGIS completion is
 read from the task journal; Direct completion comes from the implementation
 session and its summary. Tests and their local/CI selection belong to the agent.
 ADORE does not invoke `check --strict --run` or run a separately configured test
-command. Candidate fingerprints, target freshness and fresh human approval remain
-required before publication. Old `workflow.verify_command` values are ignored
-without rewriting profiles and cannot be edited through the API.
+command. Candidate fingerprints and target freshness remain required before
+publication, together with fresh human approval when project settings require it.
+Unknown configuration keys are refused with a removal instruction. Configuration
+validation never rewrites the operator's file.
 
 `configurationTasks.ts` consumes accepted configuration operations from the existing
 Settings, recipe, enrollment/import and shared ChatGPT callers. It polls the exact

@@ -51,6 +51,12 @@ build context rules and export manifest. It builds an agent environment, not the
 user application archive. See its [image instructions](build/executor_images/adore/README.md).
 Build images explicitly with a scratch tag when active jobs use the existing tag.
 
+`build/verify_container_runtime.sh` is an explicit live check for Docker/Podman.
+Run it on the Linux execution host or inside WSL. It uses the recipe assets in
+`04_Software/docker/`, creates scratch resources and can build an absent image.
+It is separate from setup, packaging and automated product tests. Usage is in
+the [container guide](../04_Software/docker/README.md#verify-a-container-runtime).
+
 ## Package
 
 ```text

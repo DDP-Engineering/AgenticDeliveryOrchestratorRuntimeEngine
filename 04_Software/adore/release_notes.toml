@@ -15,6 +15,11 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+[[release.entry]]
+category = "fixed"
+topic = { en = "Configuration", fr = "Configuration", de = "Konfiguration", ro = "Configurare" }
+text = { en = "Removed settings are rejected with a clear instruction to delete them.", fr = "Les paramètres supprimés sont refusés avec une indication claire pour les retirer.", de = "Entfernte Einstellungen werden mit einem klaren Hinweis zum Löschen abgewiesen.", ro = "Setările eliminate sunt respinse cu o indicație clară pentru ștergerea lor." }
+
 [[release]]
 version = "0.16.0"
 date = "2026-11-15"

@@ -62,8 +62,8 @@ Checksum offers change detection only. Input errors never echo source values.
 Admin-only `/config/portable-settings` exports one authoritative active snapshot.
 Optional checksum binding returns a conflict if included values/source changed;
 the API rechecks immutable project ownership after reading/exporting the snapshot.
-The keyed localized browser panel explicitly previews, then fetches and validates
-the unchanged canonical server bytes for download; pending records are not read.
+Portable JSON export is an administrator API operation. The browser exposes
+server-ready TOML and image-source export, not a separate portable JSON panel.
 Target enrollment must supply and confirm target-host configuration separately.
 
 ## 9. Validation And Tests
@@ -72,9 +72,9 @@ Target enrollment must supply and confirm target-host configuration separately.
 projection, nested exclusion, strict schemas/types/bounds, source compatibility,
 duplicates, corrupt checksums/encoding/size/depth. `test_web_portable_settings.py`
 proves Admin snapshot/download and preview binding, Dev/session denial before IO,
-missing/corrupt source errors and pending omission. Frontend helper and offline
-Chromium tests prove safe transport, explicit/failed/late reads, exact downloads,
-four locales and keyboard/390px themes. Live acceptance remains human work.
+missing/corrupt source errors and pending omission. Offline Chromium scenarios
+cover the current raw-configuration export/import interface. Live acceptance
+remains human work.
 
 ## 10. Limitations
 

@@ -6,7 +6,7 @@
 # See the LICENSE.txt file for full license details.
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
-# @file    verify-runtime.sh
+# @file    verify_container_runtime.sh
 # @brief   Live verification pass for a container runtime (docker or podman).
 # @details Mirrors, flag for flag, every runtime CLI call ADORE's
 #          ContainerManager makes (adore/isolation.py) against a scratch git
@@ -24,7 +24,7 @@
 #          Rootless podman note: on SELinux hosts (Fedora/RHEL) bind mounts
 #          may additionally need :z/:Z labels - not needed on Ubuntu; a
 #          finding here would be an ADORE config addition, record it.
-# @usage   RUNTIME=podman ./verify-runtime.sh     (default: RUNTIME=docker)
+# @usage   RUNTIME=podman bash 02_Tools/build/verify_container_runtime.sh
 #          RUN_ARGS="..." extra `run` option tokens, mirroring ADORE's
 #          [container] run_args (rootless podman needs
 #          RUN_ARGS="--userns=keep-id" - live finding 2026-07-04: without it
@@ -32,7 +32,7 @@
 #          bind-mounted worktree).
 #          IMAGE=<tag> overrides the image (default
 #          adore-executor-base:1.0.0); the default base image is built from
-#          Dockerfile.executor-base in this directory if absent.
+#          04_Software/docker/Dockerfile.executor-base if absent.
 #          REQUIRED_TOOL_CHECKS="make --version;terraform --version" adds
 #          runtime-project image checks. EGRESS_MODE=open|none|allowlist-proxy
 #          verifies the new network posture; in proxy mode, ALLOWLIST is a
@@ -44,8 +44,8 @@
 #          them. Verifying with "off" there fails on permission denied, which
 #          is the real host behaviour, not a script defect.
 # @author  Eng. Dan Dumitru Pasare
-# @date    2026-09-18
-# @version 0.6.0
+# @date    2026-11-15
+# @version 0.16.0
 # -----------------------------------------------------------------------------
 # shellcheck disable=SC2015  # `check && ok || bad` is safe: ok is a bare echo
 set -euo pipefail
@@ -68,6 +68,7 @@ PI_GUARD="/opt/adore/pi/adore-guard.ts"
 PI_CHATGPT="/opt/adore/pi/adore-chatgpt.mjs"
 PI_AGENT_DIR="/home/adore/.adore-pi-agent"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ASSET_DIR="$(cd "${SCRIPT_DIR}/../../04_Software/docker" && pwd)"
 NAME="adore-verify-$$"
 PROXY_NAME="${NAME}-egress-proxy"
 EGRESS_NETWORK="adore-verify-egress-$$"
@@ -124,7 +125,7 @@ if "${RT[@]}" image inspect "${IMAGE}" >/dev/null 2>&1; then
     ok
 else
     echo "absent - building (this takes a few minutes)"
-    "${RT[@]}" build -f "${SCRIPT_DIR}/Dockerfile.executor-base" -t "${IMAGE}" "${SCRIPT_DIR}"
+    "${RT[@]}" build -f "${ASSET_DIR}/Dockerfile.executor-base" -t "${IMAGE}" "${ASSET_DIR}"
 fi
 
 if [ "${EGRESS_MODE}" = "allowlist-proxy" ]; then
@@ -133,8 +134,8 @@ if [ "${EGRESS_MODE}" = "allowlist-proxy" ]; then
         ok
     else
         echo "absent - building"
-        "${RT[@]}" build -f "${SCRIPT_DIR}/Dockerfile.egress-proxy" \
-            -t "${PROXY_IMAGE}" "${SCRIPT_DIR}" >/dev/null && ok || bad "proxy image build"
+        "${RT[@]}" build -f "${ASSET_DIR}/Dockerfile.egress-proxy" \
+            -t "${PROXY_IMAGE}" "${ASSET_DIR}" >/dev/null && ok || bad "proxy image build"
     fi
 fi
 

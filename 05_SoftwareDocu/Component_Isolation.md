@@ -331,26 +331,12 @@ result = containers.exec("adore-run-gitlab-x-14", ["pi", "--version"])
   candidate fingerprint that binds validation and optional approval, and one push of the validated
   candidate at publication.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
-- `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime. Its
-  open-egress path covers 17 steps and its allowlist-proxy path covers 21,
-  mirroring every runtime CLI call this component makes: mount/env shape,
-  bare-key secrets, HOME inline, executor-base tool usability, proxy allow and
-  deny behavior, optional runtime-project tool checks, in-container git with
-  host-visible commits, park/resume, listing, reap, and absence. The ADORE
-  1.0.0 images passed Docker open mode (17/17), Docker allowlist-proxy mode
-  (21/21), and rootless Podman open mode (17/17) on 2026-07-16.
-- **Live verification done 2026-07-03** (Docker Engine in WSL2, scratch repo,
-  19/19 steps): image build and
-  tooling checks, WSLENV secret propagation, git status/commit **inside** the
-  container via the GIT_DIR/GIT_WORK_TREE model with the commit visible on
-  the host under bot authorship, park -> resume with state intact, full
-  teardown.
-- **Internet switch, live 2026-11-03** (Docker Engine in WSL2): internet off
-  reached the model provider through the per-run proxy, while
-  `curl https://example.com` got 403 from the proxy, `npm install` was refused
-  and `web_search` was not available; internet on searched through Exa, read a
-  Wikipedia page with `fetch_content`, and `npm install` and `pip install`
-  succeeded.
+- `02_Tools/build/verify_container_runtime.sh` is the explicit live runtime
+  check. It resolves canonical image inputs from `04_Software/docker/`, creates
+  scratch resources and checks mount/environment behavior, pinned tools, Git
+  worktrees, container parking/resume, listing, cleanup and absence detection.
+  Its allowlist-proxy mode also checks allowed and refused network requests.
+  It is not part of automated product tests or package creation.
 
 ## 10. Limitations And Future Work
 

@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Source-checkout configuration belongs to the local operator.
+04_Software/config.toml
+
 # ADORE runtime state and artifacts
 .adore/
 worktrees/

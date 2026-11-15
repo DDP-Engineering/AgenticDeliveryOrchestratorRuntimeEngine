@@ -213,7 +213,7 @@ in depth: the boundary stays that no forge credential is in the container.
   `/opt/pi`, the guard at `/opt/adore/pi/adore-guard.ts`, ADORE's ChatGPT
   helper at `/opt/adore/pi/adore-chatgpt.mjs` and the agent
   directory `/home/adore/.adore-pi-agent` (`docker/Dockerfile.executor-base`;
-  `docker/verify-runtime.sh` checks the versions and that the helper loads the
+  `02_Tools/build/verify_container_runtime.sh` checks the versions and that the helper loads the
   pinned Pi). `adore.chatgpt` supplies a ChatGPT stage's access token.
   pi-web-access is loaded only for an internet-on stage with a search provider;
   the network itself is the isolation component's `EgressPolicy`.

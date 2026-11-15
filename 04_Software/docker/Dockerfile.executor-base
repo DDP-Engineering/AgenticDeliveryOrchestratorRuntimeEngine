@@ -18,7 +18,7 @@
 
 FROM ubuntu:22.04
 
-# Pinned tool versions - bump deliberately, in one place. verify-runtime.sh
+# Pinned tool versions - bump deliberately, in one place. verify_container_runtime.sh
 # checks the Node, Pi and pi-web-access versions against the same values.
 # Node 22 LTS: Pi 1.x needs >= 22.19.0; the official tarball is checked against
 # its published SHA-256.

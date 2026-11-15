@@ -14,6 +14,12 @@ The nonempty `labels.selection.type_epic` value names the ticket label excluded 
 `adore/config.py` loads typed TOML and rejects unsafe or ambiguous ADORE
 settings before a poll starts.
 
+Every declared key must belong to the current configuration contract. Removed
+keys, including `workflow.verify_command`, are reported by validation with the
+exact field to remove. Loading preserves the original input for that validation;
+it never drops old fields or rewrites the operator's file. The example contains
+operational settings and omits reserved fields that do not affect execution.
+
 
 `delivery.reviewers` is a list of forge account names (empty requests no review), each 1–255 characters without whitespace, controls or a leading option prefix. Configuration validation rejects malformed lists before forge CLI invocation. Review requests are independent of candidate publication approval and repository merge permissions.
 
