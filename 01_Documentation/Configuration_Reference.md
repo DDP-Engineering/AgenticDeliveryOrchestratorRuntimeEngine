@@ -220,7 +220,8 @@ runtime already labels them. The private `Z` label is rejected: it labels
 content per container, and the clone is shared by every run and by host git, so
 `Z` would bind the clone to one container and break the next run.
 
-Each stage uses a fresh Pi RPC session. Parked containers are stopped and retained for resume
+Each job uses one persistent Pi implementation conversation, resumed by bounded
+RPC processes at stage/attempt boundaries without an additional setting. Parked containers are stopped and retained for resume
 or explicit cleanup. The accepted `container.keep_parked`,
 `parked_ttl_mode`, `parked_ttl_seconds`, and `parked_ttl_polls` settings are
 reserved and do not currently change that behavior.

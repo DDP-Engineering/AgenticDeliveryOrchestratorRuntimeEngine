@@ -39,15 +39,30 @@ payload is refused; ADORE does not install or change it.
 | AEGIS quick | Frame → Build → Validate → Done | The same journal contract; the executor justifies the quick path. |
 | Direct | Implementation (`build`) → Validation (`validate`) → Done | Product changes and the retained implementation summary. |
 
-An AEGIS stage uses a fresh bounded session. A permitted return to an earlier
-stage continues from the journal. Supported version/schema policy is defined in
+One Pi implementation conversation belongs to each job. Each AEGIS stage runs
+in a bounded RPC process; later stages, continuations and corrections restart
+RPC with that same exact conversation. A permitted return to an earlier stage
+continues from the journal and retained Pi context. Supported version/schema policy is defined in
 `04_Software/adore/aegis.py`; retired stage names are refused.
 
 Direct implementation reads the repository instructions and writes
 `ADORE_SUMMARY.md`. ADORE retains the summary and excludes the summary/questions
 exchange files from the candidate. Summary-only work is not a product change.
 Checks remain agent-reported; Direct does not claim independent verification.
-Clarification and review revisions use fresh sessions in either workflow.
+Clarification and review revisions resume the same job conversation in either
+workflow. Pi provides its own persistence and automatic compaction. The first
+prompt supplies the ticket; later prompts supply the current stage and new
+instructions, with changed ticket content supplied again when needed.
+Independent reviewers use separate contexts only when the repository enables
+them through its existing AEGIS review policy. Stage checkpoints, failed-attempt
+limits, cancellation and per-attempt ChatGPT token renewal still apply.
+
+Private history lives under `runs/<run-id>/io/pi-conversation/`, outside Git.
+ADORE checks its exact identity before prompting. Missing or corrupt required
+history stops the job; inspect it, or use the existing job deletion action and
+start a new job. It is never silently replaced or selected from account history.
+Agent sessions continues to show individual recorded attempts; prior history is
+not replayed into each attempt, and previous token usage is not counted again.
 
 ## Runtime project contract
 

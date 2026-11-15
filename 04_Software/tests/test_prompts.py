@@ -70,7 +70,8 @@ def resources(tmp_path, monkeypatch, prompts):
 # PUBLIC API
 @pytest.mark.parametrize("case", BASELINE["cases"], ids=lambda c: (
     f"{c['stage']}-{c['quick']}-{c['packages']}-{c['mode']}-{c['extra']}"))
-def test_stage_bytes(tmp_path, case):
+@pytest.mark.parametrize("continuing", [False, True])
+def test_stage_bytes(tmp_path, case, continuing):
     """@brief Preserve historical captures; mode here is requested, not effective.
 
     @note All historical container captures used internet=False, hence the
@@ -87,8 +88,18 @@ def test_stage_bytes(tmp_path, case):
     engine.config.container.egress.mode = "open" if case["mode"] == "native" else case["mode"]
     actual = engine._stage_prompt(run, forge.ticket, task(case["stage"]),
                                  values["context"] if case["extra"] else "",
-                                 values["thread"] if case["extra"] else "")
-    assert actual.encode("utf-8") == case["expected"].encode("utf-8")
+                                 values["thread"] if case["extra"] else "",
+                                 continuing=continuing)
+    if not continuing:
+        assert actual.encode("utf-8") == case["expected"].encode("utf-8")
+    else:
+        assert values["title"] not in actual and values["description"] not in actual
+        assert "Continue this job's existing implementation conversation" in actual
+        assert f"current stage: {case['stage']}" in actual
+        assert "Required independent" not in actual  # Policy lives in the stage boundary.
+        assert "reviewers keep separate contexts" in actual
+        if case["extra"]:
+            assert values["context"] in actual and values["thread"] in actual
 
 
 def test_network_oracle_covers_effective_policies():
@@ -149,7 +160,7 @@ def test_all_shipped_fragments_match_original_bytes(prompts):
     inventory = {p.relative_to(prompts.PROMPT_ROOT).as_posix()
                  for p in prompts.PROMPT_ROOT.rglob("*.md")}
     assert inventory == set(BASELINE["fragments"]) | {
-        "direct/implementation.md", "live/instruction.md",
+        "direct/implementation.md", "live/instruction.md", "stage/resume.md",
     }
     assert inventory == set(prompts.FRAGMENTS)
     assert catalog.render("live/instruction.md", user="Author $user", text="  $text\n🙂") == (

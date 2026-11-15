@@ -8,7 +8,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Planning
 
 This folder is reserved for explicitly requested planning and design work.
-It currently contains no active plans.
+Current plan:
+
+- [One Pi conversation per job](2026-11-15_Pi_Job_Conversation_Implementation_Plan.md):
+  implemented persistent context (TASK-1d2c5b87), with existing ADORE stage controls and
+  conditional independent AEGIS reviews, without a convergence controller.
 
 Current user and technical documentation lives in
 [01_Documentation](../01_Documentation/README.md). Component documentation lives

@@ -79,8 +79,14 @@ class FakePi:
 
     def __call__(self, argv: list[str], env: dict[str, str]) -> subprocess.Popen:
         self.argv, self.env = list(argv), dict(env)
+        command = list(self.command)
+        if "--session" in argv:
+            session = argv[argv.index("--session") + 1]
+            host = str(self.record.parent / "io/pi-conversation/session.jsonl")
+            command.extend(["--session-file", host, "--session-path", session,
+                            "--session-cwd", "/adore/work"])
         process = subprocess.Popen(  # noqa: S603 - fixed test argv
-            self.command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
         self.processes.append(process)
         return process
@@ -406,8 +412,14 @@ def test_guard_blocks_publication_commands_in_rpc_mode(tmp_path: Path) -> None:
     assert result.tool_calls == 5 and result.blocked_tools == 4
 
 
-def test_pi_executor_launches_an_isolated_rpc_process(tmp_path: Path) -> None:
-    """@brief A container launch uses RPC mode, isolation flags and the guard."""
+@pytest.mark.parametrize("fault", ["none", "missing", "json", "foreign-id", "cwd",
+                                 "version", "hardlink", "binding", "partial", "rpc-path",
+                                 "rpc-id", "baseline", "binding-owner", "linked-directory",
+                                 "header-only", "missing-binding", "unknown-entry",
+                                 "bad-compaction", "bad-compaction-ref", "bad-compaction-tokens",
+                                 "bad-compaction-summary", "valid-compaction", "self-compaction"])
+def test_pi_executor_launches_an_isolated_rpc_process(tmp_path: Path, fault) -> None:
+    """@brief Exact job history resumes across RPC restarts and fails closed on corruption."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     executor = PiExecutor("openai/gpt-5.6-luna")
@@ -415,7 +427,9 @@ def test_pi_executor_launches_an_isolated_rpc_process(tmp_path: Path) -> None:
                             archive_stem="build-attempt-1")
     assert run.ok and not run.timed_out
     assert fake.argv[:2] == ["node", CONTAINER_PI_CLI]
-    for flag in ("--no-session", "--no-approve", "--no-skills", "--no-extensions",
+    assert "--session" in fake.argv
+    assert "--no-session" not in fake.argv and "--continue" not in fake.argv
+    for flag in ("--no-approve", "--no-skills", "--no-extensions",
                  "--no-prompt-templates", "--no-themes", "--no-mcp"):
         assert flag in fake.argv
     assert fake.argv[fake.argv.index("--mode") + 1] == "rpc"
@@ -437,6 +451,112 @@ def test_pi_executor_launches_an_isolated_rpc_process(tmp_path: Path) -> None:
     archives = list((io_dir / ARCHIVE_DIR).iterdir())
     assert len(archives) == 1 and (archives[0] / OUTPUT_FILE).is_file()
     assert executor.cancel_grace_seconds(SpawnTarget(fake)) is not None
+    session = io_dir / "pi-conversation/session.jsonl"
+    before = session.read_bytes()
+    header = json.loads(before.splitlines()[0])
+    assert header["cwd"] == "/adore/work"
+    assert fake.argv[fake.argv.index("--session") + 1] == (
+        "/adore/io/pi-conversation/session.jsonl")
+    if fault in {"valid-compaction", "self-compaction"} or fault.startswith("bad-compaction"):
+        previous = json.loads(before.splitlines()[-1])["id"]
+        kept = "compacted" if fault == "self-compaction" else json.loads(
+            before.splitlines()[1])["id"]
+        compaction = {"type": "compaction", "id": "compacted", "parentId": previous}
+        if fault != "bad-compaction":
+            compaction.update(summary="Retain the prior job fact", tokensBefore=1234,
+                              firstKeptEntryId=kept)
+        if fault == "bad-compaction-ref":
+            compaction["firstKeptEntryId"] = "foreign-entry"
+        elif fault == "bad-compaction-tokens":
+            compaction["tokensBefore"] = True
+        elif fault == "bad-compaction-summary":
+            compaction["summary"] = None
+        session.write_bytes(before + json.dumps(compaction).encode() + b"\n")
+        if not fault.startswith("bad-compaction"):
+            fault = "none"
+    if fault in {"rpc-path", "rpc-id", "baseline"}:
+        from adore.isolation import IsolationError
+        fake.command.extend(["--bad-session-state", {"rpc-path": "path", "rpc-id": "id",
+                                                    "baseline": "tokens"}[fault]])
+        if fault == "baseline":
+            refused = executor.run_gate(SpawnTarget(fake), worktree, io_dir, "Must not send",
+                                        archive_stem="validate-attempt-1", timeout=5)
+            assert not refused.ok and "baseline" in refused.stderr
+        else:
+            with pytest.raises(IsolationError, match="conversation"):
+                executor.run_gate(SpawnTarget(fake), worktree, io_dir, "Must not send",
+                                  archive_stem="validate-attempt-1", timeout=5)
+        assert len([c for c in fake.commands() if c["type"] == "prompt"]) == 1
+        assert fake.all_exited()
+        return
+    if fault != "none":
+        if fault == "missing":
+            session.unlink()
+        elif fault == "json":
+            session.write_bytes(before + b"not json\n")
+        elif fault in {"foreign-id", "cwd", "version"}:
+            key = {"foreign-id": "id", "cwd": "cwd", "version": "version"}[fault]
+            header[key] = 2 if fault == "version" else "foreign-job"
+            session.write_bytes(json.dumps(header).encode() + b"\n" + before.split(b"\n", 1)[1])
+        elif fault == "binding":
+            (io_dir / "pi-conversation/binding.json").write_bytes(b'{}')
+        elif fault == "missing-binding":
+            (io_dir / "pi-conversation/binding.json").unlink()
+        elif fault == "header-only":
+            session.write_bytes(before.split(b"\n", 1)[0] + b"\n")
+        elif fault == "unknown-entry":
+            session.write_bytes(before + json.dumps({"type": "unrecognized", "id": "new",
+                                                    "parentId": None}).encode() + b"\n")
+        elif fault == "binding-owner":
+            receipt = io_dir / "pi-conversation/binding.json"
+            record = json.loads(receipt.read_text(encoding="utf-8"))
+            record["io"] = str(tmp_path / "another-job/io")
+            receipt.write_text(json.dumps(record), encoding="utf-8")
+        elif fault == "linked-directory":
+            import os
+            directory = io_dir / "pi-conversation"
+            saved = io_dir / "saved-conversation"
+            directory.rename(saved)
+            if os.name == "nt":
+                import _winapi
+                _winapi.CreateJunction(str(saved), str(directory))
+            else:
+                directory.symlink_to(saved, target_is_directory=True)
+        elif fault == "partial":
+            session.write_bytes(before[:-2])
+        elif fault.startswith("bad-compaction"):
+            pass  # Already injected above, through the same public resume boundary.
+        else:
+            other = tmp_path / "outside.jsonl"
+            other.write_bytes(before)
+            session.unlink()
+            session.hardlink_to(other)
+        from adore.isolation import IsolationError
+        with pytest.raises(IsolationError, match="conversation"):
+            executor.run_gate(SpawnTarget(fake), worktree, io_dir, "Continue",
+                              archive_stem="validate-attempt-1", timeout=5)
+        assert len(fake.processes) == 1
+        if fault == "linked-directory":
+            assert (io_dir / "saved-conversation/session.jsonl").read_bytes() == before
+            directory = io_dir / "pi-conversation"
+            if directory.is_symlink():
+                directory.unlink()
+            else:
+                directory.rmdir()
+        return
+    second = executor.run_gate(SpawnTarget(fake), worktree, io_dir, "Continue the prior fact",
+                               archive_stem="validate-attempt-1", timeout=5)
+    assert second.ok and second.tokens_in == run.tokens_in and second.tokens_out == run.tokens_out
+    assert "differ" not in second.stderr
+    after = session.read_bytes()
+    assert after.startswith(before) and json.loads(after.splitlines()[0])["id"] == header["id"]
+    assert len(fake.processes) == 2 and fake.all_exited()
+    recording = Path(second.artifact_dirs[0]) / OUTPUT_FILE
+    events = [json.loads(line) for line in recording.read_text(encoding="utf-8").splitlines()]
+    assert len([r for r in events if r.get("type") == "message_end"
+                and r.get("message", {}).get("role") == "assistant"]) == 4
+    assert [r["text"] for r in events if r.get("type") == "adore_prompt"] == [
+        "Continue the prior fact"]
 
 
 def test_pi_executor_failure_reaches_the_existing_failure_path(tmp_path: Path) -> None:

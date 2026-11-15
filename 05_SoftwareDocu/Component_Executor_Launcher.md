@@ -11,7 +11,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 `04_Software/adore/executor/base.py` defines `Executor`, `ExecTarget` and
 `GateRun`. `launcher.py` implements Pi launch/archival; `pi_rpc.py` owns the
-bounded RPC client. Pi is the only executor implementation. The conductor chooses
+bounded RPC client; `conversation.py` checks exact private Pi session bindings. Pi is the only executor implementation. The conductor chooses
 the stage and handles its result; the backend owns resource/process lifetime.
 
 ## Launch contract
@@ -19,8 +19,10 @@ the stage and handles its result; the backend owns resource/process lifetime.
 `run_gate` receives the bound target, host worktree and IO paths, prompt, timeout,
 archive stem and optional cancellation/instruction/secret context. It returns a
 `GateRun` with authoritative exit/timeout, questions, operational output, token
-availability and archive references. Every launch is a fresh session. There is
-no continuation session ID; durable workflow state supplies recovery context.
+availability and archive references. Job gates resume one private Pi conversation
+through bounded processes. Durable workflow state remains stage authority.
+The optional `context_key` pins acknowledged ticket context; a changed ticket
+is supplied again until Pi acknowledges the corresponding prompt.
 
 Both production backends use Pi RPC: container `BoundTarget.spawn` and native
 `LocalTarget.pi_session`. The latter uses verified managed Node/Pi and fresh
@@ -39,6 +41,28 @@ Target paths come from `ExecutionPaths`; bound identity is checked before effect
 See [Execution](Component_Execution.md) and
 [Local execution](Component_Local_Execution.md).
 
+## Private conversation contract
+
+Canonical stage-attempt archive stems select `io/pi-conversation/session.jsonl`
+with `--session` and its explicit `--session-dir`. Non-job probes retain
+`--no-session`; no launch uses personal recent-session selection. The job-owned
+binding receipt pins schema 1, host IO, backend cwd, Pi session ID, required-history
+status and acknowledged ticket fingerprint. It contains no credentials.
+
+`PiConversation` validates regular files and ancestry, rejects hardlinks and
+reparse/symlink redirection, and streams strict current Pi schema-3 JSONL before
+resume. Compaction requires a summary, finite nonnegative prior token count and
+a kept-entry reference to an ancestor or to the compaction itself. It never
+repairs or imports histories. Missing binding for an already
+launched job, missing required history, foreign identity and corrupt records raise
+`ExecutionRecoveryError` with explicit inspect/delete-job guidance. POSIX storage is private;
+Windows inherits the existing account-owned job directory controls.
+
+RPC checks `get_state` identity and a usage baseline before sending the prompt.
+Prompt acceptance makes history mandatory and saves the ticket fingerprint. Pi
+owns transcript persistence and compaction; temporary native settings remain
+separate and container/WSL targets use the existing IO bind mount.
+
 ## RPC completion, cancellation and usage
 
 `run_pi_rpc` owns one process and one serialized stdin queue. It sends the initial
@@ -49,7 +73,10 @@ another command. Exit 124 without the authoritative timeout flag is not a timeou
 Malformed protocol, invalid UTF-8, rejected commands or incomplete completion
 cannot be treated as success.
 
-Usage is accumulated from complete turn reports, including input, output and
+Usage includes only new complete assistant turn reports from the current RPC
+process. The final cumulative statistics cross-check subtracts the pre-prompt
+baseline, so earlier stages are never re-counted. History is not requested or
+replayed into attempt recordings. Usage includes input, output and
 cache read/write tokens. Missing/partial evidence remains unavailable; an explicit
 complete zero report remains reported. Pi's embedded costs are estimates, not
 provider-reported billing, so `GateRun.cost_reported` remains false. The conductor

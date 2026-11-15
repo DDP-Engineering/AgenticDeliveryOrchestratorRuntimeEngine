@@ -29,7 +29,7 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 | Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |
 | Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
 
-Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans une nouvelle session, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
+Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans la même conversation du travail, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
 ## Travaux directs {#direct-evidence}
 
@@ -106,6 +106,8 @@ Le détail remplace sa liste d’origine. **Activité**, **Sessions de l’agent
 ## Historique des sessions de l’agent {#agent-sessions}
 
 **Sessions de l’agent** ouvre la session actuelle ou la dernière session terminée. La conversation montre la consigne initiale, les réponses de l’agent, les messages utilisateur et les appels/résultats d’outils dépliables. Les réponses utilisent Markdown. Les messages apparaissent directement avec un seul auteur ; le raisonnement et les outils peuvent être dépliés. La consommation reste dans le panneau droit.
+
+Pi conserve une conversation d’implémentation pour le travail entre étapes, reprises et corrections. Les processus peuvent redémarrer aux points de contrôle ; la conversation reprend avec son contexte et la compaction automatique de Pi. Le sélecteur montre toujours les tentatives enregistrées, avec leur nouvelle activité et consommation uniquement. Les revues indépendantes utilisent des contextes séparés si la politique du dépôt l’exige.
 
 Session, son sélecteur et l’activité en direct partagent une ligne juste au-dessus de la conversation, sur sa largeur. La conversation tient dans la hauteur disponible et défile à l’intérieur à l’arrivée des messages. Les boutons d’envoi sont à droite du champ sur grand écran et dessous sur petit écran.
 

@@ -117,12 +117,14 @@ class Executor(ABC):
         package_secrets: dict[str, str] | None = None,
         cancel: Callable[[], bool] | None = None,
         instructions: InstructionDelivery | None = None,
+        context_key: str = "",
     ) -> GateRun:
         """
         @brief      Launch the executor for a single workflow gate.
-        @details    Every launch starts a FRESH executor session. The durable
-                    workflow state/journal is the resume authority,
-                    so there is no session to continue and no session argument.
+        @details    Each job gate starts a bounded process resuming its exact
+                    private conversation. The durable workflow state/journal
+                    remains authoritative for stage progression. Disposable
+                    probes have no job conversation.
         @param[in]  execute Exec seam bound to the run's container.
         @param[in]  worktree HOST path of the run's worktree (questions file).
         @param[in]  io_dir HOST path of the run's io exchange dir (recording
@@ -134,6 +136,7 @@ class Executor(ABC):
         @param[in]  package_secrets Optional known credentials for bounded and
                                    redacted package-enabled gate retention.
         @param[in]  instructions Optional acknowledgement-bound instruction handoff.
+        @param[in]  context_key Fingerprint of the ticket context acknowledged by the attempt.
         @param[in]  cancel Cancellation check, passed only when
                            `cancel_grace_seconds` returns a value.
         @return     A GateRun describing the outcome.

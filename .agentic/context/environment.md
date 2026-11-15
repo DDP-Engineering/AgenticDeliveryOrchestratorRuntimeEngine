@@ -25,7 +25,7 @@ library. Verification uses pytest and Ruff from the `dev` dependency group in
 `04_Software/pyproject.toml`. Git is required. Live operation additionally
 needs Docker or rootless Podman, natively or as Docker Engine inside WSL2 on
 Windows, and an authenticated `glab`, `gh` or `tea`. Node.js runs Pi in container images
-(the base image pins Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0) or an
+(the base image pins Node 22.23.4, Pi 1.5.2 and pi-web-access 0.46.0) or an
 installed Pi under the native local service account.
 The optional web extra uses FastAPI, Uvicorn and Argon2id. Node.js/npm are
 also needed on the web **build** machine for `04_Software/web/npm run build`;
@@ -416,3 +416,8 @@ CRT errnoEACCES without winerror is exercised directly; persistent denial, unrel
 I/O, corruption, duplicates, missing/deleted IDs and authorization remain explicit.
 Unchanged Settings branch/API-only recovery journeys run in the offline18765 home.
 Full native Linux Python and Windows frontend integration remain parent-owned.
+
+Pi job conversation proof uses offline fake RPC restarts, private-path corruption
+and identity cases, native Windows/Linux scopes, instruction acknowledgements and
+per-attempt usage. No live model call is needed. Canonical stage-attempt archives
+remain individual segments; io/pi-conversation contains Pi-owned persistent history.

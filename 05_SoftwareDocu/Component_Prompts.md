@@ -55,6 +55,18 @@ The live instruction wrapper substitutes user/text literally for both captured
 initial-prompt fallback and live delivery. Composition does not establish receipt;
 that belongs to [Instructions](Component_Instructions.md).
 
+## Continuing a job
+
+Initialization supplies the complete ticket. Continuing prompts identify the
+current stage, reuse Pi context and include new recovery/thread/inbox material
+without replaying the full ticket or prior journal Log. A changed ticket is
+supplied again until its context fingerprint is acknowledged by Pi. Partial-work
+continuations point to the journal State rather than duplicating its evidence.
+The one-stage boundary remains mandatory: ADORE checkpoints and restarts RPC in
+the same job conversation. Installed AEGIS policy alone requires independent
+reviewers, who keep separate contexts. Direct prompts retain their own workflow
+instructions and job isolation without installing governance.
+
 ## Integration and distribution
 
 `Orchestrator.from_config` shares one catalog with the conductor and Pi launcher.

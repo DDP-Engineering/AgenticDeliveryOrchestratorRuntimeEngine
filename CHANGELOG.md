@@ -19,6 +19,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Keep one private Pi implementation conversation per job across stage, continuation and correction processes, with incremental prompts and per-attempt usage; retain existing checkpoints, cancellation, token renewal and independent-review policy.
+- Delete unfinished `runs/<run-id>` directories from builds with ephemeral Pi histories before starting new jobs.
+
 - Start packaged ADORE using lightweight metadata checks and stop through instance ownership without scanning installed files; complete integrity/dependency verification remains available separately with `--verify`.
 - Pin native and container executors to Pi 1.5.2 and regenerate the offline provider/model catalog, including GPT-6.1 Terra.
 - Pi stages now use only the current RPC transport; archive and conversation retention remain available.

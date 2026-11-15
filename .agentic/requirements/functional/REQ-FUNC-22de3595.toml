@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-22de3595"
+
+title = "Send incremental prompts to a continuing Pi job"
+
+status = "active"
+
+requirement = """When an existing job conversation continues, ADORE shall send the current stage and new work or instructions without repeating unchanged ticket content and prior journal evidence, while retaining authoritative workflow checkpoints and the configured independent review policy."""
+
+verification = "Adapt existing prompt/continuation cases: initialization contains literal ticket context; resume contains stage, recovery and new instructions, excludes ticket replay and old Log, and keeps one-stage and independent-review instructions."
+
+affected_paths = ["04_Software/adore/release_notes.toml", "04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/adore/executor/conversation.py", "04_Software/adore/orchestrator.py", "04_Software/adore/prompts.py", "04_Software/adore/prompts/"]
+
+linked_tests = ["04_Software/tests/test_prompts.py", "04_Software/tests/test_orchestrator.py::test_partial_stage_eventually_advances_and_requests_approval"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-15
+updated = 2026-11-15

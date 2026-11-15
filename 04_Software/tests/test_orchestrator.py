@@ -447,8 +447,10 @@ def test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume(
     engine.config.execution.preparation = "prepare.yml#setup@" + "a" * 40
     engine.config.worktree.repo_path = str(tmp_path)
     worktrees.repo_path = tmp_path
-    worktrees.create = lambda *args: tmp_path
-    worktrees.path_for = lambda _: tmp_path
+    work = tmp_path / "work"
+    work.mkdir()
+    worktrees.create = lambda *args: work
+    worktrees.path_for = lambda _: work
     worktrees.runner = SourceRunner()
     cid = "d" * 64
     containers.resource_identity = lambda _: {
@@ -486,7 +488,7 @@ def test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume(
 
     monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
     run = make_run(engine)
-    run.worktree = str(tmp_path)
+    run.worktree = str(work)
     run.active_task_id = None
     run.task_ids = []
     run.lifecycle = "failed"
@@ -2729,8 +2731,9 @@ def test_executor_prompt_does_not_contradict_itself_about_stopping(
     clause = rest.split("\n\n")[0]
     assert "never stop" not in clause.lower()
     assert "pause" in clause.lower()          # it is about human pauses only
-    assert "Do exactly ONE stage in this session" in prompt
-    assert "end the session" in prompt
+    assert "Do exactly ONE stage in this bounded attempt" in prompt
+    assert "return and wait for ADORE" in prompt
+    assert "same job conversation" in prompt
 
 
 class _NoAegis:
@@ -4069,7 +4072,7 @@ def test_partial_stage_requires_candidate_and_append_only_evidence(tmp_path, mon
         assert "BUDGET_EXHAUSTED" in run.outcome
         assert run.stage_failures == 0
         assert len(worktrees.checkpoints) == 2
-        assert "browser work remains" in executor.prompts[1]
+        assert "browser work remains" not in executor.prompts[1]
         assert "aegis.py brief" in executor.prompts[1]
         assert "State" in executor.prompts[1]
         assert "Handoff" not in executor.prompts[1]
@@ -4097,7 +4100,10 @@ def test_partial_stage_preserves_prior_failure_count(tmp_path, monkeypatch):
     assert worktrees.checkpoints
 
 
-def test_partial_stage_eventually_advances_and_requests_approval(tmp_path, monkeypatch):
+@pytest.mark.parametrize("changed_ticket", [False, True])
+def test_partial_stage_eventually_advances_and_requests_approval(
+    tmp_path, monkeypatch, changed_ticket,
+):
     """@brief Continuation leads to governed validation and the existing approval stop."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     engine.config.recovery.max_stage_failures = 1
@@ -4107,8 +4113,27 @@ def test_partial_stage_eventually_advances_and_requests_approval(tmp_path, monke
     after = replace(before, log=(*before.log, "build partial green: focused tests pass"))
     original = executor.run_gate
     def execute(*args, **kwargs):
+        from adore.execution import ExecutionPaths
+        from adore.executor.conversation import PiConversation
+
         worktrees.progress_fingerprint += "change"
-        return original(*args, **kwargs)
+        result = original(*args, **kwargs)
+        conversation = PiConversation(Path(args[2]), Path(args[1]),
+                                      getattr(args[0], "paths", ExecutionPaths()),
+                                      context_key=kwargs["context_key"])
+        if not conversation.path.exists():
+            conversation.bind("fixture-job", conversation.backend_file)
+            conversation.path.write_text(json.dumps({
+                "type": "session", "version": 3, "id": "fixture-job",
+                "cwd": conversation.cwd}) + "\n" + json.dumps({
+                "type": "message", "id": "initial", "parentId": None,
+                "message": {"role": "user", "content": args[3]}}) + "\n", encoding="utf-8")
+        conversation.accepted()
+        if changed_ticket and len(executor.prompts) == 1:
+            # A Retry/review may fetch a newer ticket before the durable snapshot
+            # hash is refreshed. The actual launch argument remains authoritative.
+            forge.ticket.description += " Updated requirement after the first attempt."
+        return result
     monkeypatch.setattr(executor, "run_gate", execute)
     client = FakeAegis([before, after, after, task("validate"),
                         task("validate"), task("done"), task("done")])
@@ -4116,6 +4141,12 @@ def test_partial_stage_eventually_advances_and_requests_approval(tmp_path, monke
     assert run.lifecycle == "awaiting-approval"
     assert not run.failure_history
     assert len(executor.prompts) == 3
+    assert "Ticket #7" in executor.prompts[0]
+    assert ("Updated requirement after the first attempt." in executor.prompts[1]) is changed_ticket
+    assert ("Ticket #7" in executor.prompts[1]) is changed_ticket
+    assert "Ticket #7" not in executor.prompts[2]
+    assert "current stage: validate" in executor.prompts[2]
+    assert "build partial green: focused tests pass" not in executor.prompts[1]
     assert not worktrees.pushes
 
 
@@ -4682,6 +4713,12 @@ def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path,
     monkeypatch.setattr(state_module, "utc_now_iso", lambda: clock[0])
     monkeypatch.setattr(orchestrator_module, "utc_now_iso", lambda: clock[0])
     run = make_run(engine)
+    from adore.execution import ExecutionPaths
+    from adore.executor.conversation import PiConversation
+
+    exchange = engine._io_dir(run.run_id)
+    exchange.mkdir(parents=True, exist_ok=True)
+    PiConversation(exchange, Path(run.worktree), ExecutionPaths(), context_key=run.content_hash)
     run.active_started_at = clock[0]
     clock[0] = "2026-11-05T10:00:30Z"
     run.lifecycle, run.parked_at, run.iterations = "parked-clarification", clock[0], 1

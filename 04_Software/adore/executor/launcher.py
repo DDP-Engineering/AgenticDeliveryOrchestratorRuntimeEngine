@@ -13,7 +13,8 @@
 @details Runs one fresh Pi RPC process through a bound container or native
          backend. Prompt text travels over stdin; retained conversation,
          operational output, questions, usage and archives remain bounded.
-         The durable AEGIS journal is the sole session-resume authority.
+         Job gates resume an exact private Pi conversation; the durable AEGIS
+         journal remains the workflow authority.
          Native worktrees rely on the selected account's host permissions;
          container profiles retain their existing isolation contract.
 """
@@ -42,6 +43,7 @@ from adore.branding import (
 from adore.execution import SHELL_HEADER, ExecutionPaths, redact_output
 from adore.executor import pi_rpc
 from adore.executor.base import ExecTarget, Executor, GateRun
+from adore.executor.conversation import PiConversation
 from adore.instructions import InstructionDelivery
 from adore.isolation import IsolationError
 from adore.pi_installation import GUARD, ManagedPi
@@ -147,7 +149,7 @@ class PiExecutor(Executor):
     """
     @brief   Pi (@earendil-works/pi-coding-agent) executor launcher.
     @details On a container target (one with a `spawn` seam) every gate runs
-             one fresh `pi --mode rpc --no-session` process from the image's
+             one bounded `pi --mode rpc` process from the image's
              pinned installation, driven by `pi_rpc`: fixed argv, prompt over
              stdin, `abort` on the stage timeout or a cancel. The account's
              personal Pi resources are off (`PI_RPC_FLAGS`, an ADORE-owned
@@ -224,6 +226,7 @@ class PiExecutor(Executor):
         archive_stem: str = "",
         cancel: Callable[[], bool] | None = None,
         instructions: InstructionDelivery | None = None,
+        context_key: str = "",
         package_secrets: dict[str, str] | None = None,
     ) -> GateRun:
         """
@@ -240,6 +243,7 @@ class PiExecutor(Executor):
         @param[in]  timeout Stage wall-clock bound.
         @param[in]  archive_stem Optional immutable archive name stem.
         @param[in]  instructions Optional acknowledgement-bound instruction handoff.
+        @param[in]  context_key Current ticket fingerprint, saved only on prompt receipt.
         @param[in]  cancel Cancellation check polled during the run.
         @param[in]  package_secrets Known credentials for bounded package-job retention.
         @return     A GateRun: exit 0 completed, 1 failed, 124 timed out,
@@ -252,6 +256,12 @@ class PiExecutor(Executor):
         worktree = Path(worktree)
         io_dir = Path(io_dir)
         io_dir.mkdir(parents=True, exist_ok=True)
+        job_gate = re.fullmatch(
+            r"(frame|specify|design|build|validate)-attempt-[1-9][0-9]*", archive_stem)
+        conversation = (PiConversation(io_dir, worktree,
+                                       getattr(execute, "paths", ExecutionPaths()),
+                                       context_key=context_key)
+                        if job_gate else None)
         questions_path = worktree / self.questions_file
         questions_path.unlink(missing_ok=True)
         output_path = io_dir / OUTPUT_FILE
@@ -265,6 +275,10 @@ class PiExecutor(Executor):
                   self.prompts.render("system/internet-off.md"))
         argv = argv_builder(self.model_id, self.provider, web=web, notice=notice,
                             thinking=self.thinking)
+        if conversation is not None:
+            argv.remove("--no-session")
+            argv.extend(["--session", conversation.backend_file,
+                         "--session-dir", conversation.backend_file.rsplit("/", 1)[0]])
         placements = []
         if self.models is not None:
             placements.append((MODELS_FILE, "models.json", self.models,
@@ -295,8 +309,7 @@ class PiExecutor(Executor):
             # archive completion so the web can resolve the exact handoff.
             live_path = io_dir / "live.json"
             live_path.unlink(missing_ok=True)
-            if re.fullmatch(r"(frame|specify|design|build|validate)-attempt-[1-9][0-9]*",
-                            archive_stem):
+            if job_gate:
                 stack.enter_context(StateStore(io_dir).run_lock("agent-session"))
                 base = f"{archive_stem}-attempt1"
                 archive_id, suffix = base, 2
@@ -321,6 +334,7 @@ class PiExecutor(Executor):
                 timeout=timeout, cancelled=cancel, instructions=instructions,
                 output_path=output_path, stderr_path=stderr_path,
                 redact=redact,
+                conversation=conversation,
             )
             if result.timed_out:
                 settle = getattr(execute, "settle_timeout", None)

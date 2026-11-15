@@ -378,6 +378,20 @@ For enabled jobs, operational tails, stderr and questions sanitize known credent
 
 ChatGPT projects receive only a short-lived stage access token. Operational evidence masks it; a value printed by the agent remains literal in its authorized session recording. The server sign-in and refresh token remain outside the job container.
 
+## Private Pi job history
+
+ADORE retains Pi-owned history in the job's private `io/pi-conversation/` directory,
+outside the worktree and Git. The exact session path, Pi identity, backend working
+directory and host job location are verified before a model prompt. Linked,
+foreign, incomplete or corrupt required history is refused, without selecting
+account sessions or recreating a missing conversation. POSIX directories use
+owner-only permissions; native Windows retains the service account and inherited
+job-directory access controls. Native temporary settings are removed after each
+process; provider/endpoint settings and refresh credentials are not copied into
+conversation history by ADORE. Agent-produced text may still contain sensitive
+data, so protect the state root and its backups with the same care as archives.
+Existing job deletion owns removal; stopping/retrying a job retains its history.
+
 ## Recorded agent session visibility
 
 Job administrators and developers assigned to the owning project can read live and completed

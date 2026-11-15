@@ -29,7 +29,7 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |
 | Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
 
-The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
+The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in the same job conversation within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
 ## Direct jobs {#direct-evidence}
 
@@ -106,6 +106,8 @@ The detail replaces its originating list while open. Above the title are **Activ
 ## Agent session history {#agent-sessions}
 
 **Agent sessions** opens the current session, or the latest completed session. The conversation shows the initial prompt, agent replies, user messages and expandable tool calls/results. Agent replies use readable Markdown. Messages appear inline with a single author label; reasoning and tools can be expanded. Usage remains in the right-hand Consumption panel.
+
+Pi keeps one implementation conversation for the job across stages, continuations and corrections. Processes can restart at checkpoints; the conversation resumes with its context and Pi's automatic compaction. The selector still shows recorded attempts, with only each attempt's new activity and usage. Independent reviews use separate contexts when the repository's review policy requires them.
 
 Session, its selector and the live activity indicator share a row directly above the conversation, aligned with its width. The conversation fits the available screen height and scrolls internally as messages arrive. Send now and Queue message sit beside the message box on wide screens, below it on narrow screens.
 

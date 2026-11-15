@@ -80,7 +80,7 @@ owners.
 ## Files
 
 - `04_Software/adore/prompts.py` — fixed eager loader, typed errors and renderer.
-- `04_Software/adore/prompts/` — 28 licensed Markdown fragments in five groups.
+- `04_Software/adore/prompts/` — the fixed licensed Markdown catalog.
 - `04_Software/tests/test_prompts.py` — loader boundaries, byte/caller proof and shared ownership.
 - `04_Software/tests/fixtures/prompts/{baseline,network-baseline}.json` — original-code expected text; never regenerate from the extracted renderer.
 - `05_SoftwareDocu/Component_Prompts.md` — resource and integration contract.
@@ -92,3 +92,14 @@ InstructionDelivery renders user/text once as literal data for both live command
 and next-prompt fallback. The wrapper names the author and ADORE interface.
 Resource/header/UTF-8/template refusal remains eager. Explicit inventory/live body
 and placeholder oracles in test_prompts.py preserve all historical captures.
+
+## Continued job context
+
+REQ-FUNC-22de3595: stage/resume.md supplies continuation context without unchanged
+ticket replay; current stage, installed AEGIS procedure and new recovery/thread/
+inbox input remain explicit. A changed ticket is resent until acknowledged.
+Partial-work continuation points to current journal State without appending the
+previous Log to every prompt. Single-stage return remains mandatory; RPC restarts
+resume the same conversation. Required independent reviewers use separate contexts
+under existing policy. Direct prompts retain repository-owned workflow authority.
+Existing byte fixtures deliberately update only the changed conversation fragments.

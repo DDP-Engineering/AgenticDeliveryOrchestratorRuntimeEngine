@@ -40,9 +40,11 @@ binds `LocalTarget` against the saved identity. Native plans have no container
 image or preparation steps. Unknown/corrupt policy, plan, receipt or scope evidence
 is refused; no stored format is filled in or converted.
 
-`LocalTarget.pi_session` creates a fresh agent directory outside the worktree,
+`LocalTarget.pi_session` creates a fresh settings directory outside the worktree,
 writes only ADORE-generated model/web settings and lends owned binary pipes to
-the shared Pi RPC launcher. Windows forwards explicit standard handles through
+the shared Pi RPC launcher. The job's explicit Pi session file lives separately
+in private IO storage and survives settings cleanup, RPC restarts, Retry and
+clarification/review continuations. Disposable probes remain ephemeral. Windows forwards explicit standard handles through
 the supervisor and offers Pi's PowerShell tool. Linux execs exact native Node
 inside the delegated process scope. Normal exit, timeout and cancellation require
 confirmed process-tree drainage. See [Executor launcher](Component_Executor_Launcher.md).

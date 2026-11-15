@@ -35,6 +35,7 @@ FRAGMENTS = (
     "live/instruction.md",
     "direct/implementation.md",
     "stage/intro.md",
+    "stage/resume.md",
     "stage/ticket.md",
     "stage/active-task.md",
     "stage/instructions.md",

@@ -40,6 +40,11 @@ category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "New OpenAI projects default to gpt-6.1-terra; existing project models stay unchanged.", fr = "Les nouveaux projets OpenAI utilisent gpt-6.1-terra ; les modèles existants sont inchangés.", de = "Neue OpenAI-Projekte verwenden gpt-6.1-terra; bestehende Modellauswahlen bleiben unverändert.", ro = "Proiectele OpenAI noi folosesc implicit gpt-6.1-terra; modelele existente rămân neschimbate." }
 
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Pi keeps the same job conversation across stages, continuations and corrections.", fr = "Pi conserve la conversation du travail entre étapes, reprises et corrections.", de = "Pi behält das Jobgespräch über Phasen, Fortsetzungen und Korrekturen hinweg.", ro = "Pi păstrează conversația jobului între etape, continuări și corecții." }
+
 [[release]]
 version = "0.16.0"
 date = "2026-11-15"

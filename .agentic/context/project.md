@@ -20,7 +20,7 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts a team's
 opt-in GitHub, GitLab or Gitea tickets. CLI/configured repositories without
-`.agentic/aegis.py` use bounded fresh direct implementation attempts. The agent
+`.agentic/aegis.py` use bounded direct implementation attempts in one job conversation. The agent
 selects and reports repository checks; ADORE records completion and candidate
 evidence without independently rerunning repository suites. A present unsupported or
 broken payload is refused without fallback. Web enrollment accepts repositories
@@ -36,7 +36,7 @@ evidence without an AEGIS task, plus the last recorded executor attempt and
 agent-reported completion and summary. Unknown workflows and corrupt direct
 evidence fail closed; current configuration cannot replace saved results.
 Four-locale Jobs and Settings help map direct stage limits to build/validate with general fallback.
-In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
+In an AEGIS-governed repository it restarts a bounded executor process per AEGIS stage in one job conversation inside an
 isolated branch/worktree with container or native local execution, observes the agent-owned completion evidence,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval when configured, or automatically after validation and freshness checks when disabled. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
 Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while the inactive scope-hint control is omitted.
@@ -511,3 +511,10 @@ Shared instruction API errors have explicit en/fr/de/ro messages, while the comp
 retains contextual copy. Native and image Pi guards share the project-policy explanation
 and unchanged publication/trust rules. The settings key inventory is lexically sorted
 with exact membership; reviewed environment responses retain202 even when already ready.
+
+Pi keeps one private implementation conversation for each job, using its own
+persistence and compaction across bounded RPC processes. Stage checkpoints,
+limits, cancel/Retry and per-attempt token renewal remain. Exact path/identity
+checks refuse missing/corrupt required history. Unchanged ticket and old journal
+logs are omitted from continuation prompts. Attempt archives and usage contain
+only new activity. Existing AEGIS review policy alone requires separate reviewers.

@@ -13,9 +13,9 @@
 @details ADORE owns forge, isolation, budgets, recovery, approval and remote
          publication. The executor owns every AEGIS task-journal transition;
          direct completion uses conductor-owned durable evidence instead.
-         Executor sessions are always fresh, never resumed. Required problem notifications use a
-         persisted outbox and a failed write stops code work. ADORE can open
-         and update a draft MR/PR but deliberately has no merge operation.
+         Bounded executor processes resume one private job conversation. Required
+         problem notifications use a persisted outbox; a failed write stops work.
+         ADORE can open and update a draft MR/PR but has no merge operation.
 """
 
 from __future__ import annotations
@@ -60,11 +60,13 @@ from adore.config import Config, branch_naming_preview, egress_policy, load_conf
 from adore.execution import (
     ContainerBackend,
     ExecutionBackend,
+    ExecutionPaths,
     ExecutionRecoveryError,
     PreparationResultError,
     run_preparation_step,
 )
 from adore.executor.base import Executor, GateRun
+from adore.executor.conversation import PiConversation
 from adore.executor.diagnostics import record_diagnostics
 from adore.executor.launcher import build_executor
 from adore.forge import Comment, Forge, ForgeError, Ticket, build_forge
@@ -1407,12 +1409,12 @@ class Orchestrator:
         return run.validation_evidence.get("implementation") == "completed"
 
     def _conduct_direct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
-        """@brief Conduct fresh bounded implementation attempts, with no AEGIS command.
+        """@brief Conduct bounded direct implementation attempts in one job conversation.
         @details Validate is conductor-owned and records explicitly unverified evidence;
                  a retained completion marker permits checkpoint recovery without Pi.
         @param[in,out] run Durable direct run with no AEGIS task bindings.
         @param[in] ticket Current source ticket.
-        @param[in] thread Human clarification or review discussion for the next fresh attempt.
+        @param[in] thread Human clarification or review discussion for the next bounded attempt.
         """
         failure_context = ""
         try:
@@ -1540,7 +1542,7 @@ class Orchestrator:
         thread: str,
     ) -> None:
         """
-        @brief      Run fresh, journal-authoritative stage attempts until approval.
+        @brief      Run bounded, journal-authoritative stage attempts until approval.
         @details The agent owns repository checks and advances the task journal.
                  ADORE monitors valid transitions and records done for approval;
                  it never independently launches the test catalogue.
@@ -1810,9 +1812,18 @@ class Orchestrator:
         failure_context: str = "",
         thread: str = "",
     ) -> GateRun:
-        """@brief Launch exactly one fresh executor session for one attempt."""
+        """@brief Launch one bounded process in the job's implementation conversation."""
         if self._handoff_at_boundary(run):
             raise _CheckpointHalted("human handoff requested")
+        execute = self._execute(run)
+        io_dir = self._io_dir(run.run_id)
+        io_dir.mkdir(parents=True, exist_ok=True)
+        current_context = content_hash(ticket.title, ticket.description)
+        conversation = PiConversation(
+            io_dir, Path(run.worktree), getattr(execute, "paths", ExecutionPaths()),
+            required=run.iterations > 0,
+            context_key=current_context,
+        )
         run.iterations += 1
         self.store.save(run)
         self.store.journal(
@@ -1825,7 +1836,6 @@ class Orchestrator:
         timeout = self.config.workflow.stage_timeout_overrides.get(
             run.stage, self.config.budgets.per_gate_timeout_seconds
         )
-        execute = self._execute(run)
         if self.config.executor.provider == CHATGPT:
             # The server's ChatGPT sign-in never enters the container: this gate
             # alone receives an access token that outlives the stage limit.
@@ -1853,12 +1863,16 @@ class Orchestrator:
                 execute,
                 run.worktree,
                 self._io_dir(run.run_id),
-                (self._direct_prompt(run, ticket, failure_context, thread, instructions.suffix)
+                (self._direct_prompt(run, ticket, failure_context, thread, instructions.suffix,
+                                     continuing=conversation.resuming
+                                     and not conversation.context_changed)
                  if task is None else self._stage_prompt(
-                     run, ticket, task, failure_context, thread, instructions.suffix)),
+                     run, ticket, task, failure_context, thread, instructions.suffix,
+                     continuing=conversation.resuming and not conversation.context_changed)),
                 timeout=timeout,
                 archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
                 instructions=instructions,
+                context_key=current_context,
                 **({"package_secrets": {**self.secrets,
                                         **({chatgpt.TOKEN_VARIABLE: token}
                                            if self.config.executor.provider == CHATGPT else {})}}
@@ -1941,13 +1955,13 @@ class Orchestrator:
         failure_context: str,
         thread: str,
         instructions: str = "",
+        *,
+        continuing: bool = False,
     ) -> str:
         """@brief Compose a stage-bounded prompt without duplicating AEGIS procedure."""
         aegis = "python .agentic/aegis.py"
         parts = [
             self.prompts.render("stage/intro.md"),
-            self.prompts.render("stage/ticket.md", iid=str(ticket.iid),
-                                title=ticket.title, description=ticket.description.strip()),
             self.prompts.render("stage/active-task.md", task_id=task.task_id,
                                 stage=task.stage, path=task.path),
             self.prompts.render("stage/instructions.md"),
@@ -1956,6 +1970,10 @@ class Orchestrator:
             self.prompts.render("stage/completion.md", aegis=aegis, task_id=task.task_id),
             self.prompts.render("stage/single-stage.md"),
         ]
+        parts.insert(1, self.prompts.render("stage/resume.md") if continuing else
+                     self.prompts.render("stage/ticket.md", iid=str(ticket.iid),
+                                         title=ticket.title,
+                                         description=ticket.description.strip()))
         if task.stage == "frame":
             parts.append(self.prompts.render("stage/frame.md"))
             if self.config.workflow.quick_label in ticket.labels:
@@ -1992,19 +2010,21 @@ class Orchestrator:
     def _direct_prompt(
         self, run: RunState, ticket: Ticket, failure_context: str, thread: str,
         instructions: str = "",
+        *, continuing: bool = False,
     ) -> str:
         """@brief Compose a complete direct implementation request using literal ticket data.
         @param[in] run Run identity retained at the shared launch boundary.
         @param[in] ticket Ticket title and description, never parsed as templates.
         @param[in] failure_context Sanitized evidence from the preceding failed attempt.
-        @param[in] thread Human discussion passed to this fresh session.
-        @param[in] instructions Snapshot wrappers included only in this fresh prompt.
+        @param[in] thread Human discussion passed to this conversation.
+        @param[in] instructions Snapshot wrappers included only in this attempt prompt.
         @return The implementation request and applicable execution notices.
         """
         parts = [
             self.prompts.render("direct/implementation.md", questions_file=self.questions_file),
-            self.prompts.render("stage/ticket.md", iid=str(ticket.iid), title=ticket.title,
-                                description=ticket.description.strip()),
+            (self.prompts.render("stage/resume.md") if continuing else
+             self.prompts.render("stage/ticket.md", iid=str(ticket.iid), title=ticket.title,
+                                 description=ticket.description.strip())),
         ]
         if failure_context:
             parts.append(self.prompts.render("stage/recovery-context.md",
@@ -3203,7 +3223,7 @@ class Orchestrator:
                     [self.config.labels.lifecycle.answered, self.config.labels.lifecycle.clarify],
                 )
             summary["resumed"] += 1
-            thread = self._render_thread(comments)
+            thread = self._render_thread(answers)
             if content_changed:
                 note = self.prompts.render("review/ticket-content-changed.md")
                 thread = f"{thread}\n\n{note}".strip()

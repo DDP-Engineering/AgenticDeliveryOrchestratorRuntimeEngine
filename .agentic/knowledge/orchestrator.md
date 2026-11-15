@@ -95,7 +95,7 @@ requests do not conduct in the HTTP process.
   validate are saved atomically so Retry can checkpoint at the final launch
   limit without Pi. Missing completion needs build authority.
 - `REQ-FUNC-9b2bf2fb`, `REQ-FUNC-8e4ff7bc`: even empty questions park; answered
-  resumes a fresh direct session with the thread and cumulative budgets.
+  resumes the same direct job conversation with new answers and cumulative budgets.
 - `REQ-SEC-23063055`, `REQ-REL-37072309`: all direct checkpoints, including
   Retry settlement and handoff, pass literal exchange exclusions and refuse
   unsafe artifacts; isolation owns index/path/summary mechanics.
@@ -171,7 +171,7 @@ The bool retry result means accepted; CLI inspects final lifecycle before succes
 Focused proof: tests/test_retry_revalidation.py, all agents and injected OS paths.
 
 
-Accepted AEGIS returns, including Design -> Specify, continue in fresh sessions
+Accepted AEGIS returns, including Design -> Specify, continue in the same job conversation through bounded RPC processes
 within cumulative budgets, clearing obsolete stage remediation context while
 retaining failure history. The conductor persists the observed stage and a
 stage-bearing transition event before Git checkpoint work; Jobs reads this saved
@@ -391,3 +391,16 @@ keeps its outbox without failing the job, blocking Pi stages or explicit Retry; 
 notification gates remain. Offline public conduction/restart tests include a forge
 outage and a successful post whose response is lost. See instructions.md for storage
 bounds and remote-ack/local-persistence crash limitations.
+
+## Job conversation continuity
+
+REQ-FUNC-de494e23 / REQ-FUNC-22de3595: _launch_stage validates the exact private
+Pi conversation before spending another launch, then passes the acknowledged
+context_key through the shared gate interface. Stage, partial-work and review
+corrections resume one job conversation. Initial or changed ticket content is
+sent until Pi acknowledges it; ordinary continuations omit full ticket and old
+Log replay. Clarification supplies new human answers. Existing checkpoints,
+limits, cancellation, resource recovery and per-attempt token renewal remain.
+Missing/corrupt required history is an ExecutionRecoveryError and cannot trigger
+a silent replacement. Independent reviewers keep separate contexts only under
+installed AEGIS policy. Existing prompt/partial-stage/native/RPC tests cover it.

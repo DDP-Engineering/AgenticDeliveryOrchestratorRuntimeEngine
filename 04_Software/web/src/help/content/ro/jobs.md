@@ -29,7 +29,7 @@ ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă 
 | Construire | Agentul implementează tichetul și alege verificările potrivite conform instrucțiunilor repository-ului. |
 | Validare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |
 
-Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
+Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă în aceeași conversație a jobului, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
 
 ## Joburi directe {#direct-evidence}
 
@@ -106,6 +106,8 @@ Detaliile înlocuiesc lista din care au fost deschise. Deasupra titlului sunt **
 ## Istoricul sesiunilor agentului {#agent-sessions}
 
 **Sesiunile agentului** deschide sesiunea curentă sau ultima sesiune încheiată. Conversația arată promptul inițial, răspunsurile agentului, mesajele utilizatorului și apelurile/rezultatele instrumentelor care pot fi extinse. Răspunsurile folosesc Markdown lizibil. Mesajele apar direct, cu un singur autor; raționamentul și instrumentele pot fi extinse. Consumul rămâne în panoul din dreapta.
+
+Pi păstrează o conversație de implementare pentru job între etape, continuări și corecții. Procesele pot reporni la checkpointuri; conversația se reia cu contextul și compactarea automată Pi. Selectorul arată în continuare încercările înregistrate, fiecare cu activitatea și consumul propriu. Revizuirile independente folosesc contexte separate când politica repository-ului le cere.
 
 Sesiune, selectorul și activitatea în direct sunt pe același rând, deasupra conversației, aliniate cu lățimea acesteia. Conversația folosește înălțimea disponibilă și se derulează în interior când apar mesaje noi. Butoanele de trimitere sunt în dreapta câmpului pe ecrane late și sub el pe ecrane înguste.
 

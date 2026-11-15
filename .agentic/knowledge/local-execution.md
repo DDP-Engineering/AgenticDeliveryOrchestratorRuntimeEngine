@@ -40,7 +40,7 @@ only the exact nonempty configured single-line NUL-free workflow command;
   Linux delegation comes from the service. The policy pins the effective
   environment, Node and managed CLI file identity.
 - The native release barrier records scope ownership before project code runs.
-  A fresh agent directory outside the worktree disables personal and untrusted
+  A fresh settings directory outside the worktree disables personal and untrusted
   project resources. Approved provider credentials are injected and redacted.
 - An owned process scope must drain before reuse; unknown or foreign scope
   evidence is refused. A worktree is not a host sandbox. Verification shell
@@ -124,3 +124,13 @@ checks continue to fence interruption and cleanup; no process-global environment
 is modified for project settings.
 
 Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.
+
+## Persistent Pi context
+
+Job RPC argv selects an explicit session under private job IO, separate from the
+temporary agent/settings directory. Windows and Linux process restarts remove
+settings but preserve Pi-owned history and compaction. Per-attempt ChatGPT tokens
+are still acquired through the existing helper, with no refresh credential in the
+job. Job cancellation/Retry/delete retain their existing owned-process boundaries.
+Non-job model probes remain ephemeral. Focused proof: the existing native gate
+test restarts two processes with distinct settings paths and one history path.

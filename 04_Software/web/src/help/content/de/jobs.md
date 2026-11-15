@@ -29,7 +29,7 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 | Umsetzung | Der Agent implementiert das Ticket und wählt passende Prüfungen gemäß den Repository-Anweisungen. |
 | Validierung | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |
 
-Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
+Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und setzt dasselbe Jobgespräch innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
 ## Direkte Jobs {#direct-evidence}
 
@@ -106,6 +106,8 @@ Die Detailansicht ersetzt ihre Ursprungsliste. **Aktivität**, **Agentensitzunge
 ## Verlauf der Agentensitzungen {#agent-sessions}
 
 **Agentensitzungen** öffnet die aktuelle oder zuletzt abgeschlossene Sitzung. Die Unterhaltung zeigt die ursprüngliche Anweisung, Agentenantworten, Benutzernachrichten sowie ausklappbare Werkzeugaufrufe und Ergebnisse. Antworten verwenden lesbares Markdown. Nachrichten erscheinen direkt mit einer Autorenzeile; Überlegungen und Werkzeuge lassen sich aufklappen. Der Verbrauch bleibt rechts.
+
+Pi behält ein Implementierungsgespräch für den Job über Phasen, Fortsetzungen und Korrekturen hinweg. Prozesse können an Kontrollpunkten neu starten; das Gespräch wird mit Kontext und automatischer Komprimierung durch Pi fortgesetzt. Die Auswahl zeigt weiterhin gespeicherte Versuche mit jeweils neuer Aktivität und Nutzung. Unabhängige Prüfungen verwenden getrennte Kontexte, wenn die Prüfrichtlinie des Repositorys dies verlangt.
 
 Sitzung, Auswahl und Live-Aktivität stehen in einer Zeile direkt über der Unterhaltung und nutzen deren Breite. Die Unterhaltung nutzt die verfügbare Bildschirmhöhe und scrollt bei neuen Nachrichten intern. Die Sendeschaltflächen stehen auf breiten Bildschirmen rechts neben dem Textfeld, auf schmalen darunter.
 

@@ -27,8 +27,12 @@ handoff-pending and handed-off. AEGIS follows the selected full or quick path;
 Direct uses build, conductor-owned validate and done, with no AEGIS task IDs.
 The publishing reset pointer is not an executor stage.
 
-Each launch creates a fresh Pi session. AEGIS journals and ADORE state provide
-durable continuation evidence; Pi conversation memory is not the resume authority.
+Each launch restarts a bounded Pi process in the job's exact private conversation.
+AEGIS journals and ADORE state remain authoritative for workflow progression;
+Pi retains implementation context across stages, partial work and corrections.
+The first prompt includes the ticket. Later prompts omit unchanged ticket content
+and historical Log replay; changed ticket content is resent until acknowledged.
+Existing independent AEGIS reviews retain separate contexts.
 The conductor reads validated AEGIS task progression but does not edit journals.
 Direct uses retained implementation-completion evidence instead of a journal.
 See [State store](Component_State_Store.md),
@@ -85,7 +89,7 @@ to finish its stage through AEGIS. Direct asks the agent to implement and select
 appropriate repository checks. Neither workflow delegates publication or merging
 to Pi. See [Prompts](Component_Prompts.md).
 
-The conductor launches one bounded fresh attempt, records normalized operational
+The conductor launches one bounded attempt in the same conversation, records normalized operational
 diagnostics, session archives and telemetry availability, then interprets questions,
 exit/authoritative timeout, stage progress and integrity checks. Questions park the
 job without consuming stage failures. A stage checkpoint uses the configured agent

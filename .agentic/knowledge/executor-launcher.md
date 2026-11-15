@@ -60,8 +60,8 @@ not guessed from exit text. Each requested archive is immutable under
 
 The executor receives no forge credentials and cannot publish. The launcher
 does not inspect command flags; configuration validation rejects `--auto`
-before a run. The launcher starts a fresh session for each gate and never
-guesses a retry from timeout text.
+before a run. Job gates start a bounded process in the exact job-owned Pi conversation;
+non-job probes remain ephemeral. The launcher never guesses retries from text.
 Complete Pi token records mark token coverage even when their counts are zero;
 missing or partial records do not claim coverage.
 The file-only test adapter counts completed `turn_end` JSON events, including cache-read and
@@ -69,7 +69,8 @@ cache-write input tokens; streaming and message-end copies are ignored. Invalid
 usage values are skipped. Pi's embedded monetary value is an executor estimate,
 so the launcher leaves billed cost unavailable for administrator price rules.
 
-Container Pi runs `node /opt/pi/.../cli.js --mode rpc --no-session
+Container job Pi runs `node /opt/pi/.../cli.js --mode rpc --session
+/adore/io/pi-conversation/session.jsonl --session-dir /adore/io/pi-conversation
 --no-approve --no-skills --no-extensions --no-prompt-templates --no-themes
 --no-mcp -e /opt/adore/pi/adore-guard.ts --provider <pi provider> --model
 <model id>` with
@@ -101,8 +102,7 @@ record or a rejected command is a protocol failure (process
 code or 1; 127/126 when Pi cannot start). At most one 16 MiB stdout record is
 in memory; deltas are not persisted, records over 64 KiB persist as stubs,
 `output.jsonl` stops at 32 MiB, tails keep 64 KiB. Usage is summed over every
-assistant `message_end` (input includes cache read/write), cross-checked once
-with `get_session_stats`; an unreadable assistant record makes tokens
+assistant `message_end` (input includes cache read/write), cross-checked against the final `get_session_stats` minus its pre-prompt baseline; an unreadable assistant record makes tokens
 unavailable; cost is never reported. The guard blocks `git push` and
 `gh`/`glab`/`tea` in bash/powershell and refuses project trust.
 The failure classes, matched in this order, are `subscription`
@@ -137,7 +137,7 @@ launching Pi, and normal bounded recovery applies. Stage limits remain 3000 s.
 
 - REQ-FUNC-c405688e: optional package_secrets keeps operational tails, stderr and questions sanitized and bounded. Bounded RPC stdout sessions persist literal values and archive without post-gate rewriting; complete usage remains independent. The non-RPC file protocol retains its existing sanitized stream policy.
 
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native Pi lends owned pipes to the shared RPC client and retains fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native operational evidence and conductor questions are contained bounded UTF-8 and sanitized; RPC job-session recordings retain literal bounded events.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native Pi lends owned pipes to the shared RPC client and retains one job conversation, questions, per-attempt usage and archives. gate.sh is a legal-header native launch description. Native operational evidence and conductor questions are contained bounded UTF-8 and sanitized; RPC job-session recordings retain literal bounded events.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
@@ -250,3 +250,29 @@ that ADORE manages publication under the project policy. The publication-blockin
 patterns and project-trust refusal remain shared. Guard parity is enforced by
 test_pi_installation.py::test_managed_pi_ships_the_reviewed_guard alongside the existing
 fake-RPC guard command fixture (REQ-SEC-a6d32441).
+
+## Exact private job conversation
+
+REQ-FUNC-de494e23 / REQ-SEC-397b4a89: executor/conversation.py owns the small
+schema-1 private binding, not a transcript implementation. Canonical job stems
+select io/pi-conversation/session.jsonl through explicit --session/--session-dir.
+Pi owns persistence and compaction. Disposable probes keep --no-session.
+The existing verified target and job lock fence ownership; strict regular-file,
+ancestry, header/version, JSONL chain, host IO, cwd and Pi ID checks refuse
+missing/corrupt/foreign required evidence with ExecutionRecoveryError.
+Compaction entries require a string summary, finite nonnegative tokensBefore
+and an ancestor/self firstKeptEntryId before resume. Native temporary settings
+and per-attempt credentials stay separate.
+
+The launcher checks RPC get_state identity and a cumulative statistics baseline
+before prompting. Only new assistant events enter usage and attempt recordings;
+final cross-check totals subtract the baseline. Prompt acknowledgement makes
+history required and persists context_key, the current ticket fingerprint.
+REQ-FUNC-22de3595: the conductor uses that acknowledged fingerprint to include
+changed ticket content again while omitting unchanged context on continuation.
+Independent reviews remain governed by installed AEGIS policy.
+
+Focused proof: existing test_pi_rpc.py launch parametrization covers restart,
+per-attempt accounting, exact identity, corruption, hardlinks and reparse paths;
+test_local_execution.py covers separate temporary settings and persistent paths
+on Windows/Linux; test_prompts.py covers incremental stage instructions.
