@@ -89,11 +89,10 @@ logger.emit('{"picked": 0}')
 - `tests/test_smoke.py` also covers size-based rotation and backup retention.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_smoke.py`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
-- There is intentionally no config section for process-log size, path, or
-  backup count. Add configuration only if operators need different retention
-  after real unattended use.
+- Process-log size, path and backup count are application-owned constants,
+  not project configuration settings.
 
 
 ## Diagnostic and lifecycle boundaries

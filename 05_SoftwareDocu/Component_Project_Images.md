@@ -5,73 +5,64 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Project images and external preparation
+# Component: Project images and external preparation
 
-## 1. Purpose
+## Purpose and responsibilities
 
-Executor image building is an operator action outside ADORE; backend,
-container runtime and image selection are administrator choices at enrollment and in
-reviewed Settings edits. Executor configuration explains both.
+Administrators select a backend, runtime and available executor image during
+enrollment and reviewed Settings edits. Project-specific image preparation/building
+is an operator action. ADORE retains reviewed source recipes for export and binds
+actual run container/image identity; registration does not build or resume jobs.
 
-## 2. Responsibilities
+The environment selector lists images installed on the server's chosen runtime.
+Native projects use managed Pi instead of a container image. Optional preparation
+recipes can determine the effective image before a job is admitted.
+See [Executor recipes](Component_Executor_Recipes.md),
+[Preparation](Component_Preparation.md) and [Execution](Component_Execution.md).
 
-ADORE retains reviewed source definitions for export, as described in
-[Executor recipes](Component_Executor_Recipes.md), and does not build images.
-The retired image-build subsystem (the
-Dockerfile draft store, the build runner and its web routes) is removed.
-`ContainerBackend` owns actual run image identity and reviewed preparation recipe
-authority. The executor environment lists the server's installed images and the
-administrator chooses one.
-The compact export dialog retains Dockerfile/context sources by image and
-automatically supplies the standard base, independently of runtime selection.
+## Configuration and export boundaries
 
-## 3. Implementation Overview
+The reviewed pending flow accepts backend, runtime, image, package permission,
+Git build definition and local tools PATH. The native account is current;
+server process delegation is not a project-editable home/cgroup selection. Other environment settings remain operator
+configuration; unsupported web candidates receive environment_managed_externally.
+Pending records have a single closed current schema. Unknown bindings/unsupported
+keys are refused as pending_config_corrupt; an administrator may discard the
+pending candidate explicitly. No earlier binding is read or converted.
 
-`app.py` has no image-build routes: `GET/PUT /api/v1/projects/{name}/image-build`,
-`/image-build/export`, `/image-build/operations`, `/image-build/operations/{id}`
-and `/image-build/operations/{id}/cancel` answer 404. The worker does not handle
-`image-build` operations or recover running builds. There are no migrations:
-evidence left by earlier builds is not read.
+The compact export dialog retains Dockerfile/context sources by image and supplies
+the standard base recipe where needed. Source selection is independent of the
+runtime used to build it. Export resolves a closed dependency graph and returns
+exact reviewed sources; it does not call the container build command.
+See [Build bundles](Component_Build_Bundle.md).
 
-## 4. Dependencies
+Project-specific builds are external. Shared base/proxy prerequisites have their
+own explicit setup/readiness preparation boundary; this does not add a general
+project-image build service. Local profiles omit container build guidance.
 
-Existing ProfileStore, WebStore and the executor environment image listing.
-Actual image preparation uses the operator's runtime.
+## ADORE repository executor recipe
 
-## 5. Inputs And Outputs
+`02_Tools/build/executor_images/adore/` contains this repository's operator-owned
+Dockerfile, Docker ignore rules, schema-1 build.json manifest and build instructions.
+The recipe declares the Python/web/browser toolchain and uses the repository root
+as build context with a reviewed input allowlist. It runs as the configured
+non-root image user. Runtime dependency pins belong to these source files.
 
-`execution.backend`, `container.runtime`, `container.image` and the local
-account/home/path/cgroup keys are chosen through the reviewed pending flow.
-Other environment configuration direct/stage/apply requests receive HTTP400
-`environment_managed_externally`; other executor/model edits remain supported.
-A pending candidate carrying an `image_build` binding, or a candidate for an
-operator-owned environment key, could only be staged by an earlier build: it is
-503 `pending_config_corrupt` on view and on apply, and an administrator can still
-discard it through `DELETE /api/v1/projects/{name}/config/pending`.
+The build manifest binds exact image, Dockerfile and regular context files to a
+full Git commit through container.build_definition. Registration/export reads
+those immutable bytes; an operator builds/checks the image separately and selects
+it for the project. Registration and source export do not modify the recipe or launch its build. See the [recipe README](../02_Tools/build/executor_images/adore/README.md)
+for commands instead of maintaining a second recipe manual here.
 
-## 6. Data Contracts
+## Dependencies and validation coverage
 
-`ConfigEdit` has no `image_build_id` staging field, and the pending review shows
-no image-build binding. Container images remain externally managed; the
-configured `container.image` names an installed image.
+Profile/configuration services own selection; the web runtime inventory supplies
+suggestions; ContainerBackend owns actual immutable runtime identity. Recipe
+storage and Git bundle readers own the source trust boundaries. No separate
+image-build operation/store is part of this component.
 
-## 7. Workflow Integration
-
-External administrator → repository executor/Dockerfile → build/check on server →
-existing profile config.toml → existing runtime/readiness. Admin GUI reads the real
-profile path; Dev sees only operator contact guidance. Recipe plans determine the
-effective image when configured. Local profiles omit container instructions.
-
-## 8. Usage
-
-See [Project executor images](../01_Documentation/Project_Executor_Images.md).
-
-## 9. Validation And Tests
-
-`test_executor_environment_choice.py`: installed image listing, chosen
-environment keys through review, other environment keys staying external, and
-`test_pending_image_build_binding_is_corrupt_but_discardable`.
-`test_web_pending_config.py`:
-`test_pending_candidate_for_an_external_key_is_corrupt_but_discardable`.
-`web/e2e/images.spec.ts`: localized disclosure/local suppression/Admin
-path/mobile presentation.
+Existing `04_Software/tests/test_executor_environment_choice.py`,
+`test_web_pending_config.py` and `04_Software/web/e2e/images.spec.ts` cover selection,
+external-only fields and pending-record refusal. See
+[Project executor images](../01_Documentation/Project_Executor_Images.md) for the
+operator workflow. Secrets and installed runtime images are not source-bundle data.

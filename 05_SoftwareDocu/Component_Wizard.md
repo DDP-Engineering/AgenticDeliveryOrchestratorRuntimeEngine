@@ -55,13 +55,11 @@ commands + `--profile` resolution.
 - **Re-prompting vs fail-fast:** `ask()` re-prompts on an interactive asker and
   raises `WizardError` on a non-interactive one - so `--answers` fails fast on a
   bad value rather than looping.
-- **Executor:** Pi is the only coding agent, so there is no agent choice.
-  A container profile always uses API-key mode and keeps the default Pi
-  command; a local profile asks for the installed native Pi argv
-  (`executor_command`) and an auth mode: `api-key` (provider key in `.env`)
-  or `existing` (the account's own Pi sign-in at `PI_CODING_AGENT_DIR`,
-  default `~/.pi/agent/auth.json`). There is no host sign-in staging into
-  containers.
+- **Executor:** Pi is the only coding agent. Both production backends use fixed
+  RPC. A local profile selects the current account and optional project tools
+  PATH and gives managed Pi install/verify guidance. Provider keys come from the
+  bound project environment; ChatGPT uses the server-owned sign-in. Personal Pi
+  auth and custom executor-command answers are refused.
 - **Provider and model:** the wizard asks the provider (`provider`, default
   `openai`, validated against `pi_providers.provider_ids()`: a Pi API-key
   provider id, `chatgpt` (this server's ChatGPT Plus/Pro sign-in) or
@@ -91,8 +89,7 @@ commands + `--profile` resolution.
   value is ever written; the next steps name the provider's credential variable.
 - **Governance-aware file budget:** the recommended profile allows 120 touched
   files. AEGIS task journals and evidence count toward the same bound as product
-  files, and the CR6 full pilot occupied 45 paths before implementation; the
-  older 40-file recommendation failed an otherwise healthy governed run.
+  files; the count is a cumulative run budget, not a per-stage allowance.
 - **TOML emission** prefers literal single-quoted strings, so regexes and
   Windows paths (backslashes) need no escaping.
 
@@ -137,8 +134,8 @@ commands + `--profile` resolution.
   with Settings → Agent and model as the alternative; for `chatgpt` the first
   step is to sign in with ChatGPT once for the server in the web interface
   (Settings → Agent and model → Sign in with ChatGPT). Configuration validation
-  refuses a `chatgpt` profile that runs locally or has a stage limit above
-  3000 s, so the wizard never saves one.
+  supports ChatGPT on container and managed native backends, with stage limits
+  no greater than 3000 s. Sign-in is owned by the server, not personal Pi auth.
 
 - **Workflow labels:** the wizard asks for the ready label,
   task-type labels (fix/change), and the quick framing hint, and writes
@@ -191,22 +188,17 @@ adore init <profile-name> --force   # overwrite an existing profile
   guard. Configured python3/default python probe argv and unavailable-interpreter
   informational reporting are covered with real candidate loading/validation;
   the python3 case arranges the existing config key at candidate assembly.
-- Live-verified via `adore init --answers` on Windows: environment check,
-  minimal config emitted, `config validate` OK.
 - Minimum validation after a change:
   `uv run --group dev pytest tests/test_wizard.py` + `ruff check .`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
-- WSL-internal runtime probing (docker/podman INSIDE a distro) is left to the
-  E2E task; the wizard suggests a WSL-wrapped string from the host detection and
-  the user confirms.
-- Version-vs-requirement checks (`required_tools`) are a separate backlog item;
-  the wizard reports presence via `doctor`, not versions.
-- A container profile always keeps the default Pi command
-  (`pi -p --mode json --model {model} {prompt}`), which the container run
-  ignores; only a local profile's native Pi argv is asked for. `[executor]
-  command` is written only when it differs from that default.
+- Runtime discovery supplies checked host/WSL suggestions; the operator confirms
+  the selected runtime and provisions project-specific tools.
+- Host tool presence and pinned managed Pi validation are distinct from a
+  project-specific toolchain/version acceptance.
+- Both production backends use fixed Pi RPC. The wizard does not accept custom
+  executor command or retired native-home/cgroup answer fields.
 
 ## Offline candidate preparation
 

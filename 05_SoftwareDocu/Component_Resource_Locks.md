@@ -50,7 +50,7 @@ separate inodes, so replacing a report cannot invalidate its writer lock.
 
 | Resource | Lock scope | Work outside the lock |
 |---|---|---|
-| Git worktree registry, checkpoints and config repair | Resolved common repository directory | Agent execution, remote publication |
+| Git worktree registry, checkpoints and configuration writes | Resolved common repository directory | Agent execution, remote publication |
 | Git fetch | Dedicated common-repository fetch key | Other local worktree operations |
 | Metrics database and JSONL mirror | Database writer key plus mirror key | Agent execution and short committed SQLite reads |
 | Managed Pi installation | Versioned tools root `.install.lock` | Verification/use of published immutable packages |

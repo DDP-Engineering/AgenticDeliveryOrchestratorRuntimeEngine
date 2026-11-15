@@ -72,7 +72,7 @@ fail-soft path. `web/tests/
 releaseNotes.test.mjs` covers grouping and the English fallback; the e2e
 `shell.spec.ts` About test opens What's new.
 
-## 7. Limitations And Future Work
+## 7. Limitations
 
 Whether a change is user-visible stays a judgement made by the agent or
 developer; the checker verifies only form and alignment, and the `--since`

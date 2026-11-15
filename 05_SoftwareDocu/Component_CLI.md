@@ -22,7 +22,7 @@ the `adore` package. An optional web API also exposes selected controls.
 
 - Define the full command surface (lifecycle, operations, statistics, config)
   with stdlib `argparse` only.
-- Wire the phase-1 commands:
+- Wire configuration and status commands:
   - `adore config show` - resolved configuration as JSON;
   - `adore config validate` - all validation issues, exit 1 when any;
   - `adore config set <section.key> <value>` - edit one scalar in the resolved
@@ -33,7 +33,7 @@ the `adore` package. An optional web API also exposes selected controls.
     counts by lifecycle, corrupt-run warning;
   - `adore runs` - table of persisted runs (corrupt ones shown as `CORRUPT`);
   - `adore pause` / `adore resume` - toggle the global pickup flag.
-- Wire the phase-3 engine commands (all refuse to start on an invalid
+- Wire the engine commands (all refuse to start on an invalid
   config): `adore run --loop|--once|--dry-run` (default mode from
   `[polling] mode`; `--once` prints the poll summary as JSON; all `run`
   modes also mirror their output to `<store_root>/adore.log`),
@@ -41,12 +41,12 @@ the `adore` package. An optional web API also exposes selected controls.
   `adore logs <run-id>`
   (journal, including executor archive paths when present), and
   `adore delete <run-id> --force` (destructive; refuses without `--force`,
-  design 8c guardrail). Retry, cancel, delete and reset acquire the selected
+  destructive-action guard). Retry, cancel, delete and reset acquire the selected
   run lock for their mutation; logs remain unlocked.
   Handoff queues an exact durable request when that lock is held, then the
   conductor stops at a safe boundary and preserves human-owned work. With an
   idle lock, the CLI completes the transfer directly.
-- Wire the metrics commands (phase 5): `adore stats [--since 30d] [--by
+- Wire the metrics commands: `adore stats [--since 30d] [--by
   priority|outcome] [--html] [--rebuild]`, `adore report <run-id>` (live
   journal summary as JSON), `adore export --csv` (all summaries to stdout).
   Report and rebuild return an explicit error on malformed or conflicting
@@ -63,7 +63,7 @@ the `adore` package. An optional web API also exposes selected controls.
     `build`, `validate` or `publishing`; AEGIS-only targets are refused before
     state mutation;
   - `adore profile delete <name> --force --remove-resources [--remove-clone]` - under the
-    conductor lock, refuses unfinished or corrupt runs, removes the containers,
+    project barrier, refuses unfinished or corrupt runs, removes the containers,
     egress resources and worktrees recorded for the project's own runs except
     human-owned ones, then
     deletes the profile and prints a JSON report (an external state root is
@@ -110,9 +110,10 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
   prints lock-specific guidance. Other runtime failures keep their own error
   text and never receive lock-removal advice. Cleanup only reclaims a lock whose
   local PID is provably gone; a live or unknown holder remains in place.
-- `_operator_lock` protects retry/cancel/delete/reset and always releases a lock
-  it acquired, including unsuccessful mutations. A live or unknown holder
-  refuses the command clearly; read-only logs do not acquire the lock.
+- `_operator_lock` protects explicit Reset and statistics rebuild and releases
+  acquired locks on failure. Lifecycle Retry/Cancel/Delete/Restart delegate
+  per-run locking and capacity to the engine rather than holding a project
+  lock for job duration. Read-only logs do not acquire an operator lock.
 - `config set` holds the shared per-directory `config_edit_lock` through read,
   validation and replacement. A concurrent CLI or web edit fails clearly.
 - `_cmd_run` wraps the engine logger with `ProcessLogger`, so engine log
@@ -145,9 +146,8 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 
 ## 6. Data Contracts
 
-- The command surface is stable; the argument shapes fixed in
-  phase 1 (`retry <run-id>`, `reset <run-id> --to <stage>`, `stats --since
-  --by --html`, ...) were kept unchanged when the commands were wired.
+- Command arguments and output forms are documented in the
+  [CLI reference](../01_Documentation/CLI_Reference.md).
 - `cleanup` prints its report as JSON (`lock_cleared`, `lock_held_by`,
   `containers_removed`, `proxy_containers_removed`,
   `egress_networks_removed`, `worktrees_removed`, `corrupt_runs`) so wrappers
@@ -219,22 +219,23 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
 - Minimum validation after a change: `uv run --group dev pytest tests/test_smoke.py`
   and `uv run adore -c config.example.toml config validate`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
 - `adore run --once --ticket IID` requests one specific ready ticket. The
-  normal hold/exclude/readiness checks still apply; a missing or ineligible
+  normal hold/exclude/readiness checks still apply while pickup pause is
+  preserved; a missing or ineligible
   ticket returns an error. The web worker uses this entry point for Start.
   A completed pass that does not pick the ticket, or a held conductor lock, ends with
   `error: ticket #IID not started: <code>`
-  (`pickup_paused`, `at_capacity`, `aegis_probe_failed`, `not_eligible`, or
+  (`at_capacity`, `aegis_probe_failed`, `not_eligible`, or
   `conductor_busy` for a held lock) and exits 1; the worker records the code as
   the operation's reason.
 
 - `adore config set` edits one scalar at a time and infers the value type from
   the text; it does not set arrays/tables or change a value's declared type on
   purpose. Comments on the edited line are kept via a quote-aware heuristic.
-- No `--json` output mode for `status`/`runs` yet; add when scripting needs
-  it.
+- `status` and `runs` use their table/text presentations; structured engine
+  results are separate contracts.
 
 ## Plan and explicit setup replay
 

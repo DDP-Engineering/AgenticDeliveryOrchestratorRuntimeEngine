@@ -7,133 +7,88 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Component: Local execution
 
-## 1. Purpose
+## Purpose and responsibilities
 
-Run the build's managed Pi on Windows or Linux using the existing native
-process ownership and AEGIS contracts.
+`04_Software/adore/local_execution.py` implements the native execution backend
+for Windows and Linux. It runs the build's managed Pi under the server account
+with owned process lifetime, pinned environment/tool identity and the same
+conductor/executor contracts as container jobs.
 
-## 2. Responsibilities
+`pi_installation.py` resolves server Node, pins/verifies npm packages and atomically
+publishes a versioned managed prefix. Installation needs no model credential.
+`local_process.py` and `local_child.py` assign the child to its owned scope and
+record its durable lease before releasing project argv. The controller owns
+interruption and final drainage.
 
-- `pi_installation.py` resolves server Node, pins npm packages, verifies the
-  candidate and publishes one versioned prefix. The install runner never needs
-  a model credential.
-- `local_execution.py` pins the native policy and binds AEGIS file execution
-  and Pi RPC to an owned run. It builds the account environment and redacts
-  only approved injected credentials.
-- `local_process.py` and `local_child.py` enforce assignment and durable lease
-  recording before releasing native argv. The controller owns final drainage.
+## Launch flow and data contracts
 
-## 3. Implementation Overview
+`local_policy` fingerprints machine/account, sanitized environment and the exact
+Node/Pi file identities. `LocalBackend` provisions a run-owned control receipt and
+binds `LocalTarget` against the saved identity. Native plans have no container
+image or preparation steps. Unknown/corrupt policy, plan, receipt or scope evidence
+is refused; no stored format is filled in or converted.
 
-`LocalTarget.pi_session` creates a fresh agent directory outside the worktree.
-It writes ADORE-generated model and web documents only, then lends owned
-binary pipes to the shared RPC launcher. Windows forwards explicit standard
-handles through the supervisor and offers Pi's PowerShell tool. Linux execs
-the exact native Node in the delegated scope. Normal exit, timeout and
-cancellation all confirm process tree drainage.
+`LocalTarget.pi_session` creates a fresh agent directory outside the worktree,
+writes only ADORE-generated model/web settings and lends owned binary pipes to
+the shared Pi RPC launcher. Windows forwards explicit standard handles through
+the supervisor and offers Pi's PowerShell tool. Linux execs exact native Node
+inside the delegated process scope. Normal exit, timeout and cancellation require
+confirmed process-tree drainage. See [Executor launcher](Component_Executor_Launcher.md).
 
-## Direct verification-only operation
+AEGIS CLI calls use the native run_files exchange with bounded strict UTF-8 and
+validated JSON. Python child streams use ADORE-owned PYTHONIOENCODING=utf-8.
+Invalid bytes cannot be replaced into successful protocol evidence. Paths may
+contain spaces; native argv is not an implicit shell-command authority.
 
-Windows verification alone sets the controller's `windows_verification=True`
-transport marker. The trusted child validates the dedicated non-RPC Windows
-cmd envelope before release, pins the executable explicitly and passes a raw
-command line to `CreateProcess`: only the executable uses C-runtime quoting;
-`/d /s /c` receives the original configured text inside one extra outer quote
-pair. This preserves quoted executable paths, nested quotes, compound commands
-and backslashes without C-runtime backslash-quote escaping. Ordinary native argv
-and RPC keep list serialization; neither infers shell authority from argv.
-Malformed transport markers/commands are refused before project execution.
+Direct uses the same owned Pi RPC path. The agent chooses repository checks;
+there is no native verification-only shell operation or independent configured
+verification command. See [Orchestrator](Component_Orchestrator.md).
 
-The opt-in controller `capture_tail=True` continuously decodes strict UTF-8,
-removes ANSI/NUL and masks the union of overlapping known-secret spans, including
-matches starting inside another credential and self-overlapping values. Raw
-lookahead and already-masked coverage survive each safe-prefix cut, so an
-incomplete overlapping match can extend the mask on the next read without
-exposing a suffix or buffering an unbounded overlap chain. It also recognizes
-credential tokens/Authorization headers across chunk and eviction boundaries.
-Unfinished credential values are suppressed until their terminator, even on
-long lines. Only redacted trailing bytes are retained (64 KiB per stream).
-Ordinary AEGIS/preparation prefix capture and its existing bounds are unchanged.
-Corrupt decoding, ownership or cleanup is a typed refusal, never a guessed pass.
+## Environment and credentials
 
-Verification shell commands run with the **service account's permissions and
-without container isolation**. A Job/cgroup controls process lifetime, not host
-filesystem, credentials or networking. Operators should use a dedicated
-least-privilege account. The ordinary native shell/wrapper refusal stays intact.
-Public offline proof: `test_native_direct_verification_uses_only_owned_platform_shell`
-and `test_native_verification_capture_keeps_true_sanitized_tail`, with
-`test_native_verification_capture_masks_overlapping_secrets` proving exact
-stdout/stderr tails across short reads, chunk/eviction boundaries and long overlap
-chains on success/nonzero/timeout with confirmed owned cleanup, plus
-`test_native_windows_verification_preserves_command_at_child_boundary` for exact
-Windows command-line preservation on pass/nonzero/timeout/cleanup refusal and
-`test_local_child_refuses_invalid_windows_verification_transport` for closed
-transport validation. Cancellation remains covered at the child boundary, with existing
-identity, scope/PID-birth and retry tests in `test_local_execution.py` and
-`test_retry_revalidation.py`.
+Server configuration supplies managed Node and Linux delegation. Project `[local]`
+selects the current account and optional tools PATH. Personal Pi settings/auth,
+ambient Node options and unrelated credentials are excluded from the fresh agent
+configuration. Provider/model credentials enter the bound environment explicitly.
+Native readiness validates local tools and stored credential status without a
+model call. Explicit model diagnostics use the same owned native scope.
 
-## 5. Inputs And Outputs
-
-The server configures Node and Linux delegation. The profile supplies only
-the current account and optional project tool PATH in `[local]`, plus the
-usual provider/model and credential selection. The backend retains no
-personal Pi settings or auth and emits only closed prerequisite causes.
-
-## 6. Data Contracts
-
-The local plan binds machine/account, sanitized environment, Node and Pi
-file identities and existing run ownership. Config and stored plan readers
-refuse unsupported fields. ADORE does not repair stored data automatically.
-AEGIS uses the existing strict file exchange; Pi uses shared bounded,
-redacted RPC evidence and cumulative token accounting.
-
-The controlled native environment sets `PYTHONIOENCODING=utf-8` for Python children on Windows and Linux. These values
-are owned by ADORE; ambient or supplied Python settings cannot override them.
-This keeps standard-stream encoding consistent with strict UTF-8 evidence capture.
-Invalid byte output still fails closed; no replacement decoding is introduced.
-
-## 9. Validation And Tests
-
-`test_pi_installation.py` uses fake npm and Node to prove install, validation,
-publication failure and pin changes. `test_local_execution.py` exercises the
-Windows/Linux control paths and fake Pi RPC, including hostile personal
-configuration, redaction and closed readiness diagnostics. The native and
-container model connection checks use the same RPC challenge contract.
-
-## Native ChatGPT subscription
-
-
-Native ChatGPT projects use `chatgpt.helper_for` with verified managed
-Node/Pi. They share the ADORE-owned sign-in with container projects on that
-home. Only a temporary access token reaches the bound Pi stage or model
-probe, with explicit secret redaction. No refresh credential is placed in the
-fresh executor agent directory. Native readiness reads stored sign-in status
-without calling a model. Stage limits remain at most 3000 seconds.
-WSL2 uses the Linux backend and delegated cgroup v2. Host networking remains
-separate from the container internet switch. See
+ChatGPT projects share the ADORE-owned sign-in with container projects for the
+same home. The trusted helper uses verified managed Node/Pi and returns only a
+temporary access token to the bound stage/probe, never the refresh credential.
+Stage limits retain the shared subscription ceiling. See
 [ChatGPT sign-in](Component_ChatGPT_Sign_In.md).
 
-## Explicit cleanup after drift
+## Resource ownership and cleanup
 
-`LocalBackend.for_cleanup` constructs process controls without resolving current installed tools. `remove_owned` compares the exact saved resource and saved local-policy fingerprint against the runtime receipt; current host/account, state-root path and process-scope leases are still required. It interrupts and drains only verified scopes before unlinking the receipt. Missing receipts are idempotent only without an active-process record. This path is available only through explicit owned deletion/restart and grants no execution/Retry identity exception. Offline proof: `tests/test_drift_recovery.py`, with ordinary Retry covered by `tests/test_retry_revalidation.py`.
+Windows Jobs and Linux delegated cgroup v2 provide process lifetime ownership.
+WSL2 uses the Linux backend inside its distribution. They do not sandbox the
+filesystem, credentials or network: Pi has the server account's host permissions.
+Container internet settings cannot restrict a native host process.
 
+Retry revalidates the pinned resource and effective native policy before effects.
+Stable identity changes require a fresh job. Explicit cleanup after drift uses
+`LocalBackend.for_cleanup` without resolving current installed tools, then checks
+the saved resource/policy against the receipt and verifies host/account, state-root
+path and leases. It drains only verified owned scopes before unlinking the receipt.
+Missing receipts are idempotent only without an active-process record. This grants
+no Retry or execution exception.
 
-The managed native Pi argv carries the selected thinking level to stages and model diagnostics.
+Managed installation uses a dedicated bounded tools lock, unique verified staging
+prefix and atomic immutable publication. Reading/verifying a published install
+needs no installation lock. Run controls, scopes, IO and temporary Pi settings
+remain per run; project settings never mutate the process-global environment.
+See [Resource locks](Component_Resource_Locks.md).
 
+## Evidence and validation coverage
 
-## Concurrent resource ownership
+Native RPC retains literal bounded session stdout, including agent-printed secret
+values. Operational tails, stderr, questions and model diagnostics remain masked.
+Authorized no-store session reads exclude system messages; old recordings are not
+rewritten. See [Web jobs](Component_Web_Jobs.md).
 
-Managed Pi installation uses a dedicated bounded tools lock (330-second maximum
-acquisition wait), a unique verified staging prefix and atomic directory publication.
-Published packages remain immutable and `managed_pi`/`verify_pi` do not acquire the
-installation lock. Native control receipts, process scopes, output and fresh Pi
-agent directories remain per run. Existing Windows Jobs and Linux cgroup ownership
-checks continue to fence interruption and cleanup; no process-global environment
-is modified for project settings.
-
-Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
-
-Native RPC job-session recordings retain literal bounded stdout events, including
-known credentials printed by the agent. Operational tails, stderr, questions, diagnostics
-and model-check responses retain masking. Session reads use the authorized no-store
-job surface and exclude system messages; no old recording is rewritten.
+Existing `04_Software/tests/test_pi_installation.py`, `test_local_execution.py`,
+`test_native_chatgpt.py`, `test_retry_revalidation.py`, `test_drift_recovery.py`
+and `test_shared_resources.py` exercise injected install/process/protocol and
+ownership failures. Operators provision native prerequisites explicitly; this
+component does not wrap missing process ownership with a weaker launch mode.

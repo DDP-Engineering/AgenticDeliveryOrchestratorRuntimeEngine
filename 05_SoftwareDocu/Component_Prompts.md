@@ -5,162 +5,75 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Prompts (`adore/prompts.py`, `adore/prompts/`)
+# Component: Prompt catalog
 
-## 1. Purpose
+## Purpose and sources
 
-Keep application-owned AEGIS-stage, direct-implementation, recovery, review and
-system-notice text in reviewable Markdown fragments. Existing AEGIS text remains
-byte-identical; the direct workflow has its own implementation request.
+`04_Software/adore/prompts.py` loads the application-owned Markdown resources
+under `04_Software/adore/prompts/`. Stage, Direct implementation, recovery,
+review, system notice and live instruction text are reviewable resources.
+The conductor owns selection/ordering/context; the launcher owns notice selection
+and transport. Pi's own prompt, repository instructions, AEGIS step files and
+model-connection challenges are outside this catalog.
 
-## 2. Responsibilities
+## Loading and rendering contract
 
-- Load and validate the complete fixed catalog eagerly, including fragments not
-  selected by the current stage or backend.
-- Remove the leading project legal comment without trimming the body.
-- Substitute named values once, as literal data, and report resource/render
-  failures with a file-named `PromptError`.
+`PromptCatalog()` eagerly reads exactly the fixed `FRAGMENTS` inventory, including
+resources not selected by the current workflow/backend. It reads strict UTF-8
+bytes, requires the canonical legal prefix and validates string.Template syntax.
+Only a complete successful load publishes the read-only mapping. Missing,
+unreadable, malformed or invalid resources raise file-named `PromptError`.
+There is no alternate-path setting, process-global reload cache or partial fallback.
 
-The orchestrator still owns selection, conditions, ordering, joining and evidence
-sanitization. The launcher still owns notice selection and transport. This module
-does not own Pi's own prompt, repository instructions, AEGIS step files, the
-model-connection challenge, logs or forge status comments.
+The leading legal comment and its one LF delimiter are removed exactly. Body
+whitespace is significant, including the leading space in stage/network.md and
+resources intentionally without final newline. Rendering performs no file reads.
+Reconstruct the catalog to observe edited resources.
 
-## 3. Implementation Overview
+`render(fragment, **values)` substitutes named string values once using $name or
+${name}; $$ means a literal dollar. Values are data and are never reparsed, so
+ticket text containing dollar signs/braces stays literal. Extra supplied values
+are ignored, an empty string is valid and a missing required value is an error.
+The caller remains responsible for context sanitization and paragraph joins.
 
-`PromptCatalog()` loads the 27 filenames in `FRAGMENTS` from
-`Path(__file__).with_name("prompts")`. There is no configurable alternate path,
-process-global cache or reload mechanism. The `prompts/` resource directory is
-not a Python package; the sibling `prompts.py` is the importable module.
+## Current resource groups
 
-Each file is read as bytes, decoded strictly as UTF-8, checked for the canonical
-`LEGAL_PREFIX`, then checked with `string.Template.is_valid()`. Only a complete
-successful load publishes the private read-only template mapping. Reconstruct a
-catalog to read changed resources; rendering performs no filesystem access.
-
-## 4. Dependencies
-
-Only Python standard-library `pathlib`, `string` and `types` are used.
-`Orchestrator.from_config` creates one catalog and shares it with the conductor
-and `build_executor` / `PiExecutor`. Direct conductor and standalone Pi launcher
-construction each defaults to eager loading, or accepts an already loaded catalog.
-The optional instruction handoff renders through this shared catalog; the RPC wire format remains Pi-owned.
-
-## 5. Inputs And Outputs
-
-- Inputs: required application-relative Markdown files and caller-supplied named
-  string values.
-- Output: `render(fragment, **values)` returns the substituted body string.
-- Errors: `PromptError(RuntimeError)` names the fragment for missing/unreadable
-  files, invalid UTF-8, malformed legal prefix, invalid dollar syntax, an unknown
-  fragment key, or an omitted required value. No fallback or partial result is
-  returned.
-
-## 6. Data Contracts
-
-Resources are grouped by use:
-
-| Directory | Contents |
+| Directory | Ownership |
 |---|---|
-| `direct/` | Complete implementation, repository instructions, authority limits, questions and summary request |
-| `stage/` | Eight opening paragraphs, frame/quick hints, recovery/thread wrappers, package-permission variants, network suffix and closing rules |
-| `recovery/` | Revalidation route, integration conflict, continuation, no progress and strict-verification context |
-| `review/` | Pipeline brief and ticket-content-change note |
-| `system/` | Internet-off and native-server notices |
+| direct | Agent implementation request, repository checks, questions and summary |
+| stage | AEGIS stage opening, task/ticket/context, quick hint, authority and closing rules |
+| recovery | Revalidation routing, integration conflicts, continuation and no-progress context |
+| review | Pipeline context and changed ticket text |
+| system | Internet-off container and native-server notices |
+| live | Authenticated user's instruction wrapper |
 
-Every resource starts with the exact project Markdown license comment followed
-by one LF delimiter (`LEGAL_PREFIX`). That prefix is removed exactly. Body
-spaces and newlines, including the leading space in `stage/network.md`, remain
-significant; most bodies intentionally have **no final newline**. Do not wrap,
-trim or add newlines while editing unless changing agent wording deliberately.
-The loader performs no universal-newline conversion.
+Direct uses implementation.md. There are no independent verification-command or
+verification-failure fragments. The agent chooses repository checks for either
+workflow. The full exact filename list is `FRAGMENTS`, not a second prose inventory.
 
-Values use `string.Template`: `$name` or `${name}` is a named placeholder, `$$`
-is a literal dollar, and ordinary braces such as `{x}` need no escaping. Extra
-supplied values are ignored; an explicitly empty string is valid. Values are not
-parsed again, so ticket text containing `$name`, `${name}`, `$$` or `{x}` remains
-literal. Existing caller-side `description.strip()` and `_sanitize` remain in
-place. Add new required files to `FRAGMENTS` and its inventory proof together.
+The live instruction wrapper substitutes user/text literally for both captured
+initial-prompt fallback and live delivery. Composition does not establish receipt;
+that belongs to [Instructions](Component_Instructions.md).
 
-## Direct verification fragments
+## Integration and distribution
 
-The fixed catalog includes `direct/verification.md` (literal command and request
-to run it before finishing) and `direct/verification-failure.md` (independently
-bound command, exit, status and sanitized output). The conductor selects them
-only for configured direct runs and reconstructs failure context from the typed
-retained result for every fresh fix/Retry session. Fields are substituted once,
-so dollar signs, braces and quotes remain data. Empty-command and AEGIS prompts
-retain their own behavior. `test_prompts.py` proves exact inventory, literal
-values, missing-value refusal and eager resource errors; public conductor tests
-prove selection and retained context.
+`Orchestrator.from_config` shares one catalog with the conductor and Pi launcher.
+Direct conductor/standalone launcher construction also validates a catalog eagerly.
+Stage composition joins selected paragraphs; Direct omits AEGIS journal instructions.
+Native RPC always gets the server notice. Internet-off container RPC gets the
+offline notice; internet-on container RPC gets neither.
 
-## 7. Workflow Integration
+Hatchling includes the complete resource directory in the wheel. Portable packaging
+installs that wheel unchanged and inventories the resources in its manifest.
+See [Executor launcher](Component_Executor_Launcher.md) and
+[Portable distribution](Component_Portable_Distribution.md).
 
-Construction checks every resource before stage execution. The conductor renders
-fragments at their existing call sites and joins stage paragraphs with `\n\n`.
-Permission and network text remain one paragraph, composed through the same
-helper for AEGIS and direct. Direct composition reuses ticket/recovery/thread
-fragments without inserting AEGIS journal instructions. The launcher renders the native
-notice for native RPC, the offline notice for internet-off container RPC, and no
-notice for internet-on container RPC. No stored format or run lifecycle changes.
+## Validation coverage and limitations
 
-Hatchling includes the complete resource directory in the application wheel.
-`02_Tools/package/create_delivery_package.py` installs that wheel into portable Python unchanged;
-its cleanup targets scripts, metadata and bytecode, not Markdown resources. The
-portable manifest hashes every included file.
-
-## 8. Usage
-
-```python
-from adore.prompts import PromptCatalog
-
-prompts = PromptCatalog()
-text = prompts.render("stage/ticket.md", iid="7", title="A title",
-                      description="Ticket data containing $name and {x}")
-```
-
-No setting or environment variable selects another catalog location.
-
-## 9. Validation And Tests
-
-`tests/test_prompts.py` compares rendered UTF-8 bytes with the frozen original
-outputs in `tests/fixtures/prompts/baseline.json`. The fixture was captured before
-extraction from the original code at `ff76a56088d6d047543e7b544721c60c1b2648a5`;
-do not regenerate it from the file-backed implementation. It covers all stages,
-frame quick-label variants, recovery/thread and package permissions. Its mode
-labels are requested configuration, not effective policies: all original container
-captures used `executor.internet = false`, hence the allowlist proxy. Each original
-fragment has its own expected text.
-
-`network-baseline.json` supplements (never replaces) those captures with outputs
-from the original `_stage_prompt` at the same commit. It covers effective open and
-allowlist-proxy policies for both internet values, every requested container mode,
-both package permissions, and native execution. Tests assert effective policies
-and matrix completeness before byte comparisons. Current configuration derives
-only open or allowlist-proxy; explicitly injected none-policy cases prove generic
-mode interpolation without claiming none is reachable through configuration.
-
-Tests also cover all five recovery callers, review texts, native/container notice
-transport, production catalog sharing and exactly-once reads, literal dollar and
-brace data, strict missing-value errors, UTF-8, permission/missing-file failures,
-invalid syntax/header failures, unknown keys and precise whitespace/header removal.
-`tests/test_orchestrator.py`, `tests/test_executor.py` and `tests/test_pi_rpc.py`
-retain conductor and transport regression contracts. The direct fragment is
-part of eager missing/encoding/header/template refusal even for AEGIS runs;
-its notice matrix proves identical shared package/network bytes. Public direct
-launches capture non-ASCII, dollar/brace-bearing tickets and answer threads.
-The frozen historical inventory remains unchanged; its inventory assertion
-explicitly adds the new direct resource rather than regenerating old fixtures.
-
-Build the wheel in temporary storage and compare every `adore/prompts/` path and
-byte with the source inventory. Portable inclusion is inspected through its
-unchanged-wheel installation route; deployment tools have no automated tests.
-
-## Live instruction wrapper
-
-The fixed inventory also includes live/instruction.md. InstructionDelivery renders
-its user and text placeholders once as literal values, naming the ADORE interface
-and author. Both initial-prompt fallback and live commands use this same shipped
-loader resource. Headers remain excluded; no trimming, redaction or reparsing applies
-to authorized instruction text. Protocol, receipt and composition ordering belong to
-Component_Instructions.md and Component_Orchestrator.md.
+Existing `04_Software/tests/test_prompts.py` verifies inventory, literal substitution,
+eager errors, legal prefixes and significant bytes against captured fixtures under
+`tests/fixtures/prompts/`. Conductor/executor/RPC tests cover selection and transport.
+Captured baselines are independent expected outputs; do not regenerate them from
+the implementation under test. New resources must update the fixed inventory and
+its existing contract coverage together. The catalog itself uses only Python's
+standard library and performs no model, Git or forge calls.

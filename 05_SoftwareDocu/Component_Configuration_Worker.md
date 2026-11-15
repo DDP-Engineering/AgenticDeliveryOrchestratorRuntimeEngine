@@ -42,7 +42,7 @@ Cancel remains in the independent project command/watcher path, including at cap
 ## 4. Dependencies
 
 Python standard-library futures/contextvars, FastAPI/Pydantic route types,
-ProfileStore, WebStore schema 18, existing private credential-file read/write
+ProfileStore, the current WebStore schema, existing private credential-file read/write
 primitives, config edit/admission locks and the existing probe/handler modules.
 No broker, new dependency, schema migration or target-repository test runner.
 

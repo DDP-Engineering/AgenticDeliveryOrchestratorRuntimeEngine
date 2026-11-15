@@ -52,7 +52,7 @@ Project Summary embeds only limit, free and queued counts in the operational fac
 Worker reads select relevant role/project rows before decoding heartbeat records: corrupt project A observations refuse A but leave B and server readiness readable. Initial working/execution_pending reservations retain their queued authority but wait for the current execution-start ceiling. Started execution/cleanup slots are counted separately from pending reservations, preventing both an unlimited start bypass and a pending-reservation deadlock. Staged copy is neutral for increases/unrelated changes and names an effective lower ceiling only when staged N < active N. Connection drafts pass the closed validConnection transport before persistence, so invalid credential-bearing endpoints stay in memory with retention warning.
 
 
-REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
+Queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
 
 Initial activation retries brief local admission-lock contention at most 25 times with 20 ms waits outside the project lock. Exhaustion keeps queued dispatch unchanged for a later attempt. Real process-pool overlap and explicit operator-lock refusal/recovery are targeted public regressions.
 

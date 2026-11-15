@@ -67,4 +67,4 @@ under the same account and absolute home. The supervisor owns project workers,
 configuration work and bounded job pools. Do not register standalone CLI polling
 for profiles already managed by that supervisor. See
 [Web interface](../../01_Documentation/Web_Interface.md) and
-[deployment component](../../05_SoftwareDocu/Component_Deployment.md).
+[source-service boundaries](../../05_SoftwareDocu/Component_Packaging.md#source-services).

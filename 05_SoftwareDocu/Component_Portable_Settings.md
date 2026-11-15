@@ -15,8 +15,7 @@ reading; enrollment and profile persistence remain separate responsibilities.
 
 ## 2. Responsibilities
 
-Validate complete recognized source structure before the existing lenient
-configuration loader; validate configuration; project only `PORTABLE_FIELDS`;
+Validate complete recognized source structure before typed configuration loading; validate configuration; project only `PORTABLE_FIELDS`;
 encode deterministic schema-1 JSON; reject duplicate/malformed/incompatible
 packages and return fresh portable values. Secrets, identity, host locations,
 access state and references remain outside the format.
@@ -54,7 +53,7 @@ temporary configuration snapshot is automatically removed on success or failure.
 The enumerated allowlist, numeric/list bounds, omissions, new-project default,
 canonical encoding and exact-version compatibility are defined in
 [Portable project settings](../01_Documentation/Portable_Project_Settings.md)
-and the [strict specification](../.agentic/specs/REQ-DATA-9528fad6.md).
+and the current `PORTABLE_FIELDS`/parser in `04_Software/adore/portable_settings.py`.
 Checksum offers change detection only. Input errors never echo source values.
 
 ## 7. Workflow Integration

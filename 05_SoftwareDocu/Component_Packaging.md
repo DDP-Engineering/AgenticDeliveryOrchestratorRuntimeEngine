@@ -73,3 +73,30 @@ frontend build inputs change.
 The wheel also includes the canonical executor base Dockerfile and Pi helpers
 from `04_Software/docker/` as product assets for source-recipe export. Building
 those images remains an explicit operator action.
+
+## Source services
+
+`02_Tools/setup/install_linux_service.sh`, `install_windows_service.ps1` and the
+adjacent adore.service template configure a standalone CLI poller for a source
+checkout. They do not install the complete web control plane. Linux uses systemd;
+Windows uses Task Scheduler, with the default loop starting at logon and an
+optional periodic once mode. Preparation-only and explicit uninstall are supported.
+Uninstall retains run state, worktrees, containers and other operator data.
+
+Installers validate the source layout/configuration and provision the web Python
+extra. Linux can prepare missing shared runtime images; Windows verifies prepared
+images. Explicit skip options retain operator responsibility. Unattended open
+egress requires its explicit opt-in. Service identity and absolute config paths
+belong to the operator; source startup uses the frozen Python environment.
+Commands, flags and OS prerequisites live in the
+[setup README](../02_Tools/setup/README.md), not a second deployment manual.
+
+For the web application, the package launcher supervises one API and exactly one
+adore-web-worker for the same absolute home/account. That supervisor owns project
+workers and configuration work. Never run an additional standalone CLI poller for
+a profile managed by the web supervisor. Custom service supervision follows the
+same pair/ownership boundary. See [Web worker](Component_Web_Worker.md) and
+[Portable distribution](Component_Portable_Distribution.md).
+
+Setup/service scripts are maintained directly as repository tools. Do not add or
+run automated deployment/environment setup tests for them.

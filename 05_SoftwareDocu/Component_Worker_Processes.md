@@ -48,7 +48,8 @@ output. Retained capture is bounded for indefinitely running workers as well as 
 `ADORE_WORKER_ANCESTRY` is at most 8192 characters and 12 unique positive PID and
 nonempty birth pairs. Missing transport denotes standalone use; malformed,
 dead, reused or unknown evidence raises OwnershipError. Each spawn appends its
-verified parent identity. Web schema 18 adds transient command ownership; ancestry itself is not persisted. No migration is provided.
+verified parent identity. WebStore retains current command ownership; ancestry itself is not persisted.
+The store accepts only its current schema.
 
 ## 7. Workflow Integration
 
@@ -87,7 +88,7 @@ ProjectWorker shares `adore.capacity.admission_limit` with the conductor. A curr
 Queued working/execution_pending reservations retain launch authority but wait for the current dispatch ceiling. Real helper-process regressions prove two reservations start serially after N2→N1, while two executors already started before reduction continue together. Later Start remains queued.
 
 
-REQ-FUNC-3b737a5c: queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
+Queued initial starts share the reduced ceiling through supervisor dispatch and atomic conductor activation. Pending reservations do not count as started executors; existing running execution/cleanup does. Capacity deferral leaves execution_pending and queued dispatch unchanged until an actual slot is available.
 
 ## Integrated acceptance
 

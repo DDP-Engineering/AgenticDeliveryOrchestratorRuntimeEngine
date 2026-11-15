@@ -137,8 +137,9 @@ entry. User-facing operating instructions are maintained with the distribution.
 Native Windows and glibc Linux builds are separate artifacts. macOS, ARM64,
 automatic updates, signing and OS installers are not part of this distribution.
 Close the application through Stop-ADORE/Ctrl+C before closing its console or
-replacing files. Existing database migrations retain their normal backup and
-rollback requirements. Project jobs still require their configured host tools
+replacing files. Each build accepts only the current stored schemas. Unsupported
+stores are refused with a message naming the files/directories to delete; the
+application never migrates or recreates them automatically. Project jobs still require their configured host tools
 and connectivity; only application startup is self-contained and offline.
 
 Native acceptance also proves authenticated read-only host folder navigation,

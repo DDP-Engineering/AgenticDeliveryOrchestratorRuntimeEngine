@@ -48,7 +48,8 @@ Native service-account access remains governed by host permissions, not a sandbo
 - util.run_command and injected Popen provide bounded native execution.
 - Web API owns administrator/CSRF, pending-login locking and sanitized audit.
 - Orchestrator/model diagnostics own token lifetime and target binding.
-- Node 22.23.4+ in the 22.x line, Pi 1.4.0 and pi-web-access 0.46.0.
+- Managed Node/Pi/web-extension pins from `04_Software/adore/pi_installation.py`
+  and the runtime image sources; the helper imports those exact installations.
 
 ## 5. Inputs And Outputs
 

@@ -16,8 +16,8 @@ only the Python companion CLI shipped by AEGIS and JSON schema 1.
 
 - invoke the host pre-pick probe with direct argv and every run-container
   operation through a shell-quoted file exchange;
-- probe the version (major 0 at 0.15.0 or later) and schema before governed
-  work, naming 0.15.0 when it refuses an older release;
+- probe the version and schema before governed work, using only the supported
+  range declared in `04_Software/adore/aegis.py`;
 - create/list/read task journals and pin exact task identity;
 - expose the journal's recorded `DEVIATION <stage>` entries with the same
   marker rule AEGIS applies to its delivery report;
@@ -67,8 +67,7 @@ and Python runtime.
 - repository status-list stages: the six conducted stages and the adoption
   stages `survey`, `components`, and `close`; retired stage names are refused;
 - active ADORE task stages: exactly `frame`, `specify`, `design`, `build`,
-  `validate`, or `done`, with the step files AEGIS 0.15.0 names (none for
-  `done`); a task at `deliver` fails closed;
+  `validate`, or `done`, with the current conducted step-file mapping (none for `done`); a task at `deliver` fails closed;
 - paths: `full` or eligible `quick`;
 - strict exit 0 must agree with `strict.passed=true`;
 - non-skipped command runs require numeric duration and integer exit.
@@ -111,7 +110,7 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 `04_Software/tests/test_local_execution.py`.
 
 
-## Captured companion compatibility evidence
+## Captured companion protocol evidence
 
 `tests/fixtures/aegis_0_15_0.json` captures actual managed CLI version, task,
 status and strict-check serialization in a disposable repository. Its configured

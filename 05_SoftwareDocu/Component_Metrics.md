@@ -200,12 +200,11 @@ invented day.
   `enabled=false` records nothing.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_metrics.py`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
-- `capture_resource` (docker stats / disk probes) is config intent, pending.
-- Code-size lines (+/-) not captured yet (files-changed count only).
-- Time-per-gate breakdown exists in the journal but is not yet a summary
-  column; add when the dashboard needs it.
+- The reserved `capture_resource` setting performs no Docker/disk measurement.
+- Summaries retain changed-file counts, not added/deleted line counts.
+- Stage timing remains journal evidence rather than a summary column.
 
 ## Explicit deleted-job summary cleanup
 

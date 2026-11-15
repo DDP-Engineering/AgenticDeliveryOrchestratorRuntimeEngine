@@ -39,9 +39,9 @@ not require every repository to install AEGIS. ADORE never installs or edits it.
 
 All probes use injected `CommandRunner`; unit tests never contact external
 systems. The wizard prints the same guidance. Other probes cover Git,
-Docker/Podman/WSL, forge CLI/auth and Pi availability (`detect_executor` runs
-`pi --version`; Pi is needed on the host only for a local run, since the
-executor image pins its own). GitLab/GitHub
+Docker/Podman/WSL, forge CLI/auth and managed Pi availability. Native readiness
+verifies the server-owned Node/Pi installation; container execution uses its
+image toolchain. No ambient global Pi installation is selected. GitLab/GitHub
 guidance states the runtime routing contract explicitly: ADORE uses the
 platform CLI's active/default authenticated host, which must be the intended
 corporate instance. Gitea continues to route through its selected tea login.

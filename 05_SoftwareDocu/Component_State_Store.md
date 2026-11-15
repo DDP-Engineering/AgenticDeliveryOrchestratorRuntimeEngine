@@ -64,8 +64,8 @@ it. Direct runs have no task bindings; reset rejects AEGIS-only direct stages
 before mutation.
 
 Direct `validation_evidence` carries sanitized bounded `summary`, conductor-owned
-`implementation = completed`, then `verification = not configured` and an observed
-`changed_files` count. Summary text is saved before file removal; the transient
+`implementation = completed` and an observed `changed_files` count. There is no
+independent verification-result field in the current completion evidence. Summary text is saved before file removal; the transient
 isolation receipt is never serialized. The completion marker permits checkpoint
 recovery at validate without replaying successful implementation. Missing
 completion returns recovery to build; summary alone does not authorize approval.

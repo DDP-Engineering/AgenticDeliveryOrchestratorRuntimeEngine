@@ -33,7 +33,7 @@ API evidence adds project_id, SHA-256 revision and UTC checked_at. GUI accepts e
 
 ## 7. Workflow Integration
 
-Settings → Agent and model offers Test AI connection at the panel heading right, alongside the settings and project API keys; Summary shows the current saved model result only inside expanded host-check details. Each explicit click can incur provider charges. The container Pi run is capped at `CONTAINER_TIMEOUT_SECONDS` (60 seconds) and the native gate at 90 seconds; container output keeps `pi_rpc`'s bounded evidence (local stdout is capped at 1 MiB through `LocalTarget.output_limit`, local stderr at 64 KiB); container setup and the Pi run share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
+Settings → Agent and model offers Test AI connection at the panel heading right, alongside the settings and project API keys; Summary shows the current saved model result only inside expanded host-check details. Each explicit click can incur provider charges. The container Pi run is capped at `CONTAINER_TIMEOUT_SECONDS` (60 seconds) and the native gate at 90 seconds; container output keeps `pi_rpc`'s bounded evidence (native operational stdout uses the RPC client's 1 MiB tail bound, native stderr 64 KiB); container setup and the Pi run share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
 
 ## 8. Usage
 
@@ -45,7 +45,7 @@ Save executor/model credentials as for normal execution, ensure its local image 
 
 ## 10. Limitations
 
-A container or native Pi result proves one shell call. Neither proves Git push permission, AEGIS execution or complete job. Current results are persisted in model-connection.json by executor_settings.py, validated against immutable identity/configuration/credential inputs, and reused by Summary and host-check access presentation. Stale results are suppressed and corrupt results rejected. See Component_Executor_Configuration.md for storage/auth contracts. Full regression is deferred during iterative GUI work; real paid provider checks remain operator-triggered acceptance.
+A container or native Pi result proves one shell call. Neither proves Git push permission, AEGIS execution or complete job. Current results are persisted in model-connection.json by executor_settings.py, validated against immutable identity/configuration/credential inputs, and reused by Summary and host-check access presentation. Stale results are suppressed and corrupt results rejected. See Component_Executor_Configuration.md for storage/auth contracts. Real paid provider checks remain operator-triggered acceptance.
 
 ## Effective preparation image
 
@@ -53,7 +53,7 @@ Explicit model connection resolves the selected Git recipe through its bounded r
 
 ## Native execution contract
 
-Native challenges use local_probe and the same fixed Pi argv and account environment as gates, with a 90-second gate bound and verified scope cleanup. The prompt asks for `echo <ADORE_TOOL nonce>` and then the exact reply; `_native_tool_response` requires Pi's successful shell event carrying that nonce (otherwise `tool-call-failed`) and then the completed reply (otherwise `invalid-response`), per `.agentic/specs/REQ-FUNC-8f369d55.md`. No login or complete-job claim; container diagnostics keep the fixed RPC command line.
+Native challenges use local_probe and the same fixed Pi argv and account environment as gates, with a 90-second gate bound and verified scope cleanup. The prompt asks for `echo <ADORE_TOOL nonce>` and then the exact reply; `_native_tool_response` requires Pi's successful shell event carrying that nonce (otherwise `tool-call-failed`) and then the completed reply (otherwise `invalid-response`). The current challenge/response parser is the authority for this contract. No login or complete-job claim; container diagnostics keep the fixed RPC command line.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:

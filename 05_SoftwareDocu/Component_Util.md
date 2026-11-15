@@ -104,11 +104,11 @@ seconds = parse_duration("24h")  # 86400
   `process_alive` (current pid alive, non-positive pids rejected).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_util.py`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
-- No retry/backoff wrapper yet; the poll loop will add it where needed.
-- No streaming mode; if a later phase needs live progress, add an explicit
-  file-tail mechanism rather than reading process stdout.
+- `run_command` captures completed bounded process output. Streaming RPC uses
+  the executor's separate owned pipe transport.
+- Retry/backoff policy belongs to callers rather than the generic runner.
 
 ## Exact source decoding
 

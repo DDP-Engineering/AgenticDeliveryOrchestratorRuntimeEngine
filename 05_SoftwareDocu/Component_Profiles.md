@@ -126,7 +126,7 @@ store.touch("<profile-name>")               # record a use (use_count, last_used
 - Minimum validation after a change:
   `uv run --group dev pytest tests/test_profiles.py` + `ruff check .`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
 - The wizard, `adore profile` CLI, `--profile` global flag, and per-profile
   statistics are implemented in their respective components.

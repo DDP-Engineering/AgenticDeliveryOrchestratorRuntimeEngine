@@ -174,7 +174,7 @@ provider = "chatgpt"
 model = "<a model from chatgpt_models>"
 ```
 
-An OpenAI-compatible endpoint (container run only):
+An OpenAI-compatible endpoint (container or managed native execution):
 
 ```toml
 [executor]
@@ -198,8 +198,8 @@ only `{prompt}`, `{model}` and `{worktree}` placeholders.
 approval-label collisions, forge credential denial, container trust boundaries
 and existing cross-platform configuration rules. `tests/test_pi_providers.py`
 covers the shipped catalog (including `chatgpt_models`), provider/model/endpoint
-validation, endpoint model generation, the local-run and stage-limit
-refusals of `chatgpt`, `secret_names` and `models_json`. The internet switch
+validation, endpoint model generation, ChatGPT stage-limit refusals,
+`secret_names` and `models_json`. Native ChatGPT uses the managed server sign-in. The internet switch
 is covered by `test_internet_defaults_off_with_exa_search`,
 `test_internet_and_search_values_are_validated`,
 `test_container_egress_mode_is_refused_naming_the_switch`,
@@ -208,7 +208,7 @@ is covered by `test_internet_defaults_off_with_exa_search`,
 
 ## Reviewed preparation settings
 
-`ExecutionConfig` is a closed `[execution]` table: container backend, optional exact Git selection, step/total timeout and attempt cap. Image may be empty only with preparation. Grammar/source validation belongs to `preparation.py`. Missing keys take the documented defaults. See [Container preparation](../01_Documentation/Container_Preparation.md) and `tests/test_preparation.py`.
+`ExecutionConfig` is a closed `[execution]` table selecting container or local. Container preparation can name exact Git selection, step/total timeout and attempt cap; local plans have no recipe steps. Image may be empty only with preparation. Grammar/source validation belongs to `preparation.py`. Missing keys take the documented defaults. See [Container preparation](../01_Documentation/Container_Preparation.md) and `tests/test_preparation.py`.
 
 ## Native execution contract
 

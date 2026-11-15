@@ -197,7 +197,7 @@ unchanged corrupt rows and schema/column refusal without rewriting the database.
 `tests/test_web_rbac.py` proves the same API boundaries with session/CSRF checks
 and isolated accounts.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
 This is a single-host store. There is no email password recovery or
 multi-host dispatch. The account lockout key uses the direct client address;
