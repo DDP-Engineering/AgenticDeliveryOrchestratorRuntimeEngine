@@ -15,12 +15,18 @@ review, then publishes a PR/MR. Merging remains a human decision.
 ## Start and sign in
 
 Extract the complete Windows ZIP or Linux TAR.GZ into a folder where programs can
-run. Python, the web application, Node, Pi, its web extension and search tools
-are included. Native Pi setup needs no download. Container images are separate
-archives that an administrator imports with Docker/Podman before selecting them.
+run. Both variants include Python and the web application. The offline archive
+also includes Node, Pi, its web extension and search tools without setup downloads.
+The online archive needs separately prepared Node/npm and `pi install` for native
+execution. Container images are separate archives that an administrator imports
+with Docker/Podman before selecting them.
 
 - Windows: double-click **Start-ADORE.cmd**.
 - Linux: run **./start-adore.sh** from the extracted folder.
+
+Normal start and stop do not scan all installation files. For a complete integrity
+check after extraction or when diagnosing corruption, run **Start-ADORE.cmd --verify**
+or **./start-adore.sh --verify** separately; this can take several minutes on Windows.
 
 The browser opens when the application and its worker are ready. The default
 address is `http://127.0.0.1:8765/`. A fresh installation starts with **admin** /

@@ -39,6 +39,24 @@ in a browser on that machine. Press Ctrl+C or run `./stop-adore.sh` to stop.
 The server listens only on loopback; use the documented TLS reverse-proxy
 configuration for access from other machines.
 
+## Package verification
+
+Normal startup checks package metadata and the application version, then starts
+the services. Normal start and stop do not scan or hash the installed files.
+Stop uses the existing instance ownership record, even if the package manifest
+is damaged. Neither operation downloads or installs anything.
+
+For a complete integrity and dependency check, run this separately:
+
+- Windows: `Start-ADORE.cmd --verify`
+- Linux: `./start-adore.sh --verify`
+
+This checks every packaged file against its SHA-256 checksum and verifies the
+included runtime dependencies. It does not start services and can take several
+minutes on Windows. Run it after extraction or when diagnosing damaged media.
+Normal startup does not provide this full integrity check. Package creation
+always performs the complete check before publishing an archive.
+
 ## First use
 
 The default address is <http://127.0.0.1:8765/>. A new installation creates the
@@ -58,17 +76,18 @@ In the online archive, prepare Node/npm first, then run `pi install` and `pi ver
 as the account running ADORE. Git and project-specific tools are separate prerequisites.
 
 Container images are separate compressed archives. On a host with Docker/Podman
-already installed, import the required executor and egress-proxy archives:
+already installed, import the generic executor archive:
 
 ```sh
 docker load --input adore-0.16.0-executor-base-linux-x64.tar.gz
-docker load --input adore-0.16.0-egress-proxy-linux-x64.tar.gz
 ```
 
 Use `podman load --input` with Podman. The command reports the imported image tag;
-select that exact tag in project Settings. The optional executor-adore archive
-adds the ADORE project toolchain and Chromium. Importing requires no registry or
-image build. Project-specific images must likewise be prepared before delivery.
+select that exact tag in project Settings. The executor-base archive contains
+the generic Pi execution environment. It is a Linux image for Linux hosts and
+Docker/WSL on Windows; no separate Windows container archive is provided.
+Importing requires no registry or image build. Project-specific images and the
+proxy image required for allowlisted container egress must be prepared separately.
 AI/model and remote repository access still require their configured network.
 
 ## Data, logs and updates

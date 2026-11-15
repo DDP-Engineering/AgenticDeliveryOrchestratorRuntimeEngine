@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file       create_executor_image_archives.py
-@brief      Publish separate offline Docker/Podman image archives.
+@brief      Publish the generic executor image for offline Docker/Podman import.
 @details    Builds explicitly on request, with unique source-bound tags, or
             exports selected local images. No registry push or running-container
             mutation occurs. Only final archives and hashes enter 07_Delivery.
@@ -31,7 +31,7 @@ import tomllib
 
 # CONSTANTS
 REPO = Path(__file__).resolve().parents[2]
-ROLES = ("executor-base", "egress-proxy", "executor-adore")
+ROLES = ("executor-base",)
 MAX_IMAGE_BYTES = 16 * 1024 * 1024 * 1024
 LEGAL = (
     "# Copyright (c) 2026 DDP Engineering\n"
@@ -100,9 +100,6 @@ def main(argv: list[str] | None = None) -> int:
         version = tomllib.load(handle)["project"]["version"]
     defaults = {
         "executor-base": "adore-executor-base:1.0.0",
-        "egress-proxy": "adore-egress-proxy:1.0.0",
-        "executor-adore": json.loads(
-            (REPO / "02_Tools/build/executor_images/adore/build.json").read_text())["image"],
     }
     for value in args.image:
         role, separator, image = value.partition("=")
@@ -116,9 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         revision = run(["git", "rev-parse", "HEAD"])
         for role in selected:
             tag = f"adore-{role}:{version}-{revision[:12]}"
-            dockerfile = (REPO / "02_Tools/build/executor_images/adore/Dockerfile" if role == "executor-adore"
-                          else REPO / f"04_Software/docker/Dockerfile.{role}")
-            context = REPO if role == "executor-adore" else REPO / "04_Software/docker"
+            dockerfile = REPO / f"04_Software/docker/Dockerfile.{role}"
+            context = REPO / "04_Software/docker"
             print(f"Building {tag}", flush=True)
             network = [] if args.build_network == "default" else ["--network", args.build_network]
             run([args.runtime, "build", *network, "--platform", "linux/amd64",
@@ -133,21 +129,20 @@ def main(argv: list[str] | None = None) -> int:
             if (not isinstance(metadata, list) or len(metadata) != 1
                     or metadata[0].get("Os") != "linux" or metadata[0].get("Architecture") != "amd64"):
                 raise RuntimeError("delivery images must be local Linux amd64 images")
-            if role != "egress-proxy":
-                sys.path.insert(0, str(REPO / "04_Software"))
-                from adore.pi_installation import PI_VERSION
+            sys.path.insert(0, str(REPO / "04_Software"))
+            from adore.pi_installation import PI_VERSION
 
-                actual = run([args.runtime, "run", "--rm", "--network", "none",
-                              "--entrypoint", "node", image,
-                              "/opt/pi/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
-                              "--version"], timeout=60)
-                if actual != PI_VERSION:
-                    raise RuntimeError("executor image does not contain the current pinned Pi")
+            actual = run([args.runtime, "run", "--rm", "--network", "none",
+                          "--entrypoint", "node", image,
+                          "/opt/pi/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+                          "--version"], timeout=60)
+            if actual != PI_VERSION:
+                raise RuntimeError("executor image does not contain the current pinned Pi")
+            run([args.runtime, "run", "--rm", "--network", "none",
+                 "--entrypoint", "test", image, "-s", "/usr/local/LICENSE"], timeout=30)
+            for tool in ("fd", "rg"):
                 run([args.runtime, "run", "--rm", "--network", "none",
-                     "--entrypoint", "test", image, "-s", "/usr/local/LICENSE"], timeout=30)
-                for tool in ("fd", "rg"):
-                    run([args.runtime, "run", "--rm", "--network", "none",
-                         "--entrypoint", tool, image, "--version"], timeout=30)
+                     "--entrypoint", tool, image, "--version"], timeout=30)
             raw = work / "image.tar"
             save = [args.runtime, "save", "--output", str(raw)]
             if args.runtime == "podman":

@@ -22,6 +22,11 @@ text = { en = "Choose offline packages with Node and Pi included, or smaller onl
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Installation", fr = "Installation", de = "Installation", ro = "Instalare" }
+text = { en = "Packaged start and stop skip full file scans; complete verification is available separately.", fr = "Démarrage et arrêt sans analyse complète ; la vérification reste disponible séparément.", de = "Paketstart und Stopp ohne vollständigen Dateiscan; die Gesamtprüfung ist separat verfügbar.", ro = "Pornirea și oprirea evită scanarea tuturor fișierelor; verificarea completă rămâne separată." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
 text = { en = "Pi 1.5.2 refreshes the model catalog, including GPT-6.1 Terra.", fr = "Pi 1.5.2 actualise le catalogue de modèles, dont GPT-6.1 Terra.", de = "Pi 1.5.2 aktualisiert den Modellkatalog, einschließlich GPT-6.1 Terra.", ro = "Pi 1.5.2 actualizează catalogul de modele, inclusiv GPT-6.1 Terra." }
 

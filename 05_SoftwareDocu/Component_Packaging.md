@@ -36,9 +36,13 @@ for the included launcher and runtime contracts.
   archives, installs pinned Pi/web dependencies without lifecycle scripts,
   retains licenses and dereferences internal links for relocatable delivery.
 - `package/create_executor_image_archives.py` explicitly builds or exports
-  Linux amd64 images to separate compressed Docker archives. Builds require a
+  only the executor-base Linux amd64 image to a compressed Docker archive for
+  Linux and Docker/WSL on Windows. Project-specific and proxy images are outside delivery. Builds require a
   clean committed checkout and use unique release/source tags. Existing local
   images can be selected explicitly; no push or running-container replacement occurs.
+- The shipped launcher checks metadata during normal startup and uses ownership
+  records to stop. Its explicit `--verify` option checks every file and dependency;
+  package creation always runs that full verification before publication.
 - `package/verify_delivery_package.py` checks a final archive and exercises its
   relocated application using isolated temporary user data.
 - `package/release_checks/` owns release identity, four-locale release notes and

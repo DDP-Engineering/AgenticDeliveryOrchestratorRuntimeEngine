@@ -59,7 +59,7 @@ EXPECTED_ARTIFACTS = {
 }
 EXPECTED_IMAGE_ARTIFACTS = {
     f"adore-{EXPECTED_VERSION}-{role}-linux-x64.tar.gz"
-    for role in ("executor-base", "egress-proxy", "executor-adore")
+    for role in ("executor-base",)
 }
 TEXT_SUFFIXES = {
     ".bat", ".cfg", ".cmd", ".html", ".ini", ".json", ".md", ".ps1",
@@ -308,7 +308,7 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
         for name in sorted(present):
             if not re.fullmatch(
                 r"adore-\d+\.\d+\.\d+-(?:(?:(?:offline|online)-)?(?:windows-x64\.zip|linux-x64\.tar\.gz)|"
-                r"(?:executor-base|egress-proxy|executor-adore)-linux-x64\.tar\.gz)"
+                r"executor-base-linux-x64\.tar\.gz)"
                 r"(?:\.sha256)?", name
             ):
                 issues.append(f"unexpected delivery entry: {name}; keep only final archives and hashes")
@@ -467,7 +467,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--require-artifacts",
         action="store_true",
-        help=f"also require both app packages and three image archives for {EXPECTED_VERSION}",
+        help=f"also require four app packages and the executor-base image archive for {EXPECTED_VERSION}",
     )
     parser.add_argument("--use-existing-web-assets", action="store_true",
                         help="verify the committed asset fingerprint without rebuilding it")

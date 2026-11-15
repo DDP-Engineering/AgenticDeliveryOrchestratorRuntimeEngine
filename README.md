@@ -159,8 +159,8 @@ release additionally passes `python 02_Tools/package/release_checks/check_releas
 adds Node, Pi, its web extension and search tools; online requires host Node/npm
 and a later `pi install` with registry access for native execution.
 `python 02_Tools/package/create_executor_image_archives.py --build` creates
-separate base-executor, egress-proxy and ADORE-project image archives for offline
-Docker/Podman import. `07_Delivery/` contains only final delivery archives and
+a separate generic base-executor image archive for offline Docker/Podman import
+on Linux or Docker/WSL on Windows. Project-specific and proxy images are prepared separately. `07_Delivery/` contains only final delivery archives and
 their optional adjacent hashes; new media stays outside Git. Temporary build/verification work
 is removed automatically and results are printed without saved reports.
 Repository tools are grouped under `02_Tools/setup/`, `02_Tools/build/` and

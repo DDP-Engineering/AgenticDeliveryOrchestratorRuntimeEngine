@@ -15,10 +15,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 ### Added
 
 - Windows/Linux delivery offers explicitly named offline and online archives. Offline includes Node, Pi, its web extension, fd and ripgrep without installation downloads; online includes Python/application dependencies and installs Pi later using host Node/npm.
-- Separate compressed executor-base, egress-proxy and ADORE project image archives can be built/exported for offline Docker/Podman import.
+- A separate compressed executor-base image archive can be built/exported for offline Docker/Podman import on Linux or Docker/WSL on Windows; project-specific and proxy images are outside standard delivery.
 
 ### Changed
 
+- Start packaged ADORE using lightweight metadata checks and stop through instance ownership without scanning installed files; complete integrity/dependency verification remains available separately with `--verify`.
 - Pin native and container executors to Pi 1.5.2 and regenerate the offline provider/model catalog, including GPT-6.1 Terra.
 - Pi stages now use only the current RPC transport; archive and conversation retention remain available.
 - Remove `executor.command`, `executor.mode`, `readiness.max_scope_hint`, `clarification.reminder_after`, `review.review_reminder_after` and `metrics.capture_resource` from TOML, and delete affected `runs/<run-id>` directories before starting fresh jobs.

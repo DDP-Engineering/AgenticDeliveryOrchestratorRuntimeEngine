@@ -16,6 +16,9 @@ its web extension, fd and ripgrep. The smaller **online** archive needs host
 Node.js 22.23.4+ in the 22.x line with npm, then `pi install` with Internet access
 for native execution; it does not download Node automatically. Container images are delivered separately as loadable archives. Read its README for first sign-in, stop controls, data and
 logs. Prepare Git/forge/executor/container tools when configuring projects.
+Normal start and stop do not hash the installation. Use `Start-ADORE.cmd --verify`
+or `./start-adore.sh --verify` separately for complete integrity/dependency
+verification after extraction or when diagnosing damaged media.
 The following sections describe source/CLI setup.
 
 ADORE selects eligible GitHub, GitLab or Gitea tickets, conducts either the

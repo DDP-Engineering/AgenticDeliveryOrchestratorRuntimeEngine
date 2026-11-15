@@ -56,8 +56,16 @@ Wrappers resolve their interpreter and launcher relative to their own location.
 Unused standard-library test/development/Tk material is excluded. No user
 profiles, credentials, virtual environment or repository working state is copied.
 The package's verifier checks every file before publication to the final archive.
-At launch, at most eight readers hash validated regular files in batches of 256;
-the entire bounded inventory is checked, including every byte of native dependencies.
+Normal startup reads only the bounded manifest and checks host/application version
+metadata. It performs no recursive inventory scan or file hashing. Stop bypasses
+the package manifest entirely and uses the existing validated ownership record,
+so damaged media does not delay a stop request. This common launcher behavior
+applies to Windows/Linux and offline/online packages without a verification cache.
+Full integrity and dependency verification is explicit: `Start-ADORE.cmd --verify`
+or `./start-adore.sh --verify`. At most eight readers hash regular files in
+batches of 256; the entire inventory, including native dependencies, is checked.
+Normal startup no longer detects arbitrary payload damage before services start;
+operators use the explicit full check after extraction or to diagnose corruption.
 The native payload lives inside the installed application at adore/_native_tools.
 Node/fd/ripgrep archives have fixed published SHA-256 pins; Pi/web dependencies
 are installed only on the build host. npm metadata and upstream dependency
@@ -79,8 +87,10 @@ The launcher uses a cross-platform OS file lock in the existing ADORE home.
 Only the lock owner publishes instance metadata or starts services. A second
 launcher validates the owner's loopback port and waits for worker readiness.
 It opens that instance without replacing its ownership. An unrelated occupied
-port fails before service startup. Corrupt records and media produce explicit
-`DeliveryError` results. A stale record alone cannot confer ownership.
+port fails before service startup. Corrupt ownership records and invalid package
+metadata produce explicit `DeliveryError` results; full verification additionally
+rejects corrupt, missing, linked or unlisted payload files. A stale record alone
+cannot confer ownership.
 
 Both service processes use the bundled interpreter and a sanitized Python
 environment. A private per-run stop file bridges shutdown requests even when

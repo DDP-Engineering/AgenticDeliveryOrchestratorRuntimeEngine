@@ -7,6 +7,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Synthetic ADORE project executor
 
+This recipe supports development of ADORE itself. It is outside standard
+delivery; the image-archive tool exports only executor-base.
+
+
 This recipe builds the ADORE project's executor image on Ubuntu 22.04.
 It includes the executor base tooling, Pi 1.5.2, Node 22.23.4,
 uv 0.13.7, CPython 3.11.18, and Playwright 1.63.0 with Chromium and its system

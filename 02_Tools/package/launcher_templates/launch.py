@@ -10,8 +10,8 @@
 """
 @file       launch.py
 @brief      Run an extracted ADORE distribution without host Python or setup.
-@details    Verifies delivery media, owns one API/worker pair per user home,
-            opens a ready UI, and supports bounded, graceful shutdown.
+@details    Checks package metadata at startup, verifies all media on request,
+            owns one API/worker pair per user home and supports bounded shutdown.
 """
 
 from __future__ import annotations
@@ -51,16 +51,19 @@ class DeliveryError(RuntimeError):
 
 
 # PUBLIC API
-def verify(bundle: Path = BUNDLE) -> dict:
-    """@brief Verify exact host compatibility and every packaged file's digest.
+def read_manifest(bundle: Path = BUNDLE) -> dict:
+    """@brief Check bounded package metadata without scanning installed files.
     @param[in] bundle Extracted delivery directory.
     @return Validated manifest.
-    @exception DeliveryError A file, manifest or host fails the delivery contract.
+    @exception DeliveryError The manifest or host fails the delivery contract.
     """
     try:
         manifest_path = bundle / "manifest.json"
-        if manifest_path.stat().st_size > 16 * 1024 * 1024:
-            raise DeliveryError("package manifest is too large")
+        if (manifest_path.is_symlink()
+                or (hasattr(manifest_path, "is_junction") and manifest_path.is_junction())
+                or not manifest_path.is_file()
+                or manifest_path.stat().st_size > 16 * 1024 * 1024):
+            raise DeliveryError("package manifest must be a regular file of at most 16 MiB")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if (not isinstance(manifest, dict) or type(manifest.get("schema")) is not int
                 or manifest["schema"] != 1
@@ -83,6 +86,20 @@ def verify(bundle: Path = BUNDLE) -> dict:
         files = manifest.get("files")
         if not isinstance(files, dict) or not 1 <= len(files) <= 60000:
             raise DeliveryError("invalid package file inventory")
+        return manifest
+    except (OSError, ValueError, TypeError) as error:
+        raise DeliveryError(f"cannot read package manifest: {error}") from error
+
+
+def verify(bundle: Path = BUNDLE) -> dict:
+    """@brief Verify host metadata and every packaged file's digest on request.
+    @param[in] bundle Extracted delivery directory.
+    @return Fully verified manifest.
+    @exception DeliveryError A file, manifest or host fails the delivery contract.
+    """
+    manifest = read_manifest(bundle)
+    manifest_path, files = bundle / "manifest.json", manifest["files"]
+    try:
         actual, pending, total = {}, [bundle], 0
         # DirEntry caches Windows reparse/type metadata from directory listing.
         # Avoid reopening every parent/file merely to test its type.
@@ -314,7 +331,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--home", type=Path, help="override the normal user data directory")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
-    parser.add_argument("--verify", action="store_true", help="verify the package without starting")
+    parser.add_argument("--verify", action="store_true",
+                        help="check every packaged file and dependency without starting")
     parser.add_argument("--stop", action="store_true", help="stop this user's running ADORE pair")
     parser.add_argument("--startup-timeout", type=float, default=45)
     parser.add_argument("--restart-limit", type=int, default=3)
@@ -332,8 +350,8 @@ def main(argv: list[str] | None = None) -> int:
                                     args.service_stop.name)):
             parser.error("internal service requires an explicit home and owned stop path")
         return _service(args.service, args.home.resolve(), args.port, args.service_stop)
-    manifest = verify()
     if args.verify:
+        manifest = verify()
         import ssl  # noqa: F401
 
         from adore import __version__
@@ -358,6 +376,12 @@ def main(argv: list[str] | None = None) -> int:
         verify_pi()
         print(f"ADORE {__version__}: package, Python, Node, Pi and dependencies verified", flush=True)
         return 0
+    if not args.stop:
+        manifest = read_manifest()
+        from adore import __version__
+
+        if __version__ != manifest["version"]:
+            raise DeliveryError("installed application version differs from the manifest")
     from adore.profiles import adore_home
     home = (args.home or adore_home()).resolve()
     if home.is_relative_to(BUNDLE):
