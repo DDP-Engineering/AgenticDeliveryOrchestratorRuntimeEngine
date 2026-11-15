@@ -82,7 +82,9 @@ publishes separate compressed image archives plus SHA-256 files. Each image has
 a unique release/source tag; existing tags and containers are untouched. Use
 `--only executor-base` (repeatable) to select roles, `--runtime podman` for Podman,
 or `--image executor-base=LOCAL_TAG` without `--build` to export prepared local
-images. The image archives load directly with `docker load --input` or
+images. Use `--build-network host` when the build host requires host networking
+for its download endpoints; the default uses the runtime build network.
+The image archives load directly with `docker load --input` or
 `podman load --input`; the target needs no registry access or build tools.
 
 Verification accepts an optional archive path under `07_Delivery/`. It checks

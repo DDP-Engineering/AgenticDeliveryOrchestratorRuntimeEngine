@@ -89,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--runtime", choices=("docker", "podman"), default="docker")
     parser.add_argument("--only", choices=ROLES, action="append", help="repeat to select image roles")
     parser.add_argument("--build", action="store_true", help="build from this clean committed checkout")
+    parser.add_argument("--build-network", choices=("default", "host", "none"), default="default",
+                        help="network used by explicit image builds")
     parser.add_argument("--image", action="append", default=[], metavar="ROLE=LOCAL_TAG",
                         help="export an already built local image for a role")
     args = parser.parse_args(argv)
@@ -118,7 +120,8 @@ def main(argv: list[str] | None = None) -> int:
                           else REPO / f"04_Software/docker/Dockerfile.{role}")
             context = REPO if role == "executor-adore" else REPO / "04_Software/docker"
             print(f"Building {tag}", flush=True)
-            run([args.runtime, "build", "--platform", "linux/amd64",
+            network = [] if args.build_network == "default" else ["--network", args.build_network]
+            run([args.runtime, "build", *network, "--platform", "linux/amd64",
                  "--label", f"org.opencontainers.image.revision={revision}",
                  "--file", str(dockerfile), "--tag", tag, str(context)], timeout=1800)
             defaults[role] = tag
