@@ -51,12 +51,15 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path, nargs="?",
                         help="Archive to verify; defaults to this host's current release")
+    parser.add_argument("--runtime-mode", choices=("offline", "online"), default="offline",
+                        help="delivery flavor used when the archive path is omitted")
     args = parser.parse_args(argv)
     with (REPO / "04_Software/pyproject.toml").open("rb") as metadata:
         version = tomllib.load(metadata)["project"]["version"]
     system = platform.system().lower()
     suffix = ".zip" if WINDOWS else ".tar.gz"
-    archive = (args.archive or REPO / "07_Delivery" / f"adore-{version}-{system}-x64{suffix}").resolve()
+    archive = (args.archive or REPO / "07_Delivery" /
+               f"adore-{version}-{args.runtime_mode}-{system}-x64{suffix}").resolve()
     if not archive.is_relative_to((REPO / "07_Delivery").resolve()):
         parser.error("test media must be under 07_Delivery")
     issues = check_package(archive)

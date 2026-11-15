@@ -9,7 +9,7 @@ Neue OpenAI-Projekte beginnen mit dem Modell `gpt-6.1-terra`. Die Modellauswahl 
 
 Der mitgelieferte Modellkatalog stammt aus Pi 1.5.2 und enthält GPT-6.1 Terra.
 
-Die Windows/Linux-Lieferung enthält Node, Pi, seine Web-Erweiterung und Suchwerkzeuge für die native Offline-Einrichtung. Container-Images werden als separate Archive mit Docker oder Podman importiert; am Ziel sind kein Build und kein Registry-Zugriff nötig. Quellinstallationen benötigen weiterhin die dokumentierte Werkzeugvorbereitung. Externe KI-Anbieter und Repositories benötigen Netzwerkzugriff.
+Die Windows/Linux-Lieferung bietet Offline- und Online-Archive. Offline enthält Node, Pi, seine Web-Erweiterung und Suchwerkzeuge. Online enthält Python und Anwendungsabhängigkeiten; native Ausführung erfordert separat eingerichtetes Node.js 22.23.4+ (22.x) mit npm, danach `pi install` mit Internetzugriff; Node wird nicht automatisch heruntergeladen. Container-Images werden als separate Archive mit Docker oder Podman importiert; am Ziel sind kein Build und kein Registry-Zugriff nötig. Quellinstallationen benötigen weiterhin die dokumentierte Werkzeugvorbereitung. Externe KI-Anbieter und Repositories benötigen Netzwerkzugriff.
 
 ## Was ein Executor ist {#what}
 

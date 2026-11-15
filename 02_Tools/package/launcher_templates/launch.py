@@ -18,9 +18,11 @@ from __future__ import annotations
 
 # IMPORTS
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import errno
 import hashlib
 import json
+from itertools import islice
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -69,7 +71,12 @@ def verify(bundle: Path = BUNDLE) -> dict:
                 or not isinstance(manifest.get("version"), str)):
             raise DeliveryError("package manifest does not match this OS, architecture or Python")
         tools = manifest.get("native_tools")
-        if (not isinstance(tools, dict) or set(tools) != {"node", "pi", "web", "fd", "rg"}
+        mode = manifest.get("runtime_delivery")
+        if mode not in {"offline", "online"}:
+            raise DeliveryError("package runtime delivery mode is invalid; extract the current archive")
+        if mode == "online" and tools != {}:
+            raise DeliveryError("online package must not declare bundled native tools")
+        if mode == "offline" and (not isinstance(tools, dict) or set(tools) != {"node", "pi", "web", "fd", "rg"}
                 or not all(isinstance(value, str) and re.fullmatch(r"\d+\.\d+\.\d+", value)
                            for value in tools.values())):
             raise DeliveryError("offline runtime manifest is incomplete; extract the current archive")
@@ -103,14 +110,28 @@ def verify(bundle: Path = BUNDLE) -> dict:
                 raise DeliveryError("invalid package file path or checksum")
             if relative not in actual:
                 raise DeliveryError("package file is missing: " + relative)
+        if set(actual) != set(files):
+            raise DeliveryError("package contains missing or unlisted files")
+
+        def check_file(item: tuple[str, str]) -> None:
+            """@brief Hash one validated regular file with bounded buffering.
+            @param[in] item Inventory path and required digest.
+            @exception DeliveryError The file differs from the inventory.
+            """
+            relative, digest = item
             checksum = hashlib.sha256()
             with actual[relative].open("rb") as payload:
                 for chunk in iter(lambda: payload.read(1024 * 1024), b""):
                     checksum.update(chunk)
             if checksum.hexdigest() != digest:
                 raise DeliveryError(f"package file changed: {relative}")
-        if set(actual) != set(files):
-            raise DeliveryError("package contains missing or unlisted files")
+        # Native npm distributions contain tens of thousands of small files.
+        # Bound both concurrent reads and queued work while verifying all bytes.
+        inventory = iter(files.items())
+        with ThreadPoolExecutor(max_workers=8) as readers:
+            while batch := list(islice(inventory, 256)):
+                for _ in readers.map(check_file, batch):
+                    pass
         return manifest
     except (OSError, ValueError, TypeError) as error:
         raise DeliveryError(f"cannot verify package: {error}") from error
@@ -322,6 +343,10 @@ def main(argv: list[str] | None = None) -> int:
         import uvicorn  # noqa: F401
         if __version__ != manifest["version"]:
             raise DeliveryError("installed application version differs from the manifest")
+        if manifest["runtime_delivery"] == "online":
+            print(f"ADORE {__version__}: package, Python and application dependencies verified; "
+                  "native execution needs Node/npm and pi install", flush=True)
+            return 0
         from adore.pi_installation import PI_VERSION, WEB_VERSION, bundled_tool_path, verify_pi
 
         tools = manifest.get("native_tools")

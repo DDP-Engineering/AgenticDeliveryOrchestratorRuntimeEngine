@@ -89,8 +89,8 @@ ADORE never installs or edits the target's AEGIS payload.
 ## Quick start
 
 For the packaged web application, extract the platform-specific archive from
-`07_Delivery/`: `adore-<version>-windows-x64.zip` or
-`adore-<version>-linux-x64.tar.gz`. Double-click `Start-ADORE.cmd` on Windows
+`07_Delivery/`: `adore-<version>-<offline|online>-windows-x64.zip` or
+`adore-<version>-<offline|online>-linux-x64.tar.gz`. Double-click `Start-ADORE.cmd` on Windows
 or run `./start-adore.sh` on Linux. Python and the web dependencies are included;
 the launcher starts both services and opens the ready interface. See the
 package README for first sign-in, stopping, data and logs. Project tools and
@@ -154,8 +154,10 @@ The suite is fully offline. ADORE's own development follows the AEGIS
 workflow installed in `.agentic/`; read `AGENTS.md` before contributing. A
 release additionally passes `python 02_Tools/package/release_checks/check_release_consistency.py
 --require-artifacts`. End-user Windows/Linux archives are built with
-`python 02_Tools/package/create_delivery_package.py`; they include Python,
-Node, Pi, its web extension and search tools for offline native setup.
+`python 02_Tools/package/create_delivery_package.py --runtime-mode offline` and
+`--runtime-mode online`. Both include Python and application dependencies. Offline
+adds Node, Pi, its web extension and search tools; online requires host Node/npm
+and a later `pi install` with registry access for native execution.
 `python 02_Tools/package/create_executor_image_archives.py --build` creates
 separate base-executor, egress-proxy and ADORE-project image archives for offline
 Docker/Podman import. `07_Delivery/` contains only final delivery archives and

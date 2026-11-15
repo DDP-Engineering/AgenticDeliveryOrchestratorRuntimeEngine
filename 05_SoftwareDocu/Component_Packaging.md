@@ -11,7 +11,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 Separate development preparation, production web builds and complete user
 distribution packaging under `02_Tools/setup/`, `02_Tools/build/` and
-`02_Tools/package/`. One Windows x64 ZIP and one Linux x64 TAR.GZ are the final
+`02_Tools/package/`. Windows x64 ZIP and Linux x64 TAR.GZ, each in explicitly
+named offline and online flavors, are the final
 user delivery formats. See [Distribution](Component_Portable_Distribution.md)
 for the included launcher and runtime contracts.
 
@@ -28,7 +29,9 @@ for the included launcher and runtime contracts.
   `build/executor_images/adore/` owns the project's explicit executor image recipe.
 - `package/create_delivery_package.py` invokes the web build first, then the
   release checks, and assembles the application wheel, locked dependencies,
-  CPython, Node/Pi/search dependencies, curated user guides and launch templates in temporary staging.
+  CPython, curated user guides and launch templates in temporary staging.
+  `--runtime-mode offline` (default) adds Node/Pi/search dependencies; `online`
+  omits them and uses the managed native installation after host Node/npm setup.
 - `package/bundle_native_tools.py` downloads checksum-pinned Node/fd/ripgrep
   archives, installs pinned Pi/web dependencies without lifecycle scripts,
   retains licenses and dereferences internal links for relocatable delivery.

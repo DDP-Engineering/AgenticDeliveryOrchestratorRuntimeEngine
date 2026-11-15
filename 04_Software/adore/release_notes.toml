@@ -18,7 +18,7 @@ version = "Unreleased"
 [[release.entry]]
 category = "new"
 topic = { en = "Installation", fr = "Installation", de = "Installation", ro = "Instalare" }
-text = { en = "Windows/Linux packages include Node and Pi; container images are delivered for offline import.", fr = "Les paquets Windows/Linux incluent Node et Pi ; les images s’importent hors ligne.", de = "Windows/Linux-Pakete enthalten Node und Pi; Container-Images lassen sich offline importieren.", ro = "Pachetele Windows/Linux includ Node și Pi; imaginile de containere se importă offline." }
+text = { en = "Choose offline packages with Node and Pi included, or smaller online packages.", fr = "Choisissez les paquets offline avec Node et Pi, ou les paquets online plus petits.", de = "Wählen Sie Offline-Pakete mit Node und Pi oder kleinere Online-Pakete.", ro = "Alegeți pachete offline cu Node și Pi incluse sau pachete online mai mici." }
 
 [[release.entry]]
 category = "improved"

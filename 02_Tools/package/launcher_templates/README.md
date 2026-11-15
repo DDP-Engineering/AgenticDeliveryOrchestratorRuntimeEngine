@@ -8,9 +8,15 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Start ADORE
 
 Extract the complete archive into a folder where you can run programs.
-Python, the ADORE application, the compiled web interface, Node, Pi, its web
-extension, fd, ripgrep and their dependencies are included. Installation, administrator privileges, system Python, uv,
-Node.js and Internet access are not needed to start the interface.
+Both **offline** and **online** archives include Python, ADORE, the compiled web
+interface and application dependencies. Neither needs system Python, uv,
+administrator privileges or Internet access to open the interface.
+
+Choose **offline** for included Node, Pi, its web extension, fd and ripgrep.
+Choose **online** for a smaller archive; native execution then needs separately
+prepared Node.js 22.23.4 or later in the 22.x line with npm and Internet access
+for `ADORE.cmd pi install` (Windows) or `./adore.sh pi install` (Linux).
+The online package does not download Node automatically.
 
 ## Windows 11 x64
 
@@ -43,11 +49,13 @@ project prerequisites. They are checked when configuring a project and are
 not required merely to open the interface. Do not start an additional
 `adore run --loop` scheduler for projects managed by the web worker.
 
-## Offline executors
+## Executor setup
 
-Native execution uses the included Node and Pi directly. Run `ADORE.cmd pi verify`
+In the offline archive, native execution uses the included Node and Pi directly. Run `ADORE.cmd pi verify`
 on Windows or `./adore.sh pi verify` on Linux. `pi install` only verifies the
 bundled runtime; it makes no downloads. Keep the application directory intact.
+In the online archive, prepare Node/npm first, then run `pi install` and `pi verify`
+as the account running ADORE. Git and project-specific tools are separate prerequisites.
 
 Container images are separate compressed archives. On a host with Docker/Podman
 already installed, import the required executor and egress-proxy archives:

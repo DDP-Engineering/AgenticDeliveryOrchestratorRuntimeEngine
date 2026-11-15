@@ -11,7 +11,10 @@ For the complete portable web application, extract the matching Windows ZIP
 or Linux TAR.GZ from `07_Delivery/`. Start `Start-ADORE.cmd` (Windows) or
 `./start-adore.sh` (Linux). The included Python starts the API and worker and
 opens the browser when ready. No system Python, uv or Node.js setup is needed
-for this package. Node, Pi, its web extension, fd and ripgrep are included for offline native setup. Container images are delivered separately as loadable archives. Read its README for first sign-in, stop controls, data and
+to open either package. Choose the **offline** archive for included Node, Pi,
+its web extension, fd and ripgrep. The smaller **online** archive needs host
+Node.js 22.23.4+ in the 22.x line with npm, then `pi install` with Internet access
+for native execution; it does not download Node automatically. Container images are delivered separately as loadable archives. Read its README for first sign-in, stop controls, data and
 logs. Prepare Git/forge/executor/container tools when configuring projects.
 The following sections describe source/CLI setup.
 

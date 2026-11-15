@@ -61,8 +61,9 @@ the [container guide](../04_Software/docker/README.md#verify-a-container-runtime
 ## Package
 
 ```text
-python 02_Tools/package/create_delivery_package.py
-python 02_Tools/package/verify_delivery_package.py
+python 02_Tools/package/create_delivery_package.py --runtime-mode offline
+python 02_Tools/package/create_delivery_package.py --runtime-mode online
+python 02_Tools/package/verify_delivery_package.py --runtime-mode offline
 ```
 
 Creation builds web assets, checks release consistency and notes, builds the
@@ -70,10 +71,13 @@ Python wheel and bundles CPython with locked dependencies. It writes the native
 final ZIP or TAR.GZ plus its SHA-256 file into repository-relative `07_Delivery/`.
 Windows archives are built on Windows x64; Linux archives on Linux x64, including
 WSL Ubuntu. Building requires network access. End users need no installed Python,
-Node.js or uv to open the interface or use the included native Pi. The builder
+Node.js or uv to open the interface; offline archives also include native Pi. The builder
 also downloads checksum-pinned Node, fd and ripgrep archives and installs the
-exact Pi/web packages into application-owned media. Runtime installation is
-offline. `--use-existing-web-assets` checks the existing source/output fingerprint
+exact Pi/web packages into application-owned media. The `offline` flavor includes these native tools. The smaller `online` flavor
+omits them: prepare host Node.js 22.23.4+ in the 22.x line with npm, then run
+`pi install` with registry access for native execution. Both flavors include
+Python and application dependencies and open the interface offline. Archive
+names include the flavor; building both modes on each OS creates four archives. `--use-existing-web-assets` checks the existing source/output fingerprint
 and release metadata without rebuilding an already prepared frontend.
 
 `package/create_executor_image_archives.py --build` builds the base executor,

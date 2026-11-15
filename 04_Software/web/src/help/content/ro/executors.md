@@ -9,7 +9,7 @@ Proiectele OpenAI noi pornesc cu modelul `gpt-6.1-terra`. Modelul ales în proie
 
 Catalogul de modele inclus provine din Pi 1.5.2 și include GPT-6.1 Terra.
 
-Livrarea Windows/Linux include Node, Pi, extensia web și uneltele de căutare pentru instalare nativă offline. Imaginile de containere sunt arhive separate, importate cu Docker sau Podman; pe destinație nu trebuie construite imagini sau accesat un registry. Instalările din surse necesită în continuare pregătirea documentată. Furnizorii AI și repository-urile la distanță necesită acces la rețea.
+Livrarea Windows/Linux oferă arhive offline și online. Offline include Node, Pi, extensia web și uneltele de căutare. Online include Python și dependențele aplicației; execuția nativă necesită Node.js 22.23.4+ (22.x) cu npm pregătit separat, apoi `pi install` cu acces la Internet; Node nu este descărcat automat. Imaginile de containere sunt arhive separate, importate cu Docker sau Podman; pe destinație nu trebuie construite imagini sau accesat un registry. Instalările din surse necesită în continuare pregătirea documentată. Furnizorii AI și repository-urile la distanță necesită acces la rețea.
 
 ## Ce este un executor {#what}
 

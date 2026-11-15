@@ -53,8 +53,9 @@ EXPECTED_PRODUCT = "Agentic Delivery Orchestrator & Runtime Engine"
 EXPECTED_TASK = "ADORE Orchestrator & Runtime Engine"
 EXPECTED_RUNTIME_PREFIX = "adore-runtime"
 EXPECTED_ARTIFACTS = {
-    f"adore-{EXPECTED_VERSION}-windows-x64.zip",
-    f"adore-{EXPECTED_VERSION}-linux-x64.tar.gz",
+    f"adore-{EXPECTED_VERSION}-{mode}-{system}-x64{suffix}"
+    for mode in ("offline", "online")
+    for system, suffix in (("windows", ".zip"), ("linux", ".tar.gz"))
 }
 EXPECTED_IMAGE_ARTIFACTS = {
     f"adore-{EXPECTED_VERSION}-{role}-linux-x64.tar.gz"
@@ -306,7 +307,7 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
         archives = EXPECTED_ARTIFACTS | EXPECTED_IMAGE_ARTIFACTS
         for name in sorted(present):
             if not re.fullmatch(
-                r"adore-\d+\.\d+\.\d+-(?:windows-x64\.zip|linux-x64\.tar\.gz|"
+                r"adore-\d+\.\d+\.\d+-(?:(?:(?:offline|online)-)?(?:windows-x64\.zip|linux-x64\.tar\.gz)|"
                 r"(?:executor-base|egress-proxy|executor-adore)-linux-x64\.tar\.gz)"
                 r"(?:\.sha256)?", name
             ):
@@ -344,7 +345,8 @@ def _check_portable_artifact(artifact: Path, issues: list[str]) -> None:
     @note Full media verification belongs to the portable launcher's verifier.
     """
     system = "windows" if artifact.suffix == ".zip" else "linux"
-    member_name = f"adore-{EXPECTED_VERSION}-{system}-x64/manifest.json"
+    mode = "offline" if "-offline-" in artifact.name else "online"
+    member_name = f"adore-{EXPECTED_VERSION}-{mode}-{system}-x64/manifest.json"
     try:
         if artifact.is_symlink() or not artifact.is_file():
             raise ValueError("archive must be a regular file")
@@ -365,6 +367,7 @@ def _check_portable_artifact(artifact: Path, issues: list[str]) -> None:
             metadata.get(key) != value for key, value in {
                 "schema": 1, "version": EXPECTED_VERSION,
                 "system": system, "architecture": "x64",
+                "runtime_delivery": mode,
             }.items()
         ):
             raise ValueError("portable manifest release identity does not match")

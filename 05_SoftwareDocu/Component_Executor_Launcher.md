@@ -122,6 +122,8 @@ permissions. Container networking belongs to isolation, not the prompt or guard.
 ## Dependencies and validation coverage
 
 Offline delivery includes the exact Node/Pi/web dependencies and search tools.
+Online delivery omits this payload and uses the managed native installation after
+separate host Node/npm setup and `pi install` with registry access.
 Native jobs use the verified application-owned payload and bundled executable
 directories. Container delivery images include fd/ripgrep in PATH, so an
 internet-off Pi does not need a first-use tool download.

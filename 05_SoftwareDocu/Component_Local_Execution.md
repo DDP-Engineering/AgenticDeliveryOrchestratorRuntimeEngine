@@ -17,7 +17,9 @@ conductor/executor contracts as container jobs.
 `pi_installation.py` resolves server Node, pins/verifies npm packages and atomically
 publishes a versioned managed prefix for source installations. Installation needs no model credential.
 Offline user distributions select the application-owned _native_tools payload
-through the bundled Python startup marker. Missing Node, Pi or search files are
+through the bundled Python startup marker in offline archives. Online archives
+omit the native payload and use the same managed installation as a source checkout;
+host Node/npm must be prepared before `pi install` downloads Pi dependencies. Missing Node, Pi or search files are
 refused with a complete-reextraction instruction; host tools are never selected
 for an incomplete delivery. Bundled pi install/verify perform offline checks.
 The controlled native PATH prepends bundled Node/npm and fd/ripgrep; project

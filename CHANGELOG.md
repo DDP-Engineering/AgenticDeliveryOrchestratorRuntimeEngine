@@ -14,7 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
-- Offline Windows/Linux delivery includes Node, Pi, its web extension, fd and ripgrep; packaged Pi verification/installation uses included files without downloads.
+- Windows/Linux delivery offers explicitly named offline and online archives. Offline includes Node, Pi, its web extension, fd and ripgrep without installation downloads; online includes Python/application dependencies and installs Pi later using host Node/npm.
 - Separate compressed executor-base, egress-proxy and ADORE project image archives can be built/exported for offline Docker/Podman import.
 
 ### Changed

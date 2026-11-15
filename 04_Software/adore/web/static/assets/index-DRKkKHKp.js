@@ -81,7 +81,7 @@ Neue OpenAI-Projekte beginnen mit dem Modell \`gpt-6.1-terra\`. Die Modellauswah
 
 Der mitgelieferte Modellkatalog stammt aus Pi 1.5.2 und enthält GPT-6.1 Terra.
 
-Die Windows/Linux-Lieferung enthält Node, Pi, seine Web-Erweiterung und Suchwerkzeuge für die native Offline-Einrichtung. Container-Images werden als separate Archive mit Docker oder Podman importiert; am Ziel sind kein Build und kein Registry-Zugriff nötig. Quellinstallationen benötigen weiterhin die dokumentierte Werkzeugvorbereitung. Externe KI-Anbieter und Repositories benötigen Netzwerkzugriff.
+Die Windows/Linux-Lieferung bietet Offline- und Online-Archive. Offline enthält Node, Pi, seine Web-Erweiterung und Suchwerkzeuge. Online enthält Python und Anwendungsabhängigkeiten; native Ausführung erfordert separat eingerichtetes Node.js 22.23.4+ (22.x) mit npm, danach \`pi install\` mit Internetzugriff; Node wird nicht automatisch heruntergeladen. Container-Images werden als separate Archive mit Docker oder Podman importiert; am Ziel sind kein Build und kein Registry-Zugriff nötig. Quellinstallationen benötigen weiterhin die dokumentierte Werkzeugvorbereitung. Externe KI-Anbieter und Repositories benötigen Netzwerkzugriff.
 
 ## Was ein Executor ist {#what}
 
@@ -941,7 +941,7 @@ New OpenAI projects start with model \`gpt-6.1-terra\`. Existing project model s
 
 The bundled model catalog comes from Pi 1.5.2 and includes GPT-6.1 Terra.
 
-Windows/Linux delivery includes Node, Pi, its web extension and search tools for offline native setup. Container images are separate archives imported with Docker or Podman; no image build or registry access is needed on the target. Source installations still require the documented tool setup. Remote AI providers and repositories require network access.
+Windows/Linux delivery offers offline and online archives. Offline includes Node, Pi, its web extension and search tools. Online includes Python and application dependencies, but native execution needs separately prepared Node.js 22.23.4+ (22.x) with npm, then \`pi install\` with Internet access; Node is not downloaded automatically. Container images are separate archives imported with Docker or Podman; no image build or registry access is needed on the target. Source installations still require the documented tool setup. Remote AI providers and repositories require network access.
 
 ## What an executor is {#what}
 
@@ -1801,7 +1801,7 @@ Les nouveaux projets OpenAI utilisent initialement le modèle \`gpt-6.1-terra\`.
 
 Le catalogue de modèles fourni provient de Pi 1.5.2 et inclut GPT-6.1 Terra.
 
-La livraison Windows/Linux inclut Node, Pi, son extension web et les outils de recherche pour une installation native hors ligne. Les images de conteneurs sont des archives séparées à importer avec Docker ou Podman, sans compilation ni registre sur la cible. Les installations depuis les sources nécessitent toujours la préparation documentée. Les fournisseurs IA et dépôts distants nécessitent le réseau.
+La livraison Windows/Linux propose des archives offline et online. Offline inclut Node, Pi, son extension web et les outils de recherche. Online inclut Python et les dépendances de l’application ; l’exécution native nécessite Node.js 22.23.4+ (22.x) avec npm préparé séparément, puis \`pi install\` avec Internet ; Node n’est pas téléchargé automatiquement. Les images de conteneurs sont des archives séparées à importer avec Docker ou Podman, sans compilation ni registre sur la cible. Les installations depuis les sources nécessitent toujours la préparation documentée. Les fournisseurs IA et dépôts distants nécessitent le réseau.
 
 ## Ce qu’est un exécuteur {#what}
 
@@ -2662,7 +2662,7 @@ Proiectele OpenAI noi pornesc cu modelul \`gpt-6.1-terra\`. Modelul ales în pro
 
 Catalogul de modele inclus provine din Pi 1.5.2 și include GPT-6.1 Terra.
 
-Livrarea Windows/Linux include Node, Pi, extensia web și uneltele de căutare pentru instalare nativă offline. Imaginile de containere sunt arhive separate, importate cu Docker sau Podman; pe destinație nu trebuie construite imagini sau accesat un registry. Instalările din surse necesită în continuare pregătirea documentată. Furnizorii AI și repository-urile la distanță necesită acces la rețea.
+Livrarea Windows/Linux oferă arhive offline și online. Offline include Node, Pi, extensia web și uneltele de căutare. Online include Python și dependențele aplicației; execuția nativă necesită Node.js 22.23.4+ (22.x) cu npm pregătit separat, apoi \`pi install\` cu acces la Internet; Node nu este descărcat automat. Imaginile de containere sunt arhive separate, importate cu Docker sau Podman; pe destinație nu trebuie construite imagini sau accesat un registry. Instalările din surse necesită în continuare pregătirea documentată. Furnizorii AI și repository-urile la distanță necesită acces la rețea.
 
 ## Ce este un executor {#what}
 

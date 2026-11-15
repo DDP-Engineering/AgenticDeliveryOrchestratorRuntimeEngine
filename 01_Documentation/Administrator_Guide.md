@@ -43,10 +43,10 @@ environment for that account on the ADORE host.
 
 ## Pi installed on the server
 
-The Windows/Linux delivery includes Node 22.23.4, Pi 1.5.2, pi-web-access 0.46.0,
+The Windows/Linux **offline** delivery includes Node 22.23.4, Pi 1.5.2, pi-web-access 0.46.0,
 fd and ripgrep. Extract the complete archive; `adore pi verify` checks these
 files offline. `adore pi install` verifies the bundled runtime without downloading
-or copying it into user data. Source-checkout installations instead need
+or copying it into user data. The smaller **online** delivery and source-checkout installations need
 Node.js 22.23.4 or later in the 22.x line with npm, then `adore pi install`
 (registry access required) and `adore pi verify` as the service account. Choose **Installed on the server**, confirm the current account,
 and configure the provider and model. Save the project key in **Provider API

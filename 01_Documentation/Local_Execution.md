@@ -7,8 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Local execution
 
-Choose **Runs in → Installed on the server** during enrollment or in
-**Settings → Agent and model** to run ADORE-managed Pi in a dedicated worktree
+Choose **Runs in â†’ Installed on the server** during enrollment or in
+**Settings â†’ Agent and model** to run ADORE-managed Pi in a dedicated worktree
 under the current ADORE service account. Container execution remains the default.
 Pi has no permission prompts. Use a dedicated, least-privilege OS account:
 a worktree and a process scope do not prevent access to files, credentials or
@@ -40,9 +40,13 @@ own prefix and leaves other prefixes alone. `adore pi verify` checks the install
 without making an AI request. A corrupt prefix is refused; move it aside and
 install again.
 
-## Offline user delivery
+## User delivery variants
 
-Windows/Linux delivery archives include Node 22.23.4, Pi 1.5.2, pi-web-access
+The smaller **online** archive includes Python and application dependencies only.
+For native execution, prepare Node.js 22.23.4+ in the 22.x line with npm, then
+run `adore pi install` with registry access. Node is not downloaded automatically.
+
+Windows/Linux **offline** delivery archives include Node 22.23.4, Pi 1.5.2, pi-web-access
 0.46.0, fd 10.5.1 and ripgrep 15.2.0 with their licenses. The bundled Python
 runtime marks this installation as an offline delivery; Pi is read directly from
 the application-owned payload. No host Node or npm installation is needed.
@@ -76,7 +80,7 @@ The launcher is fixed. Remove `[executor] command` and unsupported
 credential; ADORE never reads personal Pi sign-in. For an OpenAI-compatible
 endpoint, use the address as seen from the server and configure a key only
 when the endpoint needs one. For a ChatGPT subscription, select `provider = "chatgpt"` and sign in under
-Settings → Agent and model. The native helper uses managed Node and Pi
+Settings â†’ Agent and model. The native helper uses managed Node and Pi
 without Docker. Each stage gets only a temporary access token and has a
 maximum timeout of 3000 seconds. ADORE inside WSL2 uses the Linux setup,
 its own service account and tools, and a delegated cgroup.

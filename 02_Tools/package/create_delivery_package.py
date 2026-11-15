@@ -84,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
     @exception RuntimeError Runtime layout or resource limits are invalid.
     """
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--runtime-mode", choices=("offline", "online"), default="offline",
+                        help="offline bundles Node/Pi; online installs Pi later with host Node/npm")
     parser.add_argument("--use-existing-web-assets", action="store_true",
                         help="use the already built, fingerprint-verified frontend")
     options = parser.parse_args(argv)
@@ -115,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
     if not (static / "index.html").is_file() or not (static / "LICENSE.txt").is_file():
         parser.error("build the web assets first (04_Software/web: npm ci; npm run build)")
     output.mkdir(parents=True, exist_ok=True)
-    name = f"adore-{version}-{system}-x64"
+    name = f"adore-{version}-{options.runtime_mode}-{system}-x64"
     suffix = ".zip" if system == "windows" else ".tar.gz"
     archive = output / (name + suffix)
     with tempfile.TemporaryDirectory(prefix="adore-portable-") as temporary:
@@ -165,9 +167,13 @@ def main(argv: list[str] | None = None) -> int:
                                  bundle).strip())
         if not site_packages.resolve().is_relative_to(runtime.resolve()):
             raise RuntimeError("bundled Python site-packages escaped its runtime")
-        shutil.copy2(REPO / "02_Tools/package/launcher_templates/adore_portable.pth",
-                     site_packages / "adore_portable.pth")
-        native_tools = prepare_native_tools(site_packages / "adore/_native_tools", work, system)
+        marker = (REPO / "02_Tools/package/launcher_templates/adore_portable.pth").read_text()
+        (site_packages / "adore_portable.pth").write_text(
+            marker.replace("sys._adore_offline_delivery = True",
+                           f"sys._adore_offline_delivery = {options.runtime_mode == 'offline'}"),
+            encoding="utf-8")
+        native_tools = (prepare_native_tools(site_packages / "adore/_native_tools", work, system)
+                        if options.runtime_mode == "offline" else {})
         for cache in list(runtime.rglob("__pycache__")):
             shutil.rmtree(cache)
         for cache in list(runtime.rglob("*.pyc")) + list(runtime.rglob("*.pyo")):
@@ -195,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest = {
             "schema": 1, "version": version, "system": system, "architecture": "x64",
             "python_version": PYTHON_VERSION,
+            "runtime_delivery": options.runtime_mode,
             "native_tools": native_tools,
             "python_source": "https://github.com/astral-sh/python-build-standalone",
             "lock_sha256": hashlib.sha256((software / "uv.lock").read_bytes()).hexdigest(),
