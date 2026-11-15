@@ -15,7 +15,13 @@ with owned process lifetime, pinned environment/tool identity and the same
 conductor/executor contracts as container jobs.
 
 `pi_installation.py` resolves server Node, pins/verifies npm packages and atomically
-publishes a versioned managed prefix. Installation needs no model credential.
+publishes a versioned managed prefix for source installations. Installation needs no model credential.
+Offline user distributions select the application-owned _native_tools payload
+through the bundled Python startup marker. Missing Node, Pi or search files are
+refused with a complete-reextraction instruction; host tools are never selected
+for an incomplete delivery. Bundled pi install/verify perform offline checks.
+The controlled native PATH prepends bundled Node/npm and fd/ripgrep; project
+SDKs and Git/forge tools remain external operator requirements.
 The current pin is Pi 1.5.2 with pi-web-access 0.46.0, using Node 22.23.4 or
 later in the 22.x line. `adore pi install` installs and verifies that exact Pi
 release under the service account's ADORE home; it does not rewrite project or

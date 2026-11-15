@@ -81,6 +81,8 @@ Neue OpenAI-Projekte beginnen mit dem Modell \`gpt-6.1-terra\`. Die Modellauswah
 
 Der mitgelieferte Modellkatalog stammt aus Pi 1.5.2 und enthält GPT-6.1 Terra.
 
+Die Windows/Linux-Lieferung enthält Node, Pi, seine Web-Erweiterung und Suchwerkzeuge für die native Offline-Einrichtung. Container-Images werden als separate Archive mit Docker oder Podman importiert; am Ziel sind kein Build und kein Registry-Zugriff nötig. Quellinstallationen benötigen weiterhin die dokumentierte Werkzeugvorbereitung. Externe KI-Anbieter und Repositories benötigen Netzwerkzugriff.
+
 ## Was ein Executor ist {#what}
 
 Für jeden Auftrag startet ADORE Pi, seinen einzigen Coding-Agenten, in einer isolierten Arbeitskopie, und Pi arbeitet die AEGIS-Phasen des Repositorys mit dem konfigurierten Anbieter und Modell ab. ADORE verwendet das Pi im Image für Containeraufträge und seine verwaltete Pi-Installation für Serveraufträge.
@@ -938,6 +940,8 @@ An executor is what ADORE launches for every job: the Pi coding agent and the AI
 New OpenAI projects start with model \`gpt-6.1-terra\`. Existing project model selections stay unchanged.
 
 The bundled model catalog comes from Pi 1.5.2 and includes GPT-6.1 Terra.
+
+Windows/Linux delivery includes Node, Pi, its web extension and search tools for offline native setup. Container images are separate archives imported with Docker or Podman; no image build or registry access is needed on the target. Source installations still require the documented tool setup. Remote AI providers and repositories require network access.
 
 ## What an executor is {#what}
 
@@ -1797,6 +1801,8 @@ Les nouveaux projets OpenAI utilisent initialement le modèle \`gpt-6.1-terra\`.
 
 Le catalogue de modèles fourni provient de Pi 1.5.2 et inclut GPT-6.1 Terra.
 
+La livraison Windows/Linux inclut Node, Pi, son extension web et les outils de recherche pour une installation native hors ligne. Les images de conteneurs sont des archives séparées à importer avec Docker ou Podman, sans compilation ni registre sur la cible. Les installations depuis les sources nécessitent toujours la préparation documentée. Les fournisseurs IA et dépôts distants nécessitent le réseau.
+
 ## Ce qu’est un exécuteur {#what}
 
 Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copie de travail isolée, et Pi suit les étapes AEGIS du dépôt avec le fournisseur et le modèle configurés. ADORE utilise le Pi intégré à l’image dans un conteneur et son installation gérée de Pi pour les tâches sur le serveur.
@@ -2655,6 +2661,8 @@ Un executor este ceea ce ADORE lansează pentru fiecare lucrare: agentul de prog
 Proiectele OpenAI noi pornesc cu modelul \`gpt-6.1-terra\`. Modelul ales în proiectele existente rămâne neschimbat.
 
 Catalogul de modele inclus provine din Pi 1.5.2 și include GPT-6.1 Terra.
+
+Livrarea Windows/Linux include Node, Pi, extensia web și uneltele de căutare pentru instalare nativă offline. Imaginile de containere sunt arhive separate, importate cu Docker sau Podman; pe destinație nu trebuie construite imagini sau accesat un registry. Instalările din surse necesită în continuare pregătirea documentată. Furnizorii AI și repository-urile la distanță necesită acces la rețea.
 
 ## Ce este un executor {#what}
 

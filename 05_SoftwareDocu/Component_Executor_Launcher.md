@@ -121,6 +121,11 @@ permissions. Container networking belongs to isolation, not the prompt or guard.
 
 ## Dependencies and validation coverage
 
+Offline delivery includes the exact Node/Pi/web dependencies and search tools.
+Native jobs use the verified application-owned payload and bundled executable
+directories. Container delivery images include fd/ripgrep in PATH, so an
+internet-off Pi does not need a first-use tool download.
+
 Pi 1.5.2, Node and web-extension pins are owned by `pi_installation.py` and the runtime
 image assets under `04_Software/docker/`. The image verifier is
 `02_Tools/build/verify_container_runtime.sh`. The launcher itself uses the shared

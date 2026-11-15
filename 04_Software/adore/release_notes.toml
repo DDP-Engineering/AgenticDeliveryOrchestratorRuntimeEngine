@@ -16,6 +16,11 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "new"
+topic = { en = "Installation", fr = "Installation", de = "Installation", ro = "Instalare" }
+text = { en = "Windows/Linux packages include Node and Pi; container images are delivered for offline import.", fr = "Les paquets Windows/Linux incluent Node et Pi ; les images s’importent hors ligne.", de = "Windows/Linux-Pakete enthalten Node und Pi; Container-Images lassen sich offline importieren.", ro = "Pachetele Windows/Linux includ Node și Pi; imaginile de containere se importă offline." }
+
+[[release.entry]]
 category = "improved"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
 text = { en = "Pi 1.5.2 refreshes the model catalog, including GPT-6.1 Terra.", fr = "Pi 1.5.2 actualise le catalogue de modèles, dont GPT-6.1 Terra.", de = "Pi 1.5.2 aktualisiert den Modellkatalog, einschließlich GPT-6.1 Terra.", ro = "Pi 1.5.2 actualizează catalogul de modele, inclusiv GPT-6.1 Terra." }

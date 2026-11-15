@@ -57,7 +57,7 @@ def verify(bundle: Path = BUNDLE) -> dict:
     """
     try:
         manifest_path = bundle / "manifest.json"
-        if manifest_path.stat().st_size > 4 * 1024 * 1024:
+        if manifest_path.stat().st_size > 16 * 1024 * 1024:
             raise DeliveryError("package manifest is too large")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if (not isinstance(manifest, dict) or type(manifest.get("schema")) is not int
@@ -68,8 +68,13 @@ def verify(bundle: Path = BUNDLE) -> dict:
                 or manifest.get("python_version") != platform.python_version()
                 or not isinstance(manifest.get("version"), str)):
             raise DeliveryError("package manifest does not match this OS, architecture or Python")
+        tools = manifest.get("native_tools")
+        if (not isinstance(tools, dict) or set(tools) != {"node", "pi", "web", "fd", "rg"}
+                or not all(isinstance(value, str) and re.fullmatch(r"\d+\.\d+\.\d+", value)
+                           for value in tools.values())):
+            raise DeliveryError("offline runtime manifest is incomplete; extract the current archive")
         files = manifest.get("files")
-        if not isinstance(files, dict) or not 1 <= len(files) <= 30000:
+        if not isinstance(files, dict) or not 1 <= len(files) <= 60000:
             raise DeliveryError("invalid package file inventory")
         actual, pending, total = {}, [bundle], 0
         # DirEntry caches Windows reparse/type metadata from directory listing.
@@ -85,7 +90,7 @@ def verify(bundle: Path = BUNDLE) -> dict:
                         pending.append(path)
                     elif entry.is_file(follow_symlinks=False) and path != manifest_path:
                         total += entry.stat(follow_symlinks=False).st_size
-                        if total > 1024 * 1024 * 1024 or len(actual) >= 30000:
+                        if total > 1024 * 1024 * 1024 or len(actual) >= 60000:
                             raise DeliveryError("package exceeds its file/size limit")
                         actual[path.relative_to(bundle).as_posix()] = path
                     elif path != manifest_path:
@@ -317,7 +322,16 @@ def main(argv: list[str] | None = None) -> int:
         import uvicorn  # noqa: F401
         if __version__ != manifest["version"]:
             raise DeliveryError("installed application version differs from the manifest")
-        print(f"ADORE {__version__}: package, Python and web dependencies verified", flush=True)
+        from adore.pi_installation import PI_VERSION, WEB_VERSION, bundled_tool_path, verify_pi
+
+        tools = manifest.get("native_tools")
+        if (not isinstance(tools, dict) or set(tools) != {"node", "pi", "web", "fd", "rg"}
+                or tools["pi"] != PI_VERSION or tools["web"] != WEB_VERSION
+                or not all(isinstance(value, str) for value in tools.values())
+                or not bundled_tool_path()):
+            raise DeliveryError("offline runtime is incomplete; extract the complete current archive")
+        verify_pi()
+        print(f"ADORE {__version__}: package, Python, Node, Pi and dependencies verified", flush=True)
         return 0
     from adore.profiles import adore_home
     home = (args.home or adore_home()).resolve()

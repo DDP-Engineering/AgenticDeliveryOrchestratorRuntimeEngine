@@ -30,6 +30,10 @@ Thumbs.db
 *.code-workspace
 
 # Local web packaging and installation checks (release media are built afresh)
+# New delivery media stay local; existing tracked archives are unchanged.
+07_Delivery/*.zip
+07_Delivery/*.tar.gz
+07_Delivery/*.sha256
 07_Delivery/_technical/work/
 07_Delivery/_technical/offline/
 07_Delivery/_technical/verification/

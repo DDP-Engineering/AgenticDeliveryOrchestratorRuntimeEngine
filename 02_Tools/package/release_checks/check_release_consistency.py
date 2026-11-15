@@ -22,6 +22,7 @@ from __future__ import annotations
 
 # IMPORTS
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -55,11 +56,15 @@ EXPECTED_ARTIFACTS = {
     f"adore-{EXPECTED_VERSION}-windows-x64.zip",
     f"adore-{EXPECTED_VERSION}-linux-x64.tar.gz",
 }
+EXPECTED_IMAGE_ARTIFACTS = {
+    f"adore-{EXPECTED_VERSION}-{role}-linux-x64.tar.gz"
+    for role in ("executor-base", "egress-proxy", "executor-adore")
+}
 TEXT_SUFFIXES = {
     ".bat", ".cfg", ".cmd", ".html", ".ini", ".json", ".md", ".ps1",
     ".py", ".service", ".sh", ".svg", ".toml", ".txt", ".yaml", ".yml",
 }
-SKIP_DIRS = {".git", ".venv", ".adore", "__pycache__"}
+SKIP_DIRS = {".git", ".venv", ".adore", "__pycache__", "node_modules"}
 
 
 # LOCAL HELPERS
@@ -298,13 +303,38 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
     delivery = root / "07_Delivery"
     present = {path.name for path in delivery.iterdir()} if delivery.is_dir() else set()
     if require_artifacts:
-        allowed = EXPECTED_ARTIFACTS | {name + ".sha256" for name in EXPECTED_ARTIFACTS}
-        for name in sorted(present - allowed):
-            issues.append(f"unexpected delivery entry: {name}; keep only portable archives and optional hashes")
-        for name in sorted(EXPECTED_ARTIFACTS - present):
+        archives = EXPECTED_ARTIFACTS | EXPECTED_IMAGE_ARTIFACTS
+        for name in sorted(present):
+            if not re.fullmatch(
+                r"adore-\d+\.\d+\.\d+-(?:windows-x64\.zip|linux-x64\.tar\.gz|"
+                r"(?:executor-base|egress-proxy|executor-adore)-linux-x64\.tar\.gz)"
+                r"(?:\.sha256)?", name
+            ):
+                issues.append(f"unexpected delivery entry: {name}; keep only final archives and hashes")
+        for name in sorted(archives - present):
             issues.append(f"required portable artifact missing: {name}")
     for name in sorted(present & EXPECTED_ARTIFACTS):
         _check_portable_artifact(delivery / name, issues)
+    for name in sorted(present & EXPECTED_IMAGE_ARTIFACTS):
+        artifact = delivery / name
+        try:
+            if artifact.is_symlink() or not artifact.is_file():
+                raise ValueError("image archive must be a regular file")
+            with gzip.open(artifact, "rb") as stream:
+                header = stream.read(512)
+            if len(header) != 512 or header[257:262] != b"ustar":
+                raise ValueError("image archive must be a compressed tar")
+            checksum = artifact.with_name(name + ".sha256")
+            if checksum.is_symlink() or checksum.stat().st_size > 4096:
+                raise ValueError("invalid image checksum file")
+            rows = [line for line in checksum.read_text().splitlines()
+                    if line and not line.startswith("#")]
+            with artifact.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            if rows != [f"{digest}  {name}"]:
+                raise ValueError("image checksum mismatch")
+        except (OSError, ValueError, EOFError) as exc:
+            issues.append(f"{name}: invalid image archive: {exc}")
 
 
 def _check_portable_artifact(artifact: Path, issues: list[str]) -> None:
@@ -321,14 +351,14 @@ def _check_portable_artifact(artifact: Path, issues: list[str]) -> None:
         if system == "windows":
             with zipfile.ZipFile(artifact) as archive:
                 member = archive.getinfo(member_name)
-                if member.file_size > 8 * 1024 * 1024:
-                    raise ValueError("manifest exceeds 8 MiB")
+                if member.file_size > 16 * 1024 * 1024:
+                    raise ValueError("manifest exceeds 16 MiB")
                 metadata = json.loads(archive.read(member))
         else:
             with tarfile.open(artifact) as archive:
                 member = archive.getmember(member_name)
-                if not member.isfile() or member.size > 8 * 1024 * 1024:
-                    raise ValueError("manifest must be a regular file of at most 8 MiB")
+                if not member.isfile() or member.size > 16 * 1024 * 1024:
+                    raise ValueError("manifest must be a regular file of at most 16 MiB")
                 with archive.extractfile(member) as stream:
                     metadata = json.load(stream)
         if not isinstance(metadata, dict) or any(
@@ -367,11 +397,13 @@ def check_package(artifact: Path) -> list[str]:
     return issues
 
 
-def check_repository(root: Path, *, require_artifacts: bool = False) -> list[str]:
+def check_repository(root: Path, *, require_artifacts: bool = False,
+                     rebuild_web: bool = True) -> list[str]:
     """
     @brief      Check the complete ADORE release identity contract.
     @param[in]  root Repository root.
     @param[in]  require_artifacts Require both canonical delivery archives.
+    @param[in]  rebuild_web Independently rebuild frontend after fingerprint verification.
     @return     Sorted deterministic issue descriptions; empty means success.
     """
     resolved = root.resolve()
@@ -386,7 +418,7 @@ def check_repository(root: Path, *, require_artifacts: bool = False) -> list[str
             bundle_valid = True
     except (OSError, UnicodeError, ValueError) as exc:
         issues.append(f"cannot verify web bundle ({exc}); run npm run build in 04_Software/web and commit the bundle")
-    if bundle_valid:
+    if bundle_valid and rebuild_web:
         # Rebuild independently: a manually refreshed fingerprint alone cannot
         # attest that the generated files actually came from the current sources.
         try:
@@ -432,10 +464,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--require-artifacts",
         action="store_true",
-        help=f"also require both canonical {EXPECTED_VERSION} delivery archives",
+        help=f"also require both app packages and three image archives for {EXPECTED_VERSION}",
     )
+    parser.add_argument("--use-existing-web-assets", action="store_true",
+                        help="verify the committed asset fingerprint without rebuilding it")
     args = parser.parse_args(argv)
-    issues = check_repository(args.repo_root, require_artifacts=args.require_artifacts)
+    issues = check_repository(args.repo_root, require_artifacts=args.require_artifacts,
+                              rebuild_web=not args.use_existing_web_assets)
     if issues:
         for issue in issues:
             print(f"error: {issue}", file=sys.stderr)

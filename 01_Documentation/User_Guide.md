@@ -15,7 +15,9 @@ review, then publishes a PR/MR. Merging remains a human decision.
 ## Start and sign in
 
 Extract the complete Windows ZIP or Linux TAR.GZ into a folder where programs can
-run. Python and the web application are included.
+run. Python, the web application, Node, Pi, its web extension and search tools
+are included. Native Pi setup needs no download. Container images are separate
+archives that an administrator imports with Docker/Podman before selecting them.
 
 - Windows: double-click **Start-ADORE.cmd**.
 - Linux: run **./start-adore.sh** from the extracted folder.

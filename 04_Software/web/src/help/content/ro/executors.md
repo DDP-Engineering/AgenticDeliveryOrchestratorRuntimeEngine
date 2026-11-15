@@ -9,6 +9,8 @@ Proiectele OpenAI noi pornesc cu modelul `gpt-6.1-terra`. Modelul ales în proie
 
 Catalogul de modele inclus provine din Pi 1.5.2 și include GPT-6.1 Terra.
 
+Livrarea Windows/Linux include Node, Pi, extensia web și uneltele de căutare pentru instalare nativă offline. Imaginile de containere sunt arhive separate, importate cu Docker sau Podman; pe destinație nu trebuie construite imagini sau accesat un registry. Instalările din surse necesită în continuare pregătirea documentată. Furnizorii AI și repository-urile la distanță necesită acces la rețea.
+
 ## Ce este un executor {#what}
 
 Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu furnizorul și modelul configurate. ADORE folosește Pi din imagine pentru lucrările în container și instalarea Pi administrată de ADORE pentru lucrările pe server.

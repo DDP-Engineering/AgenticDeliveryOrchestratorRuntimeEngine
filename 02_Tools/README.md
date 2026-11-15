@@ -70,7 +70,20 @@ Python wheel and bundles CPython with locked dependencies. It writes the native
 final ZIP or TAR.GZ plus its SHA-256 file into repository-relative `07_Delivery/`.
 Windows archives are built on Windows x64; Linux archives on Linux x64, including
 WSL Ubuntu. Building requires network access. End users need no installed Python,
-Node.js or uv merely to open the packaged interface.
+Node.js or uv to open the interface or use the included native Pi. The builder
+also downloads checksum-pinned Node, fd and ripgrep archives and installs the
+exact Pi/web packages into application-owned media. Runtime installation is
+offline. `--use-existing-web-assets` checks the existing source/output fingerprint
+and release metadata without rebuilding an already prepared frontend.
+
+`package/create_executor_image_archives.py --build` builds the base executor,
+egress proxy and ADORE project executor from a clean committed checkout and
+publishes separate compressed image archives plus SHA-256 files. Each image has
+a unique release/source tag; existing tags and containers are untouched. Use
+`--only executor-base` (repeatable) to select roles, `--runtime podman` for Podman,
+or `--image executor-base=LOCAL_TAG` without `--build` to export prepared local
+images. The image archives load directly with `docker load --input` or
+`podman load --input`; the target needs no registry access or build tools.
 
 Verification accepts an optional archive path under `07_Delivery/`. It checks
 identity and hashes, extracts the archive into temporary storage, and exercises

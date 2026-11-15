@@ -167,6 +167,11 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
         USERNAME=context["account"],
         PYTHONIOENCODING="utf-8",
     )
+    from adore.pi_installation import bundled_tool_path
+
+    tools = bundled_tool_path()
+    if tools:
+        env["PATH"] = tools + os.pathsep + env["PATH"]
     approved = set(secret_names(config.executor, "local"))
     env.update({key: value for key, value in (secrets or {}).items() if key in approved
                 and key.upper() not in {name.upper() for name in env}

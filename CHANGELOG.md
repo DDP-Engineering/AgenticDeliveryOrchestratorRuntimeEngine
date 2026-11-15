@@ -12,6 +12,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Offline Windows/Linux delivery includes Node, Pi, its web extension, fd and ripgrep; packaged Pi verification/installation uses included files without downloads.
+- Separate compressed executor-base, egress-proxy and ADORE project image archives can be built/exported for offline Docker/Podman import.
+
 ### Changed
 
 - Pin native and container executors to Pi 1.5.2 and regenerate the offline provider/model catalog, including GPT-6.1 Terra.

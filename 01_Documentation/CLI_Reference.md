@@ -170,7 +170,7 @@ Use `adore --profile <name> config plan` to review the effective image and exact
 
 ## Native local execution
 
-Run `adore pi install` and `adore pi verify` as the ADORE service account to manage the pinned Pi. See [Local execution](Local_Execution.md) for Node and Linux delegation.
+Delivery archives already contain the pinned Node/Pi runtime and search tools. `adore pi install` and `adore pi verify` check that bundled payload offline; they do not download packages. In source installations, run these commands as the service account to install/verify the managed Pi; installation needs registry access. See [Local execution](Local_Execution.md) for Node and Linux delegation.
 
 `config validate` checks local profiles; config plan reviews pinned native policy without project commands. Existing run/retry/cancel/handoff/cleanup commands keep verified conductor ownership.
 

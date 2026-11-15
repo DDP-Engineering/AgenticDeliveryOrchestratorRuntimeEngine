@@ -28,7 +28,14 @@ for the included launcher and runtime contracts.
   `build/executor_images/adore/` owns the project's explicit executor image recipe.
 - `package/create_delivery_package.py` invokes the web build first, then the
   release checks, and assembles the application wheel, locked dependencies,
-  CPython, curated user guides and launch templates in temporary staging.
+  CPython, Node/Pi/search dependencies, curated user guides and launch templates in temporary staging.
+- `package/bundle_native_tools.py` downloads checksum-pinned Node/fd/ripgrep
+  archives, installs pinned Pi/web dependencies without lifecycle scripts,
+  retains licenses and dereferences internal links for relocatable delivery.
+- `package/create_executor_image_archives.py` explicitly builds or exports
+  Linux amd64 images to separate compressed Docker archives. Builds require a
+  clean committed checkout and use unique release/source tags. Existing local
+  images can be selected explicitly; no push or running-container replacement occurs.
 - `package/verify_delivery_package.py` checks a final archive and exercises its
   relocated application using isolated temporary user data.
 - `package/release_checks/` owns release identity, four-locale release notes and
@@ -71,8 +78,9 @@ without installing dependencies. Update the committed production bundle whenever
 frontend build inputs change.
 
 The wheel also includes the canonical executor base Dockerfile and Pi helpers
-from `04_Software/docker/` as product assets for source-recipe export. Building
-those images remains an explicit operator action.
+from `04_Software/docker/` as product assets for source-recipe export. The image-delivery tool builds
+and exports them before delivery. End users load the compressed archives without
+registry access or build tools; Docker/Podman itself remains a prerequisite.
 
 ## Source services
 

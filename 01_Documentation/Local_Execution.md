@@ -40,6 +40,22 @@ own prefix and leaves other prefixes alone. `adore pi verify` checks the install
 without making an AI request. A corrupt prefix is refused; move it aside and
 install again.
 
+## Offline user delivery
+
+Windows/Linux delivery archives include Node 22.23.4, Pi 1.5.2, pi-web-access
+0.46.0, fd 10.5.1 and ripgrep 15.2.0 with their licenses. The bundled Python
+runtime marks this installation as an offline delivery; Pi is read directly from
+the application-owned payload. No host Node or npm installation is needed.
+Both `adore pi verify` and `adore pi install` verify this payload without network
+access or writes to the ADORE data home. A missing or corrupt payload is refused
+with an instruction to extract the complete archive again.
+
+The native executor prepends the bundled Node/npm and search-tool directories
+to its controlled PATH. Git, the forge CLI, project SDKs and Linux scope
+delegation remain operator prerequisites. AI providers and remote forges still
+need their configured network access. Source installations use the managed
+installation flow above.
+
 ## Project settings
 
 ```toml

@@ -154,8 +154,12 @@ The suite is fully offline. ADORE's own development follows the AEGIS
 workflow installed in `.agentic/`; read `AGENTS.md` before contributing. A
 release additionally passes `python 02_Tools/package/release_checks/check_release_consistency.py
 --require-artifacts`. End-user Windows/Linux archives are built with
-`python 02_Tools/package/create_delivery_package.py`; `07_Delivery/` contains only the two
-archives and their optional adjacent hashes. Temporary build/verification work
+`python 02_Tools/package/create_delivery_package.py`; they include Python,
+Node, Pi, its web extension and search tools for offline native setup.
+`python 02_Tools/package/create_executor_image_archives.py --build` creates
+separate base-executor, egress-proxy and ADORE-project image archives for offline
+Docker/Podman import. `07_Delivery/` contains only final delivery archives and
+their optional adjacent hashes; new media stays outside Git. Temporary build/verification work
 is removed automatically and results are printed without saved reports.
 Repository tools are grouped under `02_Tools/setup/`, `02_Tools/build/` and
 `02_Tools/package/`. The public commands prepare development dependencies,

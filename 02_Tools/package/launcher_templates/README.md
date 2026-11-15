@@ -8,8 +8,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Start ADORE
 
 Extract the complete archive into a folder where you can run programs.
-Python, the ADORE application, the compiled web interface and its dependencies
-are included. Installation, administrator privileges, system Python, uv,
+Python, the ADORE application, the compiled web interface, Node, Pi, its web
+extension, fd, ripgrep and their dependencies are included. Installation, administrator privileges, system Python, uv,
 Node.js and Internet access are not needed to start the interface.
 
 ## Windows 11 x64
@@ -38,10 +38,30 @@ configuration for access from other machines.
 The default address is <http://127.0.0.1:8765/>. A new installation creates the
 account **admin**, password **admin**; change it when signing in.
 Add and check your projects in the interface. Git, an authenticated forge CLI
-(`tea`, `gh` or `glab`), executor tools and Docker/Podman when selected are
+(`tea`, `gh` or `glab`), project-specific build tools and Docker/Podman when selected are
 project prerequisites. They are checked when configuring a project and are
 not required merely to open the interface. Do not start an additional
 `adore run --loop` scheduler for projects managed by the web worker.
+
+## Offline executors
+
+Native execution uses the included Node and Pi directly. Run `ADORE.cmd pi verify`
+on Windows or `./adore.sh pi verify` on Linux. `pi install` only verifies the
+bundled runtime; it makes no downloads. Keep the application directory intact.
+
+Container images are separate compressed archives. On a host with Docker/Podman
+already installed, import the required executor and egress-proxy archives:
+
+```sh
+docker load --input adore-0.16.0-executor-base-linux-x64.tar.gz
+docker load --input adore-0.16.0-egress-proxy-linux-x64.tar.gz
+```
+
+Use `podman load --input` with Podman. The command reports the imported image tag;
+select that exact tag in project Settings. The optional executor-adore archive
+adds the ADORE project toolchain and Chromium. Importing requires no registry or
+image build. Project-specific images must likewise be prepared before delivery.
+AI/model and remote repository access still require their configured network.
 
 ## Data, logs and updates
 
@@ -80,7 +100,10 @@ operating instructions.
 
 The CPython distribution is supplied by
 [Astral Python Standalone Builds](https://github.com/astral-sh/python-build-standalone).
-Its license is retained inside `python/`, together with third-party license
+Node is supplied by nodejs.org. The installed Pi/web packages retain their
+upstream licenses; fd and ripgrep notices are retained beside the bundled tools.
+The delivery manifest records their exact versions and checksums. CPython
+licenses are retained inside `python/`, together with third-party license
 files distributed by the runtime. Python dependency licenses are retained in
 their installed package metadata. ADORE's license is in `LICENSE.txt`.
 `manifest.json` records versions, the dependency-lock checksum and SHA-256

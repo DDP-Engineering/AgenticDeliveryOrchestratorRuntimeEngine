@@ -32,10 +32,13 @@ import tempfile
 import tomllib
 import zipfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bundle_native_tools import prepare_native_tools
+
 # CONSTANTS
 REPO = Path(__file__).resolve().parents[2]
 PYTHON_VERSION = "3.12.13"
-MAX_FILES = 30000
+MAX_FILES = 60000
 MAX_BYTES = 1024 * 1024 * 1024
 USER_DOC_SOURCES = {"README.md": "User_Guide.md",
                     "Administrator_Guide.md": "Administrator_Guide.md",
@@ -81,7 +84,9 @@ def main(argv: list[str] | None = None) -> int:
     @exception RuntimeError Runtime layout or resource limits are invalid.
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args(argv)
+    parser.add_argument("--use-existing-web-assets", action="store_true",
+                        help="use the already built, fingerprint-verified frontend")
+    options = parser.parse_args(argv)
     system = platform.system().lower()
     if system not in {"windows", "linux"} or platform.machine().lower() not in {"amd64", "x86_64"}:
         parser.error("build on native Windows or Linux x64")
@@ -90,9 +95,20 @@ def main(argv: list[str] | None = None) -> int:
     if not uv:
         parser.error("uv is required on the build host")
     software = REPO / "04_Software"
-    print(run([sys.executable, str(REPO / "02_Tools/build/build_web_assets.py")], REPO).strip())
-    for checker in ("check_release_notes.py", "check_release_consistency.py"):
+    if not options.use_existing_web_assets:
+        print(run([sys.executable, str(REPO / "02_Tools/build/build_web_assets.py")], REPO).strip())
+    for checker in ("check_release_notes.py",):
         print(run([sys.executable, str(REPO / "02_Tools/package/release_checks" / checker)], REPO).strip())
+    from release_checks.stamp_web_assets import fingerprint, STAMP
+
+    static = software / "adore/web/static"
+    if json.loads((static / STAMP).read_text(encoding="utf-8")) != fingerprint(REPO, static):
+        raise RuntimeError("web assets do not match current sources; build them before packaging")
+    command = [sys.executable, str(REPO / "02_Tools/package/release_checks/check_release_consistency.py")]
+    if options.use_existing_web_assets:
+        command.append("--use-existing-web-assets")
+    print(run(command, REPO).strip())
+    sys.path.insert(0, str(software))
     with (software / "pyproject.toml").open("rb") as handle:
         version = tomllib.load(handle)["project"]["version"]
     static = software / "adore/web/static"
@@ -151,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("bundled Python site-packages escaped its runtime")
         shutil.copy2(REPO / "02_Tools/package/launcher_templates/adore_portable.pth",
                      site_packages / "adore_portable.pth")
+        native_tools = prepare_native_tools(site_packages / "adore/_native_tools", work, system)
         for cache in list(runtime.rglob("__pycache__")):
             shutil.rmtree(cache)
         for cache in list(runtime.rglob("*.pyc")) + list(runtime.rglob("*.pyo")):
@@ -159,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         # Stable hash-based caches keep even isolated child startup read-only
         # after ZIP/TAR timestamps change, with no build-path code filenames.
         run([str(interpreter), "-I", "-B", "-m", "compileall", "-q",
+             "-x", r"[/\\]_native_tools[/\\]",
              "--invalidation-mode", "unchecked-hash", "-s", str(runtime), str(runtime)], bundle)
         for source in (REPO / "02_Tools/package/launcher_templates").iterdir():
             if (source.is_file() and source.suffix != ".pth"
@@ -172,10 +190,12 @@ def main(argv: list[str] | None = None) -> int:
         copy_user_documentation(bundle / "Documentation")
         files = sorted(path for path in bundle.rglob("*") if path.is_file())
         if len(files) > MAX_FILES or sum(path.stat().st_size for path in files) > MAX_BYTES:
-            raise RuntimeError("portable distribution exceeds the 30000-file / 1 GiB build limit")
+            raise RuntimeError(f"portable distribution exceeds the 60000-file / 1 GiB build limit "
+                               f"({len(files)} files, {sum(path.stat().st_size for path in files)} bytes)")
         manifest = {
             "schema": 1, "version": version, "system": system, "architecture": "x64",
             "python_version": PYTHON_VERSION,
+            "native_tools": native_tools,
             "python_source": "https://github.com/astral-sh/python-build-standalone",
             "lock_sha256": hashlib.sha256((software / "uv.lock").read_bytes()).hexdigest(),
             "files": {path.relative_to(bundle).as_posix():

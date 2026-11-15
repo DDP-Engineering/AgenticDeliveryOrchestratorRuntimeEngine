@@ -9,6 +9,8 @@ New OpenAI projects start with model `gpt-6.1-terra`. Existing project model sel
 
 The bundled model catalog comes from Pi 1.5.2 and includes GPT-6.1 Terra.
 
+Windows/Linux delivery includes Node, Pi, its web extension and search tools for offline native setup. Container images are separate archives imported with Docker or Podman; no image build or registry access is needed on the target. Source installations still require the documented tool setup. Remote AI providers and repositories require network access.
+
 ## What an executor is {#what}
 
 For each job ADORE starts Pi, its only coding agent, in an isolated working copy, and Pi works through the repository's AEGIS stages with the configured provider and model. ADORE uses the Pi built into the image for container jobs and its managed Pi installation for server jobs.

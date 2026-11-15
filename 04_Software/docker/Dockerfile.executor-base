@@ -83,6 +83,20 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 RUN npm install -g --prefix /opt/pi --ignore-scripts --no-fund --no-audit \
         "${PI_PACKAGE}" "${PI_WEB_ACCESS_PACKAGE}"
 ENV PATH=/opt/pi/bin:$PATH
+
+# Offline Pi search helpers: fetched only while building the delivery image.
+RUN curl -fsSL -o /tmp/fd.tar.gz https://github.com/sharkdp/fd/releases/download/v10.5.1/fd-v10.5.1-x86_64-unknown-linux-musl.tar.gz \
+    && echo "f6c95edb190c241df6fddc815a5bab4051444993ac5d92ddc6eec0e0dc2342c7  /tmp/fd.tar.gz" | sha256sum -c - \
+    && curl -fsSL -o /tmp/rg.tar.gz https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz \
+    && echo "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c  /tmp/rg.tar.gz" | sha256sum -c - \
+    && mkdir /tmp/adore-fd /tmp/adore-rg \
+    && tar -xzf /tmp/fd.tar.gz -C /tmp/adore-fd --strip-components=1 \
+    && tar -xzf /tmp/rg.tar.gz -C /tmp/adore-rg --strip-components=1 \
+    && install -m 0755 /tmp/adore-fd/fd /tmp/adore-rg/rg /usr/local/bin/ \
+    && mkdir -p /opt/adore/licenses/fd /opt/adore/licenses/rg \
+    && cp /tmp/adore-fd/LICENSE* /opt/adore/licenses/fd/ \
+    && cp /tmp/adore-rg/LICENSE* /opt/adore/licenses/rg/ \
+    && rm -rf /tmp/fd.tar.gz /tmp/rg.tar.gz /tmp/adore-fd /tmp/adore-rg
 # ADORE's guard extension, loaded with `-e` by every Pi run; root-owned, so the
 # agent cannot change it.
 COPY pi/adore-guard.ts /opt/adore/pi/adore-guard.ts

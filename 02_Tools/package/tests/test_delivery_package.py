@@ -97,6 +97,8 @@ class PortableDelivery(unittest.TestCase):
         self.payload = self.bundle / "payload.txt"
         self.payload.write_bytes(b"content")
         self.manifest = {
+            "native_tools": {"node": "22.23.4", "pi": "1.5.2", "web": "0.46.0",
+                             "fd": "10.5.1", "rg": "15.2.0"},
             "schema": 1, "version": "0.15.0", "architecture": "x64",
             "system": platform.system().lower(), "python_version": platform.python_version(),
             "files": {"payload.txt": hashlib.sha256(b"content").hexdigest()},

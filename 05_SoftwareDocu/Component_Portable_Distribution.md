@@ -13,7 +13,8 @@ Sources: `02_Tools/package/create_delivery_package.py`, `02_Tools/package/launch
 ## 1. Purpose
 
 Deliver a complete native Windows x64 ZIP or Linux x64 TAR.GZ that starts the
-web API and command worker without system Python, uv, Node.js or installation.
+web API and command worker, and supplies native Pi without system Python, uv,
+Node.js, npm setup or installation downloads.
 Packaging and launcher sources belong to `02_Tools/`; only final archives and
 optional adjacent SHA-256 files belong to `07_Delivery/`. Build/verification
 work uses automatically cleaned OS temporary storage; results go to the console.
@@ -29,12 +30,15 @@ Application code remains in `04_Software/`.
   existing instance for the same data home, and provide explicit stop controls.
 - Keep runtime user data and rotating logs outside extracted installation files.
 
-Git, forge authentication, executor/toolchain provisioning, model credentials,
+Native delivery includes Node 22.23.4, Pi 1.5.2, pi-web-access 0.46.0, fd 10.5.1
+and ripgrep 15.2.0. Git, forge authentication, project toolchain provisioning, model credentials,
 containers and service-manager installation remain project/operator setup.
 
 ## 3. Implementation Overview
 
-The builder runs on each matching OS. CPython's pin is declared once as
+The builder runs on each matching OS. --use-existing-web-assets keeps the
+verified frontend fingerprint and release checks while avoiding another frontend
+build; default packaging builds and independently checks it. CPython's pin is declared once as
 `PYTHON_VERSION` in the builder. `uv python install` provisions a fresh managed
 runtime inside an owned native OS temporary workspace; a dereferenced copy becomes
 the package's `python/`. The builder installs a freshly built ADORE wheel and
@@ -46,6 +50,14 @@ Wrappers resolve their interpreter and launcher relative to their own location.
 Unused standard-library test/development/Tk material is excluded. No user
 profiles, credentials, virtual environment or repository working state is copied.
 The package's verifier checks every file before publication to the final archive.
+The native payload lives inside the installed application at adore/_native_tools.
+Node/fd/ripgrep archives have fixed published SHA-256 pins; Pi/web dependencies
+are installed only on the build host. npm metadata and upstream dependency
+licenses remain present. Unix executable links are dereferenced; npm/npx entry
+wrappers retain their correct relative module resolution after relocation.
+The runtime marker in adore_portable.pth selects this exact payload and refuses
+incomplete media instead of choosing host tools. Bundled pi install is a
+verification operation with no network or copying to user data.
 An installed `adore_portable.pth` disables bytecode writes for engine child
 invocations as well as the top-level launcher. Bytecode is rebuilt with
 hash-based invalidation and relative code filenames. This covers Python
@@ -88,9 +100,9 @@ and durable state contracts are unchanged.
   `.sha256` file naming that archive without directory prefixes. There are no
   retained technical directories, README files, test reports or logs in delivery.
   Output is fixed to repository-relative `07_Delivery/`; no output option is needed.
-- Manifest: schema 1, application/Python/OS/architecture, dependency-lock hash,
+- Manifest: schema 1, application/Python/OS/architecture and native tool versions, dependency-lock hash,
   interpreter provenance and SHA-256 inventory. This detects damage, not signer identity.
-- Limits: each external build command 1800 seconds; 30000 files / 1 GiB before
+- Limits: each external build command 1800 seconds; 60000 files / 1 GiB before
   archiving; startup 1..120 seconds; restart limit 0..10; shutdown 15 seconds
   before forced termination; log rotation 2 MiB with three backups.
 - Data: normal `adore_home()` semantics, overridden by `ADORE_HOME` or `--home`.
