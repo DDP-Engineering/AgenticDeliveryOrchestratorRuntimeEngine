@@ -12,13 +12,6 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
-### Changed
-
-- Delete retained repository containers without the current `io.ddp.adore.git-binding=pointer-v1` label before starting fresh jobs.
-- Remove `workflow.verify_command` from `config.toml` before starting this build.
-- Remove unused frontend sources and generated local remnants, keep source-checkout configuration local, and move live runtime verification into `02_Tools/build/`.
-- Simplify the configuration example and refresh setup, credentials and container documentation.
-
 ## [0.16.0] - 2026-11-15
 
 ### Added
@@ -45,6 +38,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Bound transient Windows run-state sharing contention so concurrent readers do not interrupt jobs; persistent failures preserve evidence and current ownership fences.
 
 ### Changed
+
+- Delete retained repository containers without the current `io.ddp.adore.git-binding=pointer-v1` label before starting fresh jobs.
+- Remove `workflow.verify_command` from `config.toml` before starting this build.
+- Remove unused frontend sources and generated local remnants, keep source-checkout configuration local, and move live runtime verification into `02_Tools/build/`.
+- Simplify the configuration example and refresh setup, credentials and container documentation.
 
 - Consolidate current operator guidance into one quick reference and update all five presentations for ADORE 0.16.0.
 - Group repository tools by setup, build and package responsibilities; name delivery commands and launcher templates explicitly and keep final package output in `07_Delivery/`.

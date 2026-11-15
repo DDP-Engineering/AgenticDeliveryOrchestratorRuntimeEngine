@@ -15,6 +15,10 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+[[release]]
+version = "0.16.0"
+date = "2026-11-15"
+
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
@@ -25,30 +29,21 @@ category = "fixed"
 topic = { en = "Configuration", fr = "Configuration", de = "Konfiguration", ro = "Configurare" }
 text = { en = "Removed settings are rejected with a clear instruction to delete them.", fr = "Les paramètres supprimés sont refusés avec une indication claire pour les retirer.", de = "Entfernte Einstellungen werden mit einem klaren Hinweis zum Löschen abgewiesen.", ro = "Setările eliminate sunt respinse cu o indicație clară pentru ștergerea lor." }
 
-[[release]]
-version = "0.16.0"
-date = "2026-11-15"
-
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
-text = { en = "Every job keeps its chosen environment; changed resources require a fresh job.", fr = "Chaque travail garde son environnement ; une ressource modifiée exige un nouveau travail.", de = "Jeder Job behält seine Umgebung; geänderte Ressourcen erfordern einen neuen Job.", ro = "Fiecare job păstrează mediul ales; resursele schimbate cer un job nou." }
+text = { en = "Concurrent jobs keep separate resources and statistics; changed environments need a fresh job.", fr = "Les travaux gardent ressources et statistiques séparées ; un milieu changé exige un nouveau travail.", de = "Jobs behalten getrennte Ressourcen und Statistiken; geänderte Umgebungen brauchen neue Jobs.", ro = "Joburile au resurse și statistici separate; schimbarea mediului cere un job nou." }
 
 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
-text = { en = "Live appears once and new messages keep the conversation window within the screen.", fr = "En direct apparaît une fois et la conversation reste dans la hauteur de l’écran.", de = "Live erscheint einmal; neue Nachrichten vergrößern das Gesprächsfenster nicht.", ro = "În direct apare o singură dată, iar mesajele noi nu mai măresc fereastra conversației." }
+text = { en = "Live appears once; chat fits the screen and recorded messages without timestamps remain readable.", fr = "En direct apparaît une fois ; le chat reste cadré et les messages sans heure sont lisibles.", de = "Live erscheint einmal; der Chat bleibt im Bild und Nachrichten ohne Zeitangabe lesbar.", ro = "În direct apare o dată; conversația încape pe ecran, iar mesajele fără oră rămân lizibile." }
 
 [[release.entry]]
 category = "improved"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
 text = { en = "Sort ticket columns across loaded results, globally or inside a project.", fr = "Triez les colonnes des tickets chargés, globalement ou dans un projet.", de = "Ticketspalten über geladene Ergebnisse sortieren, global oder im Projekt.", ro = "Sortează coloanele tichetelor încărcate, global sau în interiorul unui proiect." }
-
-[[release.entry]]
-category = "fixed"
-topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
-text = { en = "Recorded messages without a message time are displayed correctly.", fr = "Les messages enregistrés sans heure s’affichent correctement.", de = "Aufgezeichnete Nachrichten ohne Zeitangabe werden korrekt angezeigt.", ro = "Mesajele înregistrate fără ora mesajului sunt afișate corect." }
 
 [[release.entry]]
 category = "improved"
@@ -135,11 +130,6 @@ text = { en = "Start confirms job admission; Cancel confirms the actual stop. Li
 category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Concurrent jobs share project limits; waiting uses no active time and live jobs stay protected.", fr = "Les tâches partagent la limite du projet ; l’attente ne consomme pas de temps actif.", de = "Parallele Aufträge teilen die Projektgrenze; Wartezeit zählt nicht als aktive Arbeit.", ro = "Lucrările respectă limita proiectului; așteptarea nu consumă timp activ." }
-
-[[release.entry]]
-category = "fixed"
-topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Concurrent jobs keep separate resources; stopping one preserves the others and their statistics.", fr = "Les tâches simultanées gardent leurs ressources et statistiques lors de l’arrêt d’une autre tâche.", de = "Parallele Aufträge behalten eigene Ressourcen und Statistiken, wenn ein anderer gestoppt wird.", ro = "Lucrările simultane își păstrează resursele și statisticile când o altă lucrare este oprită." }
 
 [[release]]
 version = "0.15.0"
