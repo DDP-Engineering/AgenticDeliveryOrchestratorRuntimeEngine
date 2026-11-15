@@ -81,10 +81,11 @@ def test_stage_bytes(tmp_path, case):
     forge.ticket.title = values["title"]
     forge.ticket.description = " \n" + values["description"] + "\n "
     forge.ticket.labels = ["agent-quick"] if case["quick"] else []
+    run = make_run(engine)
     engine.config.execution.backend = "local" if case["mode"] == "native" else "container"
     engine.config.container.system_packages = case["packages"]
     engine.config.container.egress.mode = "open" if case["mode"] == "native" else case["mode"]
-    actual = engine._stage_prompt(make_run(engine), forge.ticket, task(case["stage"]),
+    actual = engine._stage_prompt(run, forge.ticket, task(case["stage"]),
                                  values["context"] if case["extra"] else "",
                                  values["thread"] if case["extra"] else "")
     assert actual.encode("utf-8") == case["expected"].encode("utf-8")
@@ -122,6 +123,7 @@ def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
     forge.ticket.title = values["title"]
     forge.ticket.description = " \n" + values["description"] + "\n "
     forge.ticket.labels = ["agent-quick"]
+    run = make_run(engine)
     native = case["requested_mode"] == "native"
     engine.config.execution.backend = "local" if native else "container"
     engine.config.container.system_packages = case["packages"]
@@ -136,7 +138,7 @@ def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
         monkeypatch.setattr(orchestrator_module, "egress_policy", lambda config: replace(
             egress_policy(config), mode="none"))
         assert orchestrator_module.egress_policy(engine.config).mode == case["effective_mode"]
-    actual = engine._stage_prompt(make_run(engine), forge.ticket, task("frame"),
+    actual = engine._stage_prompt(run, forge.ticket, task("frame"),
                                  values["context"], values["thread"])
     assert actual.encode("utf-8") == case["expected"].encode("utf-8")
 
@@ -180,6 +182,7 @@ def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
 ):
     """@brief Direct composition reuses the exact shared notice without AEGIS procedure."""
     engine, forge, *_ = make_engine(tmp_path)
+    run = make_run(engine)
     native = case["requested_mode"] == "native"
     engine.config.execution.backend = "local" if native else "container"
     engine.config.container.system_packages = case["packages"]
@@ -188,7 +191,6 @@ def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
     if case["injected_none"]:
         monkeypatch.setattr(orchestrator_module, "egress_policy", lambda config: replace(
             egress_policy(config), mode="none"))
-    run = make_run(engine)
     prompt = engine._direct_prompt(run, forge.ticket, "recover ${x}", "reply {x} $ £")
     if native:
         assert "Network policy is independently configured as" not in prompt
@@ -371,7 +373,7 @@ def test_notice_bytes_reach_pi(tmp_path, native, internet):
             return ""
 
     target = NativeTarget() if native else SpawnTarget(fake)
-    result = PiExecutor("pi", "m", internet=internet, web_search="none").run_gate(
+    result = PiExecutor("m", internet=internet, web_search="none").run_gate(
         target, worktree, tmp_path / "io", "fixture prompt", timeout=10)
     assert result.ok and fake.all_exited()
     if not native and internet:

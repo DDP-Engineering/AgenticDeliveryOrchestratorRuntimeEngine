@@ -15,6 +15,16 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+[[release.entry]]
+category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Inactive settings are removed; internet access and clarification timeouts stay available.", fr = "Paramètres inactifs retirés ; accès Internet et délai de clarification restent disponibles.", de = "Inaktive Einstellungen entfernt; Internetzugriff und Rückfragefristen bleiben verfügbar.", ro = "Setările inactive sunt eliminate; accesul la internet și timeoutul clarificărilor rămân." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "New OpenAI projects default to gpt-6.1-terra; existing project models stay unchanged.", fr = "Les nouveaux projets OpenAI utilisent gpt-6.1-terra ; les modèles existants sont inchangés.", de = "Neue OpenAI-Projekte verwenden gpt-6.1-terra; bestehende Modellauswahlen bleiben unverändert.", ro = "Proiectele OpenAI noi folosesc implicit gpt-6.1-terra; modelele existente rămân neschimbate." }
+
 [[release]]
 version = "0.16.0"
 date = "2026-11-15"

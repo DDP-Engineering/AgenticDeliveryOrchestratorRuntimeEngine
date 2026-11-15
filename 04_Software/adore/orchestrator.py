@@ -318,7 +318,6 @@ class Orchestrator:
                 selinux_relabel=config.container.selinux_relabel,
             ),
             executor=build_executor(
-                config.executor.command,
                 config.executor.model,
                 config.executor.questions_file,
                 provider=config.executor.provider,

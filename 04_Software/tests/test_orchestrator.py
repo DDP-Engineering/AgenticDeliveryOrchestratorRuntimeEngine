@@ -568,8 +568,12 @@ def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunSt
         active_started_at=utc_now_iso(),
     )
     plan = resolve_plan(engine.config, runner=getattr(engine.worktrees, "runner", None))
+    resource = {} if plan["backend"] == "local" else {
+        key: engine.containers.resource_identity(run.container)[key]
+        for key in ("container_id", "image_id")
+    }
     run.execution = {
-        "plan": plan, "resource": {"container_id": "d" * 64, "image_id": "sha256:" + "e" * 64},
+        "plan": plan, "resource": resource,
         "status": "pending" if plan["selection"] else "not-required",
         "attempts": 0, "steps": [], "history": [], "reprepare": False,
     }

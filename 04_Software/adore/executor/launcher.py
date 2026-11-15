@@ -10,12 +10,9 @@
 """
 @file launcher.py
 @brief Pi executor launcher (ADORE's only coding agent) and its factory.
-@details Runs a fresh gate through a bound backend and shared file protocol.
-         Containers execute a WSL-safe shell script; native targets receive
-         argv with substitutions applied after tokenization. Both retain
-         bounded output, questions, usage and immutable invocation archives.
-         On a container target Pi runs instead as one `pi --mode rpc`
-         process per gate driven by `pi_rpc` over live pipes.
+@details Runs one fresh Pi RPC process through a bound container or native
+         backend. Prompt text travels over stdin; retained conversation,
+         operational output, questions, usage and archives remain bounded.
          The durable AEGIS journal is the sole session-resume authority.
          Native worktrees rely on the selected account's host permissions;
          container profiles retain their existing isolation contract.
@@ -31,7 +28,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import stat
 from uuid import uuid4
@@ -147,390 +143,7 @@ def _archive_recording(source: Path, destination: Path) -> None:
 # PUBLIC API
 
 
-class FileProtocolExecutor(Executor):
-    """
-    @brief   Shared file-based gate protocol for headless CLI executors.
-    @details One gate per launch: clear a stale questions file, write gate.sh
-             (the command with the shell-quoted prompt) into the io dir, exec
-             it in the container, and read every result back from files
-             (output stream, stderr, questions) - never from live stdout.
-             When an archive stem is provided, the launch copies its
-             gate.sh/output/stderr/meta into an immutable archive directory.
-             Every launch is a fresh session; subclasses supply only the
-             optional `_extract_usage` JSON parser (default: no usage).
-    """
-
-    def __init__(
-        self,
-        command_template: str,
-        model: str,
-        questions_file: str = DEFAULT_QUESTIONS_FILE,
-    ) -> None:
-        """
-        @brief      Configure the launcher from the [executor] section.
-        @param[in]  command_template Command template with {prompt}, {model},
-                                     {worktree} placeholders ({worktree} is the
-                                     container mount /adore/work; unused tokens
-                                     are ignored).
-        @param[in]  model Model in provider/model form.
-        @param[in]  questions_file Worktree filename the executor writes
-                                   blocking questions to.
-        """
-        self.command_template = command_template
-        self.model = model
-        self.questions_file = questions_file
-
-    def run_gate(
-        self,
-        execute: ExecTarget,
-        worktree: str | Path,
-        io_dir: str | Path,
-        prompt: str,
-        *,
-        timeout: float | None = None,
-        archive_stem: str = "",
-        package_secrets: dict[str, str] | None = None,
-        cancel: Callable[[], bool] | None = None,
-        instructions: InstructionDelivery | None = None,
-    ) -> GateRun:
-        """
-        @brief      Run one gate headless; read every result from files.
-        @details    Sequence: clear a stale questions file (its presence after
-                    the gate must mean it was written by THIS gate), write
-                    gate.sh into the io dir (host side; LF endings), exec it in
-                    the container, then read the event stream, stderr, and
-                    questions file back from the host filesystem. A missing
-                    output file is not an error - the exit code carries the
-                    failure and the conductor decides. When archive_stem is
-                    set, the live files are copied to
-                    `io/archive/<stem>-attempt1/`.
-
-                    The launch is always a FRESH executor session, so there is
-                    no session to continue and no dead-session relaunch: the
-                    conductor re-sends everything a stage needs in its prompt,
-                    and the durable AEGIS journal is the resume authority.
-        @param[in]  execute Command/file seam bound to the run target.
-        @param[in]  worktree HOST path of the run's worktree.
-        @param[in]  io_dir HOST path of the run's io exchange dir.
-        @param[in]  prompt Gate instruction (native argv or container script).
-        @param[in]  timeout Wall-clock bound (run budgets).
-        @param[in]  archive_stem Optional immutable archive name stem.
-        @param[in]  package_secrets Enable bounded/redacted package-job retention;
-                                   None retains the full event archive.
-        @param[in]  cancel Unused: the conductor stops the target on cancel.
-        @return     A GateRun describing the outcome.
-        """
-        worktree = Path(worktree)
-        io_dir = Path(io_dir)
-        io_dir.mkdir(parents=True, exist_ok=True)
-
-        questions_path = worktree / self.questions_file
-        questions_path.unlink(missing_ok=True)
-
-        # The same rule the questions file already follows, for the streams:
-        # whatever is read back afterwards must have been written by THIS
-        # launch. A launch that produces nothing - an executor exiting 0 in a
-        # second, a refused session - otherwise leaves the PREVIOUS stage's
-        # transcript in place, and it is then archived as this stage's
-        # evidence and re-counted by `_extract_usage` against the cost budget
-        # (live finding 2026-09-18: a build attempt archived byte-identical
-        # design output). Removing them first makes an empty read mean
-        # exactly what it says.
-        output_path = io_dir / OUTPUT_FILE
-        stderr_path = io_dir / STDERR_FILE
-        output_path.unlink(missing_ok=True)
-        stderr_path.unlink(missing_ok=True)
-
-        paths = getattr(execute, "paths", ExecutionPaths())
-        native = getattr(execute, "run_files", None)
-        command = self._build_command(
-            prompt=shlex.quote(prompt),
-            model=shlex.quote(self.model),
-            worktree=shlex.quote(paths.worktree),
-        )
-        # No `exec` prefix: the template may be a compound command, and the
-        # script's exit status is the command's status either way. The command
-        # is wrapped in a `{ ...; }` group so the output/stderr redirection
-        # applies to the WHOLE compound (e.g. `a && b`), not just its last
-        # stage - otherwise a compound template would lose the earlier stage's
-        # stream. Group exit status is that of the last command run, unchanged.
-        script = (
-            SHELL_HEADER
-            + f"cd {shlex.quote(paths.worktree)}\n"
-            f"{{ {command}; }} "
-            f"> {shlex.quote(paths.io + '/' + OUTPUT_FILE)} "
-            f"2> {shlex.quote(paths.io + '/' + STDERR_FILE)}\n"
-        )
-        if native is not None:
-            from adore.local_execution import local_argv
-
-            argv = local_argv(self.command_template, prompt=prompt,
-                              model=self.model, worktree=paths.worktree)
-            script = SHELL_HEADER + "# Native argv launch; no shell is executed.\n"
-            redact = getattr(execute, "redact", lambda text: text)
-            script += "# argv: " + redact(json.dumps(argv, ensure_ascii=True)) + "\n"
-        with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
-            handle.write(script)
-
-        result = (
-            native(argv, output_path, stderr_path, timeout=timeout)
-            if native is not None
-            else execute([paths.shell, f"{paths.io}/{GATE_SCRIPT}"], timeout=timeout)
-        )
-
-        if native is not None and hasattr(execute, "read_output"):
-            execute.read_output(questions_path, optional=True)
-        if package_secrets is not None:
-            output, usage, tokens_reported, cost_reported = self._retain_package_output(
-                output_path, package_secrets, collect_usage=True,
-            )
-            stderr, *_unused = self._retain_package_output(stderr_path, package_secrets)
-            stderr = stderr or redact_output(result.stderr, package_secrets)
-        else:
-            output = self._read(output_path)
-            stderr = self._read(stderr_path) or result.stderr
-        artifacts: list[str] = []
-        if archive_stem:
-            try:
-                archive_dir = self._archive_launch(
-                    io_dir,
-                    archive_stem,
-                    result,
-                    output,
-                    stderr,
-                    timeout,
-                    output_path.is_file(),
-                    stderr_path.is_file(),
-                )
-            except OSError as exc:
-                archive_error = f"archive write failed: {exc}"
-                return GateRun(
-                    exit_code=result.exit_code or 1,
-                    output=output,
-                    stderr=(stderr + "\n" + archive_error).strip(),
-                    timed_out=result.timed_out,
-                    artifact_dirs=artifacts,
-                )
-            artifacts.append(str(archive_dir))
-        if package_secrets is not None:
-            questions, *_unused = self._retain_package_output(questions_path, package_secrets)
-        else:
-            questions = self._read(questions_path)
-        if native is not None:
-            questions = getattr(execute, "redact", lambda text: text)(questions)
-        if package_secrets is None:
-            usage = self._extract_usage_detail(output)
-            tokens_reported = self._tokens_reported(output)
-            cost_reported = self._cost_reported(output)
-        tokens_in, tokens_out, cost, cache_read, cache_write = usage
-        return GateRun(
-            exit_code=result.exit_code,
-            has_questions=questions_path.is_file(),
-            questions=questions,
-            output=output,
-            stderr=stderr,
-            timed_out=result.timed_out,
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
-            cache_read_tokens=cache_read,
-            cache_write_tokens=cache_write,
-            tokens_reported=tokens_reported,
-            cost_usd=cost,
-            cost_reported=cost_reported,
-            artifact_dirs=artifacts,
-        )
-
-    # -- executor-specific command build + parsing (subclasses) -------------------
-
-    def _build_command(self, *, prompt: str, model: str, worktree: str) -> str:
-        """
-        @brief      Compose the executor command from the configured template.
-        @details    `prompt` and `model` arrive already shell-quoted.
-        @param[in]  prompt Shell-quoted prompt text.
-        @param[in]  model Shell-quoted model string.
-        @param[in]  worktree Container worktree mount (/adore/work).
-        @return     The full command string embedded into gate.sh.
-        """
-        return self.command_template.format(
-            prompt=prompt, model=model, worktree=worktree
-        )
-
-    def _extract_usage(self, output: str) -> tuple[int, int, float]:
-        """
-        @brief      Sum token usage and cost from the event stream.
-        @details    Default: no usage reporting (returns zeros). Executors that
-                    emit usage in their stream override this. Metrics tolerate
-                    zeros (design 13; the OAuth pilot ran that way).
-        @param[in]  output Raw event-stream text.
-        @return     (tokens_in, tokens_out, cost_usd).
-        """
-        return 0, 0, 0.0
-
-    def _extract_usage_detail(
-        self, output: str,
-    ) -> tuple[int, int, float, int | None, int | None]:
-        """@brief Preserve optional cache categories alongside total input."""
-        incoming, outgoing, cost = self._extract_usage(output)
-        return incoming, outgoing, cost, None, None
-
-    def _cost_reported(self, output: str) -> bool:
-        """@brief Whether the executor explicitly reported a cost value."""
-        return False
-
-    def _tokens_reported(self, output: str) -> bool:
-        """@brief Whether a complete, valid token count was observed."""
-        return False
-
-    # -- internals ----------------------------------------------------------------
-
-    def _archive_launch(
-        self,
-        io_dir: Path,
-        archive_stem: str,
-        result,
-        output: str,
-        stderr: str,
-        timeout: float | None,
-        output_present: bool,
-        stderr_present: bool,
-        output_file: Path | None = None,
-    ) -> Path:
-        """
-        @brief      Copy one completed launch's live exchange files to archive.
-        @details    Creates a unique directory under `io/archive`. Empty
-                    output/stderr files are still written so absence is visible
-                    in meta.json without making operators guess whether a file
-                    was skipped.
-        @param[in]  io_dir Host io exchange directory.
-        @param[in]  archive_stem Base name supplied by the orchestrator.
-        @param[in]  result Container exec result.
-        @param[in]  output Captured output stream or "".
-        @param[in]  stderr Captured stderr stream or fallback stderr.
-        @param[in]  timeout Launch timeout.
-        @param[in]  output_present Whether live output.jsonl existed.
-        @param[in]  stderr_present Whether live stderr.log existed.
-        @param[in]  output_file Bounded output file copied instead of `output`.
-        @return     Archive directory path.
-        @exception  OSError When any archive write fails.
-        @exception  IsolationError Unsafe or changing literal RPC recording.
-        """
-        archive_root = io_dir / ARCHIVE_DIR
-        _archive_directories(archive_root)
-        archive_root.mkdir(parents=True, exist_ok=True)
-        # One physical launch per gate now that nothing relaunches, so the
-        # suffix is constant; the collision loop below still disambiguates a
-        # reused stem.
-        base_name = f"{self._safe_archive_stem(archive_stem)}-attempt1"
-        archive_dir = archive_root / base_name
-        suffix = 2
-        while archive_dir.exists():
-            archive_dir = archive_root / f"{base_name}-{suffix}"
-            suffix += 1
-        archive_dir.mkdir()
-        _archive_directories(archive_dir)
-        shutil.copy2(io_dir / GATE_SCRIPT, archive_dir / GATE_SCRIPT)
-        if output_file is not None:
-            _archive_recording(output_file, archive_dir / OUTPUT_FILE)
-        else:
-            (archive_dir / OUTPUT_FILE).write_bytes(output.encode("utf-8"))
-        (archive_dir / STDERR_FILE).write_bytes(stderr.encode("utf-8"))
-        meta = {
-            "created_at": utc_now_iso(),
-            "archive_stem": archive_stem,
-            "exit_code": result.exit_code,
-            "timed_out": result.timed_out,
-            "argv": result.argv,
-            "timeout": timeout,
-            "output_file_present": output_present,
-            "stderr_file_present": stderr_present,
-        }
-        (archive_dir / "meta.json").write_text(
-            json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        return archive_dir
-
-    @staticmethod
-    def _safe_archive_stem(value: str) -> str:
-        """
-        @brief      Make an archive stem safe as one directory name segment.
-        @param[in]  value Raw stem.
-        @return     Filesystem-safe non-empty stem.
-        """
-        safe = _ARCHIVE_STEM_RE.sub("-", value.strip()).strip(".-")
-        return safe or "launch"
-
-    def _retain_package_output(
-        self, path: Path, secrets: dict[str, str], *, collect_usage: bool = False,
-        redact: Callable[[str], str] | None = None,
-    ) -> tuple[str, tuple[int, int, float, int | None, int | None], bool, bool]:
-        """@brief Bound/redact retained package output without following linked files.
-        @param[in] path Owned gate output file.
-        @param[in] secrets Known model credential values, retained in memory only.
-        @param[in] collect_usage Parse every original event before retention truncation.
-        @param[in] redact Optional binding redactor applied before the byte cap and write.
-        @return Sanitized output, complete usage, token and cost coverage.
-        @exception IsolationError Linked, changed or unreadable output.
-        @note Live writes during a gate still use the existing gate transport.
-        """
-        try:
-            before = path.lstat()
-        except FileNotFoundError:
-            return "", (0, 0, 0.0, None, None), False, False
-        if not stat.S_ISREG(before.st_mode) or any(p.is_symlink() for p in path.parents):
-            raise IsolationError("package output is linked or not a regular file")
-        try:
-            with path.open("r+b") as handle:
-                opened = os.fstat(handle.fileno())
-                if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino):
-                    raise IsolationError("package output identity changed")
-                totals = [0, 0, 0.0, None, None]
-                tokens_reported = cost_reported = False
-                if collect_usage:
-                    # Stream complete original JSONL records, independently of
-                    # retained text. Late usage must still count toward budgets.
-                    for line in handle:
-                        event = line.decode("utf-8", errors="replace")
-                        detail = self._extract_usage_detail(event)
-                        for index, value in enumerate(detail):
-                            if value is not None:
-                                totals[index] = (totals[index] or 0) + value
-                        tokens_reported = tokens_reported or self._tokens_reported(event)
-                        cost_reported = cost_reported or self._cost_reported(event)
-                    handle.seek(0)
-                limit = 65536
-                # Read beyond the boundary to redact a credential crossing it.
-                overlap = max((len(value.encode()) for value in secrets.values()), default=0)
-                raw = handle.read(limit + overlap + 1)
-                truncated = opened.st_size > limit
-                decoded = raw.decode("utf-8", errors="replace")
-                output = redact_output(decoded, secrets)
-                if redact is not None:
-                    output = redact_output(redact(output), secrets)
-                if truncated:
-                    output = output.encode()[:limit - 32].decode("utf-8", errors="ignore")
-                    output += "\n[ADORE output truncated]\n"
-                handle.seek(0)
-                handle.write(output.encode())
-                handle.truncate()
-            return output, tuple(totals), tokens_reported, cost_reported
-        except (OSError, ValueError, TypeError, AttributeError, OverflowError) as exc:
-            raise IsolationError("package output retention failed") from exc
-
-    @staticmethod
-    def _read(path: Path) -> str:
-        """
-        @brief      Read a result file, tolerating its absence.
-        @param[in]  path File written by the gate script (or the executor).
-        @return     The content, or "" when missing/unreadable.
-        """
-        try:
-            return path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            return ""
-
-
-class PiExecutor(FileProtocolExecutor):
+class PiExecutor(Executor):
     """
     @brief   Pi (@earendil-works/pi-coding-agent) executor launcher.
     @details On a container target (one with a `spawn` seam) every gate runs
@@ -541,7 +154,7 @@ class PiExecutor(FileProtocolExecutor):
              agent directory) and ADORE's guard extension is loaded with `-e`,
              so it blocks `git push` and forge CLIs without project trust; the
              boundary stays that no forge credential is in the container. The
-             configured [executor] command is not used there.
+             process command is fixed by ADORE.
 
              `--provider` names the Pi provider (`openai` for a ChatGPT
              subscription, `adore-endpoint` for an OpenAI-compatible
@@ -569,7 +182,6 @@ class PiExecutor(FileProtocolExecutor):
 
     def __init__(
         self,
-        command_template: str,
         model: str,
         questions_file: str = DEFAULT_QUESTIONS_FILE,
         *,
@@ -582,7 +194,6 @@ class PiExecutor(FileProtocolExecutor):
     ) -> None:
         """
         @brief      Configure Pi from the [executor] section.
-        @param[in]  command_template Native Pi argv template.
         @param[in]  model Model id within the provider.
         @param[in]  questions_file Clarification questions filename.
         @param[in]  provider `[executor] provider` ("" keeps a bare `--model`).
@@ -600,8 +211,7 @@ class PiExecutor(FileProtocolExecutor):
         self.internet = internet
         self.web_search = web_search
         self.thinking = thinking
-        native_model = f"{self.provider}/{model}" if self.provider else model
-        super().__init__(command_template, native_model, questions_file)
+        self.questions_file = questions_file
 
     def run_gate(
         self,
@@ -621,8 +231,8 @@ class PiExecutor(FileProtocolExecutor):
         @details    Clears stale questions and streams, writes a descriptive
                     gate.sh (no shell runs; the prompt never enters it), runs
                     `pi_rpc`, archives the bounded evidence and reads the
-                    questions file. Targets without `spawn` use the file
-                    protocol unchanged.
+                    questions file. Targets without an RPC process seam are refused before
+                    writing files or running commands.
         @param[in]  execute Exec seam bound to the run's target.
         @param[in]  worktree HOST path of the run's worktree.
         @param[in]  io_dir HOST path of the run's io exchange dir.
@@ -638,9 +248,7 @@ class PiExecutor(FileProtocolExecutor):
         spawn = getattr(execute, "spawn", None)
         native = getattr(execute, "pi_session", None)
         if spawn is None and native is None:
-            return super().run_gate(execute, worktree, io_dir, prompt,
-                                    timeout=timeout, archive_stem=archive_stem,
-                                    cancel=cancel, package_secrets=package_secrets)
+            return GateRun(exit_code=126, stderr="Pi requires an RPC process target")
         worktree = Path(worktree)
         io_dir = Path(io_dir)
         io_dir.mkdir(parents=True, exist_ok=True)
@@ -733,7 +341,7 @@ class PiExecutor(FileProtocolExecutor):
                                        timed_out=result.timed_out)
                 try:
                     artifacts.append(str(self._archive_launch(
-                        io_dir, archive_stem, launch, output, evidence, timeout,
+                        io_dir, archive_stem, launch, evidence, timeout,
                         output_path.is_file(), stderr_path.is_file(),
                         output_file=output_path)))
                 except OSError as exc:
@@ -743,7 +351,7 @@ class PiExecutor(FileProtocolExecutor):
             if native is not None:
                 questions = execute.read_output(questions_path, optional=True)
             elif package_secrets is not None:
-                questions, *_unused = self._retain_package_output(
+                questions = self._retain_package_output(
                     questions_path, package_secrets, redact=target_redact)
             else:
                 questions = target_redact(self._read(questions_path))
@@ -797,74 +405,142 @@ class PiExecutor(FileProtocolExecutor):
 
     def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
         """
-        @brief      A container Pi gate aborts itself on cancel.
-        @param[in]  execute Exec seam the gate will run on.
-        @return     The abort-and-exit grace on a container target, else None.
+        @brief      An owned Pi RPC launch aborts itself on cancellation.
+        @param[in]  execute Backend target whose RPC process is controlled.
+        @return     Shared native/container abort-and-exit grace.
         """
-        return PI_CANCEL_GRACE_SECONDS if (
-            hasattr(execute, "spawn") or hasattr(execute, "pi_session")
-        ) else None
+        return PI_CANCEL_GRACE_SECONDS
 
-    def _tokens_reported(self, output: str) -> bool:
-        """@brief Recognize a complete final turn, including a zero-token turn."""
-        for raw in output.splitlines():
-            try:
-                event = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(event, dict) or event.get("type") != "turn_end":
-                continue
-            message = event.get("message")
-            usage = message.get("usage") if isinstance(message, dict) else None
-            if (isinstance(usage, dict)
-                    and all(type(usage.get(key, 0 if key.startswith("cache") else None))
-                            is int
-                            and 0 <= usage.get(key, 0) <= 1_000_000_000
-                            for key in ("input", "output", "cacheRead", "cacheWrite"))):
-                return True
-        return False
-
-    def _extract_usage(self, output: str) -> tuple[int, int, float]:
-        """@brief Sum final Pi turn usage, including cached prompt tokens.
-        @param[in] output Pi JSONL event stream from one gate.
-        @return Input/output tokens and zero billed cost.
-        @note Streaming updates and message-end events duplicate turn-end usage.
+    def _archive_launch(
+        self,
+        io_dir: Path,
+        archive_stem: str,
+        result,
+        stderr: str,
+        timeout: float | None,
+        output_present: bool,
+        stderr_present: bool,
+        *,
+        output_file: Path,
+    ) -> Path:
         """
-        tokens_in, tokens_out, cost, _read, _write = (
-            self._extract_usage_detail(output))
-        return tokens_in, tokens_out, cost
+        @brief      Copy one completed launch's live exchange files to archive.
+        @details    Creates a unique directory under `io/archive`. Empty
+                    output/stderr files are still written so absence is visible
+                    in meta.json without making operators guess whether a file
+                    was skipped.
+        @param[in]  io_dir Host io exchange directory.
+        @param[in]  archive_stem Base name supplied by the orchestrator.
+        @param[in]  result Container exec result.
+        @param[in]  stderr Captured stderr stream or fallback stderr.
+        @param[in]  timeout Launch timeout.
+        @param[in]  output_present Whether live output.jsonl existed.
+        @param[in]  stderr_present Whether live stderr.log existed.
+        @param[in]  output_file Mandatory bounded literal RPC recording.
+        @return     Archive directory path.
+        @exception  OSError When any archive write fails.
+        @exception  IsolationError Unsafe or changing literal RPC recording.
+        """
+        archive_root = io_dir / ARCHIVE_DIR
+        _archive_directories(archive_root)
+        archive_root.mkdir(parents=True, exist_ok=True)
+        # One physical launch per gate now that nothing relaunches, so the
+        # suffix is constant; the collision loop below still disambiguates a
+        # reused stem.
+        base_name = f"{self._safe_archive_stem(archive_stem)}-attempt1"
+        archive_dir = archive_root / base_name
+        suffix = 2
+        while archive_dir.exists():
+            archive_dir = archive_root / f"{base_name}-{suffix}"
+            suffix += 1
+        archive_dir.mkdir()
+        _archive_directories(archive_dir)
+        shutil.copy2(io_dir / GATE_SCRIPT, archive_dir / GATE_SCRIPT)
+        _archive_recording(output_file, archive_dir / OUTPUT_FILE)
+        (archive_dir / STDERR_FILE).write_bytes(stderr.encode("utf-8"))
+        meta = {
+            "created_at": utc_now_iso(),
+            "archive_stem": archive_stem,
+            "exit_code": result.exit_code,
+            "timed_out": result.timed_out,
+            "argv": result.argv,
+            "timeout": timeout,
+            "output_file_present": output_present,
+            "stderr_file_present": stderr_present,
+        }
+        (archive_dir / "meta.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return archive_dir
 
-    def _extract_usage_detail(
-        self, output: str,
-    ) -> tuple[int, int, float, int | None, int | None]:
-        """@brief Keep Pi cache counts separate; input already includes them."""
-        tokens_in = tokens_out = cache_read = cache_write = 0
-        observed = False
-        for raw in output.splitlines():
-            try:
-                event = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(event, dict) or event.get("type") != "turn_end":
-                continue
-            message = event.get("message")
-            usage = message.get("usage") if isinstance(message, dict) else None
-            if not isinstance(usage, dict):
-                continue
-            values = [usage.get(key, 0 if key.startswith("cache") else None)
-                      for key in ("input", "output", "cacheRead", "cacheWrite")]
-            if any(type(value) is not int or not 0 <= value <= 1_000_000_000
-                   for value in values):
-                continue
-            prompt, completion, turn_cache_read, turn_cache_write = values
-            tokens_in += prompt + turn_cache_read + turn_cache_write
-            tokens_out += completion
-            cache_read += turn_cache_read
-            cache_write += turn_cache_write
-            observed = True
-        return (tokens_in, tokens_out, 0.0,
-                cache_read if observed else None,
-                cache_write if observed else None)
+
+    @staticmethod
+    def _safe_archive_stem(value: str) -> str:
+        """
+        @brief      Make an archive stem safe as one directory name segment.
+        @param[in]  value Raw stem.
+        @return     Filesystem-safe non-empty stem.
+        """
+        safe = _ARCHIVE_STEM_RE.sub("-", value.strip()).strip(".-")
+        return safe or "launch"
+
+
+    def _retain_package_output(
+        self, path: Path, secrets: dict[str, str], *,
+        redact: Callable[[str], str] | None = None,
+    ) -> str:
+        """@brief Bound/redact retained package output without following linked files.
+        @param[in] path Owned gate output file.
+        @param[in] secrets Known model credential values, retained in memory only.
+        @param[in] redact Optional binding redactor applied before the byte cap and write.
+        @return Bounded sanitized operational text; RPC owns usage accounting.
+        @exception IsolationError Linked, changed or unreadable output.
+        @note Live writes during a gate still use the existing gate transport.
+        """
+        try:
+            before = path.lstat()
+        except FileNotFoundError:
+            return ""
+        if not stat.S_ISREG(before.st_mode) or any(p.is_symlink() for p in path.parents):
+            raise IsolationError("package output is linked or not a regular file")
+        try:
+            with path.open("r+b") as handle:
+                opened = os.fstat(handle.fileno())
+                if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino):
+                    raise IsolationError("package output identity changed")
+                limit = 65536
+                # Read beyond the boundary to redact a credential crossing it.
+                overlap = max((len(value.encode()) for value in secrets.values()), default=0)
+                raw = handle.read(limit + overlap + 1)
+                truncated = opened.st_size > limit
+                decoded = raw.decode("utf-8", errors="replace")
+                output = redact_output(decoded, secrets)
+                if redact is not None:
+                    output = redact_output(redact(output), secrets)
+                if truncated:
+                    output = output.encode()[:limit - 32].decode("utf-8", errors="ignore")
+                    output += "\n[ADORE output truncated]\n"
+                handle.seek(0)
+                handle.write(output.encode())
+                handle.truncate()
+            return output
+        except (OSError, ValueError, TypeError, AttributeError, OverflowError) as exc:
+            raise IsolationError("package output retention failed") from exc
+
+
+    @staticmethod
+    def _read(path: Path) -> str:
+        """
+        @brief      Read a result file, tolerating its absence.
+        @param[in]  path File written by the gate script (or the executor).
+        @return     The content, or "" when missing/unreadable.
+        """
+        try:
+            return path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+
 
 
 def web_search_json(search: str) -> dict:
@@ -911,7 +587,6 @@ def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False, thinking: 
 
 
 def build_executor(
-    command_template: str,
     model: str,
     questions_file: str = DEFAULT_QUESTIONS_FILE,
     *,
@@ -925,7 +600,6 @@ def build_executor(
     """
     @brief      Construct the Pi launcher (config selection point).
     @details    Pi is the only implementation of the executor interface.
-    @param[in]  command_template Native Pi argv template ([executor] command).
     @param[in]  model Model id within the provider.
     @param[in]  questions_file Clarification questions filename.
     @param[in]  provider `[executor] provider`.
@@ -936,7 +610,7 @@ def build_executor(
     @param[in]  prompts Optional conductor-owned catalog shared with the launcher.
     @return     A PiExecutor.
     """
-    return PiExecutor(command_template, model, questions_file,
+    return PiExecutor(model, questions_file,
                       provider=provider, models=models, internet=internet,
                       web_search=web_search, thinking=thinking, prompts=prompts)
 

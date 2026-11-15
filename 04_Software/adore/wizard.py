@@ -66,7 +66,7 @@ _LICENSE_LINES = (
     "# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
 _DEFAULT_PROVIDER = "openai"
-_DEFAULT_MODEL = "gpt-5.5"
+_DEFAULT_MODEL = "gpt-6.1-terra"
 _RECOMMENDED_BUDGETS = {
     "max_iterations": 20,
     "max_wall_clock_seconds": 5400,

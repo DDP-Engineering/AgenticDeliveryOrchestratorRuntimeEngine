@@ -28,13 +28,10 @@ run-owned settings. The container path uses the image's pinned Pi. Prompt text
 goes over stdin, never argv. Provider/model and explicit thinking level form
 validated argv; custom endpoints use generated non-secret model configuration.
 
-`FileProtocolExecutor` remains the callable-only transport used when a target
-exposes neither spawn nor pi_session. It writes an LF shell script, captures
-streams in the bound IO paths, detects questions and archives the launch.
-It is not the native production backend and has no live RPC acknowledgement.
-The configured template belongs to this file transport; production RPC uses its
-fixed managed command. This source distinction is important when interpreting
-injected tests and retained scripts.
+`PiExecutor` directly implements `Executor`. A target must provide container
+spawn or a native pi_session; callable-only targets return a failed GateRun before
+file writes or command execution. There is no shell/template launch or second
+JSONL usage parser. The RPC client owns completion and token accounting.
 
 Before launch, stale output and questions are removed. A descriptive `gate.sh`
 records RPC argv without executing a shell or embedding prompt/secret values.

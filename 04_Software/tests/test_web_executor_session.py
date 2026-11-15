@@ -88,7 +88,7 @@ def test_rpc_producer_keeps_literal_live_and_archive_but_masks_operations(tmp_pa
             return True
 
         options = {"package_secrets": {"KEY": "package-known-token"}} if package else {}
-        result = PiExecutor("pi", "m").run_gate(target, worktree, io, "prompt", timeout=10,
+        result = PiExecutor("m").run_gate(target, worktree, io, "prompt", timeout=10,
             archive_stem="build-attempt-1", cancel=cancel_after_live, **options)
         assert result.exit_code == 130 and observed == [text]
         archive = Path(result.artifact_dirs[0])

@@ -69,11 +69,11 @@ exclude = "no-agent"
 # only for additional permitted secrets; forge tokens are never allowed there.
 [executor]
 provider = "openai"
-model = "gpt-5.5"
+model = "gpt-6.1-terra"
 internet = false                     # Controls container egress, not local networking
 questions_file = "ADORE_QUESTIONS.md"
 env_keys = []
-# command is omitted for local profiles. Containers use the fixed Pi RPC launch.
+# Both backends use fixed Pi RPC; there is no command template to configure.
 # ChatGPT subscriptions use server sign-in; set provider = "chatgpt" and its model.
 # ChatGPT attempt timeouts, including stage overrides, must be at most 3000 seconds.
 # For a custom endpoint, set provider = "custom" and configure its current API:

@@ -139,9 +139,6 @@ def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
     assert validate_config(config) == []
 
 
-def test_local_backend_is_available_through_the_shared_contract():
-    """@brief Local selection has an adapter on the established backend boundary."""
-    assert hasattr(execution, "LocalBackend"), "local backend adapter is absent"
 
 
 def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path, monkeypatch):
@@ -488,7 +485,7 @@ def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
 
     controller.stream = stream
     pi = managed_pi()
-    executor = PiExecutor("ignored", "model", "questions.md", provider="openai")
+    executor = PiExecutor("model", "questions.md", provider="openai")
     assert executor.cancel_grace_seconds(target) is not None
     result = executor.run_gate(
         target, work, exchange,
@@ -578,11 +575,16 @@ def test_local_conductor_pins_target_parks_retries_and_never_lists_containers(
 
     monkeypatch.setattr(module, "AegisClient", Client)
     run = make_run(engine)
+    backend.provision(run.container, work, work, engine.store.run_dir(run.run_id) / "io",
+                      backend.executor_environment())
+    run.execution["resource"] = backend.resource_identity(run.container)
+    (engine.store.run_dir(run.run_id) / "execution-plan.json").write_text(
+        json.dumps(run.execution["plan"]), encoding="utf-8")
     run.active_task_id, run.task_ids, run.lifecycle = None, [], "failed"
     engine.store.save(run)
     assert engine.retry(run.run_id)
     saved = engine.store.load(run.run_id)
-    assert saved.lifecycle == "parked-clarification"
+    assert saved.lifecycle == "parked-clarification", saved.outcome
     assert saved.execution["resource"]["kind"] == "local"
     assert saved.execution["status"] == "not-required"
     saved.lifecycle = "failed"

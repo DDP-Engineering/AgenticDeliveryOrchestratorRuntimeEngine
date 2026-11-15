@@ -38,7 +38,6 @@ from adore.branding import (
     EGRESS_PROXY_IMAGE,
     EXECUTOR_BASE_IMAGE,
     NPM_CACHE_VOLUME,
-    PI_NATIVE_COMMAND,
     PRODUCT_ACRONYM,
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
@@ -206,7 +205,6 @@ class ReadinessConfig:
 
     require_acceptance_criteria: bool = False
     require_priority_label: bool = True
-    max_scope_hint: str = "small"
 
 
 @dataclass
@@ -315,8 +313,6 @@ class ExecutorConfig:
     internet: bool = False
     endpoint: ExecutorEndpointConfig = field(default_factory=ExecutorEndpointConfig)
     web: ExecutorWebConfig = field(default_factory=ExecutorWebConfig)
-    command: str = PI_NATIVE_COMMAND
-    mode: str = "thick"
     questions_file: str = ""
     env_keys: list[str] = field(default_factory=list)
 
@@ -363,16 +359,8 @@ class ClarificationConfig:
     """
 
     max_rounds: int = 3
-    reminder_after: str = "24h"
     answer_timeout: str = "72h"
     timeout_state: str = "failed"
-
-    def reminder_after_seconds(self) -> int:
-        """
-        @brief   The reminder delay parsed to seconds.
-        @return  Seconds after parked_at before the single nudge.
-        """
-        return parse_duration(self.reminder_after)
 
     def answer_timeout_seconds(self) -> int:
         """
@@ -550,7 +538,6 @@ class ReviewConfig:
     trigger: str = "label"
     revise_label: str = "agent-revise"
     max_review_rounds: int = 5
-    review_reminder_after: str = "48h"
     on_pipeline_failure: str = "revise"
 
 
@@ -575,7 +562,6 @@ class MetricsConfig:
     db_path: str = ""
     export_jsonl: str = ""
     capture_tokens: bool = True
-    capture_resource: bool = True
     html_out: str = ""
 
 
@@ -707,36 +693,6 @@ def _build_container(data: Any) -> ContainerConfig:
     return section
 
 
-def _command_placeholder_issues(command: str) -> list[str]:
-    """
-    @brief      Reject a command template whose braces the launcher cannot fill.
-    @details    The launcher renders the template with `str.format`, so any
-                brace the executor does not supply raises `KeyError` at GATE
-                time - after provisioning, once per attempt, until the stage
-                budget is spent - with nothing pointing at the real cause.
-                A shell brace such as `${HOME}` or an inline JSON argument
-                fails the same way.
-                Catching it here turns an opaque runtime failure into a setup
-                message.
-    @param[in]  command The configured command template.
-    @return     One issue per unsupported or malformed placeholder.
-    """
-    supported = {"prompt", "model", "worktree"}
-    try:
-        fields = {
-            name for _, name, _, _ in Formatter().parse(command) if name is not None
-        }
-    except ValueError as exc:
-        return [
-            f"[executor] command has malformed placeholder braces: {exc}"
-        ]
-    unsupported = sorted(name for name in fields if name.split(".")[0] not in supported)
-    return [
-        "[executor] command uses a placeholder the launcher cannot "
-        f"fill: {{{name}}} (supported: {', '.join(sorted(supported))}). A literal "
-        "brace must be doubled."
-        for name in unsupported
-    ]
 
 
 def _valid_hostname_pattern(value: str) -> bool:
@@ -1193,28 +1149,14 @@ def validate_config(config: Config) -> list[str]:
         )
 
     check(
-        config.executor.mode in ("thick", "headless"),
-        f"[executor] mode must be thick/headless: {config.executor.mode!r}",
-    )
-    check(
         not (_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys)),
         "[executor] env_keys must not expose forge credentials to executors: "
         f"{sorted(_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys))}",
     )
     issues.extend(_provider_issues(config))
-    command = config.executor.command
-    issues.extend(_command_placeholder_issues(command))
-    check(bool(command.strip()), "[executor] command is required")
-    check("{prompt}" in command, "[executor] command must contain a {prompt} placeholder")
-    check(
-        "--auto" not in command.split(),
-        "[executor] command must not use --auto (it would auto-approve the "
-        "push/pr/merge permissions that keep the executor off the remote)",
-    )
-
     check(config.clarification.max_rounds >= 1, "[clarification] max_rounds must be >= 1")
     durations_ok = True
-    for key in ("reminder_after", "answer_timeout"):
+    for key in ("answer_timeout",):
         try:
             parse_duration(getattr(config.clarification, key))
         except ValueError:
@@ -1351,10 +1293,6 @@ def validate_config(config: Config) -> list[str]:
               "[local] container runtime options/tool checks are unsupported")
         check(config.container.runtime_env == ContainerConfig().runtime_env,
               "[local] [container] runtime_env is unsupported")
-        raw_executor = config.raw.get("executor", {})
-        check(config.executor.command == PI_NATIVE_COMMAND
-              and not (isinstance(raw_executor, dict) and "command" in raw_executor),
-              "[local] remove [executor] command from config.toml: local Pi is managed by ADORE")
         check(all(not str(name).upper().startswith(("PI_", "NODE_", "NPM_", "PYTHON", "GIT_",
                                                    "LD_", "DYLD_"))
                   and str(name).upper() not in _FORGE_CREDENTIAL_ENV | {

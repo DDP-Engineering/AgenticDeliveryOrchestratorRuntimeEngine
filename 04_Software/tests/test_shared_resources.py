@@ -360,7 +360,7 @@ def test_project_namespaces_separate_same_ticket_resources(tmp_path, monkeypatch
     b.execution.backend = "local"
     monkeypatch.setattr(module, "build_forge", lambda *args, **kwargs: FakeForge())
     monkeypatch.setattr(module, "build_executor", lambda *args, **kwargs:
-                        SimpleNamespace(model=args[1]))
+                        SimpleNamespace(model=args[0]))
     from adore import local_execution
     monkeypatch.setattr(local_execution, "LocalBackend", lambda config:
                         SimpleNamespace(environment={"PROJECT": config.executor.model}))

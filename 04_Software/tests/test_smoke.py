@@ -133,7 +133,7 @@ def test_build_executor_pi() -> None:
     """
     @brief   The factory returns the Pi executor, ADORE's only coding agent.
     """
-    executor = build_executor("pi -p {prompt}", "openai/gpt-5.4-fast")
+    executor = build_executor("openai/gpt-5.4-fast")
     assert isinstance(executor, PiExecutor)
 
 

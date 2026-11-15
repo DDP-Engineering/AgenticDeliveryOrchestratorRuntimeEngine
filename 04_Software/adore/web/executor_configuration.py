@@ -9,14 +9,9 @@
 # -----------------------------------------------------------------------------
 """
 @file       executor_configuration.py
-@brief      Reviewed Pi launch presets and the atomic agent connection edit.
-@details    A container project may choose only a preset for `executor.command`
-            (its run uses the image's pinned Pi over RPC); a local project
-            accepts any validated installed native argv. Provider, model and
-            the OpenAI-compatible endpoint change together through one virtual
-            edit key, `executor.connection`, so a candidate is never half a
-            provider switch: choosing `custom` writes `[executor.endpoint]`,
-            choosing any other provider removes it.
+@brief      Atomic reviewed Pi provider/model/endpoint configuration.
+@details Provider, model, thinking and the endpoint change together through
+            executor.connection. Both production backends use fixed Pi RPC.
 """
 
 # IMPORTS
@@ -25,7 +20,6 @@ import json
 import re
 import tomllib
 
-from adore.branding import PI_NATIVE_COMMAND
 from adore.cli import _newline, _set_toml_scalar
 from adore.pi_providers import (
     CUSTOM,
@@ -38,7 +32,6 @@ from adore.pi_providers import (
 from adore.util import strict_json_loads
 
 # CONSTANTS
-LAUNCH_PRESETS = {"executor.command": (PI_NATIVE_COMMAND,)}
 #: Virtual edit key of the provider/model/endpoint selection.
 CONNECTION_KEY = "executor.connection"
 #: Configuration rows edited through CONNECTION_KEY, never one by one.
@@ -105,7 +98,7 @@ def connection_value(tree: dict) -> dict:
     """
     @brief      Project a configuration onto the connection review value.
     @param[in]  tree Parsed TOML.
-    @return     `{provider, model, base_url, api}`; the endpoint fields are empty
+    @return     `{provider, model, thinking, base_url, api}`; the endpoint fields are empty
                 unless the provider is custom.
     """
     executor = tree.get("executor") if isinstance(tree.get("executor"), dict) else {}
@@ -121,7 +114,7 @@ def set_connection(text: str, wire_value: str) -> str:
     """
     @brief      Produce an atomic reviewed connection edit preserving unrelated TOML.
     @param[in]  text Current human TOML.
-    @param[in]  wire_value Strict JSON `{provider, model, base_url, api}`.
+    @param[in]  wire_value Strict JSON `{provider, model, thinking, base_url, api}`.
     @return     Candidate TOML with exactly the connection fields changed.
     @exception  ValueError Invalid value or an unsupported TOML spelling.
     """

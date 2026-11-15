@@ -36,7 +36,7 @@ No earlier-plan reader or automatic rewriting is supplied.
 ## Policy and persisted evidence
 
 The plan binds complete non-secret execution policy: backend, selected image and
-source, provider/model/endpoint, thinking, internet/search, command preset and
+source, provider/model/endpoint, thinking, internet/search and
 additional credential names, plus backend-specific native identity where relevant.
 Secret values never enter policy/fingerprints. Changes to pinned authority require
 a fresh job rather than a silent Retry update.

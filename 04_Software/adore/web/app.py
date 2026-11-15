@@ -123,7 +123,6 @@ from adore.web.environment import EnvironmentError, EnvironmentPreparation
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
     CONNECTION_KEYS,
-    LAUNCH_PRESETS,
     connection_value,
     set_connection,
     valid_connection,
@@ -189,8 +188,6 @@ _EDITABLE_SECTIONS = frozenset({
 })
 # Optional readiness checks that follow the internet switch.
 _INTERNET_CHECKS = frozenset({"egress_proxy", "web_search_key"})
-# Container presets; local profiles accept validated installed native argv.
-_LAUNCH_PRESETS = LAUNCH_PRESETS
 
 _STATIC = Path(__file__).with_name("static")
 _COOKIE = "adore_session"
@@ -1877,8 +1874,6 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
         return valid_reviewers(proposed)
     if key in {"container.image", "container.runtime"}:
         return _valid_environment_value(key, proposed)
-    if key.endswith(".command"):
-        return backend != "local" and proposed in _LAUNCH_PRESETS.get(key, ())
     expected = _value_at(default_config().to_dict(), key)
     if key == "executor.model":
         return isinstance(proposed, str) and MODEL_ID_RE.fullmatch(proposed) is not None
@@ -1967,12 +1962,6 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
         if not secrets.compare_digest(sha256(raw).hexdigest(), body.revision):
             raise _error(409, "stale_config_revision")
         current = raw.decode("utf-8")
-        if body.key.endswith(".command") and (
-            not _valid_candidate_scalar(body.key, body.value,
-                    tomllib.loads(current).get("execution", {}).get("backend", "container"))
-            or not isinstance(_value_at(tomllib.loads(current), body.key), str | None)
-        ):
-            raise _error(400, "invalid_config")
         changed = _set_candidate_value(current, body.key, body.value)
         parsed_change = tomllib.loads(changed)
         if not _valid_candidate_scalar(
@@ -2179,11 +2168,12 @@ def _editable_setting_key(key: str) -> bool:
         return True
     if key in CONNECTION_KEYS:
         return False
+    if _value_at(default_config().to_dict(), key) is None:
+        return False
     return not (
         _is_secret_key(key)
         or not _SETTING_KEY_RE.fullmatch(key)
         or key.split(".")[0] not in _EDITABLE_SECTIONS
-        or key.endswith(".command") and key not in _LAUNCH_PRESETS
     )
 
 
@@ -2241,7 +2231,6 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
     choices = {
         "platform.kind": ["gitlab", "github", "gitea"],
         "polling.mode": ["loop", "once"],
-        "executor.mode": ["thick", "headless"],
         "executor.provider": list(provider_ids()),
         "executor.endpoint.api": list(ENDPOINT_APIS),
         "executor.env_keys": sorted(
@@ -2259,10 +2248,6 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "reconcile.on_ticket_closed": ["cancel", "ignore"],
         "reconcile.on_trigger_removed": ["pause", "abort", "ignore"],
     }.get(key, [])
-    if key in _LAUNCH_PRESETS:
-        choices = list(_LAUNCH_PRESETS[key])
-    if key.endswith(".command") and config.get("execution", {}).get("backend") == "local":
-        choices = []
     if key.startswith("workflow.kind_labels."):
         choices = list(RUN_KINDS)
     positive = {
@@ -2322,8 +2307,6 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
             else "default",
             "editable": (not _external_environment_key(edit_key)
                          and _editable_setting_key(edit_key)
-                         and not (edit_key == "executor.command"
-                                  and config.get("execution", {}).get("backend") == "local")
                          and (isinstance(value, str | int | float)
                               or edit_key == "delivery.reviewers" and valid_reviewers(value)
                               or edit_key in COLLECTION_KEYS
@@ -4849,15 +4832,6 @@ def create_app(home: str | Path | None = None,
             candidate: Path | None = None
             try:
                 current = raw.decode("utf-8")
-                if (body.key.endswith(".command")
-                        and tomllib.loads(current).get("execution", {}).get("backend") == "local"):
-                    raise _error(409, "pending_config_required")
-                if body.key.endswith(".command") and (
-                    not _valid_candidate_scalar(body.key, body.value,
-                    tomllib.loads(current).get("execution", {}).get("backend", "container"))
-                    or not isinstance(_value_at(tomllib.loads(current), body.key), str | None)
-                ):
-                    raise _error(400, "invalid_config")
                 changed = _set_candidate_value(current, body.key, body.value)
                 descriptor, candidate_name = tempfile.mkstemp(
                     prefix="config.web-", suffix=".toml", dir=path.parent

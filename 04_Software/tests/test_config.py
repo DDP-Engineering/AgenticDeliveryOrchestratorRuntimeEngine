@@ -165,7 +165,7 @@ def test_pi_is_the_only_executor_and_needs_only_a_provider_and_model(tmp_path: P
     assert validate_config(config) == []
     assert (config.executor.provider, config.executor.model) == ("openai", "gpt-5.4-fast")
     assert config.executor.env_keys == []
-    assert config.executor.command == "pi -p --mode json --model {model} {prompt}"
+    assert "command" not in config.executor.__dataclass_fields__
 
 
 def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
@@ -249,9 +249,9 @@ def test_platform_gitea_repo_shape_and_login_rules(tmp_path: Path) -> None:
     assert any("login is only supported for gitea" in issue for issue in issues)
 
 
-def test_validation_requires_a_model_and_prompt_placeholder(tmp_path: Path) -> None:
+def test_validation_requires_a_model_and_refuses_a_command_setting(tmp_path: Path) -> None:
     """
-    @brief   Pi needs a model, and a command template must carry {prompt}.
+    @brief   Pi needs a model; obsolete command settings are refused by name.
     """
     text = """
 [platform]
@@ -265,7 +265,7 @@ reviewers = ["r"]
 """
     issues = validate_config(load_config(_write_config(tmp_path, text)))
     assert "[executor] model is required" in issues
-    assert "[executor] command must contain a {prompt} placeholder" in issues
+    assert any("unknown key" in issue and "command" in issue for issue in issues)
 
 
 def test_validation_catches_bad_durations(tmp_path: Path) -> None:
@@ -327,11 +327,14 @@ def test_file_budget_rejects_zero(tmp_path: Path) -> None:
     assert any("max_files_touched" in issue for issue in issues)
 
 
-def test_validation_accepts_answer_timeout_independently_of_reserved_reminder(
+def test_validation_accepts_answer_timeout_and_refuses_removed_reminder(
         tmp_path: Path) -> None:
-    """@brief An active positive answer deadline is independent of the reserved reminder."""
-    text = MINIMAL_VALID + '\n[clarification]\nreminder_after = "24h"\nanswer_timeout = "12h"\n'
+    """@brief The answer deadline remains active; the removed reminder is refused."""
+    text = MINIMAL_VALID + '\n[clarification]\nanswer_timeout = "12h"\n'
     assert validate_config(load_config(_write_config(tmp_path, text))) == []
+    removed = text + 'reminder_after = "24h"\n'
+    assert any("reminder_after" in issue and "unknown key" in issue
+               for issue in validate_config(load_config(_write_config(tmp_path, removed))))
     for timeout in ('0s', 'invalid'):
         bad = text.replace('answer_timeout = "12h"', f'answer_timeout = "{timeout}"')
         assert any('answer_timeout' in issue for issue in validate_config(
@@ -380,17 +383,6 @@ quiet_hours = ["late night"]
     assert any("quiet_hours" in issue for issue in issues)
 
 
-def test_validation_rejects_auto_flag_in_executor_command(tmp_path: Path) -> None:
-    """
-    @brief   --auto in the executor command is a validation error (it would
-             auto-approve the push/merge permissions; prereq report sec. 6).
-    """
-    text = MINIMAL_VALID.replace(
-        "[executor]\n",
-        '[executor]\ncommand = "pi -p --auto --model {model} {prompt}"\n',
-    )
-    issues = validate_config(load_config(_write_config(tmp_path, text)))
-    assert any("--auto" in issue for issue in issues)
 
 
 def test_validation_checks_container_run_args(tmp_path: Path) -> None:
@@ -449,25 +441,6 @@ selinux_relabel = "Z"
     assert "clone" in relabel_issues[0]
 
 
-def test_executor_command_rejects_a_placeholder_the_launcher_cannot_fill(
-    tmp_path: Path,
-) -> None:
-    """
-    @brief   The launcher renders the template with str.format, so an
-             unsupported brace raises KeyError at GATE time, once per attempt
-             until the stage budget is spent, pointing at nothing. No executor
-             supplies {resume} any more, and a shell `${HOME}` fails the same
-             way. Both are caught at setup instead.
-    """
-    text = MINIMAL_VALID.replace(
-        "[executor]\n",
-        '[executor]\ncommand = "pi -p --model {model} {resume}${HOME} {prompt}"\n',
-    )
-    issues = validate_config(load_config(_write_config(tmp_path, text)))
-    placeholder = [issue for issue in issues if "placeholder" in issue]
-    assert len(placeholder) == 2
-    assert any("{resume}" in issue for issue in placeholder)
-    assert any("{HOME}" in issue for issue in placeholder)
 
 
 def test_container_runtime_env_defaults_and_validation(tmp_path: Path) -> None:

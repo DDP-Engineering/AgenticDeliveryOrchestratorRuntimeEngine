@@ -12,6 +12,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Pi stages now use only the current RPC transport; archive and conversation retention remain available.
+- Remove `executor.command`, `executor.mode`, `readiness.max_scope_hint`, `clarification.reminder_after`, `review.review_reminder_after` and `metrics.capture_resource` from TOML, and delete affected `runs/<run-id>` directories before starting fresh jobs.
+- New OpenAI projects default to `gpt-6.1-terra`; explicitly configured project models are preserved.
+- Remove the lazy `LocalBackend` reexport; import the adapter from `adore.local_execution`.
+
 ## [0.16.0] - 2026-11-15
 
 ### Added

@@ -318,107 +318,13 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
         assert len(authorized) == before
 
 
-def test_package_gate_retains_bounded_redacted_installation_output(tmp_path):
-    """@brief Long package logs cannot retain known credentials or claim full usage."""
-    from adore.executor.launcher import PiExecutor
-
-    io = tmp_path / "io"
-    io.mkdir()
-    secret = "provider-secret-123456"
-
-    def execute(argv, **kwargs):
-        (io / "output.jsonl").write_text(secret + "x" * 100000, encoding="utf-8")
-        (io / "stderr.log").write_text("Bearer abcdef\n" + secret, encoding="utf-8")
-        return CommandResult(exit_code=1)
-
-    executor = PiExecutor("pi -p --mode json --model {model} {prompt}", "provider/model")
-    result = executor.run_gate(execute, tmp_path, io, "install missing dependency",
-                               archive_stem="build", package_secrets={"KEY": secret})
-    assert result.exit_code == 1
-    assert secret not in result.output + result.stderr
-    assert "abcdef" not in result.stderr
-    assert len(result.output.encode()) <= 65536
-    assert result.tokens_reported is False and result.cost_reported is False
-    for path in [io / "output.jsonl", io / "archive/build-attempt1/output.jsonl"]:
-        assert len(path.read_bytes()) <= 65536
-        assert secret not in path.read_text(encoding="utf-8")
 
 
 
-@pytest.mark.parametrize("payload,secrets", [
-    (b"line\n" * 16000, {}),
-    (b"tkn " * 15000, {"KEY": "tkn"}),
-    (b"\xff" * 24000, {}),
-], ids=["newline-archive", "redaction-expansion", "invalid-utf8-expansion"])
-def test_package_retention_bounds_encoded_files_after_normalization(tmp_path, payload, secrets):
-    """@brief Retained live/archive UTF-8 bytes stay bounded after all transformations."""
-    from adore.executor.launcher import PiExecutor
-
-    io = tmp_path / "io"
-    io.mkdir()
-
-    def execute(argv, **kwargs):
-        (io / "output.jsonl").write_bytes(payload)
-        (io / "stderr.log").write_bytes(payload)
-        return CommandResult(exit_code=1)
-
-    executor = PiExecutor("pi -p --mode json --model {model} {prompt}", "provider/model")
-    result = executor.run_gate(execute, tmp_path, io, "install dependency",
-                               archive_stem="encoded", package_secrets=secrets)
-    assert result.exit_code == 1
-    for name, text in [("output.jsonl", result.output), ("stderr.log", result.stderr)]:
-        assert len(text.encode("utf-8")) <= 65536
-        for root in [io, io / "archive/encoded-attempt1"]:
-            data = (root / name).read_bytes()
-            assert len(data) <= 65536
-            assert data.decode("utf-8") == text
-            assert all(value not in data.decode("utf-8") for value in secrets.values())
 
 
-def test_package_gate_refuses_linked_output_without_reading_target(tmp_path, monkeypatch):
-    """@brief An executor-controlled link cannot redirect host-side retention."""
-    from pathlib import Path
-    import stat
-    from types import SimpleNamespace
-
-    from adore.executor.launcher import PiExecutor
-
-    io = tmp_path / "io"
-    io.mkdir()
-    original = Path.lstat
-
-    def lstat(path):
-        if path.name == "output.jsonl":
-            return SimpleNamespace(st_mode=stat.S_IFLNK)
-        return original(path)
-
-    monkeypatch.setattr(Path, "lstat", lstat)
-    executor = PiExecutor("pi -p --mode json --model {model} {prompt}", "provider/model")
-    with pytest.raises(IsolationError, match="linked"):
-        executor.run_gate(lambda *a, **k: CommandResult(), tmp_path, io, "prepare",
-                          package_secrets={})
 
 
-def test_package_log_retention_preserves_complete_original_usage(tmp_path):
-    """@brief Late Pi usage after long tool output still counts toward budgets."""
-    from adore.executor.launcher import build_executor
-
-    io = tmp_path / "io"
-    io.mkdir()
-    event = {"type": "turn_end", "message": {"usage": {
-        "input": 10, "output": 20, "cacheRead": 2, "cacheWrite": 3}}}
-    full_output = json.dumps(event) + "\n" + json.dumps({"tool": "x" * 100000})
-    full_output += "\n" + json.dumps(event) + "\n"
-
-    def execute(argv, **kwargs):
-        (io / "output.jsonl").write_text(full_output, encoding="utf-8")
-        return CommandResult()
-
-    executor = build_executor("pi -p --model {model} {prompt}", "model")
-    result = executor.run_gate(execute, tmp_path, io, "prepare", package_secrets={})
-    assert result.tokens_in == 30 and result.tokens_out == 40 and result.tokens_reported
-    assert result.cost_usd == 0 and not result.cost_reported
-    assert len(result.output.encode()) <= 65536
 
 
 @pytest.mark.parametrize("failure", ["none", "missing-sudo", "unsafe-directory", "visudo"])

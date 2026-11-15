@@ -92,3 +92,6 @@ Existing `04_Software/tests/test_pi_installation.py`, `test_local_execution.py`,
 and `test_shared_resources.py` exercise injected install/process/protocol and
 ownership failures. Operators provision native prerequisites explicitly; this
 component does not wrap missing process ownership with a weaker launch mode.
+
+LocalBackend is imported directly from adore.local_execution. The shared execution
+module owns only backend contracts; it provides no lazy adapter alias.

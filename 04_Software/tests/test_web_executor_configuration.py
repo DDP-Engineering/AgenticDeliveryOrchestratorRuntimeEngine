@@ -71,8 +71,7 @@ def test_connection_is_one_reviewed_edit_and_no_agent_choice_exists(tmp_path):
         assert "custom" in metadata["executor.provider"]["choices"]
         assert "chatgpt" in metadata["executor.provider"]["choices"]
         assert metadata["executor.endpoint.api"]["choices"][0] == "openai-completions"
-        assert metadata["executor.command"]["choices"] == [
-            "pi -p --mode json --model {model} {prompt}"]
+        assert "executor.command" not in metadata
         direct = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json={
             "key": "executor.model", "value": "gpt-5.4", "revision": view["revision"]})
         assert direct.status_code == 400
@@ -148,7 +147,7 @@ def test_connection_adds_and_removes_the_endpoint_table(tmp_path):
         assert tomllib.loads(path.read_text(encoding="utf-8")) == expected
         view = client.get("/api/v1/projects/alpha/config").json()
         assert view["config"]["executor"]["endpoint"]["base_url"] == "http://172.27.80.1:1234/v1"
-        _stage_and_apply(client, headers, _connection("openai", "gpt-5.5"))
+        _stage_and_apply(client, headers, _connection("openai", original["executor"]["model"]))
     original["executor"]["thinking"] = ""
     assert tomllib.loads(path.read_text(encoding="utf-8")) == original
 

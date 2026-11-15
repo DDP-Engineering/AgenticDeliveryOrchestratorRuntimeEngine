@@ -43,7 +43,7 @@ optional self-contained static HTML file.
 
 Explicitly not owned: when to record (orchestrator, at terminal
 transitions), token extraction (executor launcher), resource probing
-(`capture_resource` is config intent, pending).
+CPU, memory and disk probing is not implemented.
 
 ## 3. Implementation Overview
 
@@ -202,7 +202,7 @@ invented day.
 
 ## 10. Limitations
 
-- The reserved `capture_resource` setting performs no Docker/disk measurement.
+- CPU, memory and disk measurements are not captured.
 - Summaries retain changed-file counts, not added/deleted line counts.
 - Stage timing remains journal evidence rather than a summary column.
 

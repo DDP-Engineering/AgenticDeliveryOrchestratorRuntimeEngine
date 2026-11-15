@@ -67,7 +67,7 @@ commands + `--profile` resolution.
   base URL (`endpoint_base_url`, an http(s) address as seen from the container
   with no credentials, query or fragment) and API type (`endpoint_api`,
   default `openai-completions`); then the model ID within the provider
-  (`model`, matching `MODEL_ID_RE`; default `gpt-5.5` only for `openai`). For
+  (`model`, matching `MODEL_ID_RE`; default `gpt-6.1-terra` only for `openai`). For
   `chatgpt` the model prompt lists the catalog's `chatgpt_models` (the models a
   ChatGPT subscription serves) and defaults to the first of them. It
   writes `[executor] provider`, `model` and `env_keys = []` (additional names;

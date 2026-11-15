@@ -119,7 +119,7 @@ def test_live_launch_marker_owned_until_archive_and_removed_on_fault(tmp_path, m
         return PiRpcResult(outcome="completed", exit_code=0)
 
     monkeypatch.setattr(pi_rpc, "run_pi_rpc", rpc)
-    executor = PiExecutor("pi", "m")
+    executor = PiExecutor("m")
     target = SpawnTarget(FakePi(tmp_path, "run_tool_calls_chatgpt"))
     if fault:
         with pytest.raises(OSError, match="injected"):
@@ -136,7 +136,7 @@ def test_live_rpc_completed_record_is_readable_before_launch_ends(tmp_path):
     fixture.write_text('\n'.join(json.dumps(row) for row in [
         {"dir": "stdin", "record": {"type": "prompt"}},
         {"dir": "stdout", "record": {"type": "message_end", "message": {
-            "role": "user", "content": "VISIBLE_LIVE_PROMPT"}}},
+            "role": "assistant", "content": [{"type": "text", "text": "VISIBLE_LIVE_PROMPT"}]}}},
     ]) + '\n', encoding="utf-8")
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt", "--hang")
     fake.command = [sys.executable, "-I", str(FAKE), str(fixture), "--hang"]
@@ -190,7 +190,7 @@ def test_literal_rpc_archive_refuses_unsafe_recording(tmp_path, monkeypatch, kin
         return PiRpcResult(outcome="completed", exit_code=0)
 
     monkeypatch.setattr(pi_rpc, "run_pi_rpc", rpc)
-    executor = PiExecutor("pi", "m")
+    executor = PiExecutor("m")
     target = SpawnTarget(FakePi(tmp_path, "run_tool_calls_chatgpt"))
     if kind == "missing":
         result = executor.run_gate(target, worktree, io_dir, PROMPT,
@@ -365,7 +365,7 @@ def test_large_output_stays_bounded(tmp_path: Path) -> None:
     assert len(result.output.encode("utf-8")) <= 64 * 1024
     assert len(result.stderr.encode("utf-8")) <= 64 * 1024
     persisted = (tmp_path / "output.jsonl").read_bytes().splitlines()
-    assert all(len(line) <= 64 * 1024 for line in persisted)
+    assert all(len(line) <= 16 * 1024 * 1024 for line in persisted)
     records = [json.loads(line) for line in persisted]
     assert not any(record.get("type") == "message_update" for record in records)
     assert any(record.get("adore_omitted_bytes") for record in records)
@@ -410,7 +410,7 @@ def test_pi_executor_launches_an_isolated_rpc_process(tmp_path: Path) -> None:
     """@brief A container launch uses RPC mode, isolation flags and the guard."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
-    executor = PiExecutor("pi -p --mode json --model {model} {prompt}", "openai/gpt-5.6-luna")
+    executor = PiExecutor("openai/gpt-5.6-luna")
     run = executor.run_gate(SpawnTarget(fake), worktree, io_dir, PROMPT, timeout=30,
                             archive_stem="build-attempt-1")
     assert run.ok and not run.timed_out
@@ -443,7 +443,7 @@ def test_pi_executor_failure_reaches_the_existing_failure_path(tmp_path: Path) -
     """@brief A provider failure is a non-zero, non-timeout gate with its reason."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "failed_invalid_api_key", "--key-hint", "sk-inval****0000")
-    run = PiExecutor("pi", "openai/gpt-5.4-mini").run_gate(
+    run = PiExecutor("openai/gpt-5.4-mini").run_gate(
         SpawnTarget(fake), worktree, io_dir, PROMPT, timeout=30)
     assert not run.ok and not run.timed_out
     assert run.stderr.startswith("Pi run failed (credential): ")
@@ -451,28 +451,13 @@ def test_pi_executor_failure_reaches_the_existing_failure_path(tmp_path: Path) -
     assert "sk-inval" not in run.output + run.stderr
 
 
-def test_pi_executor_keeps_the_file_protocol_without_a_spawn_seam(tmp_path: Path) -> None:
-    """@brief A native target without `spawn` keeps the configured launch."""
-    from adore.util import CommandResult
-
-    calls = []
-
-    def execute(argv, *, timeout=None):
-        calls.append(argv)
-        return CommandResult(exit_code=0)
-
-    worktree, io_dir = _dirs(tmp_path)
-    executor = PiExecutor("pi -p --mode json --model {model} {prompt}", "m")
-    assert executor.run_gate(execute, worktree, io_dir, PROMPT, timeout=5).ok
-    assert calls and "pi -p --mode json" in (io_dir / GATE_SCRIPT).read_text("utf-8")
-    assert executor.cancel_grace_seconds(execute) is None
 
 
 def test_pi_usage_event_passes_validation_and_reaches_statistics(tmp_path: Path) -> None:
     """@brief The orchestrator journals Pi usage as one valid versioned event."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
-    gate = PiExecutor("pi", "openai/gpt-5.6-luna").run_gate(
+    gate = PiExecutor("openai/gpt-5.6-luna").run_gate(
         SpawnTarget(fake), worktree, io_dir, PROMPT, timeout=30)
     engine, *_ = make_engine(tmp_path)
     run = make_run(engine)
@@ -554,7 +539,7 @@ def test_pi_executor_passes_the_provider_and_model_id(tmp_path: Path) -> None:
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     target = CopyTarget(fake)
-    run = PiExecutor("pi", "gpt-5.4", provider="openai", thinking="medium").run_gate(
+    run = PiExecutor("gpt-5.4", provider="openai", thinking="medium").run_gate(
         target, worktree, io_dir, PROMPT, timeout=30)
     assert run.ok
     assert fake.argv[fake.argv.index("--provider") + 1] == "openai"
@@ -562,7 +547,7 @@ def test_pi_executor_passes_the_provider_and_model_id(tmp_path: Path) -> None:
     assert fake.argv[fake.argv.index("--thinking") + 1] == "medium"
     assert target.commands == [] and not (io_dir / "pi-models.json").exists()
     chatgpt = FakePi(tmp_path, "run_tool_calls_chatgpt")
-    assert PiExecutor("pi", "gpt-5.6-luna", provider="chatgpt").run_gate(
+    assert PiExecutor("gpt-5.6-luna", provider="chatgpt").run_gate(
         SpawnTarget(chatgpt), worktree, io_dir, PROMPT, timeout=30).ok
     assert chatgpt.argv[chatgpt.argv.index("--provider") + 1] == "openai"
 
@@ -575,7 +560,7 @@ def test_pi_executor_writes_the_endpoint_models_json_before_pi_starts(tmp_path: 
     models = {"providers": {"adore-endpoint": {
         "baseUrl": "http://172.27.80.1:1234/v1", "api": "openai-completions",
         "apiKey": "$ADORE_ENDPOINT_API_KEY", "models": [{"id": "qwen/qwen3.5-9b"}]}}}
-    run = PiExecutor("pi", "qwen/qwen3.5-9b", provider="custom", models=models).run_gate(
+    run = PiExecutor("qwen/qwen3.5-9b", provider="custom", models=models).run_gate(
         target, worktree, io_dir, PROMPT, timeout=30)
     assert run.ok
     assert json.loads((io_dir / "pi-models.json").read_text("utf-8")) == models
@@ -593,7 +578,7 @@ def test_pi_executor_fails_the_stage_when_models_json_cannot_be_placed(tmp_path:
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     models = {"providers": {"adore-endpoint": {"baseUrl": "http://h/v1",
               "api": "openai-completions", "apiKey": "adore-no-key", "models": [{"id": "m"}]}}}
-    run = PiExecutor("pi", "m", provider="custom", models=models).run_gate(
+    run = PiExecutor("m", provider="custom", models=models).run_gate(
         CopyTarget(fake, copy_ok=False), worktree, io_dir, PROMPT, timeout=30)
     assert not run.ok and run.exit_code == 1 and not run.timed_out
     assert "models.json" in run.stderr
@@ -605,7 +590,7 @@ def test_pi_executor_loads_web_tools_when_internet_is_on(tmp_path: Path) -> None
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     target = CopyTarget(fake)
-    run = PiExecutor("pi", "gpt-5.4", provider="openai", internet=True,
+    run = PiExecutor("gpt-5.4", provider="openai", internet=True,
                      web_search="brave").run_gate(target, worktree, io_dir, PROMPT, timeout=30)
     assert run.ok
     extensions = [fake.argv[index + 1] for index, part in enumerate(fake.argv) if part == "-e"]
@@ -617,7 +602,7 @@ def test_pi_executor_loads_web_tools_when_internet_is_on(tmp_path: Path) -> None
     assert document == {"provider": "brave", "workflow": "none", "toolActivation": "eager"}
     none = FakePi(tmp_path, "run_tool_calls_chatgpt")
     quiet = CopyTarget(none)
-    assert PiExecutor("pi", "gpt-5.4", provider="openai", internet=True,
+    assert PiExecutor("gpt-5.4", provider="openai", internet=True,
                       web_search="none").run_gate(quiet, worktree, io_dir, PROMPT, timeout=30).ok
     assert CONTAINER_PI_WEB_ACCESS not in none.argv and quiet.commands == []
     assert "--append-system-prompt" not in none.argv
@@ -628,7 +613,7 @@ def test_pi_executor_fails_the_stage_when_web_search_json_cannot_be_placed(
     """@brief A failed web-search.json copy fails the gate with a reason; Pi never starts."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
-    run = PiExecutor("pi", "gpt-5.4", provider="openai", internet=True).run_gate(
+    run = PiExecutor("gpt-5.4", provider="openai", internet=True).run_gate(
         CopyTarget(fake, copy_ok=False), worktree, io_dir, PROMPT, timeout=30)
     assert not run.ok and run.exit_code == 1
     assert "web search configuration could not be placed" in run.stderr
@@ -640,7 +625,7 @@ def test_pi_executor_tells_the_agent_when_internet_is_off(tmp_path: Path) -> Non
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     target = CopyTarget(fake)
-    assert PiExecutor("pi", "gpt-5.4", provider="openai").run_gate(
+    assert PiExecutor("gpt-5.4", provider="openai").run_gate(
         target, worktree, io_dir, PROMPT, timeout=30).ok
     assert CONTAINER_PI_WEB_ACCESS not in fake.argv and target.commands == []
     notice = fake.argv[fake.argv.index("--append-system-prompt") + 1]
@@ -650,17 +635,6 @@ def test_pi_executor_tells_the_agent_when_internet_is_off(tmp_path: Path) -> Non
         assert word in notice.lower()
 
 
-def test_native_pi_template_receives_provider_and_model(tmp_path: Path) -> None:
-    """@brief A native launch substitutes {model} as provider/model."""
-    from adore.util import CommandResult
-
-    def execute(argv, *, timeout=None):
-        return CommandResult(exit_code=0)
-
-    worktree, io_dir = _dirs(tmp_path)
-    PiExecutor("pi -p --mode json --model {model} {prompt}", "claude-x",
-               provider="anthropic").run_gate(execute, worktree, io_dir, PROMPT, timeout=5)
-    assert "--model anthropic/claude-x" in (io_dir / GATE_SCRIPT).read_text("utf-8")
 
 
 @pytest.mark.parametrize("package", [False, True])
@@ -675,13 +649,13 @@ def test_pi_rpc_package_retention_keeps_usage_and_literal_session_archive(tmp_pa
     index = next(index for index, row in enumerate(rows)
                  if row["dir"] == "stdout" and row["record"].get("type") == "agent_settled")
     rows.insert(index, {"dir": "stdout", "record": {"type": "message_end", "message": {
-        "role": "user", "content": "private-test-value"}}})
+        "role": "toolResult", "content": [{"type": "text", "text": "private-test-value"}]}}})
     fixture.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
     fake.command[3] = str(fixture)
     target = SpawnTarget(fake)
     target.redact = lambda text: text.replace("private-test-value", "[REDACTED]")
     options = {"package_secrets": {"KEY": "private-test-value"}} if package else {}
-    run = PiExecutor("pi", "m").run_gate(
+    run = PiExecutor("m").run_gate(
         target, worktree, io_dir, PROMPT,
         timeout=30, archive_stem="packages", **options)
     assert run.ok and run.tokens_reported
@@ -705,7 +679,7 @@ def test_rpc_questions_apply_bound_credentials_and_package_retention(tmp_path, m
     worktree, io_dir = _dirs(tmp_path)
     target = SpawnTarget(FakePi(tmp_path, "run_tool_calls_chatgpt"))
     target.redact = lambda text: text.replace("binding-only-token", "[REDACTED]")
-    executor = PiExecutor("pi", "m")
+    executor = PiExecutor("m")
     path = worktree / executor.questions_file
     body = "Clarify binding-only-token and literal-test-credential?"
     body += "x" * 100000 if long else ""
@@ -736,7 +710,7 @@ def test_package_rpc_questions_refuse_a_linked_file(tmp_path, monkeypatch):
     from adore.isolation import IsolationError
 
     worktree, io_dir = _dirs(tmp_path)
-    executor = PiExecutor("pi", "m")
+    executor = PiExecutor("m")
     path = worktree / executor.questions_file
     original = Path.lstat
 
@@ -762,7 +736,7 @@ def test_package_rpc_questions_redact_credentials_across_binding_cap(tmp_path, m
     from adore.executor import pi_rpc
 
     worktree, io_dir = _dirs(tmp_path)
-    executor = PiExecutor("pi", "m")
+    executor = PiExecutor("m")
     target = SpawnTarget(FakePi(tmp_path, "run_tool_calls_chatgpt"))
     target.redact = lambda text: redact_output(text, {})
     secret = "literal-test-credential" + "s" * 1000

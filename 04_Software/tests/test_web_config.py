@@ -481,13 +481,11 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert model["edit_key"] == "executor.connection"
         assert model["source"] == "project" and model["editable"] and model["restart"]
         assert model["default"] == ""  # no universal model default
-        command = settings["executor.command"]
-        assert command["source"] == "default" and command["editable"] is True
-        assert command["choices"] == [command["default"]]
+        assert "executor.command" not in settings
         assert settings["delivery.reviewers"]["editable"] is True
         assert settings["delivery.reviewers"]["type"] == "list"
         not_editable = ["container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
-                        "state.store_root", "clarification.reminder_after"]
+                        "state.store_root", "clarification.timeout_state"]
         for key in not_editable:
             assert settings[key]["editable"] is False, key
         assert "container.runtime_env.API_KEY" not in settings  # redacted, never listed

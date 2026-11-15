@@ -243,7 +243,7 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   await expect(panel.getByText("Clarification answered label", { exact: true })).not.toBeVisible();
   expect(before.settings.some((item: { key: string }) => item.key === "labels.executor.prefix")).toBe(false);
   for (const key of ["readiness.max_scope_hint"]) {
-    expect(before.settings.some((item: { key: string }) => item.key === key)).toBe(true);
+    expect(before.settings.some((item: { key: string }) => item.key === key)).toBe(false);
     await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
   }
   const statuses = panel.locator(".status-label-settings");
@@ -261,7 +261,7 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   await expect(settingsImpact(page)).toHaveCount(0);
   const unchanged = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(unchanged.revision).toBe(before.revision);
-  expect(unchanged.config.readiness.max_scope_hint).toBe(before.config.readiness.max_scope_hint);
+  expect(unchanged.config.readiness).not.toHaveProperty("max_scope_hint");
   await discardSettings(page);
 });
 
@@ -506,7 +506,6 @@ test(`purpose guidance and single-setting flow preserve locale ${locale}`, async
     const agent = page.locator('[data-setting-purpose="executor"]');
     await agent.locator(":scope > summary").click();
     await expect(agent.locator('[id="setting-executor.default"]')).toHaveCount(0);
-    await expect(agent.locator('[id="setting-executor.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
     await expect(agent.locator('[id="setting-executor.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
     await expect(agent.locator('[id="setting-executor.thinking"] strong')).toHaveText(({ en: "Reasoning effort", fr: "Effort de raisonnement", de: "Denkaufwand", ro: "Efort de raționament" })[locale]);
     await agent.locator('[data-setting-topic="authentication"] > summary').click();
@@ -866,7 +865,7 @@ for (const user of ["admin", "developer"]) {
    Implementation: ["budgets.max_cost_usd", "polling.max_concurrent_runs", "delivery.publish_checkpoints", "clarification.max_rounds", "recovery.max_stage_failures"],
    "PR/MR and review": ["review.max_review_rounds", "review.revise_label", "delivery.reviewers"],
    Statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
-   "Agent and model": ["executor.command", "executor.model", "executor.env_keys", "executor.questions_file", "execution.backend", "container.runtime", "container.image"],
+   "Agent and model": ["executor.model", "executor.env_keys", "executor.questions_file", "execution.backend", "container.runtime", "container.image"],
    "Technical details": ["state.store_root", "agent.slug", "worktree.repo_path", "worktree.root", "workflow.aegis_python"],
   };
   for (const [name, keys] of Object.entries(placements)) for (const key of keys) {

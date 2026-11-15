@@ -9,13 +9,11 @@
 # -----------------------------------------------------------------------------
 """
 @file base.py
-@brief The executor launcher contract (design doc 6/7a).
-@details The executor performs code reasoning inside the run's container and
-         drives the .agentic CLI; it never touches the remote. One gate per
-         launch: the launcher composes the command, runs it through the
-         container exec seam, and reads the results back from files (the
-         event stream from the io dir, clarification questions from the
-         worktree) - never from live stdout.
+@brief Pi executor interface and normalized stage results.
+@details Each stage uses a fresh owned Pi RPC process. The backend binds resource
+         identity and process control; the launcher records bounded conversation,
+         diagnostics, usage and clarification evidence. Workflow state, rather
+         than a continued Pi session, owns recovery and stage progression.
 """
 
 from __future__ import annotations
@@ -37,8 +35,8 @@ class ExecTarget(Protocol):
     """
     @brief   Callable that runs a command in the run's execution backend.
     @details The backend binds resource identity/environment and exposes target
-             paths for file gates; plain test callables retain container defaults.
-             Exit codes and authoritative timeouts come back as data.
+             paths for controlled commands. Pi additionally requires the backend's
+             RPC process seam. Exit codes and authoritative timeouts are data.
     """
 
     def __call__(
@@ -65,8 +63,8 @@ class GateRun:
              code, authoritative wrapper-timeout flag, and whether the executor
              asked clarification questions. `output` is the raw event stream
              (also persisted in the run's io dir for audit). `artifact_dirs`
-             names immutable per-launch archive directories created by the file
-             protocol. There is deliberately no session id: every stage gets a
+             names immutable per-launch archive directories created by the RPC
+             launcher. There is deliberately no session id: every stage gets a
              FRESH executor session, so nothing is ever continued. `diagnostics`
              optionally carries host-normalized operational streams for safe viewing.
     """
@@ -123,12 +121,12 @@ class Executor(ABC):
         """
         @brief      Launch the executor for a single workflow gate.
         @details    Every launch starts a FRESH executor session. The durable
-                    AEGIS journal, not model memory, is the resume authority,
+                    workflow state/journal is the resume authority,
                     so there is no session to continue and no session argument.
         @param[in]  execute Exec seam bound to the run's container.
         @param[in]  worktree HOST path of the run's worktree (questions file).
-        @param[in]  io_dir HOST path of the run's io exchange dir (gate
-                           script in, event stream out; mounted at /adore/io).
+        @param[in]  io_dir HOST path of the run's io exchange dir (recording
+                           and diagnostics; mounted at /adore/io).
         @param[in]  prompt Gate-specific instruction (any content; it never
                            travels through argv).
         @param[in]  timeout Wall-clock bound (run budgets).

@@ -381,7 +381,7 @@ def test_pi_rpc_timeout_settles_container_before_next_gate(tmp_path, monkeypatch
         return pi_rpc.PiRpcResult(outcome="timed-out", exit_code=124, timed_out=True)
 
     monkeypatch.setattr(pi_rpc, "run_pi_rpc", timeout)
-    executor = PiExecutor("pi", "m")
+    executor = PiExecutor("m")
     if unsafe:
         with pytest.raises(ExecutionRecoveryError, match="interruption unconfirmed"):
             executor.run_gate(target, tmp_path, tmp_path / "io", "prepare")

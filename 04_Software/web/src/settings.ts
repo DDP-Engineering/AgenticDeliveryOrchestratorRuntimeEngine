@@ -121,11 +121,9 @@ export function validBranchPreview(value: unknown): value is BranchPreview {
 
 /** CLI-only and technical keys retained by configuration but omitted from operator controls. */
 export const HIDDEN_SETTING_KEYS = new Set([
-  "readiness.max_scope_hint",
-  "labels.selection.type_feature", "review.trigger", "review.review_reminder_after",
-  "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource",
+  "labels.selection.type_feature", "review.trigger", "clarification.timeout_state",
   "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
-  "executor.mode", "polling.mode", "metrics.export_jsonl", "metrics.html_out",
+  "polling.mode", "metrics.export_jsonl", "metrics.html_out",
 ]);
 
 /** Ticket state names share one optional disclosure; ready is the pickup action. */
@@ -155,7 +153,7 @@ export const CHOSEN_ENVIRONMENT_KEYS = new Set(["execution.backend", "container.
 /** Only known informational worktree fields accompany the external environment. */
 export function settingVisible(key: string, executorOnly = false, backend = "container"): boolean {
   if (key === "container.build_definition") return false; // Managed from the export dialog.
-  if (HIDDEN_SETTING_KEYS.has(key) || backend === "local" && key === "executor.command") return false;
+  if (HIDDEN_SETTING_KEYS.has(key)) return false;
   // Container rows for container projects, local-account rows for local ones.
   if (CHOSEN_ENVIRONMENT_KEYS.has(key)) return key === "execution.backend" || key.startsWith("local.") === (backend === "local");
   if (["container.", "execution.", "local."].some(prefix => key.startsWith(prefix))) return false;

@@ -23,9 +23,9 @@ operational settings and omits reserved fields that do not affect execution.
 
 `delivery.reviewers` is a list of forge account names (empty requests no review), each 1–255 characters without whitespace, controls or a leading option prefix. Configuration validation rejects malformed lists before forge CLI invocation. Review requests are independent of candidate publication approval and repository merge permissions.
 
-ReadinessConfig defaults acceptance checking to false and priority checking to true. ReviewConfig defaults maximum additional revision rounds to five; explicit valid overrides retain authority. The supported readiness model contains acceptance, priority and the reserved scope hint.
+ReadinessConfig defaults acceptance checking to false and priority checking to true. ReviewConfig defaults maximum additional revision rounds to five; explicit valid overrides retain authority. The readiness model contains acceptance and priority checks.
 
-`ClarificationConfig.answer_timeout` accepts a positive parsed duration independently of the reserved reminder. Both duration formats remain validated; zero and malformed answer durations fail before execution. The runtime still fails an expired clarification and bounds question rounds. Public validation proof: `test_validation_accepts_answer_timeout_independently_of_reserved_reminder` in `test_config.py`, with existing clarification conductor tests.
+`ClarificationConfig.answer_timeout` accepts a positive duration; invalid or zero durations fail before execution. Reminder settings are not supported. Expiry and maximum question rounds retain their conductor behavior.
 
 ## Branch naming contract
 
@@ -104,8 +104,7 @@ key is refused like any other unknown key.
 `internet` (strict boolean, default false: "Internet access for the agent"),
 `endpoint` (`ExecutorEndpointConfig`), `web` (`ExecutorWebConfig`,
 `[executor.web]`: `search` is `exa` (default, no key), `brave`, `tavily` or
-`none`, the `WEB_SEARCH_CHOICES` of `pi_providers.py`), `command`, `mode`
-(`thick` or `headless`), `questions_file` and `env_keys` (default empty:
+`none`, the `WEB_SEARCH_CHOICES` of `pi_providers.py`), `questions_file` and `env_keys` (default empty:
 additional secret names; the provider's key variable is always passed, and
 with internet on and `brave` or `tavily` search the `SEARCH_KEY_VARIABLES`
 entry `BRAVE_API_KEY` or `TAVILY_API_KEY`). The removed
@@ -162,7 +161,7 @@ checked against the catalog's `chatgpt_models`.
 ```toml
 [executor]
 provider = "openai"
-model = "gpt-5.5"
+model = "gpt-6.1-terra"
 ```
 
 A ChatGPT subscription (container or native run; the server signs in once in the
@@ -186,11 +185,9 @@ base_url = "http://192.168.1.20:1234/v1"
 api = "openai-completions"
 ```
 
-`command` retains the container preset `branding.PI_NATIVE_COMMAND`
-(`pi -p --mode json --model {model} {prompt}`). A container run drives the
-image's pinned Pi over RPC. Native profiles omit this key and use managed
-Pi RPC. Configured templates require `{prompt}`, refuse `--auto` and permit
-only `{prompt}`, `{model}` and `{worktree}` placeholders.
+Both production backends use fixed Pi RPC. Command templates and execution-mode
+selectors are not configuration fields. Removed keys receive the same named
+unknown-key refusal as any other unsupported input; no file is rewritten.
 
 ## 5. Validation and Tests
 

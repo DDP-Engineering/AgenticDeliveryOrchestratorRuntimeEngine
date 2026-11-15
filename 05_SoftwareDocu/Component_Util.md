@@ -54,10 +54,9 @@ JSON/URLs) and retry/backoff policy (the orchestrator's concern).
   - `127` - executable not found,
   - `124` - wall-clock timeout (subprocess killed),
   - otherwise the command's own exit code.
-- Output is always **captured**, never streamed: the prerequisites check
-  showed a headless CLI may buffer stdout, so naive streaming looks "hung"
-  Output is decoded as UTF-8 with
-  replacement to survive Windows console encodings.
+- `run_command` captures completed process output, decoded as UTF-8 with
+  replacement. Pi RPC uses a separate owned-pipe client with strict protocol
+  decoding and bounded conversation/operational evidence.
 - Default command timeout: 600 s (`DEFAULT_COMMAND_TIMEOUT`).
 
 ## 4. Dependencies

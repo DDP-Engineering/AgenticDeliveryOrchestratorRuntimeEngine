@@ -15,8 +15,10 @@
 
 import json
 from pathlib import Path
+import re
 
 from adore.config import load_config
+from adore.preparation import resolve_plan
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
 from adore.web.app import create_app
@@ -49,7 +51,13 @@ def _headers(client):
 def test_approval_policy_cannot_apply_while_job_is_waiting(tmp_path):
     """@brief Reviewed policy edits wait until the project has no unfinished jobs."""
     profiles, path, state = _project(tmp_path)
-    state.save(RunState(run_id="busy", ticket_iid=1, lifecycle="awaiting-approval"))
+    execution = {
+        "plan": resolve_plan(load_config(path)), "resource": {},
+        "status": "not-required", "attempts": 0,
+        "steps": [], "history": [], "reprepare": False,
+    }
+    state.save(RunState(run_id="busy", ticket_iid=1, lifecycle="awaiting-approval",
+                        execution=execution))
     original = path.read_bytes()
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -72,9 +80,8 @@ def test_pending_candidate_for_an_external_key_is_corrupt_but_discardable(tmp_pa
 
     profiles, path, _state = _project(tmp_path)
     original = path.read_bytes()
-    current = load_config(path).container.uv_cache_volume
-    candidate = original.decode("utf-8").replace('uv_cache_volume  = "' + current + '"',
-                                                'uv_cache_volume  = "legacy-cache"')
+    candidate = original.decode("utf-8").replace(
+        "[container]", '[container]\nuv_cache_volume = "legacy-cache"', 1)
     assert candidate.encode() != original
     pending = {"schema": 1, "base_revision": sha256(original).hexdigest(),
                "candidate_revision": sha256(candidate.encode()).hexdigest(),
@@ -116,12 +123,19 @@ def test_stage_review_apply_and_discard_config(tmp_path):
         assert client.get("/api/v1/projects/alpha/config/pending").json() == stage.json()
         assert client.post("/api/v1/projects/alpha/config/pending", json=body,
                            headers=headers).status_code == 409
-        state.save(RunState(run_id="working", ticket_iid=42, lifecycle="working"))
+        execution = {
+            "plan": resolve_plan(load_config(path)), "resource": {},
+            "status": "not-required", "attempts": 0,
+            "steps": [], "history": [], "reprepare": False,
+        }
+        state.save(RunState(run_id="working", ticket_iid=42, lifecycle="working",
+                        execution=execution))
         blocked = client.post("/api/v1/projects/alpha/config/apply", json={
             "candidate_revision": candidate, "base_revision": base}, headers=headers)
         assert blocked.status_code == 409
         assert path.read_bytes() == original
-        state.save(RunState(run_id="working", ticket_iid=42, lifecycle="done"))
+        state.save(RunState(run_id="working", ticket_iid=42, lifecycle="done",
+                        execution=execution))
         applied = client.post("/api/v1/projects/alpha/config/apply", json={
             "candidate_revision": candidate, "base_revision": base}, headers=headers)
         assert applied.status_code == 200, applied.text
@@ -196,10 +210,17 @@ def test_direct_config_edit_cannot_bypass_active_or_pending_work(tmp_path):
         revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
         body = {"key": "budgets.max_iterations", "value": "12", "revision": revision}
         original = path.read_bytes()
-        state.save(RunState(run_id="working", ticket_iid=42, lifecycle="working"))
+        execution = {
+            "plan": resolve_plan(load_config(path)), "resource": {},
+            "status": "not-required", "attempts": 0,
+            "steps": [], "history": [], "reprepare": False,
+        }
+        state.save(RunState(run_id="working", ticket_iid=42, lifecycle="working",
+                        execution=execution))
         assert client.put("/api/v1/projects/alpha/config", json=body,
                           headers=headers).status_code == 409
-        state.save(RunState(run_id="working", ticket_iid=42, lifecycle="done"))
+        state.save(RunState(run_id="working", ticket_iid=42, lifecycle="done",
+                        execution=execution))
         assert client.post("/api/v1/projects/alpha/config/pending", json=body,
                            headers=headers).status_code == 200
         assert client.put("/api/v1/projects/alpha/config", json=body,
@@ -404,9 +425,9 @@ def test_preparing_invalid_catalog_types_and_bounds_fails_closed(tmp_path, key, 
 def test_developer_catalog_redacts_financial_setting_and_credential_url(tmp_path):
     """@brief Granted Dev gets safe purpose rows without financial or URL secrets."""
     profiles, path, _state = _project(tmp_path)
-    path.write_text(path.read_text(encoding="utf-8").replace(
-        'model = "gpt-5.5"',
-        'model = "https://user:secret-value@model.local/v1"'), encoding="utf-8")
+    path.write_text(re.sub(
+        r'(?m)^model\s*=.*$', 'model = "https://user:secret-value@model.local/v1"',
+        path.read_text(encoding="utf-8")), encoding="utf-8")
     assert "secret-value" in path.read_text(encoding="utf-8")
     app = create_app(profiles.home)
     user = app.state.web_store.create_user("dev", "longer-password", "developer")
@@ -453,8 +474,8 @@ def test_catalog_fails_closed_on_corrupt_declared_scalar_type(tmp_path):
     """@brief Active scalar type corruption is a typed read error, not a guessed control."""
     profiles, path, _state = _project(tmp_path)
     text = path.read_text(encoding="utf-8")
-    assert "max_iterations           = 20" in text
-    changed = text.replace("max_iterations           = 20", "max_iterations           = true")
+    changed = re.sub(r"(?m)^max_iterations\s*=\s*20\b", "max_iterations = true", text)
+    assert changed != text
     path.write_text(changed, encoding="utf-8")
     with TestClient(create_app(profiles.home)) as client:
         _headers(client)
@@ -650,8 +671,10 @@ def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
         assert response.status_code == 200, response.text
         pending = path.parent / "pending_config.json"
         record = json.loads(pending.read_text(encoding="utf-8"))
-        record["candidate_text"] = record["candidate_text"].replace(
-            "max_iterations           = 20", "max_iterations           = 21")
+        changed = re.sub(r"(?m)^max_iterations\s*=\s*20\b",
+                         "max_iterations = 21", record["candidate_text"])
+        assert changed != record["candidate_text"]
+        record["candidate_text"] = changed
         record["candidate_revision"] = sha256(record["candidate_text"].encode()).hexdigest()
         pending.write_text(json.dumps(record), encoding="utf-8")
         assert client.get("/api/v1/projects/alpha/config/pending").status_code == 503

@@ -518,12 +518,4 @@ def run_preparation_step(
     return outcome
 
 
-def __getattr__(name: str):
-    """@brief Expose the local adapter lazily without cyclic contract imports."""
-    if name == "LocalBackend":
-        from adore.local_execution import LocalBackend
-
-        return LocalBackend
-    raise AttributeError(name)
-
 # END OF FILE

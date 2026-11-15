@@ -62,7 +62,6 @@ The server preview uses the effective agent slug, ticket number `1` and run iden
 | `readiness.require_acceptance_criteria` | Optional text gate: `acceptance criteria` or an unchecked `- [ ]` item. | `false` |
 | `readiness.require_priority_label` | Require a configured priority. | `true` |
 
-`max_scope_hint` remains reserved configuration intent and is not a pickup filter.
 
 The web supervisor starts independent project workers and up to the current
 project limit of run conductors. A and B at `1` can each execute one job at the
@@ -85,7 +84,7 @@ lifecycle or control labels.
 
 `labels.control.exclude` names the **Exclude from pickup label** (default `no-agent`). ADORE skips a ticket while that label is present, including tickets carrying the ready label. Removing it permits pickup if all other eligibility conditions hold. Adding it does not stop an already-started job. Apply the configured label on the ticket in its GitHub, GitLab or Gitea repository.
 
-The GUI exposes `labels.lifecycle.ready` directly in Tickets as **Ready for pickup label**. `answered` is **Clarification answered label** and needs a new reply comment as well as the label. `answered`, `clarify`, `done`, `failed`, `review` and `working` are in the initially closed **Status labels** group; ADORE manages their ticket state presentation. `working` includes waiting for publication approval, `review` covers a published draft or ready PR/MR, and `done` follows a human merge. Manual status-label changes do not transition the saved job; retry is a separate action. Reserved `readiness.max_scope_hint` remains accepted technical configuration with no runtime effect and has no GUI control. There is no `[labels.executor]` table: a ticket cannot choose the coding agent, and the key is refused with `[labels] unknown key 'executor': remove it from config.toml`.
+The GUI exposes `labels.lifecycle.ready` directly in Tickets as **Ready for pickup label**. `answered` is **Clarification answered label** and needs a new reply comment as well as the label. `answered`, `clarify`, `done`, `failed`, `review` and `working` are in the initially closed **Status labels** group; ADORE manages their ticket state presentation. `working` includes waiting for publication approval, `review` covers a published draft or ready PR/MR, and `done` follows a human merge. Manual status-label changes do not transition the saved job; retry is a separate action. There is no `[labels.executor]` table: a ticket cannot choose the coding agent, and the key is refused with `[labels] unknown key 'executor': remove it from config.toml`.
 
 ## Executor and Container
 
@@ -99,15 +98,13 @@ Pi is ADORE's only coding agent. The `[executor]` table holds:
 | `executor.endpoint.api` | Only with `custom`: `openai-completions`, `openai-responses`, `anthropic-messages` or `google-generative-ai`. | `openai-completions` |
 | `executor.internet` | **Internet access for the agent**: `false` limits a container run to the model provider's hosts; `true` opens its network and loads Pi's web tools. | `false` |
 | `executor.web.search` | Web search while `internet = true`: `exa` (no key), `brave`, `tavily` or `none`. | `exa` |
-| `executor.command` | Container preset only; the container uses its image's pinned Pi. Omit this key in local profiles. | `pi -p --mode json --model {model} {prompt}` |
-| `executor.mode` | `thick` or `headless`; see below. | `thick` |
 | `executor.questions_file` | Clarification questions file the agent writes in the worktree. | `<SLUG>_QUESTIONS.md` |
 | `executor.env_keys` | Additional secret variables passed to Pi besides the provider's key variable. | `[]` |
 
 ```toml
 [executor]
 provider = "openai"
-model = "gpt-5.5"
+model = "gpt-6.1-terra"
 ```
 
 An OpenAI-compatible endpoint (LM Studio, Ollama, vLLM):
@@ -168,12 +165,10 @@ not restricted by this switch. Package installs (`pip install`, `npm install`)
 in an internet-off run fail unless their hosts are in `[container.egress]
 allowlist`.
 
-`executor.command` must be non-interactive, contain `{prompt}` and not use
-`--auto`. The supported placeholders are `{prompt}`, `{model}` and
-`{worktree}`; any other, `{resume}` included, is refused. `executor.default`,
-`executor.stage_host_auth` and every `[executor.<name>]` table (`opencode`,
-`codex`, `qwen`, `pi`) are refused with `[executor] unknown key '<key>':
-remove it from config.toml`.
+Pi uses one fixed RPC command on container and managed native backends. There
+is no configurable command template or execution mode. Unknown executor keys
+are refused with the field to remove from config.toml.
+
 `executor.env_keys` lists additional secret variables copied into a container; the provider's key variable is always added. Forge credential
 names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 `GITEA_TOKEN`, and `TEA_TOKEN` are rejected.
@@ -225,8 +220,7 @@ runtime already labels them. The private `Z` label is rejected: it labels
 content per container, and the clone is shared by every run and by host git, so
 `Z` would bind the clone to one container and break the next run.
 
-`executor.mode` is validated but reserved: the current conductor always uses
-thick executor sessions. Parked containers are stopped and retained for resume
+Each stage uses a fresh Pi RPC session. Parked containers are stopped and retained for resume
 or explicit cleanup. The accepted `container.keep_parked`,
 `parked_ttl_mode`, `parked_ttl_seconds`, and `parked_ttl_polls` settings are
 reserved and do not currently change that behavior.
@@ -281,7 +275,6 @@ transport retries. Those attempts do not consume the stage counter. The first at
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `max_rounds` | Human question/answer rounds. | `3` |
-| `reminder_after` | Reserved; its duration format is validated, but no reminder is sent. | `24h` |
 | `answer_timeout` | Positive duration per question; expiry fails the run, independently of reserved reminder timing. | `72h` |
 | `timeout_state` | Reserved; its choice is validated, but expiry currently fails the run. | `failed` |
 
@@ -330,7 +323,6 @@ require_human_approval = true
 trigger = "label"
 revise_label = "agent-revise"
 max_review_rounds = 5
-review_reminder_after = "48h"
 ```
 
 `review.on_pipeline_failure` is `revise` (default), `notify`, or `ignore`, and
@@ -394,8 +386,8 @@ for `recovery.max_transient_retries` polls fails it (`MR_DELETED`). Stale
 consuming a slot, and terminal runs retain state evidence.
 
 `[metrics]` controls SQLite/JSONL/static HTML summaries. Metrics are
-best-effort and can never change governance outcomes. `capture_resource` is
-reserved; ADORE currently performs no resource-usage probing.
+best-effort and can never change governance outcomes. ADORE performs no CPU,
+memory or disk resource-usage probing.
 
 Statistics displays **Statistics database file** as an informational row with
 four-locale guidance. Server `config.toml` owns `metrics.db_path`,
@@ -411,7 +403,7 @@ SQLite bytes, authorization, scope and financial redaction.
 
 ## Web executor configuration
 
-**Project → Settings → Agent and model** shows **Test AI connection**, the provider (`executor.provider`), the model (`executor.model`), for an endpoint its base URL and API type (`executor.endpoint.*`), the launch command (`executor.command`), **Internet access for the agent** (`executor.internet`), **Web search** (`executor.web.search`), the additional credential variables (`executor.env_keys`), **Provider API key**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. Provider, model and endpoint are edited together and staged as one reviewed candidate (`executor.connection`); the model list comes from the pinned Pi and any typed ID is accepted. The launch command is an ordinary reviewed setting. One Save writes all edited settings together after confirmation of important effects and existing paused/idle checks. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project uses ADORE-managed Pi with a fixed command. **Provider API key** saves or removes only the configured provider's variable (none for a ChatGPT subscription) and, with internet on and Brave or Tavily search, `BRAVE_API_KEY` or `TAVILY_API_KEY`. Runtime preparation remains external. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** shows **Test AI connection**, the provider (`executor.provider`), the model (`executor.model`), for an endpoint its base URL and API type (`executor.endpoint.*`), **Internet access for the agent** (`executor.internet`), **Web search** (`executor.web.search`), the additional credential variables (`executor.env_keys`), **Provider API key**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. Provider, model and endpoint are edited together and staged as one reviewed candidate (`executor.connection`); the model list comes from the pinned Pi and any typed ID is accepted. One Save writes all edited settings together after confirmation of important effects and existing paused/idle checks. Both production backends use fixed Pi RPC. **Provider API key** saves or removes only the configured provider's variable (none for a ChatGPT subscription) and, with internet on and Brave or Tavily search, `BRAVE_API_KEY` or `TAVILY_API_KEY`. Runtime preparation remains external. Developers read non-secret settings/results without mutation actions.
 
 The names-only credential selector offers known provider names and retained custom names. Most projects leave this list empty and use the selected provider's credential. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. A container or native project uses its provider API key, or for a ChatGPT subscription a short-lived access token from the server's ChatGPT sign-in; no host sign-in is copied into the container. A ChatGPT project's model evidence counts only while the server stays signed in. Explicit Test AI connection runs Pi and remains the evidence of model access; it may incur provider charges. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
 
@@ -466,3 +458,10 @@ Non-budget binding preserves scalar types as well as values: boolean false and n
 `polling.max_concurrent_runs` is the sole project parallel-job limit, default 1, shared by CLI admission, supervisor dispatch and web Settings/portable transfer. It is a positive integer; there is no separate parallelism boolean. A current reviewed pending candidate can only lower admission capacity before safe application. Saved and effective values are distinct during staging; queued starts/resumptions wait until occupied slots are below the effective ceiling. Already admitted jobs continue against their unchanged active revision. Staged increases wait for safe application, and explicit discard removes the staged lower ceiling. Corrupt or stale pending evidence refuses admission and names the pending record to inspect/discard.
 
 After a lower N, already-started executors continue, while queued initial reservations wait for actual start capacity. Pending reservations retain their dispatch evidence; they do not block each other indefinitely. Initial activation rechecks current N atomically in the conductor as well as limiting supervisor dispatch.
+
+Removed settings are errors, not ignored inputs. Delete executor.command,
+executor.mode, readiness.max_scope_hint, clarification.reminder_after,
+review.review_reminder_after and metrics.capture_resource from existing TOML
+before using this build. Internet access (executor.internet), web search,
+clarification.answer_timeout and clarification.max_rounds retain their behavior.
+New OpenAI projects default to gpt-6.1-terra; explicit project models are preserved.
