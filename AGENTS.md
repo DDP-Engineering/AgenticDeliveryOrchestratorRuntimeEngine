@@ -14,6 +14,13 @@ These instructions apply to the repository rooted at:
 
 A deeper `AGENTS.md` overrides this file for its subtree.
 
+## Shared instruction entry point
+
+This `AGENTS.md` is the common source of repository instructions for all agents.
+Root `claude.md` and `QWEN.md` contain only their legal header, title and a link
+to this file. Keep shared rules and managed workflow guidance here; do not
+duplicate them or add separate rules in those entry-point files.
+
 ## AEGIS applicability (repository rule)
 
 AEGIS applies exclusively to software implementation: creating or changing
