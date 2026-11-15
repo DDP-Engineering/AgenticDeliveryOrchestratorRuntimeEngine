@@ -7,9 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Synthetic ADORE project executor
 
-This recipe reconstructs the tools observed in the DCP project's
-`adore-executor-adore:pw1.63.0-b73dae3` image on 2026-11-11. It starts from
-Ubuntu 22.04 and includes the executor base tooling, Pi 1.4.0, Node 22.23.4,
+This recipe builds the ADORE project's executor image on Ubuntu 22.04.
+It includes the executor base tooling, Pi 1.5.2, Node 22.23.4,
 uv 0.13.7, CPython 3.11.18, and Playwright 1.63.0 with Chromium and its system
 dependencies. It does not require the original local executor image.
 The browser archives use the exact versions reported by Playwright 1.63.0:
@@ -41,8 +40,9 @@ Repository dependencies remain the agent's responsibility in its job container.
 The recipe does not embed a shared machine identity: if tests need a machine-id,
 prepare a unique identity in that job's container, never copy the server's ID.
 
-`build.json` declares every exported input and the exact tag currently saved for
-the DCP project. Register it as
+`build.json` declares every exported input and the new
+`adore-executor-adore:pi1.5.2-pw1.63.0` tag. Build and select this image explicitly;
+existing image tags and active job containers remain untouched. Register it as
 `02_Tools/build/executor_images/adore/build.json@<full-source-commit>` in
 `container.build_definition`, after that commit is available in the enrolled
 project clone. A reviewed Git snapshot containing just these inputs also works;

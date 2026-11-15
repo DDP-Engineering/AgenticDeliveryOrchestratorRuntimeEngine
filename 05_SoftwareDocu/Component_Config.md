@@ -115,8 +115,8 @@ table as an unknown `[labels]` key. Unknown keys inside `[executor]` and
 is no migration.
 
 `_provider_issues` checks the provider rules against the shipped Pi catalog
-(`adore/pi_providers.py`, `pi_catalog.json`): `provider` is a Pi API-key
-provider id from the catalog, `chatgpt` or `custom`; `model` matches
+(`adore/pi_providers.py`, `pi_catalog.json`), generated from Pi 1.5.2:
+`provider` is a Pi API-key provider id from the catalog, `chatgpt` or `custom`; `model` matches
 `MODEL_ID_RE` (`[A-Za-z0-9~][A-Za-z0-9._:/@+~-]{0,199}`: no whitespace,
 quotes or control characters, at most 200 characters). `[executor.endpoint]`
 (`base_url`, `api`, default `openai-completions`; also `openai-responses`,
@@ -146,6 +146,11 @@ of Pi's pi-ai provider data by `02_Tools/build/generate_pi_model_catalog.py`), t
 address) for `custom`. `EgressPolicy` still supports mode `none`, but no
 configuration selects it. The orchestrator, Test AI connection and the
 readiness probe use `egress_policy`; a local run is not restricted by it.
+
+The catalog generator discovers provider IDs from Pi's offline model listing,
+including the Qwen China variants that share credential variables. Display
+names distinguish regional choices; endpoint hosts and thinking levels come
+from that same installed Pi release.
 
 `_chatgpt_issues` refuses what a ChatGPT subscription (`provider = "chatgpt"`)
 cannot run, because ADORE mints a short-lived ChatGPT access token before every

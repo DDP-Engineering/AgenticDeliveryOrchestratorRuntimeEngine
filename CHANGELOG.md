@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Pin native and container executors to Pi 1.5.2 and regenerate the offline provider/model catalog, including GPT-6.1 Terra.
 - Pi stages now use only the current RPC transport; archive and conversation retention remain available.
 - Remove `executor.command`, `executor.mode`, `readiness.max_scope_hint`, `clarification.reminder_after`, `review.review_reminder_after` and `metrics.capture_resource` from TOML, and delete affected `runs/<run-id>` directories before starting fresh jobs.
 - New OpenAI projects default to `gpt-6.1-terra`; explicitly configured project models are preserved.

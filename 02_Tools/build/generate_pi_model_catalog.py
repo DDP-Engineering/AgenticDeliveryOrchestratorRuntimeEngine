@@ -55,7 +55,9 @@ SPLIT_NAMES = {
     "moonshotai": "Moonshot AI",
     "moonshotai-cn": "Moonshot AI (China)",
     "qwen-token-plan": "Qwen Token Plan",
+    "qwen-token-plan-cn": "Qwen Token Plan (China)",
     "qwen-token-plan-individual": "Qwen Individual",
+    "qwen-token-plan-individual-cn": "Qwen Individual (China)",
 }
 PLACEHOLDER = "adore-catalog-placeholder"
 _ROW = re.compile(r"^\|\s*(?P<name>[^|]+?)\s*\|\s*`(?P<variable>[A-Z][A-Z0-9_]*)`\s*\|\s*$")

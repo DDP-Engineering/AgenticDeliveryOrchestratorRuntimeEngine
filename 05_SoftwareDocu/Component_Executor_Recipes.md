@@ -69,6 +69,11 @@ guard/subscription helper and project license through hatch force-include; sourc
 same files from the existing Docker context. No environment script source is
 introduced inside the application package.
 
+The bundled base and the ADORE project Dockerfile both install Pi 1.5.2 with
+pi-web-access 0.46.0. The project manifest selects the distinct
+`adore-executor-adore:pi1.5.2-pw1.63.0` tag. Recipe changes require an explicit
+image build and project selection; they do not replace running containers.
+
 ## 5. Inputs And Outputs
 
 Inputs are a UTF-8 Dockerfile or ZIP, exact selected image, current config revision

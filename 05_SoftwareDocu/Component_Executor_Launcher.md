@@ -121,7 +121,7 @@ permissions. Container networking belongs to isolation, not the prompt or guard.
 
 ## Dependencies and validation coverage
 
-Pi, Node and web-extension pins are owned by `pi_installation.py` and the runtime
+Pi 1.5.2, Node and web-extension pins are owned by `pi_installation.py` and the runtime
 image assets under `04_Software/docker/`. The image verifier is
 `02_Tools/build/verify_container_runtime.sh`. The launcher itself uses the shared
 runner, execution target, state lock, prompt and instruction contracts.

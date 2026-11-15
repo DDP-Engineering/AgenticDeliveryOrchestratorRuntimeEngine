@@ -7,6 +7,8 @@ An executor is what ADORE launches for every job: the Pi coding agent and the AI
 
 New OpenAI projects start with model `gpt-6.1-terra`. Existing project model selections stay unchanged.
 
+The bundled model catalog comes from Pi 1.5.2 and includes GPT-6.1 Terra.
+
 ## What an executor is {#what}
 
 For each job ADORE starts Pi, its only coding agent, in an isolated working copy, and Pi works through the repository's AEGIS stages with the configured provider and model. ADORE uses the Pi built into the image for container jobs and its managed Pi installation for server jobs.

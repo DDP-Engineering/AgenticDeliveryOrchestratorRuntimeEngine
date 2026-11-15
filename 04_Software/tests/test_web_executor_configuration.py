@@ -207,11 +207,11 @@ def test_provider_catalog_is_served_to_signed_in_users_only(tmp_path):
         catalog = client.get("/api/v1/pi-providers").json()
     providers = {item["id"]: item for item in catalog["providers"]}
     assert providers["openai"]["variable"] == "OPENAI_API_KEY"
-    assert "gpt-5.5" in providers["openai"]["models"]
-    assert catalog["chatgpt"]["id"] == "chatgpt" and "gpt-5.6-luna" in catalog["chatgpt"]["models"]
+    assert "gpt-6.1-terra" in providers["openai"]["models"]
+    assert catalog["chatgpt"]["id"] == "chatgpt" and "gpt-6.1-terra" in catalog["chatgpt"]["models"]
     assert catalog["custom"]["variable"] == "ADORE_ENDPOINT_API_KEY"
     assert catalog["custom"]["apis"][0] == "openai-completions"
-    assert catalog["pi_version"] == "1.4.0"
+    assert catalog["pi_version"] == "1.5.2"
 
 
 @pytest.mark.parametrize("variables", [["OPENROUTER_API_KEY"], [],

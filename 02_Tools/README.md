@@ -43,7 +43,8 @@ written into `04_Software/adore/web/static/`, where the Python wheel includes th
 This command installs nothing and runs no tests.
 
 `build/generate_pi_model_catalog.py` refreshes the provider/model catalog from
-the pinned Pi offline. Run it when changing the pinned Pi, using its `--help`
+the pinned Pi 1.5.2 offline, including regional provider variants, model IDs,
+thinking levels and endpoint hosts. Run it when changing the pinned Pi, using its `--help`
 for the required local Node and Pi paths. It is not a routine package step.
 
 `build/executor_images/adore/` contains the ADORE project's executor Dockerfile,

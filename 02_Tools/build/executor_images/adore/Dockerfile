@@ -34,7 +34,7 @@ ARG CHROMIUM_REVISION=1243
 ARG FFMPEG_REVISION=1011
 # Pi, ADORE's only coding agent, runs as `pi --mode rpc`; pi-web-access is its
 # web search and page reading extension, installed in the same prefix.
-ARG PI_PACKAGE=@earendil-works/pi-coding-agent@1.4.0
+ARG PI_PACKAGE=@earendil-works/pi-coding-agent@1.5.2
 ARG PI_WEB_ACCESS_PACKAGE=pi-web-access@0.46.0
 
 ENV DEBIAN_FRONTEND=noninteractive

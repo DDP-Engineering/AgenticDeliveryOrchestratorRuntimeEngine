@@ -32,7 +32,7 @@ never choose Node. ADORE invokes npm and Pi with that executable directly,
 including paths with spaces; it does not run an npm shim or require a global Pi.
 
 Installation requires registry access and write permission under
-`<ADORE home>/tools/pi`. npm installs the build's Pi and web extension pins
+`<ADORE home>/tools/pi`. npm installs Pi 1.5.2 and pi-web-access 0.46.0
 there without lifecycle scripts or personal npm settings. ADORE checks Node,
 the package versions and Pi's version before publishing the version directory.
 On a build with a new Pi pin, run `adore pi install` again; the build selects its

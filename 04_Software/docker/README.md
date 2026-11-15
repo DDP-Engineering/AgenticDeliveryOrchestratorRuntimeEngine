@@ -14,7 +14,7 @@ execution uses managed Pi and host tools; see
 
 - `Dockerfile.executor-base` builds `adore-executor-base:1.0.0`. It contains
   the generic executor tools: Python 3.11 via uv, Node 22.23.4/npm, git,
-  `glab`, `gh`, Pi 1.4.0 (ADORE's only coding agent) with pi-web-access 0.46.0
+  `glab`, `gh`, Pi 1.5.2 (ADORE's only coding agent) with pi-web-access 0.46.0
   under `/opt/pi`, ADORE's Pi guard extension (`pi/adore-guard.ts`, copied to
   `/opt/adore/pi/`), ADORE's ChatGPT helper (`pi/adore-chatgpt.mjs`, copied to
   `/opt/adore/pi/adore-chatgpt.mjs`), the ADORE-owned Pi agent directory

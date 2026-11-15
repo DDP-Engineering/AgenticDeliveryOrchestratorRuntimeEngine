@@ -60,7 +60,7 @@ DENIED_URL="${DENIED_URL:-https://github.com}"
 PROXY_IMAGE="${PROXY_IMAGE:-adore-egress-proxy:1.0.0}"
 # Pinned in Dockerfile.executor-base; a different version fails the check.
 EXPECTED_NODE_VERSION="v22.23.4"
-EXPECTED_PI_VERSION="1.4.0"
+EXPECTED_PI_VERSION="1.5.2"
 EXPECTED_PI_WEB_ACCESS_VERSION="0.46.0"
 PI_PREFIX="/opt/pi/lib/node_modules"
 PI_CLI="${PI_PREFIX}/@earendil-works/pi-coding-agent/dist/bundle/cli.js"

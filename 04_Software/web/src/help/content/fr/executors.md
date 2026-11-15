@@ -7,6 +7,8 @@ Un exécuteur est ce qu’ADORE lance pour chaque tâche : l’agent de programm
 
 Les nouveaux projets OpenAI utilisent initialement le modèle `gpt-6.1-terra`. Les choix des projets existants restent inchangés.
 
+Le catalogue de modèles fourni provient de Pi 1.5.2 et inclut GPT-6.1 Terra.
+
 ## Ce qu’est un exécuteur {#what}
 
 Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copie de travail isolée, et Pi suit les étapes AEGIS du dépôt avec le fournisseur et le modèle configurés. ADORE utilise le Pi intégré à l’image dans un conteneur et son installation gérée de Pi pour les tâches sur le serveur.

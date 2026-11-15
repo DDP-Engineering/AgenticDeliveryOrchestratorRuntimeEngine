@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "image": "adore-executor-adore:pw1.63.0-b73dae3",
+  "image": "adore-executor-adore:pi1.5.2-pw1.63.0",
   "dockerfile": "02_Tools/build/executor_images/adore/Dockerfile",
   "files": [
     "02_Tools/build/executor_images/adore/Dockerfile",

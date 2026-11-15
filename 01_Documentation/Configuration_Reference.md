@@ -120,7 +120,7 @@ api = "openai-completions"
 ```
 
 The provider list and each provider's models come from the Pi version ADORE
-pins (Pi 1.4.0), generated offline into `adore/pi_catalog.json` by
+pins (Pi 1.5.2), generated offline into `adore/pi_catalog.json` by
 `02_Tools/build/generate_pi_model_catalog.py`; a model ID outside the list is accepted.
 `provider` is refused when missing or unknown, `model` when missing or not one
 ID (no spaces, quotes or control characters, at most 200 characters).

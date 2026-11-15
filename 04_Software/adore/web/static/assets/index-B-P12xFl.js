@@ -79,6 +79,8 @@ Ein Executor ist das, was ADORE für jeden Auftrag startet: der Coding-Agent Pi 
 
 Neue OpenAI-Projekte beginnen mit dem Modell \`gpt-6.1-terra\`. Die Modellauswahl bestehender Projekte bleibt unverändert.
 
+Der mitgelieferte Modellkatalog stammt aus Pi 1.5.2 und enthält GPT-6.1 Terra.
+
 ## Was ein Executor ist {#what}
 
 Für jeden Auftrag startet ADORE Pi, seinen einzigen Coding-Agenten, in einer isolierten Arbeitskopie, und Pi arbeitet die AEGIS-Phasen des Repositorys mit dem konfigurierten Anbieter und Modell ab. ADORE verwendet das Pi im Image für Containeraufträge und seine verwaltete Pi-Installation für Serveraufträge.
@@ -934,6 +936,8 @@ An executor is what ADORE launches for every job: the Pi coding agent and the AI
 **Reasoning effort** offers levels supported by the selected model in the bundled Pi catalog. Pi default leaves its choice unchanged. Unlisted models and custom endpoints cannot claim unsupported levels. The selection applies to jobs and Test AI connection.
 
 New OpenAI projects start with model \`gpt-6.1-terra\`. Existing project model selections stay unchanged.
+
+The bundled model catalog comes from Pi 1.5.2 and includes GPT-6.1 Terra.
 
 ## What an executor is {#what}
 
@@ -1791,6 +1795,8 @@ Un exécuteur est ce qu’ADORE lance pour chaque tâche : l’agent de programm
 
 Les nouveaux projets OpenAI utilisent initialement le modèle \`gpt-6.1-terra\`. Les choix des projets existants restent inchangés.
 
+Le catalogue de modèles fourni provient de Pi 1.5.2 et inclut GPT-6.1 Terra.
+
 ## Ce qu’est un exécuteur {#what}
 
 Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copie de travail isolée, et Pi suit les étapes AEGIS du dépôt avec le fournisseur et le modèle configurés. ADORE utilise le Pi intégré à l’image dans un conteneur et son installation gérée de Pi pour les tâches sur le serveur.
@@ -2647,6 +2653,8 @@ Un executor este ceea ce ADORE lansează pentru fiecare lucrare: agentul de prog
 **Efort de raționament** oferă nivelurile acceptate de model în catalogul Pi inclus. Implicit Pi lasă alegerea în seama Pi. Modelele nelistate și endpointurile proprii nu pot pretinde niveluri neconfirmate. Alegerea se aplică lucrărilor și testului conexiunii AI.
 
 Proiectele OpenAI noi pornesc cu modelul \`gpt-6.1-terra\`. Modelul ales în proiectele existente rămâne neschimbat.
+
+Catalogul de modele inclus provine din Pi 1.5.2 și include GPT-6.1 Terra.
 
 ## Ce este un executor {#what}
 

@@ -27,7 +27,7 @@ from adore.resource_lock import ResourceLockError, resource_lock
 from adore.util import run_command, strict_json_loads
 
 # CONSTANTS
-PI_VERSION = "1.4.0"
+PI_VERSION = "1.5.2"
 WEB_VERSION = "0.46.0"
 PI_PACKAGE = "@earendil-works/pi-coding-agent"
 WEB_PACKAGE = "pi-web-access"

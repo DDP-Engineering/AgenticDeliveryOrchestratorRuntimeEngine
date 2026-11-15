@@ -27,7 +27,7 @@ ARG NODE_SHA256=1805bcd35e6815559bd2eb97db438d3fdb0eb3a5e6a977b7c1badca76337e9ce
 ARG GLAB_VERSION=1.55.0
 # Pi, ADORE's only coding agent, runs as `pi --mode rpc`; pi-web-access is its
 # web search and page reading extension, installed in the same prefix.
-ARG PI_PACKAGE=@earendil-works/pi-coding-agent@1.4.0
+ARG PI_PACKAGE=@earendil-works/pi-coding-agent@1.5.2
 ARG PI_WEB_ACCESS_PACKAGE=pi-web-access@0.46.0
 
 ENV DEBIAN_FRONTEND=noninteractive

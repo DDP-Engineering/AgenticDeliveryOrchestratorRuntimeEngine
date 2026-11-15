@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "Pi 1.5.2 refreshes the model catalog, including GPT-6.1 Terra.", fr = "Pi 1.5.2 actualise le catalogue de modèles, dont GPT-6.1 Terra.", de = "Pi 1.5.2 aktualisiert den Modellkatalog, einschließlich GPT-6.1 Terra.", ro = "Pi 1.5.2 actualizează catalogul de modele, inclusiv GPT-6.1 Terra." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
 text = { en = "Inactive settings are removed; internet access and clarification timeouts stay available.", fr = "Paramètres inactifs retirés ; accès Internet et délai de clarification restent disponibles.", de = "Inaktive Einstellungen entfernt; Internetzugriff und Rückfragefristen bleiben verfügbar.", ro = "Setările inactive sunt eliminate; accesul la internet și timeoutul clarificărilor rămân." }
 
