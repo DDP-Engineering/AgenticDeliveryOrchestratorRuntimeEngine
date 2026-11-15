@@ -46,7 +46,8 @@ JSON/URLs) and retry/backoff policy (the orchestrator's concern).
 
 ## 3. Implementation Overview
 
-- `CommandResult` (dataclass): argv, exit_code, stdout, stderr, `ok` property.
+- `CommandResult` (dataclass): argv, exit_code, stdout, stderr, timed_out,
+  raw_stdout, `stdout_bytes` and `ok` properties. Raw stdout is omitted from repr.
 - `CommandRunner` (Protocol): the callable contract; `run_command` is the
   concrete default, tests inject fakes.
 - `run_command` never raises for command failure - errors are reported
@@ -54,8 +55,8 @@ JSON/URLs) and retry/backoff policy (the orchestrator's concern).
   - `127` - executable not found,
   - `124` - wall-clock timeout (subprocess killed),
   - otherwise the command's own exit code.
-- `run_command` captures completed process output, decoded as UTF-8 with
-  replacement. Pi RPC uses a separate owned-pipe client with strict protocol
+- `run_command` retains exact captured stdout bytes, including partial timeout
+  output. Its separate display text is decoded as UTF-8 with replacement. Pi RPC uses a separate owned-pipe client with strict protocol
   decoding and bounded conversation/operational evidence.
 - Default command timeout: 600 s (`DEFAULT_COMMAND_TIMEOUT`).
 
@@ -111,7 +112,7 @@ seconds = parse_duration("24h")  # 86400
 
 ## Exact source decoding
 
-`run_command` decodes captured bytes without newline translation, preserving CRLF recipe fingerprints. `strict_json_loads` rejects duplicate keys, non-finite constants and decoder nesting overflow. Callers own input-size limits and translate failures to their typed domain errors. Focused proof: `tests/test_util.py`.
+`run_command` retains original stdout in `raw_stdout`; `stdout_bytes` exposes that exact capture, without decoding or newline conversion. Text-only injected results encode their fixture as UTF-8 with surrogateescape. The normal `stdout` remains display text decoded with replacement. Content fingerprints must use `stdout_bytes`, so different invalid UTF-8 sequences cannot collapse to the same replacement text. Raw capture is also retained on timeout. `strict_json_loads` rejects duplicate keys, non-finite constants and decoder nesting overflow. Callers own input-size limits and translate failures to their typed domain errors. Focused proof: `tests/test_util.py`.
 
 ## Automatic child process policy
 

@@ -56,7 +56,14 @@ from adore.branding import (
     EXECUTOR_NAME,
 )
 from adore.capacity import admission_limit, initial_start_slots
-from adore.config import Config, branch_naming_preview, egress_policy, load_config, validate_budgets
+from adore.config import (
+    Config,
+    branch_naming_preview,
+    egress_policy,
+    load_config,
+    requested_workflow,
+    validate_budgets,
+)
 from adore.execution import (
     ContainerBackend,
     ExecutionBackend,
@@ -369,12 +376,16 @@ class Orchestrator:
 
     def poll_once(self, *, dry_run: bool = False, locked: bool = False,
                   ticket_iid: int | None = None, admit_only: bool = False,
-                  reconcile: bool = True) -> dict[str, Any]:
+                  reconcile: bool = True, workflow: str | None = None) -> dict[str, Any]:
         """@brief Reconcile independently, reserve atomically, then conduct outside admission.
         @param[in] ticket_iid Positive explicit Start; monitoring pause is preserved.
+        @param[in] workflow Optional manual aegis/direct override for this new job only.
         @param[in] admit_only Reserve without launching work, for process dispatch.
         @param[in] locked Retained call signature; admission always locks itself.
         """
+        mode = requested_workflow(self.config.workflow.mode, workflow)
+        if workflow is not None and ticket_iid is None:
+            raise ValueError("workflow override requires a manual ticket")
         if ticket_iid is not None and (type(ticket_iid) is not int or ticket_iid < 1):
             raise ValueError("manual ticket identity must be a positive integer")
         if self.owned_run_id and (ticket_iid is None
@@ -389,7 +400,7 @@ class Orchestrator:
             return summary
         if not dry_run:
             try:
-                self._probe_repository_payload()
+                self._probe_repository_payload(mode)
             except AegisError as exc:
                 summary["payload_error"] = _sanitize(exc)
                 if ticket_iid is not None:
@@ -430,7 +441,13 @@ class Orchestrator:
             if dry_run:
                 self.log(f"dry-run: would pick #{ticket.iid} '{ticket.title}'")
             else:
-                self._reserve_ticket(ticket)
+                try:
+                    self._reserve_ticket(ticket, mode=mode)
+                except AegisError as exc:
+                    summary.update(picked=None, start_reason="workflow_unavailable",
+                                   payload_error=_sanitize(exc))
+                    self.log(f"admitted worktree workflow refused: {_sanitize(exc)}")
+                    return summary
                 if not admit_only:
                     self.conduct_run(run_id)
         return summary
@@ -656,13 +673,16 @@ class Orchestrator:
         return retained
 
     @_exclusive_run
-    def restart(self, run_id: str, expected_revision: str) -> dict[str, Any]:
+    def restart(self, run_id: str, expected_revision: str, *,
+                workflow: str | None = None) -> dict[str, Any]:
         """@brief Abandon a confirmed failed incarnation and manually admit its ticket.
         @param[in] run_id Stored failed job.
         @param[in] expected_revision SHA-256 of the exact confirmed state bytes.
+        @param[in] workflow Optional aegis/direct choice for the replacement job.
         @return Normal selected-ticket poll result under the same run ownership.
         @exception IsolationError Changed/nonfailed state or unconfirmed cleanup.
         """
+        requested_workflow(self.config.workflow.mode, workflow)
         with contextlib.ExitStack() as reservation:
             with self.store.admission_lock():
                 if self.admission_guard is not None:
@@ -670,9 +690,10 @@ class Orchestrator:
                 if not self._has_capacity(excluding=run_id):
                     return {"picked": None, "at_capacity": True, "start_reason": "at_capacity"}
                 reservation.enter_context(self.store.execution_slot(run_id))
-            return self._restart_owned(run_id, expected_revision)
+            return self._restart_owned(run_id, expected_revision, workflow=workflow)
 
-    def _restart_owned(self, run_id: str, expected_revision: str) -> dict[str, Any]:
+    def _restart_owned(self, run_id: str, expected_revision: str, *,
+                       workflow: str | None = None) -> dict[str, Any]:
         """@brief Retain the execution reservation throughout verified abandonment."""
         from hashlib import sha256
 
@@ -701,7 +722,7 @@ class Orchestrator:
         self.forge.add_labels(run.ticket_iid, [lifecycle.ready])
         self._admission_branches[run.ticket_iid] = selected
         try:
-            result = self.poll_once(ticket_iid=run.ticket_iid, reconcile=False)
+            result = self.poll_once(ticket_iid=run.ticket_iid, reconcile=False, workflow=workflow)
             if retained:
                 result["unproven_branch_retained"] = True
             return result
@@ -1191,9 +1212,19 @@ class Orchestrator:
             raise AegisError(f"cannot inspect AEGIS payload: {exc}") from exc
         return True
 
-    def _probe_repository_payload(self) -> None:
+    def _resolve_workflow(self, root: str, mode: str) -> str:
+        """@brief Select Direct without inspecting AEGIS; explicit AEGIS fails closed."""
+        if mode == "direct":
+            return "direct"
+        if self._has_payload(root):
+            return "aegis"
+        if mode == "aegis":
+            raise AegisError("explicit AEGIS selection requires an installed usable payload")
+        return "direct"
+
+    def _probe_repository_payload(self, mode: str = "auto") -> None:
         """@brief Probe present governance only; absence enables the direct workflow."""
-        if not self._has_payload(self.config.worktree.repo_path):
+        if self._resolve_workflow(self.config.worktree.repo_path, mode) == "direct":
             return
 
         def execute(argv, *, timeout=None):
@@ -1281,7 +1312,7 @@ class Orchestrator:
         )
         return True
 
-    def _reserve_ticket(self, ticket: Ticket) -> RunState:
+    def _reserve_ticket(self, ticket: Ticket, *, mode: str = "auto") -> RunState:
         """@brief Initialize a reserved place outside admission, then durably acknowledge it."""
         run_id = self._run_id(ticket.iid)
         branch = self._admission_branches.pop(ticket.iid, self._branch_name(run_id, ticket.iid))
@@ -1296,7 +1327,7 @@ class Orchestrator:
         comments = self.forge.list_comments(ticket.iid)
         run.last_seen_comment_id = max((item.id for item in comments), default=None)
         self._allocate_worktree(run)
-        run.workflow = "aegis" if self._has_payload(run.worktree) else "direct"
+        run.workflow = self._resolve_workflow(run.worktree, mode)
         run.stage = "frame" if run.workflow == "aegis" else "build"
         self.store.save(run)
         self.store.save_ticket(run_id, self._ticket_snapshot(ticket))
@@ -1315,7 +1346,7 @@ class Orchestrator:
                 if self.store.exists(run_id) or not self._has_capacity(excluding=run_id):
                     raise LockHeldError("ticket already reserved or project at capacity")
                 reservation.enter_context(self.store.execution_slot(run_id))
-            self._reserve_ticket(ticket)
+            self._reserve_ticket(ticket, mode=requested_workflow(self.config.workflow.mode))
             self.conduct_run(run_id)
 
     @_exclusive_run

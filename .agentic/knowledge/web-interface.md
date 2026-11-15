@@ -8,7 +8,6 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
-
 ## Routing
 
 Use for authenticated HTTP/project grants, dashboard settings, job/ticket views, navigation and administration. Start at web/app.py and web/src/App.tsx; tests route by component. Capacity/worker/draft feedback routes to project-capacity.md, durable long controls to configuration-worker.md, and process dispatch to web-supervisor.md.
@@ -32,7 +31,6 @@ REQ-FUNC-42643886, REQ-REL-329421d1, REQ-UX-0f6e2c63, REQ-UX-5243a55c and REQ-FU
 ## Files
 
 `04_Software/adore/web/app.py`, `store.py`, `jobs.py`, `tickets.py`; `04_Software/web/src/App.tsx` and scoped UI modules; `tests/test_web_*`, `web/tests/*` and `web/e2e/*` provide per-feature proof.
-
 
 The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; the CLI bridge is dispatched by a single-home supervisor into independent project/run processes, with explicitly owned cancellation signals reaching active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
 
@@ -94,7 +92,6 @@ configuration values, type/domain hints and field help use 0.875rem text with
 1.5 line height; long identifiers and guidance wrap within their panels.
 On narrow screens, setting labels, values and help stack vertically.
 
-
 About shows the DDP Engineering logo band, ADORE and its version, and What's
 new / License / Third-party notices buttons; licenses stay folded until pressed.
 What's new renders `release_notes` from `/api/v1/about` (packaged
@@ -110,7 +107,6 @@ project wizard and project Settings. Agents keep it current under AGENTS.md
 "Help content rules"; `tests/help.test.mjs` enforces parity and links. The
 glossary is the Glossary topic. Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
-
 
 Projects labels new-ticket pickup as **Monitoring**, with Active/Paused states.
 The directory shows project, repository path, Repo (Gitea/GitHub/GitLab),
@@ -164,7 +160,6 @@ React action workspaces/project hubs, the web queue, or offline web media. Start
 for attention/global jobs/details; `web/e2e/jobs.spec.ts` verifies those views. Focused tests are
 `04_Software/tests/test_web_*.py`. Engine internals belong to `orchestrator.md`.
 
-
 `REQ-UX-34718dd6`: Admin Project settings exposes Request review from as a reviewer-only six-line list editor. Typed exact candidate authority and complete TOML array replacement retain existing revision/access/idle/apply checks. Developers retain read-only settings; retry schedules use their own integer editor; other arrays stay outside generic editing.
 
 ## Purpose and boundaries
@@ -176,49 +171,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
-`setup-preview` returns transient `verification_hint: {command, source} | null`
-only for structurally valid inspected direct clones, using the pure shared
-`adore/verification_hint.py` reader (see wizard.md). It never clones or runs the
-command. AEGIS, absent clones and misses yield null; access/encoding failures
-return redacted setup-unavailable/repo_path findings. Hints are outside canonical
-review/digests and absent from Create/shared preparation and Settings.
-EnrollmentWizard previews on Verification entry, validates the full response,
-and fills only an untouched command with localized accessible source provenance.
-A changed default permits one canonical re-preview; malformed/failed evidence
-blocks progression, and generation guards preserve edits during requests. Edits
-or clearing remain authoritative through Back, preview and Check; repository
-changes clear only untouched defaults. Only explicit Create persists reviewed
-text. Saved Settings never infer defaults. Proof: test_web_enrollment.py,
-test_web_config.py, web/e2e/enrollment.spec.ts and settings.spec.ts; Projects help
-and enrollmentCopy.ts carry the four-locale source guidance.
 
-`REQ-DATA-71366af6`: workflow.verify_command is an exact-string editable API
-setting; resolved reads, Admin exact raw TOML and unrelated reviewed edits preserve
-it under existing validation, authorization and redaction. Guided API enrollment
-accepts strict optional verify_command text, default empty, bound to canonical review.
-Nontext and CR/LF/NUL return field-identifying 422 invalid_request. Scalar/batch
-settings review refuses CR/LF/NUL with value-free command-field 400 invalid_config
-without replacing active/pending bytes. implementation_settings.py serializes a
-literal string, escaping DEL (U+007F) for TOML while retaining literal non-BMP
-Unicode, and checks exact unrelated TOML meaning; pending reads/apply repeat
-typed-domain, claimed-text and unchanged-base semantic checks. Existing Admin/CSRF,
-revision, idle and locking gates remain. Invalid saved values retain key-named
-issues or typed corrupt-config refusal. Enrollment Verification and Settings
-Implementation expose the exact optional command through one-row textareas, with
-shared four-locale names/help/invalid-input feedback. The browser refuses CR/LF/NUL
-before preview or Save and validates scalar/batch pending values before recovery.
-An inspected AEGIS enrollment replaces the control with its repository-test-command
-note; the draft string is not erased. Jobs uses the saved run workflow and independent verification evidence described below. Proof includes
-web/tests/readiness.test.mjs, settings.test.mjs, settingsSave.test.mjs,
-localDiagnostics.test.mjs and web/e2e/enrollment.spec.ts/settings.spec.ts, alongside
-test_web_enrollment.py,
-test_web_config.py, test_web_config_raw.py, test_web_pending_config.py and
-test_web_settings_batch.py. Browser coverage includes both actual clone workflows,
-all four locales, Admin/Dev authority, multiline clipboard refusal, exact nonempty
-and empty reviewed saves, and narrow light/dark layouts. Projects, Settings,
-Glossary and Tickets help describes both workflows, optional command and live
-pre-pick authority; help.test.mjs and help.spec.ts prove content and navigation
-contracts in all four locales.
 
 The settings help catalog includes Pi reasoning effort and describes the native
 service account and optional tools PATH in all four locales.
@@ -247,7 +200,6 @@ SQLite bytes, authorization, scope and financial redaction.
   malformed reads hide data and counts. Project History retains job history and
   adds this evidence. Retention editing lives under System status with separate
   day/text-byte limits and actual deleted-event impact.
-
 
 - Admin/CSRF `/users/with-access` commits explicit role, immutable project IDs,
   account and existing secret-free audit atomically through `create_user_with_access`.
@@ -280,7 +232,6 @@ SQLite bytes, authorization, scope and financial redaction.
   their behavior. Portable parser/API tests remain offline.
 - `GET /api/v1/projects/{name}/config/raw` is administrator-only. It returns original saved UTF-8 TOML bytes, including inline secrets, as `text/plain`, with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. `?download=true` adds a fixed `config.toml` attachment. Authorization precedes lookup. Empty, malformed, unreadable, symlinked or oversized sources return value-free 503 `config_corrupt`; changed bytes or immutable project identity return 409 `stale_config_revision`. Reads are bounded to 524288 bytes; no environment resolution, `.env`, pending changes or mutation.
 - Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
-
 
 - `/api/v1/jobs-page` provides globally ordered authorized current and
   archived job history, optional project/search/attention/status filters and optimistic
@@ -636,41 +587,7 @@ Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
 `test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native
 Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
-- SQLite usage and launch-coverage projections are reconciled against retained journals
-  before attributed reads; usage projection source IDs are the usage event IDs. An administrator can explicitly replay archived and
-  current projects; a per-run cursor prevents repeated events adding rows, and changed or vanished
-  source evidence fails closed without changing run state.
-- Administrators add immutable effective-dated rates for exact
-  project/executor/model combinations; estimates apply only to usage events
-  without reported cost and remain separate from reported totals.
-- Worker authorization is rechecked after queueing. Interrupted operations
-  become `uncertain`, never blindly replayed.
-  A queued Cancel is rejected if the run became human-owned before execution.
-- During every blocking worker command or project poll, a watcher rechecks
-  pending cancel grants across projects and
-  writes a per-run marker. The conductor interrupts the matching working gate
-  and performs normal teardown; a revoked grant creates no marker.
-- Selected-ticket starts retain the conductor's readiness and approval gates.
-  The web layer never merges.
-- Manual Start remains available with monitoring paused; it leaves automatic pickup paused and preserves eligibility, capacity, locks and approval gates.
-- The worker runs the CLI with stderr joined to stdout (`CommandOutcome`; a
-  runner may still return a bare exit code). A non-zero exit or timeout keeps a
-  `detail` tail from `util.output_tail` with `jobs.redact_text` (redacted before
-  the 20-line/2000-character cut), and a refused start keeps the CLI's
-  not-started code for its own ticket as `reason` (REQ-FUNC-fbb6448c,
-  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 18), never in audit
-  evidence. The UI localizes `reason` through `operationReason.ts` in Tickets,
-  Jobs and the project status, names a refused Start's kept labels only for a
-  failure with a known reason, and opens Start/Stop confirmations as a row under their
-  ticket (REQ-UX-3cafa0cc, REQ-UX-5fb31254, REQ-UX-21f0f5a5, REQ-UX-61a21b3d,
-  REQ-UX-c18f6fec).
-- Offline installation verifies the manifest and runs `pip --no-index`.
-- About exposes bundled project license text and versioned third-party notices.
-- Below 760px, primary navigation opens from a labeled collapsible menu and
-  closes after page selection. Narrow panels wrap text while data tables keep
-  their own horizontal scrolling.
-
-The legacy CLI bridge schedules command ordering for one home while scoped owners
+The CLI command bridge schedules command ordering for one home while scoped owners
 provide independent execution/configuration claim boundaries. During any blocking engine
 command or project poll, the worker watches queued cancellations across projects and
 claims the cancel operation and signals the active conductor only after rechecking
@@ -778,38 +695,8 @@ for Add and Import project. Primary buttons take their text colour from the
 | Project developer access | `/api/v1/projects/{name}/access` routes in `adore/web/app.py`, `project_members` and `set_membership` in `adore/web/store.py`, `ProjectAccess` in `App.tsx`, `web/src/routes.ts` | `test_web_project_access.py`, `npm test` (`routes.test.mjs`), browser check |
 | Project settings list and row editing | `_setting_metadata` in `adore/web/app.py`, `web/src/settings.ts`, `SettingsList` in `App.tsx` | `test_web_config.py`, `npm test` (`settings.test.mjs`), browser check |
 | Setting help texts and catalog | `web/src/settingHelp.ts`, `web/src/settingKeys.json`, `default_config()` in `adore/config.py` | `test_web_setting_catalog.py`, `npm test` (`settingHelp.test.mjs`), browser check |
-| Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
-
-- REQ-DATA-08ed925c / REQ-SEC-5d0f86e7: authorized read-only direct evidence is
-  validated before filters/counts/paging, redacted for both roles and released
-  only after source/profile/grant reinspection. Malformed saved attempts/results
-  fail with typed secret-free errors; no repair or external command runs.
-- REQ-UX-4123c97c / REQ-UX-029d0525 / REQ-UX-ad37f7e7 / REQ-UX-5cf762f8:
-  Jobs identifies the saved workflow; direct current/timeline stages are localized
-  Implementation, Validation and Done only, without an AEGIS task. AEGIS labels,
-  actions and observed-only timeline semantics retain their existing meanings.
-- REQ-UX-ef06a3c7 / REQ-UX-1b6f2a83 / REQ-UX-16f751b7 / REQ-UX-f6c6e946 /
-  REQ-UX-7e9792e9 / REQ-UX-647b1549 / REQ-UX-631835f9 / REQ-UX-009b4cb9 /
-  REQ-UX-9cdaa57b / REQ-UX-7fab3dcb: the direct panel shows the saved attempt,
-  command before outcome, duration and focusable literal tail, distinguishing
-  passed, failed, timed out, explicit unverified and unavailable evidence.
-- REQ-UX-b105b854 / REQ-UX-46c09118 / REQ-UX-a8c7ea48: missing/nontext/unknown
-  workflow, malformed direct detail or forbidden direct stages reject browser
-  reads; list error/incomplete/source-change and detail failure hide stale panels.
-- REQ-UX-c77f7335 / REQ-UX-558518e7: four-locale Jobs/Settings help and inline
-  guidance explain direct evidence and build/validate limits with general fallback.
-
-- REQ-FUNC-d50a408d / REQ-FUNC-2bf3e808 / REQ-FUNC-357ae298: offline preview
-  returns a separate command/source hint only for inspected direct clones; AEGIS,
-  absent clones and misses receive null, and access/encoding errors refuse setup.
-- REQ-UX-92197baa / REQ-UX-dd21046e / REQ-UX-cca17b80 /
-  REQ-REL-60015e50: enrollment validates the full hint response, prefills only
-  untouched drafts, identifies the source in four locales and canonically
-  re-previews at most once. Human edits/clearing win over delayed responses.
-- REQ-DATA-c1c4d1c3: saved Settings never infer over an empty/custom command;
-  explicit reviewed Create/Save is the persistence authority.
 
 - REQ-FUNC-e3cf5dfd / REQ-SEC-74753f08: reviewed scalar/batch apply permits parked-clarification jobs only for the five budget keys, with exact candidate reconstruction, Admin/CSRF, source/state-root/lock/revision and unfinished-operation checks retained. Mixed batches, direct edits and other lifecycles keep the existing idle boundary. No job state or approval is written by budget apply.
 - REQ-UX-1054b9b6: composite Job details adds non-financial `budget` counters (launches and cumulative active seconds), current limits and config_revision, bound to unchanged source bytes. The frontend rejects invalid/missing detail budget evidence, shows a 90%/exhausted status notice and an Admin project Settings link, with four-locale timing/help. Statistics remain independent. Proof: test_web_jobs.py, test_web_settings_batch.py, jobs.test.mjs and jobs/enrollment browser journeys.
@@ -832,10 +719,6 @@ for Add and Import project. Primary buttons take their text colour from the
   theme-token styling contain wide code/source/tables in keyboard-focusable local
   scroll regions at desktop and narrow widths.
 
-- `REQ-REL-2e67fc6d`: historical Deliver records stay readable and labelled; new
-  jobs show Done during approval, publication and human review.
-- `REQ-DATA-eebc4f88`: the stage-timeout editor accepts only the five executor stages.
-
 - REQ-UX-812acd4b: reviewed configuration admits the container-only system-package boolean. The generic settings row explains direct agent installation, sudo-capable images, fresh jobs and independent network access.
 
 REQ-FUNC-f9946b6b: The worker validates Retry terminal evidence against the
@@ -846,12 +729,10 @@ remain uncertain. operationResultText localizes retry reasons and displays saved
 terminal causes in all four locales. No raw CLI/forge/executor output is forwarded.
 Focused proof: tests/test_retry_revalidation.py and web/tests/manualStart.test.mjs.
 
-
 - REQ-UX-b75e1df8: ProjectInput accepts execution_backend and the current account and optional local PATH. Review/config show actual machine/account/system; metadata reports runtime=local. Reviewed candidates recheck pinned native plans. Host checks avoid container detection.
 
 Native control/auth route to local-execution.md. Focused proof:
 `04_Software/tests/test_local_execution.py`.
-
 
 - `REQ-UX-94a97e70`: CLI validates external execution selections and previews complete image/source/commands. Web reads expose effective image and retained preparation evidence; environment mutations are refused. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
 - ChatGPT sign-in: `REQ-FUNC-4efa960e` status, `REQ-FUNC-09ac930a` start from a native or container
@@ -862,16 +743,12 @@ Native control/auth route to local-execution.md. Focused proof:
 
 - `REQ-DATA-5a620f4e` / `REQ-REL-6564a3b2` / `REQ-FUNC-83da8d95` - composite measured job consumption, strict sources and server-selected analytical samples.
 
-
-- `REQ-FUNC-20010f79`, `REQ-SEC-934b2dca`, `REQ-UX-7d0b71c3`: isolated stopped portable enrollment, exact authorized source binding and explanatory mapping/reconfirmation.
-
 - `REQ-SEC-f96d80d4`: authoritative portable transfer API with no enrollment writes.
 - `REQ-UX-34ca5d39` / `REQ-SEC-3cf6cde4`: compact Settings and Admin original TOML reads, memory-only preview and exact download.
 
 - `REQ-UX-b758d2b7`, `REQ-UX-78923e00`, `REQ-UX-a7969a9d`,
   `REQ-FUNC-25dc0271` â€” complete authorized action workspace, pickup/verification
   project hubs, observed safe timeline and actual queued outcomes.
-
 
 - `REQ-FUNC-e8455ab6`, `REQ-DATA-0ba9e469`, `REQ-SEC-5d0f86e7` â€” complete
   authorized job pages, actual persisted evidence/unknowns and strict trusted sources.
@@ -888,49 +765,6 @@ Native control/auth route to local-execution.md. Focused proof:
 - `REQ-UX-955615bd` / `REQ-UX-aa5e358e` - authorized accessible shell and approved branding.
 - `REQ-UX-8031b8eb` / `REQ-UX-0713852d` - localized delivery vocabulary and explicit project context.
 - `REQ-UX-257ab3f0` / `REQ-UX-9a8b409d` - scoped request feedback and role-specific empty access guidance.
-
-- `REQ-SEC-9ee171c9` - local accounts and durable, fail-closed sessions.
-- `REQ-SEC-59d97c68` - project scope and developer financial privacy.
-- `REQ-FUNC-7ce5b17a` - project setup, config and status.
-- `REQ-FUNC-f9946b6b` - durable selected-ticket operations and admin pickup.
-- `REQ-FUNC-448cbde7` - observed usage, reported/estimated costs and coverage.
-- `REQ-UX-749d37c8` - four locales, themes and responsive UI.
-- `REQ-SEC-676d284c` / `REQ-UX-309a6b3f` - administrator reset requires a new
-  password; the browser shows only the change-password card meanwhile.
-- `REQ-FUNC-9c1f728e` / `REQ-UX-e6ed7168` - stable API error codes and their
-  localized banner text.
-- `REQ-UX-359f8cbf` - browser-side project-name validation.
-- `REQ-UX-94dc4e69` - error banners reflect only the latest user action.
-- `REQ-UX-4200375b` - every view has a stable path URL with history support.
-- `REQ-UX-d88d3d7f` - project details tabs and project links.
-- `REQ-UX-3dda4965` / `REQ-UX-02f35869` - example placeholders, required
-  markers and the stated password rule.
-- `REQ-UX-5b0fa167` / `REQ-UX-48d6a55d` - phone table scroll cue and Jobs
-  filter toggle.
-- `REQ-SEC-a514d0b2` / `REQ-UX-772cb418` / `REQ-FUNC-bcaf01be` - delete
-  an archived, idle project after typed-name confirmation; the worker runs the
-  resource-removing CLI delete and human-owned worktrees are kept.
-- `REQ-UX-205e5379` / `REQ-UX-deb101f5` / `REQ-UX-48fb199d` /
-  `REQ-UX-0c03fc93` / `REQ-UX-d93fab0f` / `REQ-UX-7fdffe77` - name and ticket
-  links, scoped card hints, SVG icons, heading spacing, project-executor price
-  default and the empty-metrics message.
-- `REQ-NFR-da638732` / `REQ-NFR-46c98d6c` / `REQ-FUNC-a83c4cd3` - no polling
-  while hidden and server-paged Audit/Overview tables.
-- `REQ-UX-2bea4ff1` / `REQ-UX-84025a2c` - purpose categories, visible setting
-  guidance, catalog control domains and exact multi-setting save confirmation, with
-  explicit apply/discard, recorded evidence fallbacks and scoped request guards.
-- `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
-- `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
-  restart metadata; Default badges for inherited values, row editing and permanent per-row descriptions.
-- `REQ-UX-b0e9a434` / `REQ-FUNC-c6c71dbd` - every setting's help text in EN/FR/DE/RO and
-  its ADORE default; the catalog test keeps texts in step with the configuration keys.
-- `REQ-SEC-3ce206e4` / `REQ-UX-7ca5687c` - administrators grant or remove one developer's access to one
-  project from its Access tab; other grants stay; developers see no tab.
-- `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
-- `REQ-PLAT-a1b60ff9` - host-specific offline installation.
-- `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles are
-  loaded and protected.
-
 
 ## Files
 
@@ -959,7 +793,6 @@ Native control/auth route to local-execution.md. Focused proof:
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
-
 - `adore/web/audit.py`, `web/src/AuditHistory.tsx`, `auditCopy.ts`,
   `tests/test_web_audit_evidence.py` and `web/e2e/audit.spec.ts` own closed structured
   evidence, authorized reads and browser proof with storage/API/worker integration.
@@ -980,7 +813,6 @@ Native control/auth route to local-execution.md. Focused proof:
   `jobCopy.ts` localizes conditional actions.
 - `04_Software/web/tests/jobs.test.mjs`, `04_Software/web/e2e/jobs.spec.ts` â€” public
   evidence/route boundaries and offline real API/worker/browser journeys.
-
 
 - `04_Software/adore/web/jobs.py`
 - `04_Software/tests/test_web_jobs.py`
@@ -1034,7 +866,6 @@ Discard focus restoration runs in a post-render effect after the mutation busy g
 
 Persisted audit project names reject unsafe names with a redacted typed storage error on initialization and public reads; empty names preserve global scope. Every audit write carries structured evidence; a row without it is corrupt, and so is an operation without a project ID.
 
-
 Project Summary uses two panels beneath the shared project header. The first
 shows separated label/value tiles for Container type, Executor, Monitoring,
 environment verification and actual scoped Active jobs, Waiting, Draft review
@@ -1083,7 +914,6 @@ Deletion uses a native modal with exact-name confirmation, Escape/cancel,
 focus containment and trigger focus restoration; navigation clears intent.
 Deletion remains subject to archived/idle project preconditions.
 
-
 ## Project repository connection
 
 Summary â†’ **Connect repository** opens an Admin-only modal token form beside Check host prerequisites for the saved
@@ -1115,7 +945,6 @@ narrow/dark layout, token clearing and wrong-scope rejection.
 Gitea readiness verifies configured-login tea API user evidence, requiring 2xx
 HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
 
-
 ## Internet access for the agent
 
 Settings -> Agent and model shows `executor.internet` (generic boolean row
@@ -1139,7 +968,6 @@ locales. Requirements: `REQ-UX-e340fc1e`, `REQ-FUNC-aaa37a72`,
 Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi provider and model. Each explicit click sends one short request over Pi's RPC mode in a temporary container, or in a temporary folder for a Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain the pinned Pi.
 
 Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). Failures provide redacted guidance (`modelEvidence.ts`) for a missing key (**credential-missing**, no container starts), an invalid key, model availability, rate limits, provider errors, image, CLI version or network. A `chatgpt` project first gets an access token from the server's sign-in for 90 s plus 300 s and reports **sign-in-required** (not signed in, or sign in again), **subscription-refused** (OpenAI refuses the plan), **connection-failed** (OpenAI not reachable) or **usage-limit** (Pi's rate limit on a subscription); the token reaches Pi only in the launch environment and is redacted from the evidence. The action reuses executor credentials and egress and starts no job. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
-
 
 ## Project setting scope and guidance
 
@@ -1202,7 +1030,6 @@ The four-locale repository connection browser journey waits for successful
 language and theme preference writes before full document navigation. This
 keeps the keyboard and narrow-layout proof independent of request timing.
 
-
 ### Exact API-candidate recovery
 
 A valid pending candidate containing an API-only or hidden setting remains read-only in the row UI. Navigation is guarded throughout saving and confirmation, including read-only recovery with no local dirty fields. The one Save action rereads and compares the complete pending envelope, confirms its safe values and applies the exact existing candidate/base pair without preparing a replacement. Stale or corrupt evidence blocks Save and remains explicitly discardable. GUI-editable pending batches recover into visible editors and use bound replacement. Focused proof: `settings-save.spec.ts` API-only success/stale/corrupt cases and `test_web_settings_batch.py` collateral replacement preservation.
@@ -1214,7 +1041,6 @@ Job views expose SHA-256 state_revision. JobWorkspace offers four-locale confirm
 `forget_run_usage` serializes source deletion with composite usage/observation/cursor reset in one SQLite write transaction. Production projection calls recheck the current journal prefix inside their transaction, allowing appends and refusing stale sources. The CLI binds the deletion callback to the exact registered profile/config identity. Source-removal failure rolls back projection changes; other projects/users/audit are untouched. Proof includes a deterministic reader interleaving and fresh admission after projected old usage.
 
 The worker maps successful restart summaries reporting a retained unproven older branch to four-locale success evidence. Help explains bounded fresh generations and naming-rule refusal, while known changed checkpoints continue to block cleanup.
-
 
 REQ-REL-f206c815: missing/corrupt current budget limits never erase valid job evidence,
 recovery controls or saved usage. Detail budgets report availability=unavailable,
@@ -1228,7 +1054,6 @@ AttributeError is classified without an untyped server error.
 JobWorkspace explains Working, parked-clarification and Failed states in all four locales, shows saved current-stage failures, and uses seconds in job times. Event stage projection reads explicit stage, stage context on usage/artifact events, or current destination on stage transitions. Unrelated events stay unassigned. Observed questions use ForgeMarkdown and shared local code/table scrolling.
 
 The lazy authorized executor-output endpoint reads the last executor-artifacts host capture reference, never raw IO. executor_evidence.py validates exact run/attempt/context/digest/schema, bounded regular unlinked stable files and canonical diagnostics. Missing provenance/files are explicit; corrupt data is refused. No private/financial transcript content is returned to either role. Consumption errors offer an actual refresh action. Strict selected-run rereads avoid rescanning project history inside each projection transaction. Out-of-order usage projection snapshots are accepted only against verified fresh source/cursor prefixes without rolling back durable cursors. Relevant proof: test_web_jobs.py, test_web_metrics.py, test_pi_rpc.py, web/tests/jobs.test.mjs and focused issue35 browser journeys.
-
 
 History projects ticket/job targets separately from queue IDs and reports actual terminal outcomes. Local CLI deletion receipts import once into the authorized audit view with crash uncertainty, immutable identity validation and explicit SQLite journal-mode checks. Completed import receipts retain only opaque keys.
 
@@ -1282,7 +1107,7 @@ publication only after validation and freshness checks.
 
 ## Durable worker ownership
 
-WK-01 queue ownership uses web schema 18 with explicit execution, configuration_project
+WK-01 queue ownership uses web schema 1 with explicit execution, configuration_project
 and configuration_global domains, canonical resource keys, operation/owner generations
 and role/project/run process participants. Register/claim/effect/finish calls require
 explicit handles. Revoked actors or immutable project identity fail closed at claim and
@@ -1305,8 +1130,6 @@ Tests: test_web_ownership.py (barriers, independent connections, child death, re
 scoped configuration and CLI fencing), worker/audit/server/state/smoke/orchestrator tests,
 and web/tests/operationReason.test.mjs plus help.test.mjs.
 
-
-
 Actual conductor and publication scopes acquire a unique run-role owner for the
 immutable project/run, with child-process creation evidence and an independent child
 heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
@@ -1315,7 +1138,6 @@ run owners before effects; completed scopes relinquish only their own run role.
 Retry/Restart and automatic conduction/publication use the same run-scope hook.
 A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
 another process to steal the run. Invalid child transport cannot create a missing store.
-
 
 Retry/Restart acquire their canonical run role before the CLI handler, covering
 validation, reset and resource teardown as well as conduction/publication. A command
@@ -1327,14 +1149,12 @@ become typed ownership-store errors; parent and child heartbeat failure is expli
 Linux missing boot or masked-live-process evidence is unknown, preserving ownership.
 Recovery compares process snapshots in canonical PID/birth order.
 
-
 An attached command pins its immutable request fields once and selects the run proof
 by the canonical command run ID, including during nested Restart reconciliation.
 A run-role command binds engine.owned_run_id so reconciliation skips unrelated runs
 before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
 capacity always counts all working jobs in that project. Completion verifies owner
 project/domain/run scope and validates the persisted operation again.
-
 
 Existing-store schema/audit checks use autocommit reads; only fresh initialization
 (or waiting to recheck a schema-0 store being initialized) takes the initialization
@@ -1344,7 +1164,6 @@ snapshot through an indexed generation lookup before inserting the successor.
 The current unique owner/resource indexes are validated at open. Deterministic
 held-projection tests prove another role can commit a heartbeat before validation
 is released, without replacing real SQLite writes with mocks.
-
 
 Delayed fresh-file observations and schema-zero waiters re-read under the initialization
 lock and release it immediately once another initializer has committed a nonzero schema.
@@ -1359,7 +1178,6 @@ A run-role context with no operation claim authorizes only conduct for its exact
 project/run. Project-role autonomous polling remains separate. Public proof is
 in test_web_ownership.py and test_run_concurrency.py; supervision dispatch uses
 the conductor's admission-only and single-run interfaces independently.
-
 
 ## Concurrent resource ownership
 
@@ -1380,9 +1198,7 @@ transactions stay short and independent. Shared ChatGPT has its own server resou
 See configuration-worker.md and Component_Configuration_Worker.md for bounded lanes,
 image reservations, storage/refusal and browser/test integration.
 
-
 Project tabs and named global Jobs cards show scoped slots, queued causes, staged limits and latest own durable operations. SettingsList retains ordinary drafts in per-account/project sessionStorage, bound to base revision, through navigation/reload. Explicit save/discard/logout clear retention; stale/corrupt drafts cannot save. System status lists separate roles and component-named readiness keeps missing project workers local. See project-capacity.md for source/test routing.
-
 
 ## Recorded session reader and retained navigation
 
@@ -1408,7 +1224,6 @@ Proof: test_web_executor_session.py, test_web_jobs.py, sessions/routes/jobs/help
 checks and LA-01 plus retained jobs/tickets/project-capacity browser journeys.
 
 Global Jobs retains its Jobs/Capacity sub-tabs; Tickets is its own sidebar page. The project Jobs tab retains Tickets/Jobs/Capacity.
-
 
 ## Live session ownership and continuity
 
@@ -1467,3 +1282,11 @@ The strict API-source error inventory and unknown-code fallback tests remain act
 REQ-UX-b0e9a434: settingKeys.json is lexically sorted with exact configuration-key
 membership; test_web_setting_catalog.py and Node settingHelp checks enforce this
 without changing visible settings grouping, controls or help.
+
+## Explicit new-job workflow
+
+Start in both ticket scopes and revision-bound Restart use WorkflowChoice and an authorized workflow-selection default/presence read. Literal overrides travel through API, structured operation storage and worker CLI; replay binds the workflow. Project settings expose auto/direct default in Implementation with four-locale copy/help.
+
+## Current contract
+
+Current job details have Activity, Agent sessions and Job details, with vertical budgets beside the main pane. Failed-job actions provide Retry and explicit AEGIS/Direct abandon-and-restart buttons with short confirmation. Retry pins workflow. Web storage uses fixed pre-release schema 1 plus current-structure validation; it never migrates or resets automatically.

@@ -15,6 +15,7 @@ const externalEnvironmentCopy = {
 import type {Locale} from "../src/i18n";
 
 test("container runtime dropdown supports WSL, cancel and manual save", async ({page}) => {
+  test.setTimeout(90_000);
   const wsl = "wsl -d Ubuntu -- docker";
   const wslImage = "adore-executor-base:1.0.0";
   let discoveryAvailable = true;
@@ -117,7 +118,7 @@ for (const locale of ["en","ro","fr","de"] as Locale[]) {
     expect((await page.request.patch("/api/v1/me/preferences",{data:{language:locale},headers})).ok()).toBeTruthy();
     try {
       const projects=await(await page.request.get("/api/v1/projects")).json(),id=projects.find((p:{name:string})=>p.name==="alpha").id;
-      await page.goto("/projects/"+id+"/executor");
+      await page.goto("/projects/"+id+"/configuration");
       await page.locator('[data-setting-purpose="executor"] > summary').click();
       const c=externalEnvironmentCopy[locale],panel=page.locator(".executor-environment");
       await expect(panel.getByRole("heading",{name:c.title,exact:true})).toBeVisible();

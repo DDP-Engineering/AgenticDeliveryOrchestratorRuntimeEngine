@@ -13,7 +13,7 @@ Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle u
 
 Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 
-Vor der Aufnahme prüft ADORE AEGIS nur, wenn `.agentic/aegis.py` vorhanden ist. Eine defekte oder nicht unterstützte Installation wird abgelehnt. Ohne diese Datei implementiert der Agent das Ticket direkt. Repository-Prüfungen gehören bei beiden Workflows dem Agenten; ADORE beobachtet den Fortschritt und folgt der Freigaberichtlinie. Siehe [Repository-Workflows](/help/projects#workflows).
+Vor automatischer Aufnahme prüft `workflow.mode = "auto"` vorhandenes AEGIS und verweigert es bei Unbrauchbarkeit; ohne Payload gilt Direct. `workflow.mode = "direct"` überspringt AEGIS. Der manuelle Start wählt den Workflow ausdrücklich. Der Agent führt Repository-Prüfungen in beiden Workflows aus; ADORE behält Freigabe und Veröffentlichung bei. Siehe [Repository-Workflows](/help/projects#workflows).
 
 ## Zuerst die Labels anlegen {#labels}
 
@@ -88,3 +88,9 @@ HTML bleibt sichtbarer Text und wird nicht ausgeführt. Nur absolute http-, http
 5. Setzen Sie `agent-ready` zuletzt.
 6. Warten Sie auf die nächste Prüfung oder drücken Sie **Tickets lesen** und **Starten**.
 7. Verfolgen Sie den Auftrag unter [Lebenszyklus eines Auftrags](/help/jobs). Begriffe stehen im [Glossar](/help/glossary).
+
+## Workflow auswählen {#workflow-choice}
+
+Wählen Sie in **Jobaktionen** für einen neuen Job **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** und bestätigen Sie den kurzen Browserdialog zum Verwerfen bestehender Arbeit. Fehlendes AEGIS deaktiviert diese Aktion. Tickets behält die Auswahl **Workflow** vor **Starten**. Wiederholen, Fortsetzung und Review-Korrekturen behalten den gespeicherten Workflow und dieselbe Pi-Unterhaltung.
+
+In Tickets stehen Workflow, bei Bedarf Priorität, Labels hinzufügen und starten und Abbrechen auf breiten Bildschirmen in einer kompakten Zeile; auf kleinen Bildschirmen werden sie umgebrochen.

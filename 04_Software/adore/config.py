@@ -457,8 +457,9 @@ class WorktreeConfig:
 @dataclass
 class WorkflowConfig:
     """
-    @brief   [workflow] - how ticket labels map onto an AEGIS task.
-    @details `kind_labels` maps a ticket label to an AEGIS task type; fix/bug
+    @brief   [workflow] - new-job default and AEGIS task label mapping.
+    @details `mode` selects auto detection or Direct; manual choices take precedence.
+             `kind_labels` maps a ticket label to an AEGIS task type; fix/bug
              labels win over change, then configured feature labels, with
              `default_kind` used when none match. The quick label is a framing
              hint only; the executor must still apply
@@ -468,6 +469,7 @@ class WorkflowConfig:
              uses [budgets] per_gate_timeout_seconds.
     """
 
+    mode: str = "auto"
     default_kind: str = "feature"
     kind_labels: dict[str, str] = field(
         default_factory=lambda: {"bug": "fix", "fix": "fix", "change": "change"}
@@ -748,6 +750,18 @@ def _derive_names(config: Config) -> None:
 
 
 # PUBLIC API
+
+
+def requested_workflow(default: str, override: str | None = None) -> str:
+    """@brief Resolve a new job's trusted request before inspecting AEGIS.
+    @param[in] default Project mode: auto or direct.
+    @param[in] override Optional manual selection: aegis or direct.
+    @return The requested mode; auto still needs repository observation.
+    @exception ValueError Invalid project mode or manual selection.
+    """
+    if default not in ("auto", "direct") or override not in (None, "aegis", "direct"):
+        raise ValueError("invalid requested workflow")
+    return override if override is not None else default
 
 
 def default_config() -> Config:
@@ -1414,6 +1428,8 @@ def validate_config(config: Config) -> list[str]:
     issues.extend("[worktree] " + branch_messages[code] for code in branch["issues"])
 
     workflow = config.workflow
+    check(workflow.mode in ("auto", "direct"),
+            "[workflow] mode must be auto or direct")
     check(
         workflow.default_kind in RUN_KINDS,
         f"[workflow] default_kind must be one of {', '.join(RUN_KINDS)}: "

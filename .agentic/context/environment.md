@@ -313,7 +313,7 @@ Focused History and CLI deletion verification uses temporary home/profile stores
 Factory administrator proof uses isolated temporary identity stores and the serial offline browser fixture on port 18765. Production web source or help changes require a rebuilt and verified committed static bundle.
 
 
-Worker ownership proof uses isolated web schema-18 stores with injectable process births,
+Worker ownership proof uses isolated web schema-1 stores with injectable process births,
 independent SQLite connections and deterministic barriers/events. It never starts DCP,
 contacts a forge/model or executes a target repository check. Linux /proc and Windows
 process creation evidence distinguish PID reuse; unavailable probes retain ownership.
@@ -421,3 +421,13 @@ Pi job conversation proof uses offline fake RPC restarts, private-path corruptio
 and identity cases, native Windows/Linux scopes, instruction acknowledgements and
 per-attempt usage. No live model call is needed. Canonical stage-attempt archives
 remain individual segments; io/pi-conversation contains Pi-owned persistent history.
+
+## Explicit workflow offline verification
+
+Per-job workflow proof uses current temporary profile/web/run stores, injected AEGIS/
+forge/executor boundaries and the isolated browser fixture on 18765. Existing cases
+cover explicit/default selection, no-AEGIS Direct conduction, queue restart/replay,
+corrupt overrides and immutable worker identity. Only selected Python/helper/browser
+cases and static web builds run; full suites, new tests, external model reviewers,
+live model/forge acceptance and delivery archive verification are excluded by user.
+Windows symlink cases skip when the account lacks link-creation privilege.

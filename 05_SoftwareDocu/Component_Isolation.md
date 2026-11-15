@@ -42,6 +42,25 @@ saved checkpoint lease and verified absence afterwards. An absent remote can
 succeed with allow_absent; an unproven present branch remains untouched.
 See [Orchestrator](Component_Orchestrator.md) for publication/merge policy.
 
+## Byte-exact progress evidence
+
+`worktree_progress_fingerprint` hashes the original bytes of `git diff --binary
+HEAD` through `CommandResult.stdout_bytes`, then length-delimited untracked path,
+file-kind and content bytes. File data is never decoded or checked for particular
+characters. Literal U+FFFD, non-UTF-8 data, NULs, binaries and large generated diffs
+remain ordinary input; tracked diffs have no text-size cutoff. Display decoding
+cannot change the progress fingerprint. No model, executor or language is singled
+out, and stored formats do not change.
+
+Git failures, timed-out commands, invalid result types, incomplete NUL-delimited
+path lists, unsafe paths and linked parents still raise `IsolationError`.
+Untracked path metadata remains bounded to 4,000,000 bytes and is decoded through
+the host filesystem codec only for accessing the validated file; its original
+name bytes contribute to the hash. Existing exclusions still apply. This does
+not change stage timeouts, recovery accounting or approval/publication checks.
+Focused coverage uses injected command results, including distinct invalid UTF-8
+captures with identical display text, binary untracked files and unsafe paths.
+
 ## Direct exchange files
 
 Progress fingerprints and checkpoints accept explicit repository-relative literal

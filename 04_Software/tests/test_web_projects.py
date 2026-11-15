@@ -24,6 +24,7 @@ from adore.web.app import create_app
 from adore.wizard import run_wizard
 
 from tests.configuration_client import TestClient
+from tests.execution_records import execution_record
 
 
 def test_project_directory_filters_with_grants_and_status(tmp_path):
@@ -38,7 +39,8 @@ def test_project_directory_filters_with_grants_and_status(tmp_path):
     example = Path(__file__).resolve().parents[1] / "config.example.toml"
     profiles.config_path("alpha").write_bytes(example.read_bytes())
     state = StateStore(alpha.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done",
+        execution=execution_record()))
     path = state.run_dir("run-1") / "state.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     data["updated_at"] = "2026-09-30T12:30:00+02:00"
@@ -74,7 +76,8 @@ def test_project_directory_rejects_bad_filters_and_corrupt_activity(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done",
+        execution=execution_record()))
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         for query in ("q=%20%20", "q=" + "x" * 81, "state=unknown"):

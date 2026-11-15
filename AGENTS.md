@@ -38,6 +38,14 @@ Documentation required by a software implementation change is updated in the
 same change, as required below; it does not start a separate AEGIS workflow.
 For mixed requests, apply AEGIS only to the software implementation portion.
 
+The active requirement/specification registry describes implemented product
+behavior and its current software tests. Do not register standalone manuals,
+repository environment/setup/deployment/packaging scripts, removed capabilities
+or tests whose only purpose is to prove a removed feature stays absent. Keep
+negative tests for actual current input, authorization, ownership and persistence
+boundaries. Keep task journals as history; current specs do not retain old
+candidate inventories, review receipts, screenshots or validation logs.
+
 This project-owned scope rule takes precedence over broader applicability
 wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
 
@@ -101,6 +109,10 @@ overrides any requirement, spec, document or habit that asks for more:
   other data ADORE stores.
 - Each build supports exactly one current schema per stored format. Change a
   format in place; a fresh store gets the current schema.
+- The web database schema identifier stays fixed at `1` throughout pre-release.
+  Change the current table definitions in place, retain current-structure
+  validation, and refuse a mismatched store. Do not increment the identifier
+  or add version-dispatch, compatibility readers, migrations or automatic resets.
 - A store in any other schema version is refused with a clear message that
   names what the operator deletes to start fresh. Never delete, rewrite or
   recreate it automatically.
@@ -261,8 +273,9 @@ schema 1. The supported AEGIS range is declared once in
 task journals; ADORE independently owns ticket selection, worktree/container
 isolation, bounded recovery, validation, candidate-bound human approval, Git
 publication, forge comments, and configured draft or ready MR/PR creation. ADORE never
-merges, and migrates no earlier run state. Repositories without AEGIS use the
-implemented direct workflow described in
+merges, and migrates no earlier run state. New jobs use the auto/direct project
+default or an explicit manual AEGIS/Direct choice; Direct bypasses AEGIS procedures
+even when installed, while Retry retains the saved workflow. The Direct workflow is described in
 `01_Documentation/Operations_Guide.md`.
 
 The runnable implementation under `04_Software/` supports GitLab, GitHub and

@@ -61,6 +61,7 @@ from adore.config import (
     default_config,
     egress_policy,
     load_config,
+    requested_workflow,
     valid_reviewers,
     validate_config,
 )
@@ -545,6 +546,7 @@ class TicketStartInput(BaseModel):
 
     idempotency_key: str = Field(min_length=8, max_length=128)
     priority: str = Field(default="", max_length=128)
+    workflow: Literal["aegis", "direct"] | None = None
 
 
 class TicketStopInput(BaseModel):
@@ -561,6 +563,7 @@ class OperationInput(BaseModel):
     run_id: str = ""
     confirmed: bool = Field(default=False, strict=True)
     state_revision: str = ""
+    workflow: Literal["aegis", "direct"] | None = None
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
@@ -784,9 +787,11 @@ def _workflow_observation(config) -> str:
     """@brief Describe file presence without running or modifying repository code.
 
     @param[in] config Configuration containing the selected clone path.
-    @return AEGIS, Direct or explicitly not-inspected for an unavailable clone.
+    @return Direct for an explicit Direct default; otherwise presence or not-inspected.
     @exception HTTPException File inspection failed rather than proving absence.
     """
+    if config.workflow.mode == "direct":
+        return "direct"
     try:
         clone = Path(config.worktree.repo_path)
         if not clone.is_dir():
@@ -2244,6 +2249,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "review.trigger": ["label"],
         "review.on_pipeline_failure": ["revise", "notify", "ignore"],
         "workflow.default_kind": list(RUN_KINDS),
+        "workflow.mode": ["auto", "direct"],
         "reconcile.on_ticket_deleted": ["abort-cleanup", "ignore"],
         "reconcile.on_ticket_closed": ["cancel", "ignore"],
         "reconcile.on_trigger_removed": ["pause", "abort", "ignore"],
@@ -5692,6 +5698,8 @@ def create_app(home: str | Path | None = None,
             raise _error(409, "project_archived")
         if action not in ("start", "retry", "cancel", "restart", "pause", "resume"):
             raise _error(404, "operation_not_found")
+        if body.workflow is not None and action not in ("start", "restart"):
+            raise _error(400, "invalid_operation")
         if action in ("pause", "resume") and user["role"] != "admin":
             raise _error(403, "admin_required")
         if action == "cancel" and not body.confirmed:
@@ -5711,7 +5719,8 @@ def create_app(home: str | Path | None = None,
                 target = f"{body.run_id}.{body.state_revision}"
                 if replayed:
                     if (replayed["project_id"] != item.project_id
-                            or replayed["action"] != "restart" or replayed["run_id"] != target):
+                            or replayed["action"] != "restart" or replayed["run_id"] != target
+                            or replayed["workflow"] != body.workflow):
                         raise _error(409, "idempotency_conflict")
                     return {"id": replayed["id"], "status": replayed["status"]}
             state = _store_for(profiles, item)
@@ -5737,7 +5746,7 @@ def create_app(home: str | Path | None = None,
             target = ""
         try:
             operation = web.enqueue(user["id"], item.name, action,
-                                    target, body.idempotency_key)
+                                    target, body.idempotency_key, workflow=body.workflow)
         except WebStoreError as exc:
             raise _store_error(409, exc) from exc
         return {"id": operation["id"], "status": operation["status"]}
@@ -5778,6 +5787,19 @@ def create_app(home: str | Path | None = None,
         except (ForgeError, TimeoutError, OSError) as exc:
             raise _error(503, "forge_read_failed") from exc
 
+    @app.get("/api/v1/projects/{name}/workflow-selection")
+    def workflow_selection(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Offer a new-job default and payload presence; admission probes usability."""
+        item = project(name, user)
+        config = ticket_config(item)
+        mode = requested_workflow(config.workflow.mode)
+        try:
+            present = (Path(config.worktree.repo_path) / ".agentic" / "aegis.py").is_file()
+        except OSError:
+            present = False
+        return {"default": "aegis" if mode == "auto" and present else "direct",
+                "aegis_available": present}
+
     @app.get("/api/v1/projects/{name}/tickets")
     def project_tickets(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
         """@brief Read a project's open forge tickets with pickup eligibility on request."""
@@ -5814,7 +5836,8 @@ def create_app(home: str | Path | None = None,
         replayed = web.operation_for_key(user["id"], body.idempotency_key)
         if replayed is not None:
             binding = (replayed["action"], replayed["run_id"], replayed["project"])
-            if binding != ("start", str(iid), item.name):
+            if (binding != ("start", str(iid), item.name)
+                    or replayed["workflow"] != body.workflow):
                 raise _error(409, "idempotency_conflict")
             return {"operation_id": replayed["id"], "status": replayed["status"],
                     "labels_added": []}
@@ -5849,7 +5872,8 @@ def create_app(home: str | Path | None = None,
                 uncertain()
                 raise _error(503, "forge_write_failed") from exc
         try:
-            operation = web.enqueue(user["id"], item.name, "start", str(iid), body.idempotency_key)
+            operation = web.enqueue(user["id"], item.name, "start", str(iid), body.idempotency_key,
+                                    workflow=body.workflow)
         except WebStoreError as exc:
             if added:
                 uncertain()

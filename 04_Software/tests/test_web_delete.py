@@ -24,6 +24,8 @@ from adore.web.app import create_app
 from adore.web.commands import CommandWorker
 from fastapi.testclient import TestClient
 
+from tests.execution_records import execution_record
+
 
 # LOCAL HELPERS
 def _login(client: TestClient, user: str = "admin", password: str = "admin") -> dict:
@@ -36,7 +38,7 @@ def _archived_project(home, name="alpha", lifecycle="done") -> ProfileStore:
     profiles = ProfileStore(home)
     profiles.create(name)
     StateStore(profiles.default_store_root(name)).save(
-        RunState(run_id="run-1", ticket_iid=1, lifecycle=lifecycle))
+        RunState(run_id="run-1", ticket_iid=1, lifecycle=lifecycle, execution=execution_record()))
     profile = profiles.load(name)
     profile.archived = True
     profiles.save(profile)
@@ -88,7 +90,8 @@ def test_delete_is_refused_unless_archived_confirmed_and_idle(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     app = create_app(profiles.home)
     web = app.state.web_store
     web.create_user("dev", "longer-password", "developer")
@@ -105,11 +108,13 @@ def test_delete_is_refused_unless_archived_confirmed_and_idle(tmp_path):
         assert response.json()["detail"]["code"] == "delete_confirmation_mismatch"
         assert client.post("/api/v1/projects/alpha/delete", json={
             "confirm_name": "alpha", "idempotency_key": "delete-key-1"}).status_code == 403
-        state.save(RunState(run_id="run-2", ticket_iid=2, lifecycle="working"))
+        state.save(RunState(run_id="run-2", ticket_iid=2, lifecycle="working",
+            execution=execution_record()))
         response = _delete(client, headers)
         assert response.status_code == 409
         assert response.json()["detail"]["code"] == "project_has_active_work"
-        state.save(RunState(run_id="run-2", ticket_iid=2, lifecycle="handed-off"))
+        state.save(RunState(run_id="run-2", ticket_iid=2, lifecycle="handed-off",
+            execution=execution_record()))
         assert _delete(client, headers, key="delete-key-2").status_code == 200
         response = _delete(client, headers, key="delete-key-3")
         assert response.status_code == 409

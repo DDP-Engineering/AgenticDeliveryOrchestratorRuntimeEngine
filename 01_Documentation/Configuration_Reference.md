@@ -234,6 +234,7 @@ precedence, and only the provider's key variable, the web search key (internet o
 
 ```toml
 [workflow]
+mode = "auto"
 default_kind = "feature"
 kind_labels = { bug = "fix", fix = "fix", change = "change" }
 quick_label = "agent-quick"
@@ -466,3 +467,7 @@ review.review_reminder_after and metrics.capture_resource from existing TOML
 before using this build. Internet access (executor.internet), web search,
 clarification.answer_timeout and clarification.max_rounds retain their behavior.
 New OpenAI projects default to gpt-6.1-terra; explicit project models are preserved.
+
+## New-job workflow default
+
+`workflow.mode` accepts exactly `auto` (default) or `direct`. Automatic polling and manual requests without an override use this value. `auto` detects AEGIS, refuses a present unusable payload, and uses Direct when absent. `direct` skips AEGIS even when installed. Manual Start and Restart carry an explicit `aegis` or `direct` override. Existing jobs retain their saved workflow on Retry and continuation. `workflow.default_kind` selects an AEGIS task type, independently of this setting.

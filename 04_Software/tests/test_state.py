@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-# IMPORTS
 import json
 import os
 from pathlib import Path
@@ -31,6 +30,9 @@ from adore.state import (
     derive_run_id,
 )
 import pytest
+
+# IMPORTS
+from tests.execution_records import execution_record
 
 # HELPER FUNCTIONS
 
@@ -104,7 +106,8 @@ def test_save_load_round_trip(tmp_path: Path) -> None:
     """
     store = _store(tmp_path)
     state = RunState(
-        run_id="gitlab-g-p-14", ticket_iid=14, stage="validate", lifecycle="working"
+        run_id="gitlab-g-p-14", ticket_iid=14, stage="validate", lifecycle="working",
+        execution=execution_record()
     )
     store.save(state)
     assert state.created_at and state.updated_at
@@ -120,7 +123,7 @@ def test_save_load_round_trip(tmp_path: Path) -> None:
 def test_workflow_round_trip(tmp_path: Path, workflow: str, stage: str) -> None:
     """@brief Both workflow identities survive current-format save and reload."""
     store = _store(tmp_path)
-    run = RunState(run_id="workflow-1", ticket_iid=1, stage=stage)
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage=stage, execution=execution_record())
     assert run.to_dict().get("workflow") == "aegis"
     run.workflow = workflow
     store.save(run)
@@ -136,7 +139,7 @@ def test_workflow_round_trip(tmp_path: Path, workflow: str, stage: str) -> None:
 def test_missing_workflow_refuses_without_repair(tmp_path: Path, workflow: str) -> None:
     """@brief A missing persisted workflow never receives the constructor default."""
     store = _store(tmp_path)
-    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build")
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build", execution=execution_record())
     store.save(run)
     path = store.run_dir(run.run_id) / "state.json"
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -155,7 +158,7 @@ def test_missing_workflow_refuses_without_repair(tmp_path: Path, workflow: str) 
 def test_corrupt_workflow_refuses_without_repair(tmp_path: Path, workflow: object) -> None:
     """@brief Only the two exact workflow strings may enter conductor dispatch."""
     store = _store(tmp_path)
-    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build")
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build", execution=execution_record())
     store.save(run)
     path = store.run_dir(run.run_id) / "state.json"
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -179,7 +182,7 @@ def test_corrupt_workflow_refuses_without_repair(tmp_path: Path, workflow: objec
 def test_direct_task_binding_refuses_without_repair(tmp_path: Path, bindings: dict) -> None:
     """@brief Neither active nor historical AEGIS task ownership is valid for direct."""
     store = _store(tmp_path)
-    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build")
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build", execution=execution_record())
     store.save(run)
     path = store.run_dir(run.run_id) / "state.json"
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -196,7 +199,7 @@ def test_direct_task_binding_refuses_without_repair(tmp_path: Path, bindings: di
 def test_direct_aegis_stage_refuses_without_repair(tmp_path: Path, stage: str) -> None:
     """@brief AEGIS-only stages cannot be reinterpreted as a direct attempt."""
     store = _store(tmp_path)
-    run = RunState(run_id="workflow-1", ticket_iid=1, stage=stage)
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage=stage, execution=execution_record())
     store.save(run)
     assert store.load(run.run_id).stage == stage  # valid for AEGIS
     path = store.run_dir(run.run_id) / "state.json"
@@ -218,11 +221,11 @@ def test_run_at_a_stage_this_build_does_not_conduct_is_refused(tmp_path: Path) -
     """
     store = _store(tmp_path)
     store.save(RunState(run_id="gitlab-g-p-15", ticket_iid=15, stage="deliver",
-                        lifecycle="in-review"))
+                        lifecycle="in-review", execution=execution_record()))
     with pytest.raises(StateError, match="unknown stage") as refused:
         store.load("gitlab-g-p-15")
     assert str(store.run_dir("gitlab-g-p-15")) in str(refused.value)
-    payload = RunState(run_id="run-1", ticket_iid=1).to_dict()
+    payload = RunState(run_id="run-1", ticket_iid=1, execution=execution_record()).to_dict()
     payload["stage"] = "delivered"
     with pytest.raises(StateError, match="unknown stage"):
         RunState.from_dict(payload)
@@ -230,7 +233,7 @@ def test_run_at_a_stage_this_build_does_not_conduct_is_refused(tmp_path: Path) -
 
 def test_state_missing_a_current_key_is_refused() -> None:
     """@brief State of another build is never filled in with defaults."""
-    payload = RunState(run_id="run-1", ticket_iid=1).to_dict()
+    payload = RunState(run_id="run-1", ticket_iid=1, execution=execution_record()).to_dict()
     del payload["published_fingerprint"]
     with pytest.raises(StateError, match="missing keys"):
         RunState.from_dict(payload)
@@ -259,6 +262,7 @@ def test_active_and_historical_aegis_tasks_round_trip(tmp_path: Path) -> None:
         ticket_iid=14,
         active_task_id="TASK-bbbbbbbb",
         task_ids=["TASK-aaaaaaaa", "TASK-bbbbbbbb"],
+        execution=execution_record(),
     )
     store.save(state)
     loaded = store.load("gitlab-g-p-14")
@@ -306,7 +310,7 @@ def test_adore_3_state_is_rejected_with_hard_break_diagnostic(
 )
 def test_schema_4_state_trust_boundary_rejects_corrupt_fields(changes: dict) -> None:
     """@brief Persisted path, vocabulary, ids, digests and outbox fail closed."""
-    payload = RunState(run_id="run-1", ticket_iid=1).to_dict()
+    payload = RunState(run_id="run-1", ticket_iid=1, execution=execution_record()).to_dict()
     payload.update(changes)
     with pytest.raises(StateError):
         RunState.from_dict(payload)
@@ -332,8 +336,8 @@ def test_list_runs_and_delete(tmp_path: Path) -> None:
     """
     store = _store(tmp_path)
     assert store.list_runs() == []
-    store.save(RunState(run_id="b-run", ticket_iid=2))
-    store.save(RunState(run_id="a-run", ticket_iid=1))
+    store.save(RunState(run_id="b-run", ticket_iid=2, execution=execution_record()))
+    store.save(RunState(run_id="a-run", ticket_iid=1, execution=execution_record()))
     assert [run.run_id for run in store.list_runs()] == ["a-run", "b-run"]
     store.delete_run("a-run")
     assert [run.run_id for run in store.list_runs()] == ["b-run"]
@@ -353,7 +357,7 @@ def test_run_listing_tolerates_concurrent_disappearance(
     """
     store = _store(tmp_path)
     for iid, run_id in enumerate(("a-gone", "b-good", "c-corrupt"), start=1):
-        store.save(RunState(run_id=run_id, ticket_iid=iid))
+        store.save(RunState(run_id=run_id, ticket_iid=iid, execution=execution_record()))
     vanished = store.run_dir("a-gone") / "state.json"
     corrupt = store.run_dir("c-corrupt") / "state.json"
     corrupt.write_text("{broken", encoding="utf-8")
@@ -392,7 +396,7 @@ def test_run_listing_propagates_unrelated_io_errors(
 ) -> None:
     """@brief Permission failures are not mistaken for concurrent deletion."""
     store = _store(tmp_path)
-    store.save(RunState(run_id="denied", ticket_iid=1))
+    store.save(RunState(run_id="denied", ticket_iid=1, execution=execution_record()))
     denied = store.run_dir("denied") / "state.json"
     original_open = Path.open
 
@@ -451,7 +455,7 @@ def test_corrupt_state_json_fails_closed(tmp_path: Path) -> None:
              StateError (never silently reinitialized).
     """
     store = _store(tmp_path)
-    store.save(RunState(run_id="r-1", ticket_iid=1))
+    store.save(RunState(run_id="r-1", ticket_iid=1, execution=execution_record()))
     state_file = store.run_dir("r-1") / "state.json"
     for corrupt in ("{not json", '["not", "an", "object"]', '{"stage": "intake"}'):
         state_file.write_text(corrupt, encoding="utf-8")
@@ -478,8 +482,8 @@ def test_list_runs_skips_corrupt_and_invalid_runs_reports_them(tmp_path: Path) -
              invalid_runs() instead of disappearing.
     """
     store = _store(tmp_path)
-    store.save(RunState(run_id="good-run", ticket_iid=1))
-    store.save(RunState(run_id="bad-run", ticket_iid=2))
+    store.save(RunState(run_id="good-run", ticket_iid=1, execution=execution_record()))
+    store.save(RunState(run_id="bad-run", ticket_iid=2, execution=execution_record()))
     (store.run_dir("bad-run") / "state.json").write_text("garbage", encoding="utf-8")
     assert [run.run_id for run in store.list_runs()] == ["good-run"]
     assert store.invalid_runs() == ["bad-run"]
@@ -591,7 +595,8 @@ def test_unreadable_lock_is_not_reclaimed(tmp_path: Path) -> None:
 def test_cancel_request_is_durable_and_validated(tmp_path: Path) -> None:
     """@brief A live run can be signalled once; terminal/invalid targets fail closed."""
     store = _store(tmp_path)
-    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="working"))
+    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     assert store.request_cancel("active-1")
     assert StateStore(store.root).cancel_requested("active-1")
     assert store.request_cancel("active-1")
@@ -601,18 +606,20 @@ def test_cancel_request_is_durable_and_validated(tmp_path: Path) -> None:
         store.request_cancel("../outside")
     with pytest.raises(FileNotFoundError):
         store.request_cancel("missing")
-    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="done"))
+    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     assert not store.request_cancel("active-1")
     for lifecycle in ("handoff-pending", "handed-off"):
         store.save(RunState(run_id="active-1", ticket_iid=1,
-                            lifecycle=lifecycle))
+                            lifecycle=lifecycle, execution=execution_record()))
         assert not store.request_cancel("active-1")
 
 
 def test_cancel_request_malformed_marker_fails_closed(tmp_path: Path) -> None:
     """@brief A directory masquerading as a marker cannot signal a run."""
     store = _store(tmp_path)
-    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="working"))
+    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     (store.run_dir("active-1") / "cancel.request").mkdir()
     with pytest.raises(StateError):
         store.request_cancel("active-1")
@@ -641,7 +648,7 @@ def test_active_clock_preserves_consumption_across_wait_and_retry(tmp_path, monk
     store = _store(tmp_path)
     clock = ["2026-11-05T10:00:00+00:00"]
     monkeypatch.setattr(state_module, "utc_now_iso", lambda: clock[0])
-    run = RunState(run_id="clock", ticket_iid=1)
+    run = RunState(run_id="clock", ticket_iid=1, execution=execution_record())
     store.save(run)
     clock[0] = "2026-11-05T10:01:00+00:00"
     run.lifecycle = "parked-clarification"
@@ -668,7 +675,7 @@ def test_active_clock_preserves_consumption_across_wait_and_retry(tmp_path, monk
 def test_active_clock_rejects_corrupt_saved_timestamp(tmp_path, value):
     """@brief Untrusted clock values cannot silently disable the time budget."""
     store = _store(tmp_path)
-    run = RunState(run_id="clock", ticket_iid=1)
+    run = RunState(run_id="clock", ticket_iid=1, execution=execution_record())
     store.save(run)
     data = run.to_dict()
     data["active_started_at"] = value
@@ -679,7 +686,7 @@ def test_active_clock_rejects_corrupt_saved_timestamp(tmp_path, value):
 def test_saved_empty_clock_is_refused_without_reinitializing_work(tmp_path):
     """@brief An empty persisted clock cannot become a new active period on save."""
     store = _store(tmp_path)
-    run = RunState(run_id="clock", ticket_iid=1)
+    run = RunState(run_id="clock", ticket_iid=1, execution=execution_record())
     store.save(run)
     path = store.run_dir(run.run_id) / "state.json"
     value = run.to_dict()
@@ -695,7 +702,7 @@ def test_saved_empty_clock_is_refused_without_reinitializing_work(tmp_path):
 def test_parked_poll_counter_rejects_corrupt_state(tmp_path: Path, value: object) -> None:
     """@brief Invalid parked cleanup evidence fails closed at the persisted state boundary."""
     store = _store(tmp_path)
-    run = RunState(run_id="run-1", ticket_iid=1)
+    run = RunState(run_id="run-1", ticket_iid=1, execution=execution_record())
     store.save(run)
     path = store.run_dir(run.run_id) / "state.json"
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -713,7 +720,7 @@ def test_state_sharing_contention_is_bounded_and_preserves_evidence(
 ):
     """@brief Brief sharing conflicts recover; persistent denial stays typed and atomic."""
     store = _store(tmp_path)
-    run = RunState("sharing", 7)
+    run = RunState("sharing", 7, execution=execution_record())
     store.save(run)
     path = store.run_dir(run.run_id) / "state.json"
     before = path.read_bytes()
@@ -759,7 +766,7 @@ def test_state_sharing_contention_is_bounded_and_preserves_evidence(
 def test_state_sharing_retry_rechecks_writer_authority(tmp_path, monkeypatch):
     """@brief Lost ownership during a retry never publishes a previously valid candidate."""
     store = _store(tmp_path)
-    run = RunState("fenced", 7)
+    run = RunState("fenced", 7, execution=execution_record())
     store.save(run)
     path = store.run_dir(run.run_id) / "state.json"
     before = path.read_bytes()
@@ -790,7 +797,7 @@ def test_state_sharing_retry_rechecks_writer_authority(tmp_path, monkeypatch):
 def test_state_listing_propagates_exhausted_sharing_denial(tmp_path, monkeypatch, listing):
     """@brief Unavailable storage never becomes an omitted or merely corrupt run."""
     store = _store(tmp_path)
-    store.save(RunState("reserved", 7, execution_pending=True))
+    store.save(RunState("reserved", 7, execution_pending=True, execution=execution_record()))
     path = store.run_dir("reserved") / "state.json"
     original = Path.read_text
 

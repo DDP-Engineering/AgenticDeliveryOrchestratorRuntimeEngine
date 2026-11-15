@@ -77,7 +77,7 @@ Container-Jobs behalten das beim Start gewählte Image und die Ressource, auch o
 
 ## Verwerfen und neu starten {#restart}
 
-Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.
+Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.
 
 Wiederholen behebt keine geänderte Ausführungsart oder feste Einstellungen; die Jobdetails erklären dies und bieten die bestätigte Aktion an. Stellen Sie gespeicherte Einstellungen wieder her, um Arbeit zu behalten. Wiederholen kann veränderliche native Umgebungswerte weiterhin neu prüfen, auch Prozessorvariablen nach einer VM-Größenänderung.
 
@@ -156,3 +156,7 @@ Die letzte Executorausgabe zeigt normalisiertes operatives stdout/stderr mit Zei
 Die Warteschlange zählt eingereichte Anfragen und aufgenommene Aufträge vor ihrem Start, keine nicht angeforderten Tickets. Ein volles Projekt blockiert keine anderen. Einstellungen zeigt weiterhin **Ihre letzten Vorgänge** und gespeicherte Ergebnisse; Eingereiht und In Bearbeitung bedeuten nicht Bestätigt.
 
 Ein vorgemerktes kleineres Limit hält neue Starts und Wiederaufnahmen bereits zurück, bis die Belegung darunter liegt; bereits laufende Aufträge laufen weiter; eingereihte Reservierungen warten auf einen Ausführungsplatz. Es erhöht niemals die aktive Grenze. Die sichere Anwendung wartet weiterhin auf unfertige Arbeit; gespeicherter Wert und Kandidat bleiben bis Speichern oder Änderungen verwerfen sichtbar.
+
+## Workflow auswählen {#workflow-choice}
+
+Wählen Sie in **Jobaktionen** für einen neuen Job **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** und bestätigen Sie den kurzen Browserdialog zum Verwerfen bestehender Arbeit. Fehlendes AEGIS deaktiviert diese Aktion. Tickets behält die Auswahl **Workflow** vor **Starten**. Wiederholen, Fortsetzung und Review-Korrekturen behalten den gespeicherten Workflow und dieselbe Pi-Unterhaltung.

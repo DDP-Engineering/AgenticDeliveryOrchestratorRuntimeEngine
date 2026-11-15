@@ -20,6 +20,8 @@ from adore.state import RunState, StateStore
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
 
+from tests.execution_records import execution_record
+
 
 # LOCAL HELPERS
 def _admin(client: TestClient) -> None:
@@ -85,7 +87,8 @@ def test_run_page_accepts_several_lifecycles(tmp_path):
     state = StateStore(profile.store_root)
     for run_id, lifecycle in (("a", "awaiting-approval"), ("b", "in-review"),
                               ("c", "failed"), ("d", "working")):
-        state.save(RunState(run_id=run_id, ticket_iid=1, lifecycle=lifecycle))
+        state.save(RunState(run_id=run_id, ticket_iid=1, lifecycle=lifecycle,
+            execution=execution_record()))
     with TestClient(create_app(profiles.home)) as client:
         _admin(client)
         both = client.get("/api/v1/projects/alpha/runs-page?limit=all"

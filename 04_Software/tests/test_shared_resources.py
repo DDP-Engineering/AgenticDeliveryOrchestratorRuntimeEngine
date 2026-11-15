@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-# IMPORTS
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 import json
@@ -32,6 +31,8 @@ from adore.state import LockHeldError, RunState, StateStore
 from adore.util import CommandResult
 import pytest
 
+# IMPORTS
+from tests.execution_records import execution_record
 from tests.test_chatgpt import signed_in
 from tests.test_orchestrator import make_engine, make_run
 
@@ -91,7 +92,7 @@ def test_worktree_identity_refuses_escaping_run_paths(tmp_path, bad):
 def test_project_barrier_checks_terminal_and_removed_execution_slots(tmp_path):
     """@brief Cleanup ownership outlives state and stays project scoped."""
     a, peer, other = (StateStore(tmp_path / name) for name in ("a", "a", "b"))
-    a.save(RunState("one", 1, lifecycle="done"))
+    a.save(RunState("one", 1, lifecycle="done", execution=execution_record()))
     with a.execution_slot("one"):
         with pytest.raises(LockHeldError), peer.project_barrier():
             pytest.fail("active slot must block the whole project")
@@ -374,7 +375,7 @@ def test_project_namespaces_separate_same_ticket_resources(tmp_path, monkeypatch
         engine.worktrees.create = lambda run_id, *args, engine=engine, **kwargs: (
             engine.worktrees.path_for(run_id))
         engine.forge.ticket.labels = ["agent-ready", "P1"]
-        engine._probe_repository_payload = lambda: None
+        engine._probe_repository_payload = lambda *args: None
         engine._has_payload = lambda _: False
     assert first.poll_once(ticket_iid=7, admit_only=True)["picked"] == 7
     assert second.poll_once(ticket_iid=7, admit_only=True)["picked"] == 7
@@ -398,7 +399,7 @@ def test_archive_and_profile_deletion_refuse_active_terminal_cleanup(tmp_path, m
     profiles = _ready_profile(home)
     profiles.create("other")
     state = StateStore(profiles.default_store_root("proj"))
-    state.save(RunState("one", 1, lifecycle="done"))
+    state.save(RunState("one", 1, lifecycle="done", execution=execution_record()))
     with state.execution_slot("one"), TestClient(create_app(home)) as client:
         csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
                            ).json()["csrf"]
@@ -520,7 +521,8 @@ def test_clone_preview_uses_saved_namespaced_paths_only(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
     from adore import clone_cleanup as cleanup
-    run = RunState("one", 1, lifecycle="failed", worktree=str(tmp_path / "one-p123456789abc"))
+    run = RunState("one", 1, lifecycle="failed", worktree=str(tmp_path / "one-p123456789abc"),
+        execution=execution_record())
     monkeypatch.setattr(cleanup, "clone_decision", lambda *args, **kwargs:
                         SimpleNamespace(removable=True, path=str(tmp_path / "clone")))
     monkeypatch.setattr(cleanup, "_linked_folders", lambda _: [Path(run.worktree)])
@@ -550,7 +552,7 @@ def test_cli_loaded_before_archive_cannot_admit_after_barrier(tmp_path, monkeypa
     profiles = _ready_profile(tmp_path / "server-home")
     engine, forge, *_ = make_engine(tmp_path)
     forge.ticket.labels = ["agent-ready", "P1"]
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     def loaded(*args, **kwargs):
         profile = profiles.load("proj")
         profile.archived = True
@@ -570,7 +572,7 @@ def test_delete_api_and_restore_require_safe_project_boundary(tmp_path):
     profiles = ProfileStore(tmp_path / "server-home")
     profile = profiles.create("one", archived=True)
     state = StateStore(profiles.default_store_root("one"))
-    state.save(RunState("run", 1, lifecycle="done"))
+    state.save(RunState("run", 1, lifecycle="done", execution=execution_record()))
     with TestClient(create_app(profiles.home)) as client:
         csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
                            ).json()["csrf"]
@@ -739,7 +741,7 @@ def test_nested_profile_barrier_survives_profile_directory_deletion(tmp_path):
     outer = tmp_path / "server" / "profiles" / "outer"
     root = outer / "nested" / "profiles" / "inner" / "state"
     store = StateStore(root)
-    store.save(RunState("finished", 1, lifecycle="done"))
+    store.save(RunState("finished", 1, lifecycle="done", execution=execution_record()))
     location = store.locks_root
     assert not location.is_relative_to(outer)
     with store.project_barrier():

@@ -27,6 +27,8 @@ from adore.web.store import WebStore, WebStoreError
 from adore.web.worker_context import WorkerContext
 import pytest
 
+from tests.execution_records import execution_record
+
 
 # HELPER FUNCTIONS
 def setup_store(tmp_path):
@@ -121,7 +123,7 @@ def test_cancel_exit_zero_without_actual_stop_is_unconfirmed(tmp_path):
     """@brief An accepted signal or CLI exit zero alone cannot confirm Cancel."""
     profiles, web, admin, _, _ = setup_store(tmp_path)
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState("run-1", 42, lifecycle="working"))
+    state.save(RunState("run-1", 42, lifecycle="working", execution=execution_record()))
     operation = web.enqueue(admin["id"], "alpha", "cancel", "run-1", "cancel")
     worker = CommandWorker(profiles, web, runner=lambda argv, env: 0)
     assert worker.run_pending() == 1
@@ -142,7 +144,7 @@ def test_start_acknowledges_durable_admission_while_job_continues(tmp_path):
 
         owner = WorkerOwner(context["owner_id"], context["owner_generation"], context["role"],
                             context["project_id"], context["run_id"])
-        state.save(RunState("run-42", 42, lifecycle="working"))
+        state.save(RunState("run-42", 42, lifecycle="working", execution=execution_record()))
         state.save_ticket("run-42", {"iid": 42})
         state.journal("run-42", "picked", ticket=42)
         run_owner = web.register_worker("run", project_id=owner.project_id, run_id="run-42")
@@ -151,7 +153,7 @@ def test_start_acknowledges_durable_admission_while_job_continues(tmp_path):
                               run_owner=run_owner)
         assert web.operation(operation["id"])["status"] == "succeeded"
         assert state.load("run-42").lifecycle == "working"
-        state.save(RunState("run-42", 42, lifecycle="failed"))
+        state.save(RunState("run-42", 42, lifecycle="failed", execution=execution_record()))
         return 1
 
     assert CommandWorker(profiles, web, runner=runner).run_pending() == 1
@@ -166,7 +168,7 @@ def test_start_cannot_acknowledge_queue_or_another_ticket(tmp_path):
     owner = web.register_worker("project", project_id=alpha.project_id)
     claim = web.claim_next(owner, domain="execution")
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState("other", 43, lifecycle="working"))
+    state.save(RunState("other", 43, lifecycle="working", execution=execution_record()))
     run_owner = web.register_worker("run", project_id=owner.project_id, run_id="other")
     with pytest.raises(WebStoreError):
         web.acknowledge_start(operation["id"], owner=owner,
@@ -299,13 +301,13 @@ def test_cancel_success_requires_observed_cancelled_state(tmp_path):
     """@brief A real saved cancelled outcome permits a truthful acknowledgement."""
     profiles, web, admin, _, _ = setup_store(tmp_path)
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState("run-1", 42, lifecycle="working"))
+    state.save(RunState("run-1", 42, lifecycle="working", execution=execution_record()))
     op = web.enqueue(admin["id"], "alpha", "cancel", "run-1", "cancel")
 
     def runner(argv, env):
         """@brief Queue/claim remains unconfirmed until the fake engine stops."""
         assert web.operation(op["id"])["status"] == "running"
-        state.save(RunState("run-1", 42, lifecycle="cancelled"))
+        state.save(RunState("run-1", 42, lifecycle="cancelled", execution=execution_record()))
         return 0
 
     assert CommandWorker(profiles, web, runner=runner).run_pending() == 1
@@ -341,7 +343,7 @@ def test_cli_attaches_and_fences_state_and_external_effects(tmp_path, monkeypatc
         with pytest.raises(WebStoreError):
             context.validate_configuration(profiles.config_path("beta"))
         engine.forge.runner(["fake"])
-        state.save(RunState("run-42", 42))
+        state.save(RunState("run-42", 42, execution=execution_record()))
         state.save_ticket("run-42", {"iid": 42})
         state.journal("run-42", "picked", ticket=42)
         engine.on_admitted(state.load("run-42"))
@@ -354,7 +356,8 @@ def test_cli_attaches_and_fences_state_and_external_effects(tmp_path, monkeypatc
             connection.execute("UPDATE worker_owners SET status='dead' WHERE id=?", (owner.id,))
         for effect in (lambda: engine.forge.runner(["fake"]),
                        lambda: engine.worktrees.runner(["fake"]),
-                       lambda: state.save(RunState("run-42", 42, lifecycle="failed")),
+                       lambda: state.save(RunState("run-42", 42, lifecycle="failed",
+                           execution=execution_record())),
                        lambda: state.journal("run-42", "forbidden"), engine.before_effect):
             with pytest.raises(WebStoreError, match="ownership"):
                 effect()
@@ -579,18 +582,27 @@ def test_operation_cannot_retarget_another_project_under_claimed_owner(tmp_path)
         web.authorize_effect(operation["id"], owner=owner, generation=claim["generation"])
 
 
-def test_child_pins_immutable_request_fields_across_effects(tmp_path):
+@pytest.mark.parametrize("field", ["target", "workflow"])
+def test_child_pins_immutable_request_fields_across_effects(tmp_path, field):
     """@brief Valid-looking persisted target changes cannot retarget an attached command."""
     _, web, admin, alpha, _ = setup_store(tmp_path)
-    operation = web.enqueue(admin["id"], "alpha", "retry", "job-42", "one")
+    operation = web.enqueue(admin["id"], "alpha", "start", "42", "one", workflow="direct")
     owner = web.register_worker("project", project_id=alpha.project_id)
     claim = web.claim_next(owner, domain="execution")
     context = WorkerContext(web, owner, operation["id"], claim["generation"])
+    from adore.cli import _build_parser
+    parser = _build_parser()
+    args = parser.parse_args(["--profile", "alpha", "run", "--once", "--ticket", "42",
+                              "--workflow", "direct"])
+    context.validate_command(args)
+    args.workflow = "aegis"
+    with pytest.raises(WebStoreError, match="workflow mismatch"):
+        context.validate_command(args)
     context.authorize()
     with web._connect() as connection:
-        connection.execute(
-            "UPDATE operations SET run_id='other',resource_key='job:other' WHERE id=?",
-            (operation["id"],))
+        update = ("run_id='43',resource_key='ticket:43'" if field == "target"
+                  else "workflow='aegis'")
+        connection.execute(f"UPDATE operations SET {update} WHERE id=?", (operation["id"],))
     with pytest.raises(WebStoreError, match="identity changed"):
         context.authorize()
 

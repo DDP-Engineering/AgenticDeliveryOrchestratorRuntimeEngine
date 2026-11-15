@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type {Locale} from "./i18n";
+import { workflowCopy } from "./workflowCopy.ts";
 import {connectionCopy, thinkingCopy} from "./agentConnection.ts";
 
 /** Pi is ADORE's only coding agent; these settings configure how it runs. */
@@ -28,6 +29,7 @@ export const WEB_SEARCH_CHOICES = ["exa", "brave", "tavily", "none"] as const;
 
 /** The displayed value of the internet switch or the web search, else null. */
 export function agentValue(key:string,value:unknown,locale:Locale):string|null {
+ if (key === "workflow.mode") return value === "auto" ? workflowCopy[locale].auto : value === "direct" ? workflowCopy[locale].direct : null;
  const c=internetCopy[locale];
  if (key==="executor.internet") return value===true || value==="true" ? c.on : value===false || value==="false" ? c.off : null;
  if (key==="executor.web.search" && (WEB_SEARCH_CHOICES as readonly unknown[]).includes(value)) return c[value as typeof WEB_SEARCH_CHOICES[number]];

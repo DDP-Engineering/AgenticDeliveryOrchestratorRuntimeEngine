@@ -20,6 +20,8 @@ from adore.state import RunState, StateStore
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
 
+from tests.execution_records import execution_record
+
 
 def test_ten_users_twenty_projects_five_viewers(tmp_path):
     """@brief Concurrent viewers see twenty projects and one active job."""
@@ -29,7 +31,7 @@ def test_ten_users_twenty_projects_five_viewers(tmp_path):
                         store_root=str(tmp_path / f"state-{index:02d}"))
     active = profiles.load("project-00")
     StateStore(active.store_root).save(RunState(
-        run_id="active-1", ticket_iid=1, lifecycle="working"))
+        run_id="active-1", ticket_iid=1, lifecycle="working", execution=execution_record()))
     app = create_app(profiles.home)
     for index in range(9):
         user = app.state.web_store.create_user(

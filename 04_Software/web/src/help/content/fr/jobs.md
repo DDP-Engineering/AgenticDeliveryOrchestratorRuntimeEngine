@@ -77,7 +77,7 @@ Les travaux en conteneur conservent l’image et la ressource choisies au démar
 
 ## Abandonner et recommencer {#restart}
 
-Pour une tâche échouée, **Abandonner et recommencer** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.
+Pour une tâche échouée, **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.
 
 Réessayer ne corrige pas les changements de mode ou de paramètres stables ; les détails l’expliquent et proposent l’action confirmée. Restaurez les paramètres enregistrés pour conserver le travail. Réessayer peut toujours revalider les changements volatils de l’environnement natif, dont les variables processeur après redimensionnement d’une VM.
 
@@ -156,3 +156,7 @@ La dernière sortie de l’exécuteur présente stdout/stderr opérationnels nor
 La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. Les paramètres conservent **Vos dernières opérations** et leurs résultats ; En file et En cours ne signifient pas Confirmé.
 
 Une limite réduite préparée retient déjà les nouveaux démarrages et reprises jusqu’à ce que l’occupation passe sous la limite ; les tâches déjà en cours continuent ; les réservations en file attendent une place d’exécution. Elle n’augmente jamais la limite active. L’application sûre attend les travaux inachevés ; la valeur enregistrée et le candidat restent visibles jusqu’à Enregistrer ou Abandonner les modifications.
+
+## Choisir le workflow {#workflow-choice}
+
+Dans **Actions du travail**, choisissez **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** pour un nouveau travail, puis acceptez la courte confirmation du navigateur qui supprime le travail existant. AEGIS absent désactive son action. Tickets conserve le sélecteur **Workflow** avant **Démarrer**. Réessayer, la continuation et les corrections de revue conservent le workflow enregistré et la même conversation Pi.

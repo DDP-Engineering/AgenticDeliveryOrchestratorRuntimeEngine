@@ -105,6 +105,21 @@ database/marker or run directory the operator can delete to start fresh.
 Do not reinterpret older data or delete it automatically. Do not restore
 only the database or remove the initialization marker to recreate an admin user.
 
+## Fresh web database during pre-release
+
+The web schema identifier remains 1; its table definitions describe only the
+current build. There are no migrations, compatibility readers or automatic
+resets. A matching identifier does not make an incomplete structure acceptable.
+
+For an explicitly chosen reset, stop both the web and worker services, then
+remove `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized`. Remove any
+`web.db-wal`, `web.db-shm` or `web.db-journal` sidecars only after both services
+have stopped. Restart with the same home; the new database uses the current
+structure and initial admin/admin sign-in. Web accounts, sessions, permissions,
+preferences and command/change history reset. Project profiles, credentials
+stored outside the web database, job state and Pi conversations are separate
+and remain on disk. Recreate any required web accounts and project grants.
+
 ## Access and advanced commands
 
 The portable launcher listens on loopback. Remote access requires administrator-
@@ -118,3 +133,7 @@ covers normal project operations; the source repository retains the exhaustive
 configuration, deployment and CLI references for specialized administration.
 
 [Back to the user guide](README.md) · [Troubleshooting](Troubleshooting.md)
+
+## New-job workflow default
+
+In project Settings > Implementation, **Default workflow** selects automatic AEGIS detection (`auto`) or Direct (`direct`) for new jobs. Manual Start and Restart let the operator override this per job. Retry keeps the saved workflow. The web schema identifier stays fixed at 1 throughout pre-release; a different identifier or incomplete table structure is refused. A fresh start requires manually deleting `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` before starting this build with an older web store; accounts, grants and command history reset. Never delete these while ADORE is running. Profiles and jobs are stored separately.

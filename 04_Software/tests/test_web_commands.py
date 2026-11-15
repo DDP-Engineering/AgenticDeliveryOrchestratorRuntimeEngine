@@ -24,8 +24,9 @@ import sys
 from threading import Event, Thread
 import time
 
-from adore.config import PollingConfig, load_config, validate_config
+from adore.config import PollingConfig, default_config, load_config, validate_config
 from adore.polling import PollCadence
+from adore.preparation import resolve_plan
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
 from adore.util import in_quiet_hours
@@ -36,6 +37,8 @@ from adore.web.store import WebStore, WebStoreError
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.execution_records import execution_record
+
 
 def admit_start(profiles, web, env, run_id="run-42"):
     """@brief Persist the fake engine's admission before acknowledging its exact claim."""
@@ -43,7 +46,13 @@ def admit_start(profiles, web, env, run_id="run-42"):
     owner = WorkerOwner(context["owner_id"], context["owner_generation"], context["role"],
                         context["project_id"], context["run_id"])
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState(run_id, 42, lifecycle="working"))
+    operation = web.operation(context["operation_id"])
+    execution = {"plan": resolve_plan(default_config()),
+                 "resource": {}, "status": "not-required", "attempts": 0,
+                 "steps": [], "history": [], "reprepare": False}
+    state.save(RunState(run_id, 42, lifecycle="working", execution=execution,
+                        workflow=operation["workflow"] or "aegis",
+                        stage="build" if operation["workflow"] == "direct" else "frame"))
     state.save_ticket(run_id, {"iid": 42})
     state.journal(run_id, "picked", ticket=42)
     run_owner = web.register_worker("run", project_id=owner.project_id, run_id=run_id)
@@ -58,8 +67,8 @@ def test_authorized_start_uses_explicit_ticket_and_deduplicates(tmp_path):
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(user["id"], ["alpha"])
-    first = web.enqueue(user["id"], "alpha", "start", "42", "one-request")
-    again = web.enqueue(user["id"], "alpha", "start", "42", "one-request")
+    first = web.enqueue(user["id"], "alpha", "start", "42", "one-request", workflow="direct")
+    again = web.enqueue(user["id"], "alpha", "start", "42", "one-request", workflow="direct")
     calls = []
     def runner(argv, env):
         """@brief Admit one job with fixed argv and durably recorded evidence."""
@@ -67,12 +76,25 @@ def test_authorized_start_uses_explicit_ticket_and_deduplicates(tmp_path):
         admit_start(profiles, web, env)
         return 0
 
+    for invalid in ("auto", "unknown", 4, {}, []):
+        with pytest.raises(WebStoreError, match="workflow"):
+            web.enqueue(user["id"], "alpha", "start", "42", "bad-workflow", workflow=invalid)
+    web = WebStore(web.path)  # Simulate consumer restart before durable dispatch.
     worker = CommandWorker(profiles, web, runner=runner)
     assert first["id"] == again["id"]
     assert worker.run_pending() == 1
     assert worker.run_pending() == 0
-    assert calls[0][-4:] == ["run", "--once", "--ticket", "42"]
+    assert calls[0][-6:] == ["run", "--once", "--ticket", "42", "--workflow", "direct"]
+    with pytest.raises(WebStoreError, match="idempotency"):
+        web.enqueue(user["id"], "alpha", "start", "42", "one-request", workflow="aegis")
     assert web.operation(first["id"])["status"] == "succeeded"
+
+
+    with sqlite3.connect(web.path) as connection:
+        connection.execute("PRAGMA ignore_check_constraints=ON")
+        connection.execute("UPDATE operations SET workflow='auto' WHERE id=?", (first["id"],))
+    with pytest.raises(WebStoreError, match="workflow is corrupt"):
+        web.operation(first["id"])
 
 
 def test_worker_heartbeats_while_idle_and_clears_on_graceful_stop(tmp_path):
@@ -163,7 +185,7 @@ def test_queued_cancel_cannot_reclaim_human_handoff(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState("run-1", 1, lifecycle="handed-off"))
+    state.save(RunState("run-1", 1, lifecycle="handed-off", execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     admin = web.authenticate("admin", "admin")
     queued = web.enqueue(admin["id"], "alpha", "cancel", "run-1", "stale")
@@ -270,7 +292,8 @@ def test_cancel_rechecks_lifecycle_before_worker_execution(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(user["id"], ["alpha"])
@@ -280,7 +303,8 @@ def test_cancel_rechecks_lifecycle_before_worker_execution(tmp_path):
     assert worker.run_pending() == 1
     assert calls[0][-2:] == ["cancel", "run-1"]
 
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done",
+        execution=execution_record()))
     delayed = web.enqueue(user["id"], "alpha", "cancel", "run-1", "cancel-two")
     assert worker.run_pending() == 1
     assert len(calls) == 1
@@ -294,7 +318,8 @@ def test_cancel_submission_rejects_finished_run(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done",
+        execution=execution_record()))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         csrf = client.post("/api/v1/session", json={
@@ -311,7 +336,8 @@ def test_cancel_submission_waits_for_worker_authorization(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         csrf = client.post("/api/v1/session", json={
@@ -328,12 +354,14 @@ def test_worker_reconciles_cancel_completed_by_active_conductor(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(user["id"], ["alpha"])
     queued = web.enqueue(user["id"], "alpha", "cancel", "run-1", "cancel-active")
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="cancelled"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="cancelled",
+        execution=execution_record()))
     calls = []
     worker = CommandWorker(profiles, web, runner=lambda argv, env: calls.append(argv) or 0)
     assert worker.run_pending() == 1
@@ -346,7 +374,8 @@ def test_active_poll_signals_authorized_cancel_after_worker_recheck(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(user["id"], ["alpha"])
@@ -368,7 +397,8 @@ def test_active_poll_does_not_signal_revoked_developer_cancel(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(user["id"], ["alpha"])
@@ -431,7 +461,8 @@ def test_busy_other_project_signals_authorized_cancel(tmp_path):
     alpha = profiles.create("alpha")
     profiles.create("beta")
     state = StateStore(alpha.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(user["id"], ["alpha"])
@@ -455,7 +486,8 @@ def test_busy_other_project_does_not_signal_revoked_cancel(tmp_path):
     alpha = profiles.create("alpha")
     profiles.create("beta")
     state = StateStore(alpha.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(user["id"], ["alpha"])
@@ -479,7 +511,8 @@ def test_blocking_retry_watches_other_project_cancel(tmp_path):
     alpha = profiles.create("alpha")
     profiles.create("beta")
     state = StateStore(alpha.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     admin = web.authenticate("admin", "admin")
     web.enqueue(admin["id"], "beta", "retry", "old-run", "retry-beta")
@@ -881,7 +914,7 @@ def test_operation_api_returns_reason_and_detail(tmp_path):
     assert body["detail"] == "error: ticket #42 not started: pickup_paused"
 
 
-@pytest.mark.parametrize("version", [0, 14, 16, 17, 19])
+@pytest.mark.parametrize("version", [0, 2, 14, 16, 17, 18, 19, 20])
 def test_web_database_of_another_schema_is_refused_untouched(tmp_path, version):
     """@brief No migration: another schema version stops startup and names what to delete."""
     profiles, web, _queued = _queued_start(tmp_path)

@@ -36,7 +36,7 @@ from tests.test_orchestrator import direct_edit, direct_engine, make_engine, mak
 def offline_probe(monkeypatch):
     """@brief Concurrency proof never invokes target repository or host commands."""
     from adore.orchestrator import Orchestrator
-    monkeypatch.setattr(Orchestrator, '_probe_repository_payload', lambda self: None)
+    monkeypatch.setattr(Orchestrator, '_probe_repository_payload', lambda self, *args: None)
 
 
 # PUBLIC API

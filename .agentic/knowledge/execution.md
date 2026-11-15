@@ -39,15 +39,6 @@ worktree effects and prior attempt receipts. No publication or merging authority
 
 ## Key behaviors
 
-- `REQ-PLAT-125bc4c1`, `REQ-PLAT-a39ffa22`: configured direct validation reuses
-  bound container argv as `sh -c` in the worktree, preserving immutable identity
-  and timeout recovery. Native verification uses `LocalTarget.run_verification`,
-  not ordinary native shell argv; see `local-execution.md`. The conductor owns
-  validate timeout selection, durable evidence and bounded fixes. AEGIS commands
-  keep their own transport and accounting. Offline proof: `test_execution.py`,
-  `test_container_timeout.py` and direct/native tests in `test_orchestrator.py`
-  and `test_local_execution.py`.
-
 - REQ-FUNC-c405688e: ContainerBackend.authorize_system_packages verifies the pinned running resource, then uses its immutable container ID for authorization. It adds no local installation authority.
 
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: ExecutionBackend has ContainerBackend and LocalBackend implementations. Native targets use run_files and native worktree/IO paths. Container controls refuse native identities before any manager call; native controls verify pinned runtime/launch scope. Preparation remains container-only.
@@ -55,19 +46,16 @@ worktree effects and prior attempt receipts. No publication or merging authority
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
 
-
 - `REQ-FUNC-e2b539d4`: immutable exact-source reviewed image/command plan.
 - `REQ-FUNC-e5419c07`: bounded same-container setup before AEGIS/AI.
 - `REQ-REL-d8fd134e`: fail-closed pinned recovery and explicit capped replay.
 - `REQ-FUNC-e397f7f6`: shared backend lifecycle/transport contract.
-
 
 ## Files
 
 - `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
-
 
 - `04_Software/adore/execution.py`: public component and contracts.
 - `04_Software/adore/preparation_runner.py`: standalone bounded step runner.
@@ -86,7 +74,7 @@ approved profile .env values in memory through the same native environment.
 ## Timeout admission and recovery
 
 Bound commands inspect authoritative ownership and address the immutable container
-ID, including legacy invocations without durable pins. On an actual runtime
+ID under the current ownership contract. On an actual runtime
 timeout, the backend rechecks that identity, uses bounded interruption and requires
 the same ID/image in exited state before returning the original CommandResult.
 The original exit, timeout flag and captured streams remain unchanged; an ordinary
@@ -118,7 +106,6 @@ marker check is separate from live agent package-installation acceptance.
 
 `BoundTarget.spawn` admits or resumes the verified container and addresses its immutable ID. `settle_timeout` quiesces RPC descendants and records same-resource restart eligibility; failed confirmation blocks further commands and spawns.
 
-
 ## Concurrent resource ownership
 
 Every run process owns a fresh mutable backend/executor. Bound container targets
@@ -130,3 +117,7 @@ does not infer egress ownership from a name. Native targets retain run-owned
 receipts and isolated Pi temporary settings.
 
 Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.
+
+## Current contract
+
+The current pinned execution plan routes native/container provisioning, RPC launch, interruption and owned cleanup through the shared backend. REQ-FUNC-e397f7f6 and REQ-REL-d8fd134e describe this contract; the plan is required and validated without historical readers.

@@ -91,3 +91,7 @@ Die Erkennung beachtet `XDG_CONFIG_HOME`. Unter Windows prüft sie außerdem Loc
 5. Prüfen Sie die Host-Voraussetzungen erneut. Git-Zugangsdaten für clone/push werden getrennt eingerichtet.
 
 Richten Sie auf einem anderen Rechner dessen eigene CLI-Anmeldung ein oder nutzen Sie dieses Formular. Das Lieferarchiv enthält keine Benutzertokens.
+
+## Workflow auswählen {#workflow-choice}
+
+**Ohne AEGIS** überschreibt nur Repository-Anweisungen, die AEGIS-Verfahren verlangen. Andere Code-, Lizenz- und Prüfregeln gelten weiter. Installierte AEGIS-Dateien bleiben erhalten. Direct nutzt Implementierung, Validierung und Fertig; Prüfungen werden vom Agenten gemeldet. Die hier beschriebenen AEGIS-Phasen gelten für **Mit AEGIS**.

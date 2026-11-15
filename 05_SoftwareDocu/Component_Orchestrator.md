@@ -15,8 +15,10 @@ The conductor owns ticket selection, lifecycle, budgets, checkpoints, approval,
 publication and cleanup. The executor owns code reasoning and repository checks.
 ADORE never merges. Host Git/forge credentials stay outside executor environments.
 
-An absent AEGIS payload selects Direct. A present unusable payload is refused,
-not bypassed. The actual workflow is pinned from the allocated worktree before
+`requested_workflow` resolves the project auto/direct default and optional manual
+aegis/direct override before admission probes. Direct skips payload inspection and
+AEGIS entirely; explicit AEGIS refuses absence, while auto detects presence and
+refuses an unusable installed payload. The actual workflow is pinned from the allocated worktree before
 the initial claim save and does not change on Retry, resume or review revision.
 
 ## Workflow and durable state

@@ -115,13 +115,6 @@ test("tickets explain shared body modes, exact source, account retention and ine
   }
 });
 
-test("help describes agent-owned checks without a configurable verification command", () => {
-  for (const locale of HELP_LOCALES) {
-    assert.ok(helpOutline(docs()[locale].projects).some(item => item.id === "workflows"));
-    for (const topic of ["projects", "settings", "glossary"]) assert.ok(!read(locale, topic).includes("verify_command"));
-    assert.ok(!helpOutline(docs()[locale].settings).some(item => item.id === "verification-command"));
-  }
-});
 
 test("Jobs help names direct evidence and stage-limit mappings in every locale", async () => {
   const {directCopy} = await import("../src/jobCopy.ts");

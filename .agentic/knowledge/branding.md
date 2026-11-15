@@ -31,11 +31,12 @@ so executor and AEGIS transport do not create an import cycle through isolation.
 
 ## Requirement coverage
 
-- `REQ-FUNC-308299d1` - shared product, resource, and mount identity contract.
-
 ## Files
 
 - `04_Software/adore/branding.py` - shared constants for product, paths,
   container, deployment, and package identity.
 - `05_SoftwareDocu/Component_Branding.md` - component-level reference.
-- `04_Software/tests/test_branding.py` - naming and mount regression tests.
+
+## Current contract
+
+Built-in identity defaults come from `adore/branding.py`. Current UI/API and resource-operation tests exercise their public effects; there is no standalone test duplicating the constant table.

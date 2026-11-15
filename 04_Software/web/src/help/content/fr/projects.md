@@ -91,3 +91,7 @@ La détection respecte `XDG_CONFIG_HOME`. Sous Windows, elle vérifie aussi Loca
 5. Contrôlez à nouveau les prérequis de l’hôte. Les identifiants Git clone/push sont configurés séparément.
 
 Sur un autre ordinateur, préparez sa propre connexion CLI ou utilisez ce formulaire. L’archive de livraison ne contient aucun jeton utilisateur.
+
+## Choisir le workflow {#workflow-choice}
+
+**Sans AEGIS** remplace uniquement les instructions du dépôt imposant les procédures AEGIS. Les autres règles de code, de licence et de vérification restent applicables. Les fichiers AEGIS installés restent intacts. Direct utilise Implémentation, Validation et Terminée ; les vérifications sont rapportées par l’agent. Les étapes AEGIS décrites ici concernent **Avec AEGIS**.

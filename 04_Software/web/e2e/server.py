@@ -27,6 +27,8 @@ from tempfile import TemporaryDirectory
 from threading import Event, Thread
 from time import sleep
 
+from adore.config import default_config
+from adore.preparation import resolve_plan
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore, derive_run_id
 from adore.util import CommandResult
@@ -44,6 +46,16 @@ SOFTWARE = Path(__file__).resolve().parents[2]
 
 
 # LOCAL HELPERS
+def fixture_run(*args, **kwargs) -> RunState:
+    """@brief Build current-schema offline job evidence without external commands."""
+    run = RunState(*args, **kwargs)
+    run.execution = {
+        "plan": resolve_plan(default_config()), "resource": {}, "status": "not-required",
+        "attempts": 0, "steps": [], "history": [], "reprepare": False,
+    }
+    return run
+
+
 def offline_probe(_argv, **_kwargs) -> CommandResult:
     """@brief Reject every setup/readiness probe without invoking host tools."""
     return CommandResult(exit_code=127)
@@ -63,6 +75,11 @@ def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
     @return Zero for tickets 42 and 44, idle polls and pickup control; seven for ticket 43.
     @exception ValueError An unexpected command reaches the fake boundary.
     """
+    workflow = None
+    if "--workflow" in argv:
+        index = argv.index("--workflow")
+        workflow = argv[index + 1]
+        argv = argv[:index] + argv[index + 2:]
     if argv[-2:] == ["run", "--once"]:
         return 0
     if argv[-1] in {"pause", "resume"} and argv[-3] == "--profile":
@@ -78,7 +95,8 @@ def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
             state = StateStore(profile.store_root or profiles.default_store_root(project))
             ticket = int(argv[-1])
             run_id = derive_run_id("gitlab", "group/subgroup/project", ticket)
-            run = RunState(run_id, ticket, workflow="direct", stage="build")
+            run = fixture_run(run_id, ticket, workflow=workflow or "direct",
+                              stage="frame" if workflow == "aegis" else "build")
             with state.run_lock(run_id):
                 state.save(run)
                 state.save_ticket(run_id, {"iid": ticket, "title": f"Offline ticket {ticket}"})
@@ -141,9 +159,9 @@ def main() -> None:
             profiles.config_path(name).write_text(text, encoding="utf-8")
             state = StateStore(root)
             state.pause()
-            state.save(RunState(run_id="historical-job", ticket_iid=1, lifecycle="done"))
+            state.save(fixture_run(run_id="historical-job", ticket_iid=1, lifecycle="done"))
             # A failed job for fixture ticket 24, so the ticket browser offers Retry.
-            state.save(RunState(run_id=derive_run_id("gitlab", "group/subgroup/project", 24),
+            state.save(fixture_run(run_id=derive_run_id("gitlab", "group/subgroup/project", 24),
                                 ticket_iid=24, lifecycle="failed"))
 
         web_app._STATIC = SOFTWARE / "web" / ".e2e-dist"
@@ -424,7 +442,7 @@ def main() -> None:
                 short = {"parked-clarification": "clarification", "awaiting-approval": "approval",
                          "in-review": "review"}.get(lifecycle, lifecycle)
                 run_id = "ux-" + short
-                run = RunState(run_id=run_id, ticket_iid=42, lifecycle=lifecycle, stage=stage,
+                run = fixture_run(run_id=run_id, ticket_iid=42, lifecycle=lifecycle, stage=stage,
                                created_at=stamp, updated_at=stamp)
                 if lifecycle == "parked-clarification":
                     run.parked_at = stamp
@@ -477,11 +495,11 @@ def main() -> None:
                     (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8")
                     for record in records))
             # Cross-project collision, and a run with no saved ticket or journal.
-            roots[1].save(RunState(run_id="ux-working", ticket_iid=42, lifecycle="working",
+            roots[1].save(fixture_run(run_id="ux-working", ticket_iid=42, lifecycle="working",
                                    stage="build", updated_at=stamp))
             roots[1].save_ticket("ux-working", {"iid": 42, "title": "Actual beta collision",
                                               "web_url": "https://forge.example/offline/beta/issues/42"})
-            roots[0].save(RunState(run_id="ux-missing", ticket_iid=99, stage="build"))
+            roots[0].save(fixture_run(run_id="ux-missing", ticket_iid=99, stage="build"))
             if mode == "direct":
                 for index, (status, stage, lifecycle) in enumerate([
                     ("passed", "done", "awaiting-approval"),
@@ -507,7 +525,7 @@ def main() -> None:
                             "timed_out": status == "timed out",
                             "output": "" if status == "empty" else
                             "  <script>literal tail</script> password=fixture-secret\n" + "x" * 300}
-                    roots[0].save(RunState(
+                    roots[0].save(fixture_run(
                         run_id=run_id, ticket_iid=70 + index, workflow="direct", stage=stage,
                         lifecycle=lifecycle, iterations=9, stage_failures=0,
                         validation_evidence=evidence))

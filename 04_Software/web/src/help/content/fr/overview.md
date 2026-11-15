@@ -64,3 +64,7 @@ Les développeurs commencent à l’étape 3 dès qu’un administrateur leur a 
 - [Statistiques et coûts](/help/statistics) : utilisation, qualité, tendances et coûts estimés.
 - [Administration](/help/administration) : utilisateurs, accès, état du système et historique des changements.
 - [Glossaire](/help/glossary) : les termes utilisés dans l’interface.
+
+## Choisir le workflow {#workflow-choice}
+
+**Sans AEGIS** remplace uniquement les instructions du dépôt imposant les procédures AEGIS. Les autres règles de code, de licence et de vérification restent applicables. Les fichiers AEGIS installés restent intacts. Direct utilise Implémentation, Validation et Terminée ; les vérifications sont rapportées par l’agent. Les étapes AEGIS décrites ici concernent **Avec AEGIS**.

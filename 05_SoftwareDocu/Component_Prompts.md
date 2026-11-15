@@ -89,3 +89,7 @@ Captured baselines are independent expected outputs; do not regenerate them from
 the implementation under test. New resources must update the fixed inventory and
 its existing contract coverage together. The catalog itself uses only Python's
 standard library and performs no model, Git or forge calls.
+
+## Trusted Direct instruction
+
+Direct implementation explicitly carries the operator’s selection without AEGIS, overriding only mandatory AEGIS procedure in repository instructions. It preserves other rules and leaves installed payload files intact, requires implementation/checks/questions/summary, and retains ADORE Git/publication ownership. It has no executor-facing budget/deadline instructions. Existing persistent Pi continuation and honest agent-reported evidence remain unchanged.

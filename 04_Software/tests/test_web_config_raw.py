@@ -47,7 +47,8 @@ def docker_project(raw_project, tmp_path):
     text = raw.decode().split("[private_fixture]")[0]
     text = re.sub(r'^repo_path = .+$', f'repo_path = "{repo.as_posix()}"', text, flags=re.M)
     text = re.sub(r'^image = .+$', f'image = "{_IMAGE}"', text, count=1, flags=re.M)
-    text = text.replace("[container]", f'[container]\nbuild_definition = "{_MANIFEST}@{_REVISION}"')
+    text = re.sub(r"(?m)^\[container\]\r?$",
+                  lambda _: f'[container]\nbuild_definition = "{_MANIFEST}@{_REVISION}"', text)
     raw = text.encode()
     path.write_bytes(raw)
     manifest = {"schema": 1, "image": _IMAGE, "dockerfile": _DOCKERFILE,

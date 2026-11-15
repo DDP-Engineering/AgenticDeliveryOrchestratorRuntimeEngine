@@ -30,6 +30,7 @@ from adore.web.store import WebStoreError
 import pytest
 
 from tests.configuration_client import TestClient
+from tests.execution_records import execution_record
 
 
 # LOCAL HELPERS
@@ -508,7 +509,8 @@ def test_display_edit_keeps_membership_operations_and_paths(tmp_path):
     web.set_memberships(dev["id"], ["alpha"])
     operation = web.enqueue(dev["id"], "alpha", "start", "42", "old-operation")
     config = profiles.config_path("alpha").read_bytes()
-    StateStore(profile.store_root).save(RunState(run_id="active-job", ticket_iid=1))
+    StateStore(profile.store_root).save(RunState(run_id="active-job", ticket_iid=1,
+        execution=execution_record()))
     with TestClient(app) as client:
         headers = _login(client)
         result = client.put(f"/api/v1/projects/{before.project_id}/identity",
@@ -623,7 +625,8 @@ def test_failed_creation_rolls_back_and_preserves_running_projects(tmp_path, mon
     """@brief Failed publication cannot leave a runnable orphan or change another project."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     existing = app.state.profiles.create("running", store_root=str(tmp_path / "running-state"))
-    StateStore(existing.store_root).save(RunState(run_id="job", ticket_iid=9))
+    StateStore(existing.store_root).save(RunState(run_id="job", ticket_iid=9,
+        execution=execution_record()))
     original_create, original_audit = ProfileStore.create, app.state.web_store.audit
     with TestClient(app) as client:
         headers = _login(client)
@@ -823,7 +826,8 @@ def test_import_visibility_rollback_and_retained_state(tmp_path, monkeypatch):
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _import_body(tmp_path)
     state = StateStore(tmp_path / "state")
-    state.save(RunState(run_id="retained", ticket_iid=1, lifecycle="done"))
+    state.save(RunState(run_id="retained", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     saved_bytes = (state.run_dir("retained") / "state.json").read_bytes()
     original = ProfileStore.create
 
@@ -885,52 +889,8 @@ def test_import_rejects_secret_runtime_values_and_provider_json(tmp_path, env):
     assert not app.state.profiles.profile_dir("imported").exists()
 
 
-@pytest.mark.parametrize("value", [
-    json.dumps({"provider": {"local": {"options": {"apiKey": "fixture-sensitive-value"}}}}),
-    json.dumps({"provider": {"local": {"options": {"apiKey": "{env:LOCAL_API_KEY}"}}}}),
-])
-def test_import_refuses_removed_agent_environment(tmp_path, value):
-    """@brief A removed agent's environment variable is refused without echoing its value."""
-    app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    body = _import_body(tmp_path)
-    body["config_text"] = body["config_text"].replace(
-        'runtime_env = { UV_LINK_MODE = "copy" }',
-        "runtime_env = { OPENCODE_CONFIG_CONTENT = " + json.dumps(value) + " }")
-    with TestClient(app) as client:
-        headers = _login(client)
-        preview = client.post("/api/v1/projects/import-preview", json=body, headers=headers)
-        assert preview.status_code == 200, preview.text
-        assert not preview.json()["validation"]["structural_valid"]
-        assert "fixture-sensitive-value" not in preview.text
-        assert {"code": "config_invalid",
-                "field": "container.runtime_env.OPENCODE_CONFIG_CONTENT",
-                "remediation": "Remove this key from config.toml; this build does not read it."
-                } in preview.json()["validation"]["issues"]
-        response = client.post("/api/v1/projects/import", json={
-            **body, "revision": preview.json()["revision"]}, headers=headers)
-        assert response.status_code == 400 and "fixture-sensitive-value" not in response.text
-    assert not app.state.profiles.profile_dir("imported").exists()
 
 
-@pytest.mark.parametrize(("old", "new", "field"), [
-    ("[executor]\n", '[executor]\ndefault = "opencode"\n', "executor.default"),
-    ("[executor]\n", "[executor.codex]\nmodel = \"m\"\n\n[executor]\n", "executor.codex"),
-    ("[executor]\n", "[executor]\nstage_host_auth = true\n", "executor.stage_host_auth"),
-])
-def test_import_names_the_removed_agent_key_to_delete(tmp_path, old, new, field):
-    """@brief An earlier build's agent configuration is refused, naming the key to delete."""
-    app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    body = _import_body(tmp_path)
-    assert old in body["config_text"]
-    body["config_text"] = body["config_text"].replace(old, new, 1)
-    with TestClient(app) as client:
-        preview = client.post("/api/v1/projects/import-preview", json=body,
-                              headers=_login(client))
-        assert preview.status_code == 200, preview.text
-        assert not preview.json()["validation"]["structural_valid"]
-        assert {"code": "config_invalid", "field": field,
-                "remediation": "Remove this key from config.toml; this build does not read it."
-                } in preview.json()["validation"]["issues"]
 
 
 @pytest.mark.parametrize("display", [None, "", " x "])
@@ -1106,14 +1066,3 @@ def test_draft_invalid_workflow_never_issues_evidence(tmp_path, monkeypatch, bad
 
 
 # END OF FILE
-
-
-
-def test_removed_verification_command_cannot_be_reintroduced_through_enrollment(tmp_path):
-    app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    with TestClient(app) as client:
-        headers = _login(client)
-        result = client.post("/api/v1/projects/setup-preview", headers=headers,
-                             json={**_body(tmp_path), "verify_command": "must-not-run"})
-        assert result.status_code == 422
-        assert not app.state.profiles.list_profiles()

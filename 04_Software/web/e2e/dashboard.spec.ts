@@ -173,6 +173,7 @@ test("worker processes queued requests and preserves a rejected engine exit", as
     const submitted = page.waitForResponse(response => response.url().endsWith("/tickets/44/start") &&
       response.request().method() === "POST");
     await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" }).getByRole("button", { name: "Start", exact: true }).click();
+    await page.getByRole("button", {name: "Add labels and start", exact: true}).click();
     const response = await submitted;
     expect(response.status()).toBe(200);
     const operation = { id: (await response.json()).operation_id };

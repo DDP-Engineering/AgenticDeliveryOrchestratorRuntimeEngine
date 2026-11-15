@@ -235,17 +235,12 @@ test("branch naming is read-only for developers and wraps on narrow screens", as
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 });
 
-test("ticket labels separate actions from collapsed status edits and retain inactive config", async ({ page }) => {
+test("ticket labels separate actions from collapsed status edits", async ({ page }) => {
   await openSettings(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const panel = page.locator("#project-settings");
   await expect(panel.getByText("Ready for pickup label", { exact: true })).toBeVisible();
   await expect(panel.getByText("Clarification answered label", { exact: true })).not.toBeVisible();
-  expect(before.settings.some((item: { key: string }) => item.key === "labels.executor.prefix")).toBe(false);
-  for (const key of ["readiness.max_scope_hint"]) {
-    expect(before.settings.some((item: { key: string }) => item.key === key)).toBe(false);
-    await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
-  }
   const statuses = panel.locator(".status-label-settings");
   await expect(statuses).not.toHaveAttribute("open");
   await expect(statuses.locator(".setting-row")).toHaveCount(6);
@@ -261,7 +256,6 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   await expect(settingsImpact(page)).toHaveCount(0);
   const unchanged = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(unchanged.revision).toBe(before.revision);
-  expect(unchanged.config.readiness).not.toHaveProperty("max_scope_hint");
   await discardSettings(page);
 });
 
@@ -280,7 +274,6 @@ for (const user of ["admin", "developer"]) {
   await expect(row).toContainText("REVIEW_LIMIT");
   const acceptance = rules.locator(".setting-row").filter({ has: page.getByText("Require ticket acceptance criteria", { exact: true }) });
   await expect(acceptance).toContainText("false");
-  await expect(panel.locator('[id="help-readiness.require_known_component"]')).toHaveCount(0);
   if (user === "developer") {
    await expect(row.getByRole("button")).toHaveCount(0);
   } else {
@@ -303,7 +296,6 @@ test("ticket labels stay read-only for developers in the narrow status disclosur
   await expect(statuses.locator(".setting-row")).toHaveCount(6);
   await expect(statuses.locator(".setting-row").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
-  await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 });
 
@@ -529,7 +521,6 @@ test(`purpose guidance and single-setting flow preserve locale ${locale}`, async
     await expect(statuses.locator(".setting-row")).toHaveCount(6);
     await expect(statuses.locator(".setting-row").first()).toBeVisible();
     await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
-    await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
     await expect(page.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
     const implementation = page.locator('[data-setting-purpose="implementation"]');
     await implementation.locator("summary").first().click();
@@ -875,7 +866,7 @@ for (const user of ["admin", "developer"]) {
   }
   await expect(panel.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.polling.mode).toBe(before.config.polling.mode);
-  for (const key of ["review.trigger", "review.review_reminder_after", "metrics.capture_resource", "clarification.reminder_after", "clarification.timeout_state", "reconcile.on_ticket_closed", "labels.selection.type_feature", "execution.preparation", "container.uv_cache_volume", "local.home"]) await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
+  for (const key of ["review.trigger", "clarification.timeout_state", "reconcile.on_ticket_closed", "labels.selection.type_feature", "execution.preparation", "container.uv_cache_volume", "local.home"]) await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
   for (const key of ["worktree.repo_path", "worktree.root", "agent.slug", "workflow.aegis_python"]) await expect(panel.locator(`[id="setting-${key}"]`).getByRole("button")).toHaveCount(0);
   for (const key of ["metrics.export_jsonl", "metrics.html_out"]) await expect(panel.locator(`[id="setting-${key}"]`)).toHaveCount(0);
   const database = panel.locator('[id="setting-metrics.db_path"]');

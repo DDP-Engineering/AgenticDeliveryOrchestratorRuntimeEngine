@@ -30,6 +30,8 @@ from adore.web.jobs import redact_text
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.execution_records import execution_record
+
 
 # LOCAL HELPERS
 def _fixture(tmp_path):
@@ -46,7 +48,8 @@ def _fixture(tmp_path):
     for index, store in enumerate(stores):
         for run_id, lifecycle in (("same", "working"), ("old", "done")):
             store.save(RunState(run_id=run_id, ticket_iid=1, lifecycle=lifecycle,
-                                stage="build", outcome="" if run_id == "same" else "merged"))
+                                stage="build", outcome="" if run_id == "same" else "merged",
+                execution=execution_record()))
             _state(store, run_id, updated_at="2026-10-05T10:00:00+00:00" if index == 0
                    else "2026-10-05T13:00:00+03:00", created_at="2026-10-05T09:00:00+00:00")
         store.save_ticket("same", {"iid": 1, "title": f"Actual {items[index].name}",
@@ -247,7 +250,7 @@ def test_job_list_has_no_advanced_filters_and_detail_keeps_safe_timeline(tmp_pat
         assert _get(client, "?attention=true")["total"] == 0
         detail = client.get(f"/api/v1/jobs/{items[1].project_id}/same").json()["job"]
         assert [row["stage"] for row in detail["timeline"]] == ["build", "validate"]
-        assert all(set(row) == {"ts", "event", "stage"} for row in detail["timeline"])
+        assert all(set(row) == {"ts", "event", "stage", "attempt"} for row in detail["timeline"])
         assert "SECRET_" not in str(detail)
         assert "observed_executors" not in detail
 
@@ -439,7 +442,7 @@ def test_page_revision_rejects_source_changes(tmp_path, change):
         if change == "state":
             _state(store, "same", outcome="changed")
         elif change == "add":
-            store.save(RunState("new", 2))
+            store.save(RunState("new", 2, execution=execution_record()))
         elif change == "delete":
             (store.run_dir("same") / "ticket.json").unlink()
         elif change == "ticket":
@@ -636,7 +639,8 @@ def test_all_lifecycle_groups_exact_stage_review_and_redaction(tmp_path):
                   "cancelled": "terminal", "stale": "terminal", "handed-off": "terminal"}
     for lifecycle in lifecycles:
         stores[0].save(RunState(lifecycle, 3, lifecycle=lifecycle, stage="publishing",
-                                outcome="Authorization: opaque ACCESS_TOKEN=hide Bearer hidden"))
+                                outcome="Authorization: opaque ACCESS_TOKEN=hide Bearer hidden",
+            execution=execution_record()))
     _state(stores[0], "in-review", mr_url="https://forge.example/org/repo/pulls/3")
     with TestClient(app) as client:
         _login(client)
@@ -671,7 +675,7 @@ def test_unreadable_source_and_orphan_run_are_not_empty_success(tmp_path, monkey
             "detail": {"code": "run_state_corrupt"}}
 
 
-def test_empty_legacy_project_and_absent_default_state_root(tmp_path):
+def test_empty_project_and_absent_default_state_root(tmp_path):
     """@brief No persisted runs is a complete empty collection, including archived history."""
     profiles = ProfileStore(tmp_path / "home")
     item = profiles.create("empty")

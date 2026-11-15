@@ -25,6 +25,8 @@ from adore.web.store import WebStore
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.execution_records import execution_record
+
 
 def _login(client):
     """@brief Return the administrator's CSRF token."""
@@ -37,7 +39,8 @@ def test_archive_retains_history_and_restore_reenables_operations(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done",
+        execution=execution_record()))
     with TestClient(create_app(profiles.home)) as client:
         csrf = _login(client)
         headers = {"X-CSRF-Token": csrf}
@@ -62,12 +65,14 @@ def test_archive_rejects_nonterminal_runs_and_queued_operations(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working",
+        execution=execution_record()))
     with TestClient(create_app(profiles.home)) as client:
         csrf = _login(client)
         headers = {"X-CSRF-Token": csrf}
         assert client.post("/api/v1/projects/alpha/archive", headers=headers).status_code == 409
-        state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done"))
+        state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="done",
+            execution=execution_record()))
         web = WebStore(profiles.home / "web.db")
         admin = web.authenticate("admin", "admin")
         web.enqueue(admin["id"], "alpha", "start", "43", "queued")
@@ -81,7 +86,7 @@ def test_human_handoff_is_visible_and_preserves_web_ownership(tmp_path):
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
     state.save(RunState(run_id="run-1", ticket_iid=42,
-                        lifecycle="handoff-pending"))
+                        lifecycle="handoff-pending", execution=execution_record()))
     with TestClient(create_app(profiles.home)) as client:
         headers = {"X-CSRF-Token": _login(client)}
         cancel = "/api/v1/projects/alpha/operations/cancel"
@@ -92,7 +97,7 @@ def test_human_handoff_is_visible_and_preserves_web_ownership(tmp_path):
         assert client.post("/api/v1/projects/alpha/archive",
                            headers=headers).status_code == 409
         state.save(RunState(run_id="run-1", ticket_iid=42,
-                            lifecycle="handed-off"))
+                            lifecycle="handed-off", execution=execution_record()))
         page = client.get("/api/v1/projects/alpha/runs-page?lifecycle=handed-off")
         assert page.status_code == 200, page.text
         assert [row["run_id"] for row in page.json()["items"]] == ["run-1"]

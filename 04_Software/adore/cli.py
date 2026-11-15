@@ -98,6 +98,8 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--dry-run", action="store_true", help="Show actions without side effects")
     run.add_argument("--ticket", type=int, metavar="IID",
                      help="Run one eligible ticket (with --once); readiness still applies")
+    run.add_argument("--workflow", choices=("aegis", "direct"),
+                     help="Workflow for --once --ticket; otherwise use the project default")
 
     run.add_argument("--admit-only", action="store_true",
                      help="Reserve one job without launching its executor (requires --once)")
@@ -132,6 +134,8 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="Release proven owned native resources despite settings drift")
     restart = sub.add_parser("restart", help="Abandon a confirmed failed run and start its ticket")
     restart.add_argument("run_id")
+    restart.add_argument("--workflow", choices=("aegis", "direct"),
+                         help="Workflow for the new job; otherwise use the project default")
     restart.add_argument("--force", action="store_true")
     restart.add_argument("--expected-revision", required=True,
                          help="SHA-256 of the confirmed failed run state")
@@ -701,6 +705,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
             emit_start_result(args.ticket, code, reason)
         return code
 
+    if args.workflow is not None and (args.ticket is None or not args.once or args.loop):
+        print("error: --workflow requires --once --ticket without --loop")
+        return finish(EXIT_ERROR, "invalid_request")
     if args.admit_only and (not args.once or args.loop or args.dry_run):
         print("error: --admit-only requires --once without --loop or --dry-run")
         return finish(EXIT_ERROR, "invalid_request")
@@ -734,6 +741,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     logger = ProcessLogger(process_log_path(config.state.store_root))
     engine.log = logger.emit
     poll_options = {"ticket_iid": args.ticket} if args.ticket is not None else {}
+    if args.workflow is not None:
+        poll_options["workflow"] = args.workflow
     if args.admit_only:
         poll_options["admit_only"] = True
     if args.dry_run:
@@ -906,7 +915,8 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             print("retried")
             return finish(EXIT_OK, "retried")
         if args.command == "restart":
-            summary = engine.restart(args.run_id, args.expected_revision)
+            summary = engine.restart(args.run_id, args.expected_revision,
+                                     **({"workflow": args.workflow} if args.workflow else {}))
             print(json.dumps(summary))
             picked = summary.get("picked")
             code = EXIT_OK if picked is not None else EXIT_ERROR

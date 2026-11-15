@@ -45,7 +45,7 @@
 #          is the real host behaviour, not a script defect.
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-11-15
-# @version 0.16.0
+# @version 0.17.0
 # -----------------------------------------------------------------------------
 # shellcheck disable=SC2015  # `check && ok || bad` is safe: ok is a bare echo
 set -euo pipefail

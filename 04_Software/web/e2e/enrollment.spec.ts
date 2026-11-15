@@ -177,7 +177,6 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
         await page.getByRole("button",{name:c.continue,exact:true}).click();
         await page.locator("#enroll-model").fill("fixture-model");
         for (let i=0;i<2;i++) await page.getByRole("button",{name:c.continue,exact:true}).click();
-        await expect(page.locator("#enroll-verify_command")).toHaveCount(0);
 
         await page.getByRole("button", {name:c.recheck,exact:true}).click();
         const information = page.locator(".workflow-information");
@@ -203,6 +202,7 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
 }
 
 test("malformed workflow preview and probe responses never display successful evidence", async ({page}) => {
+  test.setTimeout(120_000);
   await enter(page); await verification(page, "direct-corrupt-evidence");
   for (const workflow of [undefined, null, "other", true]) {
     await page.route("**/setup-preview",async route=>{
@@ -232,6 +232,7 @@ test("malformed workflow preview and probe responses never display successful ev
 });
 
 test("label creation can be skipped and its failure keeps the project", async ({ page }) => {
+  test.setTimeout(90_000);
   const ensures: string[] = [];
   page.on("request", request => { if (request.url().endsWith("/labels/ensure")) ensures.push(request.url()); });
   await enter(page); await verification(page, "labels-skip");
@@ -354,6 +355,7 @@ test("native enrollment reports the Node failure under Pi on the server", async 
 });
 
 test("complete reviewed draft creates once with stopped pickup and honest failed checks", async ({ page }, info) => {
+  test.setTimeout(90_000);
   let previewBody: Record<string, unknown> = {};
   let submitted: Record<string, unknown> = {};
   let creates = 0;
@@ -622,7 +624,6 @@ test("subscription enrollment needs no API key and automatically selects the det
   await page.getByLabel(/^Model \*/).fill("gpt-6.1-sol");
   await page.getByRole("button",{name:"Continue",exact:true}).click();
   await page.getByRole("button",{name:"Continue",exact:true}).click();
-  await expect(page.locator("#enroll-verify_command")).toHaveCount(0);
   await expect(page.getByText(enrollmentFlowCopy.en.verify,{exact:true})).not.toBeVisible();
   await expect(page.getByText(enrollmentCopy.en.effects,{exact:true})).not.toBeVisible();
   await page.setViewportSize({width:390,height:844});

@@ -23,6 +23,7 @@ from adore.web.store import WebStoreError
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.execution_records import execution_record
 from tests.usage_events import versioned_usage
 
 
@@ -31,7 +32,7 @@ def test_daily_usage_and_financial_privacy(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="done")
+    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="done", execution=execution_record())
     state.save(run)
     state.journal(run.run_id, "picked")
     state.journal(run.run_id, "usage", **versioned_usage(run.run_id, 3,
@@ -65,7 +66,7 @@ def test_terminal_daily_count_ignores_later_checkpoint_activity(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     run = RunState(run_id="run-1", ticket_iid=42, lifecycle="failed",
-                   updated_at="2026-09-28T15:26:39Z")
+                   updated_at="2026-09-28T15:26:39Z", execution=execution_record())
     state.save(run)
     state.journal(run.run_id, "picked", ts="2026-09-28T12:00:00Z")
     state.journal(run.run_id, "stage-failed", ts="2026-09-28T15:26:39Z")
@@ -87,7 +88,8 @@ def test_usage_projection_replay_and_missing_source_fail_closed(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     state.journal("run-1", "usage", **versioned_usage("run-1", 4, ts="2026-01-01T12:00:00Z",
                   executor="opencode", model="local/test", tokens_in=5,
                   tokens_out=1, cost_usd=0))
@@ -134,7 +136,8 @@ def test_cache_usage_is_a_subset_of_input_and_bad_overlap_fails(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     event = dict(event_id="run-1:1", attempt=1, context="build",
                  executor="pi", model="local/qwen", review_round=0,
                  tokens_in=190, tokens_out=25, cost_usd=0,
@@ -169,7 +172,8 @@ def test_coverage_projection_cursor_replays_append_only_journal(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     state.journal("run-1", "usage-observation", schema=1,
                   event_id="run-1:1", attempt=1, stage="build",
                   review_round=0, executor="pi", model="local/qwen",
@@ -210,7 +214,8 @@ def test_admin_rebuilds_archived_usage_without_changing_run_state(tmp_path):
     profile.archived = True
     profiles.save(profile)
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     state.journal("run-1", "usage-observation", schema=1,
                   event_id="run-1:1", attempt=1, stage="build",
                   review_round=0, executor="opencode", model="local/test",
@@ -253,7 +258,8 @@ def test_reporting_timezone_and_weekly_monthly_buckets(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     state.journal("run-1", "usage", **versioned_usage("run-1", 7, ts="2026-03-28T22:30:00Z",
                   tokens_in=3, tokens_out=1, cost_usd=0))
     state.journal("run-1", "usage", **versioned_usage("run-1", 8, ts="2026-03-29T21:30:00Z",
@@ -298,7 +304,8 @@ def test_launch_coverage_is_idempotent_and_cost_status_is_admin_only(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working",
+        execution=execution_record()))
     observation = {
         "schema": 1,
         "event_id": "run-1:1",
@@ -356,7 +363,8 @@ def test_conflicting_launch_observation_fails_closed(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working",
+        execution=execution_record()))
     for status in ("reported", "unavailable"):
         state.journal("run-1", "usage-observation", schema=1,
                       event_id="run-1:1", attempt=1, stage="build",
@@ -379,7 +387,8 @@ def test_malformed_launch_observation_fails_closed(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working",
+        execution=execution_record()))
     state.journal("run-1", "usage-observation", schema=1,
                   event_id="run-1:1", attempt=1, stage="build",
                   review_round=0, executor="codex", model=None,
@@ -399,7 +408,8 @@ def test_versioned_usage_replay_is_idempotent_in_views(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working",
+        execution=execution_record()))
     usage = {
         "event_id": "run-1:1",
         "attempt": 1,
@@ -442,7 +452,7 @@ def test_unreported_zero_cost_is_unknown(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="done")
+    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="done", execution=execution_record())
     state.save(run)
     state.journal(run.run_id, "picked")
     state.journal(run.run_id, "usage", **versioned_usage(run.run_id, 10,
@@ -477,7 +487,8 @@ def test_scoped_daily_csv_omits_developer_cost(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done",
+        execution=execution_record()))
     state.journal("run-1", "picked")
     state.journal("run-1", "usage", **versioned_usage("run-1", 11, tokens_in=4, tokens_out=2,
                   cost_usd=0.02, cost_reported=True))
@@ -504,7 +515,8 @@ def test_csv_ignores_invalid_journal_dates(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done",
+        execution=execution_record()))
     state.journal("run-1", "usage", **versioned_usage("run-1", 12, ts="=1+1,,,,,,", tokens_in=4,
                   tokens_out=2, cost_usd=0.02))
     app = create_app(profiles.home)
@@ -520,7 +532,8 @@ def test_daily_usage_converts_timestamp_offsets_to_utc(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working",
+        execution=execution_record()))
     state.journal("run-1", "usage", **versioned_usage("run-1", 13, ts="2026-03-30T00:15:00+02:00",
                   tokens_in=5, tokens_out=1))
     state.journal("run-1", "usage", **versioned_usage("run-1", 14, ts="2026-03-29T22:30:00Z",
@@ -548,8 +561,10 @@ def test_metric_period_scopes_totals_and_filters_exports(tmp_path):
     beta = profiles.create("beta", store_root=str(tmp_path / "beta-state"))
     alpha_state = StateStore(alpha.store_root)
     beta_state = StateStore(beta.store_root)
-    alpha_state.save(RunState(run_id="alpha-1", ticket_iid=1, lifecycle="working"))
-    beta_state.save(RunState(run_id="beta-1", ticket_iid=2, lifecycle="working"))
+    alpha_state.save(RunState(run_id="alpha-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
+    beta_state.save(RunState(run_id="beta-1", ticket_iid=2, lifecycle="working",
+        execution=execution_record()))
     alpha_state.journal(
         "alpha-1",
         "usage", **versioned_usage("alpha-1", 16,
@@ -640,7 +655,8 @@ def test_period_does_not_assign_summary_only_usage_to_a_day(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="summary-only", ticket_iid=3, lifecycle="done"))
+    state.save(RunState(run_id="summary-only", ticket_iid=3, lifecycle="done",
+        execution=execution_record()))
     metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
         run_id="summary-only", tokens_in=9, tokens_out=2))
     with TestClient(create_app(profiles.home)) as client:
@@ -668,11 +684,13 @@ def test_terminal_duration_uses_utc_completion_and_reports_coverage(tmp_path):
         ("third", "2026-01-03T00:00:00+00:00", "2026-01-03T00:05:00+00:00", 300),
     )
     for run_id, started, ended, span in examples:
-        state.save(RunState(run_id=run_id, ticket_iid=1, lifecycle="done"))
+        state.save(RunState(run_id=run_id, ticket_iid=1, lifecycle="done",
+            execution=execution_record()))
         metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
             run_id=run_id, lifecycle="done", started_at=started,
             ended_at=ended, span_seconds=span))
-    state.save(RunState(run_id="legacy", ticket_iid=2, lifecycle="done"))
+    state.save(RunState(run_id="legacy", ticket_iid=2, lifecycle="done",
+        execution=execution_record()))
     metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
         run_id="legacy", lifecycle="done"))
     app = create_app(profiles.home)
@@ -720,7 +738,8 @@ def test_missing_or_corrupt_duration_evidence_is_explicit(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="legacy", ticket_iid=1, lifecycle="done"))
+    state.save(RunState(run_id="legacy", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
         run_id="legacy", lifecycle="done"))
     app = create_app(profiles.home)
@@ -763,8 +782,8 @@ def test_attributed_usage_filters_project_global_and_csv_without_cost_leak(tmp_p
     beta = profiles.create("beta", store_root=str(tmp_path / "beta-state"))
     first = StateStore(alpha.store_root)
     second = StateStore(beta.store_root)
-    first.save(RunState(run_id="first", ticket_iid=1))
-    second.save(RunState(run_id="second", ticket_iid=2))
+    first.save(RunState(run_id="first", ticket_iid=1, execution=execution_record()))
+    second.save(RunState(run_id="second", ticket_iid=2, execution=execution_record()))
     first.journal("first", "usage", **versioned_usage("first", 19, ts="2026-01-01T12:00:00Z",
                   executor="opencode", model="local/a", tokens_in=5,
                   tokens_out=2, cost_usd=0))
@@ -825,7 +844,7 @@ def test_attributed_usage_rejects_corrupt_persisted_identity(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="first", ticket_iid=1))
+    state.save(RunState(run_id="first", ticket_iid=1, execution=execution_record()))
     state.journal("first", "usage", **versioned_usage("first", 22, ts="2026-01-01T12:00:00Z",
                   executor={"bad": "value"}, model="local/a", tokens_in=5))
     with TestClient(create_app(profiles.home)) as client:
@@ -841,7 +860,7 @@ def test_attributed_usage_csv_escapes_model_formula(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="first", ticket_iid=1))
+    state.save(RunState(run_id="first", ticket_iid=1, execution=execution_record()))
     state.journal("first", "usage", **versioned_usage("first", 23, ts="2026-01-01T12:00:00Z",
                   executor="opencode", model="=1+1", tokens_in=5))
     with TestClient(create_app(profiles.home)) as client:
@@ -857,7 +876,7 @@ def test_attributed_usage_rejects_nonobject_journal_record(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="first", ticket_iid=1))
+    state.save(RunState(run_id="first", ticket_iid=1, execution=execution_record()))
     journal = state.run_dir("first") / "journal.jsonl"
     journal.write_text('[]\n', encoding="utf-8")
     with TestClient(create_app(profiles.home)) as client:
@@ -875,7 +894,7 @@ def test_attributed_usage_rejects_out_of_range_cost(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="first", ticket_iid=1))
+    state.save(RunState(run_id="first", ticket_iid=1, execution=execution_record()))
     state.journal("first", "usage", ts="2026-01-01T12:00:00Z",
                   executor="opencode", model="local/a", tokens_in=5,
                   cost_usd=10**1000)
@@ -894,7 +913,8 @@ def test_global_daily_csv_is_admin_only_and_identifies_repository(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", repo="=1+1", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done",
+        execution=execution_record()))
     state.journal("run-1", "usage", **versioned_usage("run-1", 24, ts="2026-01-05T00:00:00+00:00",
                   tokens_in=4, tokens_out=2, cost_usd=0.02,
                   cost_reported=True))
@@ -921,7 +941,8 @@ def test_live_run_usage_is_in_project_totals(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="live-1", ticket_iid=8, lifecycle="working"))
+    state.save(RunState(run_id="live-1", ticket_iid=8, lifecycle="working",
+        execution=execution_record()))
     state.journal("live-1", "usage", **versioned_usage("live-1", 25, ts="2026-01-05T00:00:00+00:00",
                   tokens_in=10, tokens_out=4, cost_usd=0.3,
                   cost_reported=True))
@@ -941,7 +962,8 @@ def test_human_mr_revisions_and_pipeline_repairs_are_distinct(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="in-review"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="in-review",
+        execution=execution_record()))
     for stamp, trigger in (
         ("2026-01-05T00:00:00+00:00", "revise-label"),
         ("2026-01-05T12:00:00+00:00", "pipeline-failed"),
@@ -971,7 +993,8 @@ def test_revision_cost_attribution_is_admin_only_and_preserves_unknowns(tmp_path
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="in-review"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="in-review",
+        execution=execution_record()))
     state.journal("run-1", "usage", **versioned_usage("run-1", 26, ts="2026-01-02T00:00:00+00:00",
                   tokens_in=10, tokens_out=2, cost_usd=0.5, cost_reported=True))
     state.journal("run-1", "revision-started", ts="2026-01-03T00:00:00+00:00",
@@ -1031,21 +1054,21 @@ def test_quality_rates_use_evidence_cohorts_and_keep_open_reviews_separate(tmp_p
         ("first-pass", "done", "merged by human", [
             ("validation-accepted", {"passed": True}), ("mr-opened", {})]),
         ("reworked", "done", "merged by human", [
-            ("strict-verification", {"passed": False}),
-            ("strict-verification", {"passed": True}),
+            ("validation-accepted", {"passed": False}),
+            ("validation-accepted", {"passed": True}),
             ("mr-opened", {}),
             ("revision-started", {"trigger": "revise-label"}),
             ("revision-started", {"trigger": "revise-label"})]),
         ("open", "in-review", "", [
-            ("strict-verification", {"passed": True}), ("mr-adopted", {}),
+            ("validation-accepted", {"passed": True}), ("mr-adopted", {}),
             ("revision-started", {"trigger": "pipeline-failed"})]),
         ("failed-before-review", "failed", "", [
-            ("strict-verification", {"passed": False})]),
+            ("validation-accepted", {"passed": False})]),
         ("legacy", "done", "merged by human", []),
     )
     for run_id, lifecycle, outcome, events in examples:
         state.save(RunState(run_id=run_id, ticket_iid=1, lifecycle=lifecycle,
-                            outcome=outcome))
+                            outcome=outcome, execution=execution_record()))
         for event, fields in events:
             state.journal(run_id, event, **fields)
         if lifecycle == "done":
@@ -1092,7 +1115,7 @@ def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_pa
         ("failed", "failed", "", True),
     ):
         state.save(RunState(run_id=run_id, ticket_iid=1,
-                            lifecycle=lifecycle, outcome=outcome))
+                            lifecycle=lifecycle, outcome=outcome, execution=execution_record()))
         state.journal(run_id, "usage", **versioned_usage(run_id, 29,
                                                          executor="codex", model="local-1",
                       tokens_in=1_000_000, tokens_out=0,
@@ -1131,7 +1154,7 @@ def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_pa
         assert "usd" not in str(body).lower()
 
 
-@pytest.mark.parametrize("validation_event", ["strict-verification", "validation-accepted"])
+@pytest.mark.parametrize("validation_event", ["validation-accepted"])
 def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(
     tmp_path, validation_event,
 ):
@@ -1139,7 +1162,8 @@ def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         client.post("/api/v1/session", json={
@@ -1159,7 +1183,8 @@ def test_usage_stale_snapshot_preserves_verified_cursor_and_refuses_truncation(t
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     state.journal("run-1", "stage-launch", stage="build")
     old = state.read_journal("run-1")
     state.journal("run-1", "usage", event_id="run-1:1", attempt=1,
@@ -1185,7 +1210,8 @@ def test_usage_http_out_of_order_projection_retains_actual_snapshot(tmp_path, mo
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     state.journal("run-1", "stage-launch", stage="build")
     app = create_app(profiles.home)
     web = app.state.web_store
@@ -1222,7 +1248,8 @@ def test_usage_rereads_only_each_selected_run_inside_projection(tmp_path, monkey
     state = StateStore(profile.store_root)
     paths = set()
     for name in ("one", "two"):
-        state.save(RunState(run_id=name, ticket_iid=1, lifecycle="working"))
+        state.save(RunState(run_id=name, ticket_iid=1, lifecycle="working",
+            execution=execution_record()))
         paths.add(state.run_dir(name) / "state.json")
     app = create_app(profiles.home)
     original = Path.read_bytes

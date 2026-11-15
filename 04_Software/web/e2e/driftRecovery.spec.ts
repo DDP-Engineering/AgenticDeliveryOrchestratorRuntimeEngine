@@ -10,6 +10,7 @@ import { recoveryCopy } from "../src/recoveryCopy";
 test.beforeEach(async ({ request, context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin ===
     "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
+  await context.route("**/workflow-selection", route => route.fulfill({ json: { default: "direct", aegis_available: false } }));
   expect((await request.post("/__e2e__/jobs", { headers: { "X-ADORE-E2E": "local-test" } })).ok()).toBe(true);
 });
 test.afterEach(async ({ request, page }) => {
@@ -37,6 +38,7 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
       submits++;
       const body = route.request().postDataJSON();
       expect(body.confirmed).toBe(true);
+      expect(body.workflow).toBe("direct");
       expect(body.state_revision).toMatch(/^[a-f0-9]{64}$/);
       expect(body.run_id).toBe("ux-failed");
       await route.fulfill({ status: 409, json: { detail: { code: "job_snapshot_changed" } } });
@@ -44,18 +46,24 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
     await page.goto("/jobs?project=alpha&run=ux-failed");
     const detail = page.locator(".detail-panel");
     await detail.locator(".job-actions summary").click();
-    const restart = detail.getByRole("button", { name: recoveryCopy[locale].restart, exact: true });
+    const restart = detail.getByRole("button", { name: recoveryCopy[locale].restartDirect, exact: true });
     await expect(restart).toBeVisible();
     await expect(detail).toContainText(recoveryCopy[locale].drift);
     await expect(detail.locator(".button-row button")).toHaveCount(0);
-    page.once("dialog", async dialog => {
-      expect(dialog.message()).toContain(recoveryCopy[locale].confirm.replace("{ticket}", "42"));
-      await dialog.dismiss();
-    });
-    await restart.click();
+    await expect(detail.getByRole("button", { name: recoveryCopy[locale].restartAegis, exact: true })).toBeDisabled();
+    await expect(detail.locator(".job-action-menu .field-hint")).toHaveCount(0);
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    const firstDialog = page.waitForEvent("dialog");
+    const firstClick = restart.click();
+    const cancelled = await firstDialog;
+    expect(cancelled.message()).toContain(recoveryCopy[locale].confirm.replace("{ticket}", "42"));
+    expect(cancelled.message()).toContain(recoveryCopy[locale].restartDirect);
+    await cancelled.dismiss(); await firstClick;
     expect(submits).toBe(0);
-    page.once("dialog", dialog => dialog.accept());
-    await restart.focus(); await page.keyboard.press("Enter");
+    await restart.focus();
+    const secondDialog = page.waitForEvent("dialog");
+    const keyboardClick = page.keyboard.press("Enter");
+    await (await secondDialog).accept(); await keyboardClick;
     await expect.poll(() => submits).toBe(1);
     await expect(page.locator(".job-workspace [role=alert]")).toBeVisible();
     await expect(restart).toBeEnabled();
@@ -69,18 +77,33 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
   });
 }
 
-test("retained unproven old branch is a visible successful recovery", async ({ page }) => {
+test("compact recovery keeps Retry pinned and selects AEGIS for a fresh job", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Username", { exact: false }).fill("admin");
   await page.getByLabel("Password", { exact: false }).fill("admin");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".shell")).toBeVisible();
-  await page.route("**/operations/restart", route => route.fulfill({ json: {
-    id: 991, status: "succeeded", result: "restart:retained",
-  } }));
+  await page.route("**/workflow-selection", route => route.fulfill({ json: { default: "aegis", aegis_available: true } }));
+  let retries = 0;
+  await page.route("**/operations/retry", route => {
+    const body = route.request().postDataJSON();
+    expect(body.workflow).toBeUndefined();
+    expect(body.run_id).toBe("ux-failed");
+    retries++;
+    return route.fulfill({ json: { id: 990, status: "succeeded", result: "retried" } });
+  });
+  await page.route("**/operations/restart", route => {
+    expect(route.request().postDataJSON().workflow).toBe("aegis");
+    return route.fulfill({ json: { id: 991, status: "succeeded", result: "restart:retained" } });
+  });
   await page.goto("/jobs?project=alpha&run=ux-failed");
   await page.locator(".detail-panel .job-actions summary").click();
-  page.once("dialog", dialog => dialog.accept());
-  await page.getByRole("button", { name: recoveryCopy.en.restart, exact: true }).click();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect.poll(() => retries).toBe(1);
+  const prompt = page.waitForEvent("dialog");
+  const click = page.getByRole("button", { name: recoveryCopy.en.restartAegis, exact: true }).click();
+  const confirmation = await prompt;
+  expect(confirmation.message()).toContain(recoveryCopy.en.restartAegis);
+  await confirmation.accept(); await click;
   await expect(page.getByRole("status").filter({ hasText: recoveryCopy.en.retained })).toBeVisible();
 });

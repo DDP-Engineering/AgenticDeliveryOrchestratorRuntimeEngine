@@ -13,7 +13,33 @@
 schema = 1
 
 [[release]]
-version = "Unreleased"
+version = "0.17.0"
+date = "2026-11-15"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Compact job actions offer separate restarts with or without AEGIS; Retry keeps its workflow.", fr = "Actions compactes : redémarrage avec ou sans AEGIS ; Réessayer conserve le workflow.", de = "Kompakte Aktionen: Neustart mit oder ohne AEGIS; Wiederholen behält den Workflow.", ro = "Acțiuni compacte: repornire cu sau fără AEGIS; Reîncearcă păstrează fluxul existent." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Generated characters and binary content no longer interrupt Git progress tracking.", fr = "Les caractères générés et données binaires ne bloquent plus le suivi de progression Git.", de = "Generierte Zeichen und Binärdaten unterbrechen die Git-Fortschrittserfassung nicht mehr.", ro = "Caracterele generate și conținutul binar nu mai întrerup urmărirea progresului Git." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
+text = { en = "Start controls share a compact row without repeated explanations.", fr = "Les commandes de démarrage partagent une ligne compacte sans explications répétées.", de = "Startoptionen stehen kompakt in einer Zeile ohne wiederholte Erklärungen.", ro = "Opțiunile de pornire sunt pe un rând compact, fără explicații repetate." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Administration", fr = "Administration", de = "Administration", ro = "Administrare" }
+text = { en = "This build needs a fresh web database; project settings and job records remain.", fr = "Cette version exige une base web neuve ; paramètres des projets et travaux conservés.", de = "Dieser Build benötigt eine neue Webdatenbank; Projekteinstellungen und Jobs bleiben erhalten.", ro = "Această versiune cere o bază web nouă; setările proiectelor și joburile se păstrează." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Choose With AEGIS or Without AEGIS before starting or restarting each job.", fr = "Choisissez Avec AEGIS ou Sans AEGIS avant de démarrer ou recommencer chaque tâche.", de = "Wählen Sie Mit AEGIS oder Ohne AEGIS vor jedem Start oder Neustart eines Jobs.", ro = "Alegeți Cu AEGIS sau Fără AEGIS înainte de pornirea sau repornirea fiecărui job." }
 
 [[release.entry]]
 category = "new"

@@ -341,3 +341,7 @@ archive flag under admission, including a process that loaded configuration
 before archive/delete. Monitoring pause keeps its separate existing semantics.
 Clone deletion previews use saved worktree paths, including project suffixes;
 missing saved ownership never grants a sweep. Per-run conduct logs are independent.
+
+## Explicit manual workflow
+
+Run accepts `--workflow aegis|direct` only with `--once --ticket`; Restart accepts the same override for its replacement job. Both forward typed selection to the conductor. Polling uses the project default; Retry accepts no override. Invalid choices/ambiguous polling fail before admission. Terminal Start/Restart evidence and ownership fences are retained.

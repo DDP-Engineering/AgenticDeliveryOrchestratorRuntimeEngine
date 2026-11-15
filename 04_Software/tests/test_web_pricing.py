@@ -23,6 +23,7 @@ from adore.web.app import create_app
 from adore.web.store import WebStore
 from fastapi.testclient import TestClient
 
+from tests.execution_records import execution_record
 from tests.usage_events import versioned_usage
 
 
@@ -83,7 +84,7 @@ def test_estimates_use_effective_rate_without_double_counting_reported_cost(tmp_
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    run = RunState(run_id="run-1", ticket_iid=7, lifecycle="done")
+    run = RunState(run_id="run-1", ticket_iid=7, lifecycle="done", execution=execution_record())
     state.save(run)
     state.journal("run-1", "picked", ts="2026-01-01T00:00:00+00:00")
     for attempt, (stamp, model, reported) in enumerate((
@@ -162,7 +163,8 @@ def test_nonfinite_journal_cost_is_not_exposed(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working",
+        execution=execution_record()))
     state.journal("run-1", "usage", **versioned_usage("run-1", 31, tokens_in=4, tokens_out=2,
                   cost_usd="NaN", cost_reported=True))
     app = create_app(profiles.home)

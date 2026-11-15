@@ -1,70 +1,30 @@
 # Copyright (c) 2026 DDP Engineering
 # This software is licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a separate commercial license.
-# See the LICENSE.txt in the .agentic folder for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-
-# One requirement = one independently verifiable behavior.
-# Lives at .agentic/requirements/<category>/<id>.toml
-# Required fields: schema, id, title, status, requirement, verification.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 schema = 1
 
-# REQ-<CAT>-<8 hex>. CAT is FUNC, UX, NFR, SEC, DATA, PLAT, REL or TEST,
-# and must match the category folder this file sits in.
 id = "REQ-FUNC-ff7dad34"
 
 title = "Conduct governed ticket delivery"
 
-# draft while being written, active once it is built and tested,
-# retired when the behavior is deliberately removed.
 status = "active"
 
-# Self-contained prose: a reader with no other context must be able to
-# understand and check it. No ticket numbers, no run IDs, no references
-# to other requirements.
-#
-# Recommended shape - EARS. Pick the one pattern that fits; a stated
-# trigger or condition is what the test has to arrange, so surfacing it
-# here is what makes the behavior testable:
-#
-#   ubiquitous  The <system> shall <response>.
-#   event       When <trigger>, the <system> shall <response>.
-#   state       While <state>, the <system> shall <response>.
-#   unwanted    If <condition>, then the <system> shall <response>.
-#   optional    Where <feature is included>, the <system> shall <response>.
-#
-# Two "shall" clauses means two behaviors: split it into two requirements.
-# Do not contort prose to fit a pattern - a constraint that reads better
-# plainly is better plainly.
-requirement = """
-Before publication, the conductor shall bind the agent-reported candidate and target to the configured human-approval policy, then create a draft or ready merge or pull request according to delivery.draft, preserving existing review records.
-"""
+requirement = "For an eligible opt-in ticket, ADORE shall admit an isolated job using its pinned AEGIS or Direct workflow, retain execution and recovery evidence, settle an implementation-complete candidate under the configured approval policy and publish only to its owned branch and configured draft or ready forge review. ADORE shall never merge."
 
-# The observation that settles whether the behavior holds — not a
-# restatement of the requirement.
-#
-# Some behaviors no test can settle: a look-and-see judgement, an install
-# on clean hardware, a printed page. Start this field with "Manual:" or
-# "Inspection:" and name the method, and `check` records the requirement
-# as verified by hand instead of counting it among the tests still owed.
-# The prefix alone is not enough — it has to say what someone does.
-verification = "Offline public poll and Retry tests present AEGIS, configured-verified direct and unconfigured direct candidates, reject preexisting approval labels and candidate/target drift, then accept a freshly added approval only for the unchanged candidate; strict-check failure and missing, failed, timed-out or malformed direct verification evidence (including float-unrepresentable saved integer duration) each prevent publication with typed integrity handling, while valid numeric duration boundaries survive reload and presentation, and a changed candidate or integrated target requires fresh corresponding evidence and approval."
+verification = "Exercise current AEGIS and Direct successful paths, failed attempts, candidate-bound approval and publication refusal with injected forge, Git and executor boundaries."
 
-# Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/orchestrator.py"]
 
-# "tests/path/test_file.py::test_name" entries. Kept current during build;
-# these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_verification_duration_survives_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_orchestrator.py::test_direct_verification_refuses_corrupt_saved_evidence", "04_Software/tests/test_orchestrator.py::test_direct_approval_drift_requires_new_presentation", "04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_approval_drift_requires_new_presentation", "04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval"]
 
-# --- optional below this line ---
-
-# "specs/REQ-FUNC-00000000.md" when the requirement alone is not buildable.
 spec = ""
 
-priority = "normal"   # low | normal | high
+priority = "normal"
+
 rationale = "Publication must be candidate-bound and merging remains a human decision."
 
 created = 2026-08-15
-updated = 2026-11-12
+
+updated = 2026-11-15

@@ -212,7 +212,10 @@ def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
         network = engine.prompts.render("stage/network.md", mode=case["effective_mode"])
         assert permission + network in prompt
     assert "recover ${x}" in prompt and "reply {x} $ £" in prompt
-    assert "TASK-" not in prompt and "AEGIS" not in prompt
+    assert "TASK-" not in prompt
+    assert "overrides only the obligation to use AEGIS procedures" in prompt
+    assert "Preserve all other repository rules" in prompt
+    assert "budget" not in prompt.lower() and "deadline" not in prompt.lower()
 
 
 def test_template_semantics_and_literal_data(resources, prompts):

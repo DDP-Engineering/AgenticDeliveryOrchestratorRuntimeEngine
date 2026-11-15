@@ -54,7 +54,7 @@ test("LA-02 live append, hidden views and history selection keep cursor state", 
   const detail=page.locator(".job-details"),history=detail.locator(".agent-sessions");
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
   await expect(history.getByText("live prompt",{exact:true})).toBeVisible();
-  await expect(history.getByText("Agent is working: thinking",{exact:true})).toBeVisible();
+  await expect(detail.getByText("● Live · thinking",{exact:true})).toBeVisible();
   appended=true;
   await expect(history.locator(".session-tool").filter({hasText:"completed tool"})).toHaveCount(1,{timeout:4500});
   const accepted=reads;
@@ -68,11 +68,11 @@ test("LA-02 live append, hidden views and history selection keep cursor state", 
   await page.waitForTimeout(3300);
   expect(reads).toBe(hiddenReads);
   await page.evaluate(()=>{Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"});document.dispatchEvent(new Event("visibilitychange"));});
-  await history.getByLabel("Attempt",{exact:true}).selectOption(archive.id);
+  await detail.getByLabel("Session",{exact:true}).selectOption(archive.id);
   await expect(history.getByText("selected history",{exact:true})).toBeVisible();
   await detail.getByRole("tab",{name:"Activity",exact:true}).click();
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
-  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue(archive.id);
+  await expect(detail.getByLabel("Session",{exact:true})).toHaveValue(archive.id);
   await expect(history.getByText("selected history",{exact:true})).toBeVisible();
 });
 
@@ -96,8 +96,8 @@ test("LA-02 ended launch reloads final archive then follows next live",async({pa
   await expect(history.getByText("final archived tail",{exact:true})).toBeVisible({timeout:4500});
   phase=2;
   await expect(history.getByText("next launch",{exact:true})).toBeVisible({timeout:4500});
-  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue(next.id);
-  await expect(history.getByLabel("Attempt",{exact:true}).locator("option")).toHaveCount(2);
+  await expect(detail.getByLabel("Session",{exact:true})).toHaveValue(next.id);
+  await expect(detail.getByLabel("Session",{exact:true}).locator("option")).toHaveCount(2);
 });
 
 test("LA-02 stale live completion cannot steal history and saved terminal state stops reads",async({page})=>{
@@ -125,21 +125,21 @@ test("LA-02 stale live completion cannot steal history and saved terminal state 
   await expect(history.getByText("initial live",{exact:true})).toBeVisible();
   await page.clock.fastForward(3100);
   await expect.poll(()=>reads,{timeout:4500}).toBe(2);
-  await history.getByLabel("Attempt",{exact:true}).selectOption(archive.id);
+  await detail.getByLabel("Session",{exact:true}).selectOption(archive.id);
   await expect(history.getByText("retained history",{exact:true})).toBeVisible();
   release();
   await expect(history.getByText("STALE_LIVE_NEVER",{exact:true})).toHaveCount(0);
-  await history.getByLabel("Attempt",{exact:true}).selectOption(live.id);
+  await detail.getByLabel("Session",{exact:true}).selectOption(live.id);
   await expect(history.getByText("resumed live",{exact:true})).toBeVisible();
   terminal=true;
   const refreshed=page.waitForResponse(response=>/\/api\/v1\/jobs\/[^/]+\/ux-working$/.test(response.url()));
   await page.clock.fastForward(16000);await refreshed;
   await expect(detail.locator(".job-detail-meta")).toContainText("Failed");
-  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue(archive.id);
+  await expect(detail.getByLabel("Session",{exact:true})).toHaveValue(archive.id);
   const stopped=reads;
   await page.clock.fastForward(3300);
   expect(reads).toBe(stopped);
-  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue(archive.id);
+  await expect(detail.getByLabel("Session",{exact:true})).toHaveValue(archive.id);
 });
 
 for(const finished of [false,true])test(`LA-02 archived pagination survives hidden views at ${finished?"EOF":"a partial page"}`,async({page})=>{
@@ -150,6 +150,7 @@ for(const finished of [false,true])test(`LA-02 archived pagination survives hidd
   await page.route("**/sessions/build-attempt-1-attempt1?*",route=>{
     reads++;
     const second=new URL(route.request().url()).searchParams.get("cursor")==="100";
+    if(second&&!finished)return route.fulfill({status:503,json:{detail:{code:"job_evidence_corrupt"}}});
     return route.fulfill({json:{session:archive,items:[{kind:"assistant",text:second?"archived second page":"archived first page"}],next_cursor:second?null:100}});
   });
   await page.goto("/jobs?project=alpha&run=ux-done");
@@ -157,9 +158,8 @@ for(const finished of [false,true])test(`LA-02 archived pagination survives hidd
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
   await expect(history.getByText("archived first page",{exact:true})).toBeVisible();
   if(finished){
-    await history.getByRole("button",{name:"Load more",exact:true}).click();
     await expect(history.getByText("archived second page",{exact:true})).toBeVisible();
-  }
+  }else await expect(history.getByRole("button",{name:"Retry",exact:true})).toBeVisible();
   const accepted=reads;
   await detail.getByRole("tab",{name:"Activity",exact:true}).click();
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
@@ -171,7 +171,7 @@ for(const finished of [false,true])test(`LA-02 archived pagination survives hidd
   expect(reads).toBe(accepted);
   await expect(history.getByText("archived first page",{exact:true})).toBeVisible();
   if(finished)await expect(history.getByText("archived second page",{exact:true})).toBeVisible();
-  else await expect(history.getByRole("button",{name:"Load more",exact:true})).toBeVisible();
+  else await expect(history.getByRole("button",{name:"Retry",exact:true})).toBeVisible();
 });
 
 for(const failed of [false,true])test(`LA-02 unaccepted initial history resumes after ${failed?"failure":"hiding an in-flight read"}`,async({page})=>{
@@ -201,7 +201,7 @@ for(const failed of [false,true])test(`LA-02 unaccepted initial history resumes 
   expect(reads).toBe(2);
 });
 
-test("LA-02 interrupted archive Load more keeps its cursor and remains retryable",async({page})=>{
+test("LA-02 interrupted archive loading keeps its cursor and resumes safely",async({page})=>{
   await signIn(page);
   const archive={id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0};
   let reads=0,release:()=>void=()=>{};
@@ -210,20 +210,17 @@ test("LA-02 interrupted archive Load more keeps its cursor and remains retryable
   await page.route("**/sessions/build-attempt-1-attempt1?*",async route=>{
     const count=++reads,offset=Number(new URL(route.request().url()).searchParams.get("cursor"));
     if(count===2)await held;
-    return route.fulfill({json:{session:archive,items:[{kind:"assistant",text:offset?"accepted second page":"accepted first page"}],next_cursor:offset?null:100}});
+    return route.fulfill({json:{session:archive,items:[{kind:"assistant",text:count===2?"STALE_ARCHIVE_NEVER":offset?"accepted second page":"accepted first page"}],next_cursor:offset?null:100}});
   });
   await page.goto("/jobs?project=alpha&run=ux-done");
   const detail=page.locator(".job-details"),history=detail.locator(".agent-sessions");
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
   await expect(history.getByText("accepted first page",{exact:true})).toBeVisible();
-  const more=history.getByRole("button",{name:"Load more",exact:true});
-  await more.click();await expect.poll(()=>reads).toBe(2);
+  await expect.poll(()=>reads).toBe(2);
   await detail.getByRole("tab",{name:"Activity",exact:true}).click();
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
   release();
-  await expect(more).toBeEnabled();
-  await expect(history.getByText("accepted second page",{exact:true})).toHaveCount(0);
-  await more.click();
+  await expect(history.getByText("STALE_ARCHIVE_NEVER",{exact:true})).toHaveCount(0);
   await expect(history.getByText("accepted second page",{exact:true})).toBeVisible();
   await expect(history.getByText("accepted first page",{exact:true})).toBeVisible();
   expect(reads).toBe(3);
@@ -237,7 +234,7 @@ test("LA-01 compact detail preserves global list and reads recorded sessions", a
   const scope = await page.locator("#jobs-project").inputValue();
   await page.locator(".action-jobs-table a.strong").first().click();
   const detail = page.locator(".job-details");
-  await expect(detail.getByRole("tab")).toHaveText(["Activity","Agent sessions","Artifacts","Technical information"]);
+  await expect(detail.getByRole("tab")).toHaveText(["Activity","Agent sessions","Job details"]);
   await expect(detail.getByText("What is happening now",{exact:true})).toHaveCount(0);
   const commands = await detail.locator(".job-detail-commands").boundingBox();
   const title = await detail.locator(".job-detail-title h2").boundingBox();
@@ -260,9 +257,8 @@ test("LA-01 compact detail preserves global list and reads recorded sessions", a
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
   await expect(detail.getByText("recorded prompt",{exact:true})).toBeVisible();
   await expect(detail.getByText("collapsed reasoning",{exact:true})).toBeHidden();
-  await detail.locator("details.session-tool").first().locator("summary").click();
+  await detail.locator("li.session-tool details").first().locator("summary").click();
   await expect(detail.locator(".session-tool pre").first()).toContainText("fake-key-EXACT");
-  await detail.getByRole("button",{name:"Load more",exact:true}).click();
   await expect(detail.getByText("last page",{exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath("agent-sessions.png"),fullPage:true});
   await detail.getByRole("button",{name:"Close",exact:true}).click();
@@ -277,16 +273,16 @@ test("LA-01 finished job replays real archived Pi fixtures through authenticated
   const detail=page.locator(".job-details");
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
   const history=detail.locator(".agent-sessions");
-  await expect(history.getByLabel("Attempt",{exact:true}).locator("option")).toHaveCount(2);
-  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue("build-attempt-2-attempt1");
+  await expect(detail.getByLabel("Session",{exact:true}).locator("option")).toHaveCount(2);
+  await expect(detail.getByLabel("Session",{exact:true})).toHaveValue("build-attempt-2-attempt1");
   await expect(history.locator(".session-prompt")).toBeVisible();
   await expect(history.locator(".session-assistant").first()).toBeVisible();
-  await expect(history.locator(".session-usage").first()).toBeVisible();
+  await expect(detail.locator(".job-usage")).toBeVisible();
   await expect(history).not.toContainText("SYSTEM_SESSION_NEVER_VISIBLE");
-  const tool=history.locator("details.session-tool").filter({hasText:"fake-exact"});
+  const tool=history.locator("li.session-tool details").filter({hasText:"fake-exact"});
   await tool.locator("summary").click();
   await expect(tool.locator("pre")).toHaveText("API_KEY=fake-exact");
-  await history.getByLabel("Attempt",{exact:true}).selectOption("build-attempt-1-attempt1");
+  await detail.getByLabel("Session",{exact:true}).selectOption("build-attempt-1-attempt1");
   await expect(history.locator(".session-prompt")).toBeVisible();
 });
 
@@ -336,13 +332,14 @@ test.describe("Direct job evidence", () => {
     for (const suffix of ["whitespace", "publication-reset", "retried"]) {
       await page.goto(`/jobs?project=alpha&run=ux-direct-${suffix}`);
       const detail = page.locator(".detail-panel"), evidence = detail.locator(".direct-evidence");
-      await detail.getByRole("tab", {name:"Artifacts",exact:true}).click();
+      await detail.getByRole("tab", {name:"Job details",exact:true}).click();
+      await detail.locator(".job-diagnostics > summary").click();
       await expect(evidence).toBeVisible();
       await expect(evidence).toContainText("Latest recorded attempt");
       await expect(detail.locator(".job-detail-meta")).toContainText(
         suffix === "publication-reset" ? "Stage: Publishing" : "Stage: Done");
       if (suffix !== "whitespace")
-        await expect(detail.locator(".timeline-table tr").filter({hasText:"reset"})).toContainText("Publishing");
+        await expect(detail.locator(".job-detail-meta")).toContainText("Workflow: Direct");
       await expect(evidence.locator("code, pre")).toHaveCount(0);
     }
   });
@@ -351,6 +348,8 @@ test.describe("Direct job evidence", () => {
     test(`corrupt ${corruption} hides previously valid direct evidence`, async ({page}) => {
       await page.clock.install();
       await signIn(page); await page.goto("/jobs?project=alpha&run=ux-direct-passed");
+      await page.getByRole("tab",{name:"Job details",exact:true}).click();
+      await page.locator(".job-diagnostics > summary").click();
       await expect(page.locator(".direct-evidence")).toContainText("Latest recorded attempt");
       const pattern = corruption === "workflow-list" ? "**/api/v1/jobs-page?*" : "**/api/v1/jobs/*/ux-direct-passed";
       await page.route(pattern, async route => {
@@ -448,7 +447,7 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
   const hub = page.locator(".project-hub");
   await expect(hub.locator("strong")).toHaveText("alpha");
-  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Jobs", "Statistics", "History", "Access"]);
+  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Jobs", "Tickets", "Statistics", "History", "Access"]);
   await expect(page.locator(".project-links")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "alpha", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toBeVisible();
@@ -526,9 +525,9 @@ test("manual start from Tickets reports queueing and the asynchronous worker fai
   await page.goto("/tickets?project=alpha");
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#43" }).getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button",{name:"Add labels and start",exact:true}).click();
   const notice = page.locator(".ticket-notice");
   await expect(notice).toContainText("Start for #43 queued");
-  await expect(notice).toContainText("Starts only this ticket, even with monitoring paused. All other checks still apply.");
   await expect(notice).toContainText("failed · engine rejected operation");
   await expect(notice).not.toContainText("finished");
 });
@@ -550,9 +549,11 @@ test("global Jobs and Tickets retain scope and leave the project hub intact", as
   await nav(page).getByRole("link",{name:"Projects",exact:true}).click();
   await expect(page.locator(".projects-table")).toBeVisible();
   await page.getByRole("link",{name:"alpha",exact:true}).click();
-  await expect(page.locator(".project-tabs").getByRole("tab")).toHaveText(["Summary","Settings","Jobs","Statistics","History","Access"]);
+  await expect(page.locator(".project-tabs").getByRole("tab")).toHaveText(["Summary","Settings","Jobs","Tickets","Statistics","History","Access"]);
   await page.locator(".project-tabs").getByRole("tab",{name:"Jobs",exact:true}).click();
-  await expect(page.locator(".jobs-subtabs").getByRole("tab")).toHaveText(["Tickets","Jobs","Capacity"]);
+  await expect(page.locator("#job-search")).toBeVisible();
+  await page.locator(".project-tabs").getByRole("tab",{name:"Tickets",exact:true}).click();
+  await expect(page.locator(".ticket-table")).toBeVisible();
 });
 
 test("all real lifecycle groups explain exact stage evidence and protected handoffs", async ({ page }) => {
@@ -604,13 +605,11 @@ test("clarification candidate and draft actions open actual saved locations and 
       await expect(detail).not.toContainText("fixture-secret");
     }
     if (run === "ux-approval") {
-      await detail.getByRole("tab", {name:"Technical information",exact:true}).click();
-      await detail.getByText("Original recorded events", {exact:true}).click();
-      const timeline = detail.getByRole("table", { name: "Timeline" });
+      const timeline = detail.getByRole("table", { name: "Activity", exact: true });
       await expect(timeline).toContainText("Frame"); await expect(timeline).toContainText("Build"); await expect(timeline).toContainText("Validate");
       await expect(timeline).not.toContainText("Specify"); await expect(timeline).not.toContainText("Design");
       await detail.getByRole("tab",{name:"Activity",exact:true}).click();
-      await expect(detail).toContainText("Only saved events are shown.");
+      await expect(timeline.getByRole("columnheader")).toHaveText(["Date","Event","Stage","Session"]);
     }
   }
 });
@@ -737,6 +736,7 @@ test("queued pending and final successful commands do not predict job outcome", 
     await page.getByRole("button", { name: "Read tickets", exact: true }).click();
     const row = page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" });
     await row.getByRole("button", { name: "Start", exact: true }).click();
+    await page.getByRole("button", {name: "Add labels and start", exact: true}).click();
     const notice = page.locator(".ticket-notice");
     await expect(notice).toContainText("Start for #44 queued");
     await expect(row.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
@@ -746,7 +746,7 @@ test("queued pending and final successful commands do not predict job outcome", 
     await expect(notice).toContainText("finished");
     await page.goto("/jobs?project=alpha&run=ux-failed");
     await page.locator(".detail-panel .job-actions summary").click();
-    await expect(page.locator(".job-action-menu")).toContainText("Retry follows validation");
+    await expect(page.locator(".job-action-menu")).not.toContainText("Retry follows validation");
     await page.locator(".detail-panel").getByRole("button", { name: "Retry", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Command failed" })).toBeVisible();
   } finally {
@@ -811,18 +811,16 @@ test("observed timeline retains paging and rejects unsafe action locations", asy
   await signIn(page);
   await page.route("**/api/v1/jobs/*/ux-working", async route => {
     const response = await route.fetch(); const data = await response.json();
-    data.job.timeline = Array.from({ length: 26 }, (_, index) => ({ ts: null, event: `saved-${index}`, stage: "build" }));
+    data.job.timeline = Array.from({ length: 26 }, (_, index) => ({ ts: `2026-11-${String(index+1).padStart(2,"0")}T10:00:00Z`, event: "stage-launch", stage: "build" }));
     await route.fulfill({ response, json: data });
   });
   await page.goto("/jobs?project=alpha&run=ux-working");
-  await page.getByRole("tab",{name:"Technical information",exact:true}).click();
-  await page.getByText("Original recorded events",{exact:true}).click();
-  const timeline = page.getByRole("table", { name: "Timeline", exact: true });
+  const timeline = page.getByRole("table", { name: "Activity", exact: true });
   await expect(timeline.getByRole("row")).toHaveCount(11);
-  await expect(timeline).toContainText("saved-25");
-  const pager = page.locator(".timeline-pagination");
+  await expect(timeline.locator("time").first()).toHaveAttribute("datetime","2026-11-26T10:00:00Z");
+  const pager = page.locator(".job-detail-content:not([hidden]) .page-controls");
   await pager.getByRole("button", { name: "Next", exact: true }).click();
-  await expect(timeline).toContainText("saved-15");
+  await expect(timeline.locator("time").first()).toHaveAttribute("datetime","2026-11-16T10:00:00Z");
   await pager.getByRole("combobox").selectOption("all");
   await expect(timeline.getByRole("row")).toHaveCount(27);
   await page.unroute("**/api/v1/jobs/*/ux-working");
@@ -1334,13 +1332,14 @@ test("project hub shows jobs and statistics as tabs without duplicated scope", a
   await hub.getByRole("tab", { name: "Jobs", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
   await expect(hub.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
+  await hub.getByRole("tab", {name:"Tickets",exact:true}).click();
   await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeVisible();
   await expect(page.locator("#job-ticket-number")).toHaveCount(0);
   await expect(page.locator("#jobs-project")).toHaveCount(0);
   await expect(page.getByText("Jobs shown here belong to the selected project.")).toHaveCount(0);
   await expect(page.locator(".project-context")).toHaveCount(1);
-  await page.locator(".jobs-subtabs").getByRole("tab", { name: "Jobs", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?view=jobs$`));
+  await hub.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
   await expect(page.locator("#job-search")).toBeVisible();
   const firstJob = page.locator(".action-jobs-table tbody tr").first().locator("td:first-child a");
   await expect(firstJob).toHaveAttribute("href", new RegExp(`^/projects/${alpha}/jobs\\?run=`));
@@ -1351,7 +1350,7 @@ test("project hub shows jobs and statistics as tabs without duplicated scope", a
   await page.reload();
   await expect(page.locator(".detail-panel")).toBeVisible();
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?view=jobs$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
   await hub.getByRole("tab", { name: "Summary", exact: true }).click();
   await page.locator(".overview-jobs-table tbody tr").first().locator("a").first().click();
   await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?run=`));
@@ -1454,7 +1453,8 @@ test("executor output retains verified evidence across a live journal conflict",
     }});
   });
   await page.goto("/jobs?project=alpha&run=ux-working");
-  await page.getByRole("tab",{name:"Technical information",exact:true}).click();
+  await page.getByRole("tab",{name:"Job details",exact:true}).click();
+  await page.locator(".job-diagnostics > summary").click();
   const output = page.locator(".executor-output");
   const read = output.getByRole("button",{name:"View latest executor output",exact:true});
   await read.click();
@@ -1496,10 +1496,10 @@ test("issue35 job diagnostics clarify status, safe questions, seconds and consum
   const card=page.locator(".job-human-actions"),detail=page.locator(".detail-panel");
   await expect(card).toContainText("Failed attempts in this stage: 1");
   await expect(card).not.toContainText(/Reason not recorded|Unknown — no recorded evidence|does not identify/);
-  await detail.getByRole("tab",{name:"Technical information",exact:true}).click();
-  await detail.getByText("Original recorded events",{exact:true}).click();
-  await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText(/:34/);
-  await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText("Build");
+  await expect(detail.getByRole("table",{name:"Activity",exact:true})).toContainText(/:34/);
+  await expect(detail.getByRole("table",{name:"Activity",exact:true})).toContainText("Build");
+  await detail.getByRole("tab",{name:"Job details",exact:true}).click();
+  await detail.locator(".job-diagnostics > summary").click();
   await expect(detail.getByRole("button",{name:"Refresh consumption",exact:true})).toBeVisible();
   await page.unroute("**/api/v1/projects/*/usage?*");
   await detail.getByRole("button",{name:"Refresh consumption",exact:true}).click();
@@ -1623,10 +1623,12 @@ test("compact summary and Jobs toolbar fit desktop and narrow screens", async ({
 });
 
 
-test("LA-03 queues both modes below empty live sessions and polls acknowledged delivery",async({page},info)=>{
+test("LA-03 queues both modes in the live conversation and polls acknowledged delivery",async({page},info)=>{
   await signIn(page);
   const rows:Array<Record<string,unknown>>=[];let acknowledged=false;
-  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[]}}));
+  const live={id:"live-"+"a".repeat(32),live:true,archive_id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:"2026-11-14T09:00:00Z",end_at:null,outcome:null,exit_code:null};
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[live]}}));
+  await page.route("**/sessions/live-*?*",route=>route.fulfill({json:{session:live,session_ended:false,continuity:"b".repeat(64),thinking:false,items:[],next_cursor:0}}));
   await page.route("**/instructions",async route=>{
     const parts=new URL(route.request().url()).pathname.split("/"),project=parts[4],run=parts[5];
     if(route.request().method()==="POST"){
@@ -1639,32 +1641,30 @@ test("LA-03 queues both modes below empty live sessions and polls acknowledged d
   await page.goto("/jobs?project=alpha&run=ux-working");
   const detail=page.locator(".job-details");
   await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
-  const composer=detail.getByRole("region",{name:"Instructions",exact:true});
-  await expect(detail.locator(".agent-sessions")).toContainText("No completed agent sessions recorded.");
-  await expect(composer.getByText(/waits for the current tools/)).toBeVisible();
+  const composer=detail.getByRole("region",{name:"Message to the agent",exact:true});
+  await expect(detail.getByLabel("Session",{exact:true})).toHaveValue(live.id);
   const liveBox=await detail.locator(".agent-sessions").boundingBox(),composerBox=await composer.boundingBox();
   expect(composerBox!.y).toBeGreaterThan(liveBox!.y);
   const text="  password=SYNTHETIC\n<script>$text🙂</script>\n";
-  await composer.getByLabel("Instruction for the agent",{exact:true}).fill(text);
+  await composer.getByRole("textbox",{name:"Message to the agent",exact:true}).fill(text);
   await composer.getByRole("button",{name:"Send now",exact:true}).click();
-  await expect(composer.getByText("Queued",{exact:true})).toBeVisible();
+  await expect(detail.getByText("Queued",{exact:true})).toBeVisible();
   expect(rows[0].text).toBe(text);expect(rows[0].mode).toBe("now");
-  expect(await composer.locator("pre").first().textContent()).toBe(text);
+  expect(await detail.locator(".session-prompt pre").first().textContent()).toBe(text);
   acknowledged=true;
-  await expect(composer.getByText("Delivered",{exact:true})).toBeVisible();
-  await expect(composer.getByText(/acknowledged receipt, not/)).toBeVisible();
-  await composer.getByLabel("Instruction for the agent",{exact:true}).fill("After current work");
-  await composer.getByRole("button",{name:"Send when finished",exact:true}).click();
-  await expect(composer.getByText("Queued",{exact:true})).toBeVisible();
+  await expect(detail.getByText("Received by agent",{exact:true})).toBeVisible();
+  await composer.getByRole("textbox",{name:"Message to the agent",exact:true}).fill("After current work");
+  await composer.getByRole("button",{name:"Queue message",exact:true}).click();
+  await expect(detail.getByText("Queued",{exact:true})).toBeVisible();
   expect(rows[1].mode).toBe("after");
-  await expect(detail.getByRole("tab")).toHaveText(["Activity","Agent sessions","Artifacts","Technical information"]);
+  await expect(detail.getByRole("tab")).toHaveText(["Activity","Agent sessions","Job details"]);
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   await page.screenshot({path:info.outputPath("instructions-390.png"),fullPage:true});
   await page.goto("/jobs?project=alpha&run=ux-approval");
   await page.getByRole("tab",{name:"Agent sessions",exact:true}).click();
-  await expect(page.getByLabel("Instruction for the agent",{exact:true})).toBeDisabled();
-  await expect(page.getByRole("button",{name:"Send now",exact:true})).toBeDisabled();
+  await expect(page.getByRole("textbox",{name:"Message to the agent",exact:true})).toBeHidden();
+  await expect(page.getByRole("button",{name:"Send now",exact:true})).toBeHidden();
 });
 
 for(const delayed of ["read","send"])test(`LA-03 stale instruction ${delayed} cannot affect another project job`,async({page})=>{
@@ -1678,29 +1678,29 @@ for(const delayed of ["read","send"])test(`LA-03 stale instruction ${delayed} ca
   await page.route("**/instructions",async route=>{
     const parts=new URL(route.request().url()).pathname.split("/"),project=parts[4],run=parts[5];
     const post=route.request().method()==="POST";
-    const old={schema:1,id:"a".repeat(32),user:{id:1,username:"admin"},created_at:"2026-11-14T10:00:00Z",mode:"now",text:"Old project text",delivery:null,last_error:""};
+    const old={schema:1,id:"a".repeat(32),user:{id:1,username:"admin"},created_at:"2026-11-14T10:00:00Z",mode:"after",text:"Old project text",delivery:null,last_error:""};
     if(project===alpha&&((delayed==="send"&&post)||(delayed==="read"&&!post))){started=true;await waiting;}
     return route.fulfill({json:post?{project_id:project,run_id:run,instruction:old}:{project_id:project,run_id:run,instructions:project===alpha?[old]:[],notices:[]}});
   });
   await page.goto("/jobs?project=alpha&run=ux-working");
   await page.getByRole("tab",{name:"Agent sessions",exact:true}).click();
   if(delayed==="send"){
-    await page.getByLabel("Instruction for the agent",{exact:true}).fill("Old project text");
-    await page.getByRole("button",{name:"Send now",exact:true}).click();
+    await page.getByRole("textbox",{name:"Message to the agent",exact:true}).fill("Old project text");
+    await page.getByRole("button",{name:"Queue message",exact:true}).click();
   }
   await expect.poll(()=>started).toBe(true);
   await page.getByRole("button",{name:"Close",exact:true}).click();
   await page.locator("#jobs-project").selectOption(beta);
   await page.locator(".action-jobs-table a.strong").filter({hasText:"Actual beta collision"}).click();
   await page.getByRole("tab",{name:"Agent sessions",exact:true}).click();
-  await page.getByLabel("Instruction for the agent",{exact:true}).fill("New project draft");
+  await page.getByRole("textbox",{name:"Message to the agent",exact:true}).fill("New project draft");
   release();
-  await expect(page.getByLabel("Instruction for the agent",{exact:true})).toHaveValue("New project draft");
-  await expect(page.locator(".instruction-list")).not.toContainText("Old project text");
+  await expect(page.getByRole("textbox",{name:"Message to the agent",exact:true})).toHaveValue("New project draft");
+  await expect(page.locator(".session-timeline")).not.toContainText("Old project text");
   await expect(page.locator(".job-detail-title")).toContainText("Actual beta collision");
 });
 
-for(const [locale,tab,title,button] of [["fr","Sessions de l’agent","Instructions","Envoyer maintenant"],["de","Agentensitzungen","Anweisungen","Jetzt senden"],["ro","Sesiunile agentului","Instrucțiuni","Trimite acum"]])test(`LA-03 localized composer in ${locale}`,async({page})=>{
+for(const [locale,tab,title,button] of [["fr","Sessions de l’agent","Message à l’agent","Envoyer maintenant"],["de","Agentensitzungen","Nachricht an den Agenten","Jetzt senden"],["ro","Sesiunile agentului","Mesaj pentru agent","Trimite acum"]])test(`LA-03 localized composer in ${locale}`,async({page})=>{
   await signIn(page);
   await page.goto("/account");
   const [savedLanguage]=await Promise.all([
@@ -1751,10 +1751,10 @@ test("LA-03 terminal transition refreshes a delayed pre-ack instruction read",as
   await page.clock.fastForward(16000);await refreshed;
   await expect(page.locator(".job-detail-meta")).toContainText("Failed");
   release();
-  const composer=page.getByRole("region",{name:"Instructions",exact:true});
-  await expect(composer.getByText("Delivered",{exact:true})).toBeVisible();
-  await expect(composer.getByText("Queued",{exact:true})).toHaveCount(0);
-  await expect(composer.getByLabel("Instruction for the agent",{exact:true})).toBeDisabled();
+  const history=page.locator(".agent-sessions");
+  await expect(history.getByText("Received by agent",{exact:true})).toBeVisible();
+  await expect(history.getByText("Queued",{exact:true})).toHaveCount(0);
+  await expect(history.getByRole("textbox",{name:"Message to the agent",exact:true})).toBeHidden();
   const finalReads=reads;
   await page.clock.fastForward(6000);
   expect(reads).toBe(finalReads);

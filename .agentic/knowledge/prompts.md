@@ -57,26 +57,6 @@ owners.
 
 ## Key behaviors
 
-- `REQ-FUNC-1f56bfac`, `REQ-FUNC-e8d63a5c`: fixed Markdown catalog, eagerly checked once per conductor.
-- `REQ-FUNC-889f30ed`: direct/implementation.md requests whole-ticket work,
-  repository instructions/tests, no Git publication/forge credentials, questions
-  and root summary. Direct composition reuses literal ticket/thread/recovery and
-  identical shared permission/network notices without AEGIS journal procedure.
-- `REQ-FUNC-5dfb0e8d`, `REQ-FUNC-e5899386`: direct/verification.md names the
-  configured command and asks Pi to run it before finishing.
-  direct/verification-failure.md binds sanitized command, exit, status and output
-  independently as literal data from the retained result for fresh fixes/Retry.
-  The conductor selects these only for configured direct runs; empty-command and
-  AEGIS prompts retain their own behavior. Inventory, literal placeholder and
-  missing-value controls are in `test_prompts.py`; public selection/context
-  assertions are in `test_orchestrator.py`.
-- `REQ-FUNC-5bd765bb`, `REQ-SEC-66431463`: named single-pass substitution with literal external data.
-- `REQ-FUNC-8256ca8e`: legal comments stay local; body whitespace stays exact.
-- `REQ-REL-6fc1aa99`, `REQ-REL-d0663c1d`, `REQ-REL-3eb9bb9e`: file-named missing/read/encoding refusal.
-- `REQ-REL-ab48c99a`, `REQ-REL-87abf8e4`: eager syntax refusal and strict render-time missing-value refusal.
-- `REQ-FUNC-14872c0d`: frozen original outputs prove byte identity, including effective open/proxy/native policies; injected none cases prove interpolation only, not configured reachability.
-- `REQ-PLAT-661c3027`, `REQ-PLAT-e0597722`: all resources ship in the wheel and its unchanged installation into portable Python.
-
 ## Files
 
 - `04_Software/adore/prompts.py` — fixed eager loader, typed errors and renderer.
@@ -103,3 +83,11 @@ previous Log to every prompt. Single-stage return remains mandatory; RPC restart
 resume the same conversation. Required independent reviewers use separate contexts
 under existing policy. Direct prompts retain repository-owned workflow authority.
 Existing byte fixtures deliberately update only the changed conversation fragments.
+
+## Explicit new-job workflow
+
+The Direct implementation prompt carries trusted operator selection overriding only mandatory AEGIS procedure. All other coding/licensing/verification rules remain, installed payload is untouched and no executor budget/deadline wording is supplied.
+
+## Current contract
+
+Current Direct prompts ask the executor to implement the ticket and choose repository checks while bypassing AEGIS obligations only when Direct is selected. Later launches add changed ticket/thread/correction content to the persistent job conversation. The active licensed catalog is `adore/prompts/`; REQ-FUNC-889f30ed and REQ-FUNC-22de3595 own composition.

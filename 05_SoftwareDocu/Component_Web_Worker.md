@@ -54,7 +54,7 @@ audit records and conductor-owned run changes. Output capture is continuously dr
 
 ## 6. Data Contracts
 
-Web schema 18 includes a separate command owner role. Ownership generations and process births remain
+Web schema 1 includes a separate command owner role. Ownership generations and process births remain
 canonical; strict bounded `ADORE_WORKER_ANCESTRY` transports distinct PID/birth
 pairs. Every child waits for a launch gate after Windows Job assignment or Linux
 session creation. Child effect authorization rejects dead, reused or unknown
@@ -234,3 +234,7 @@ Transient execution commands have their own project-scoped command role, so a
 live project scheduler cannot retain a dead command claim. The command process
 drains up to 32 watcher-claimed cancellation follow-ups before exit; any
 unconfirmed remainder is recovered as uncertain after demonstrated process death.
+
+## Durable workflow selection
+
+Web schema 1 stores optional workflow as its own closed-domain operations column. Enqueue, persisted row reads and claim paths validate it; idempotency binds it. CommandWorker forwards `--workflow` only for Start/Restart, retaining grant rechecks, project identity, generation fencing and revision-bound Restart. Start acknowledgement checks saved workflow against an explicit requested value. WorkerContext pins workflow with the immutable request fields, rejects CLI/queue mismatches before effects, and refuses a valid-looking stored choice changed during the command. A restarted worker consumes the same structured choice. Other schemas require manual web.db and web.db.initialized deletion; there are no conversions.

@@ -23,6 +23,8 @@ from adore.web.app import create_app
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.execution_records import execution_record
+
 
 def test_developer_project_scope_and_cost_privacy(tmp_path):
     """@brief A developer sees only assigned project data without money fields."""
@@ -168,7 +170,8 @@ def test_untrusted_mr_link_is_not_sent_to_browser(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1, mr_url="javascript:alert(1)"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, mr_url="javascript:alert(1)",
+        execution=execution_record()))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
@@ -184,12 +187,13 @@ def test_run_query_pages_filters_and_enforces_project_scope(tmp_path):
     state = StateStore(alpha.store_root)
     state.save(RunState(run_id="old", ticket_iid=1, stage="build",
                         lifecycle="done", outcome="merged by human",
-                        updated_at="2026-01-01T10:00:00+00:00"))
+                        updated_at="2026-01-01T10:00:00+00:00", execution=execution_record()))
     state.save(RunState(run_id="new", ticket_iid=2, stage="validate",
                         lifecycle="failed", outcome="VALIDATION_FAILED: tests",
-                        updated_at="2026-01-03T10:00:00+00:00"))
+                        updated_at="2026-01-03T10:00:00+00:00", execution=execution_record()))
     state.save(RunState(run_id="middle", ticket_iid=3, stage="validate",
-                        lifecycle="working", updated_at="2026-01-02T10:00:00+00:00"))
+                        lifecycle="working", updated_at="2026-01-02T10:00:00+00:00",
+        execution=execution_record()))
     for run_id, day in (("old", "01"), ("middle", "02"), ("new", "03")):
         path = state.run_dir(run_id) / "state.json"
         saved = json.loads(path.read_text(encoding="utf-8"))
@@ -259,7 +263,7 @@ def test_run_page_date_filter_uses_utc_and_rejects_corrupt_timestamp(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="offset", ticket_iid=4))
+    state.save(RunState(run_id="offset", ticket_iid=4, execution=execution_record()))
     path = state.run_dir("offset") / "state.json"
     saved = json.loads(path.read_text(encoding="utf-8"))
     saved["updated_at"] = "2026-01-01T23:30:00-02:00"
@@ -281,7 +285,7 @@ def test_run_page_outcome_filter_rejects_corrupt_persisted_outcome(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="bad-outcome", ticket_iid=5))
+    state.save(RunState(run_id="bad-outcome", ticket_iid=5, execution=execution_record()))
     path = state.run_dir("bad-outcome") / "state.json"
     saved = json.loads(path.read_text(encoding="utf-8"))
     saved["outcome"] = {"secret": "untrusted"}
@@ -299,8 +303,8 @@ def test_run_page_filters_observed_executor_and_rejects_bad_identity(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="codex-run", ticket_iid=1))
-    state.save(RunState(run_id="other-run", ticket_iid=2))
+    state.save(RunState(run_id="codex-run", ticket_iid=1, execution=execution_record()))
+    state.save(RunState(run_id="other-run", ticket_iid=2, execution=execution_record()))
     state.journal("codex-run", "executor-usage", executor="codex", tokens_in=5)
     state.journal("other-run", "executor-usage", executor="opencode", tokens_in=7)
     with TestClient(create_app(profiles.home)) as client:
@@ -321,7 +325,7 @@ def test_admin_can_reset_password_and_journal_is_sanitized(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="run-1", ticket_iid=1))
+    state.save(RunState(run_id="run-1", ticket_iid=1, execution=execution_record()))
     state.journal("run-1", "stage-failed", stage="build",
                   evidence="secret-value", cost_usd=25)
     app = create_app(profiles.home)

@@ -64,3 +64,7 @@ Developers start at step 3 once an administrator has given them access to a proj
 - [Statistics and costs](/help/statistics): usage, quality, trends and estimated costs.
 - [Administration](/help/administration): users, access, system status and change history.
 - [Glossary](/help/glossary): the terms used throughout the interface.
+
+## Choose the workflow {#workflow-choice}
+
+**Without AEGIS** overrides only repository instructions requiring AEGIS procedures. Other coding, licensing and verification rules remain in force. Installed AEGIS files stay intact. Direct uses Implementation, Validation and Done; checks are agent-reported. The AEGIS stages described here apply to **With AEGIS**.

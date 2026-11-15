@@ -50,8 +50,8 @@ def _stage_and_apply(client, headers, value):
     return pending
 
 
-def test_connection_is_one_reviewed_edit_and_no_agent_choice_exists(tmp_path):
-    """@brief Provider, model and endpoint rows share one atomic reviewed edit; no agent row."""
+def test_connection_is_one_reviewed_provider_model_endpoint_edit(tmp_path):
+    """@brief Provider, model and endpoint rows share one atomic reviewed edit."""
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     path = profiles.config_path("alpha")
@@ -61,9 +61,6 @@ def test_connection_is_one_reviewed_edit_and_no_agent_choice_exists(tmp_path):
         headers = {"X-CSRF-Token": login.json()["csrf"]}
         view = client.get("/api/v1/projects/alpha/config").json()
         metadata = {row["key"]: row for row in view["settings"]}
-        removed = ("executor.default", "executor.commands", "executor.selection",
-                   "executor.stage_host_auth", "labels.executor")
-        assert not any(key.startswith(removed) for key in metadata)
         for key in ("executor.provider", "executor.model", "executor.endpoint.base_url",
                     "executor.endpoint.api"):
             assert metadata[key]["edit_key"] == "executor.connection"
@@ -71,7 +68,6 @@ def test_connection_is_one_reviewed_edit_and_no_agent_choice_exists(tmp_path):
         assert "custom" in metadata["executor.provider"]["choices"]
         assert "chatgpt" in metadata["executor.provider"]["choices"]
         assert metadata["executor.endpoint.api"]["choices"][0] == "openai-completions"
-        assert "executor.command" not in metadata
         direct = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json={
             "key": "executor.model", "value": "gpt-5.4", "revision": view["revision"]})
         assert direct.status_code == 400

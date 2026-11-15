@@ -17,7 +17,6 @@ container settings and delivery policy. Start at `04_Software/adore/config.py`;
 verify with `04_Software/tests/test_config.py`. Web config edits belong to
 `web-interface.md` and assisted prompts to `wizard.md`.
 
-
 `REQ-UX-34718dd6`: Reviewer configuration is an account list (empty requests no review) with bounded names and rejection of whitespace, controls and option prefixes; reviewers request forge review independently of publication approval and merge policy.
 
 ## Purpose and boundaries
@@ -39,9 +38,7 @@ Focused public-contract proof: `04_Software/tests/test_branch_naming.py`, existi
   deterministic operator-facing problems.
 - `ConfigError` distinguishes unreadable/malformed configuration from a valid
   model with reported validation issues.
-- `WorkflowConfig.verify_command` is an exact string with empty default;
-  resolved serialization includes it. The conductor uses it only for direct
-  runs, with the validate override or general gate timeout.
+
 
 ## Invariants
 
@@ -119,19 +116,6 @@ Both CLI and web use the same validated model before changing runtime policy.
 
 ## Key behaviors
 
-- `REQ-FUNC-222a0416`, `REQ-FUNC-381fdaaa`, `REQ-FUNC-fc7eac7a`,
-  `REQ-FUNC-f980b054`: workflow.verify_command preserves shell text without
-  trimming or coercion. Exactly empty means absent; nonstring, CR/LF and NUL
-  values produce a key-named validation issue. AEGIS ignores the setting.
-- `REQ-DATA-71366af6`: web resolved/raw reads and unrelated reviewed edits
-  preserve the exact command under existing authorization/redaction. Guided
-  enrollment and Settings → Implementation expose the optional string; Admins
-  save through the existing reviewed flow and assigned developers read only.
-  CR/LF/NUL and nontext are refused without coercion. The web interface owns
-  controls, candidate authority and exact TOML editing; see `web-interface.md`.
-  Proof: `test_config.py`, `test_web_enrollment.py`, `test_web_config.py`,
-  `test_web_config_raw.py` and exact catalog/settings tests.
-
 - REQ-FUNC-bf8a9a47 / REQ-FUNC-cad97f4d / REQ-REL-8fe70d7b: `load_config` retains runtime-only absolute `source_path`, excluded from resolved serialization and equality. `validate_budgets` checks the closed table, positive integer limits, finite nonnegative cost and ChatGPT attempt cap without subprocesses. Startup includes this same check; conductor rereads bind parsed/resolved non-budget values to the validated configuration without rerunning the branch matcher. Proof: test_config.py, test_chatgpt.py and public Retry cases in test_orchestrator.py.
 
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies the current account and optional tools PATH. The local backend rejects recipes, a non-empty container egress allowlist and container-only options. Reserved launch overrides and unknown local fields are refused. Container remains the default.
@@ -139,21 +123,7 @@ Both CLI and web use the same validated model before changing runtime policy.
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
 
-
 - `REQ-FUNC-e2b539d4`: Closed ExecutionConfig selection/backend/bounds; recipe mode permits empty profile image. Source authority belongs to preparation.md.
-
-- `REQ-FUNC-ca17a8e8` - boolean review-state delivery and credential isolation.
-- `REQ-FUNC-97e17737` - executor and egress policy validation.
-- `REQ-FUNC-06b861ec` / `REQ-FUNC-77b798cf` - `[executor] internet` and
-  `[executor.web] search` defaults and validation.
-- `REQ-FUNC-f5e692dc` - `[container.egress] mode` is refused naming the switch.
-- `REQ-SEC-e2ca6d05` / `REQ-FUNC-f801e9f3` - `egress_policy`: provider hosts
-  only while off, open while on.
-- `REQ-FUNC-2df31adf` - Pi is the only executor; `[executor]` needs a provider and a model.
-- `REQ-FUNC-78b0ad95` - configuration of another coding agent is refused with the fix.
-- `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed
-  validator.
-- `REQ-REL-94e653aa` - checkpoint publication defaults to enabled and respects explicit overrides.
 
 - `REQ-DATA-eebc4f88` - stage timeout overrides accept only the five executor stages.
 - `REQ-FUNC-a5d65a57` - `chatgpt` is accepted on native and container backends and refused for a stage limit above 3000 s.
@@ -163,7 +133,6 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
-
 
 - `04_Software/adore/config.py`, `04_Software/adore/pi_providers.py`
 - `04_Software/adore/chatgpt.py` (`MAX_STAGE_SECONDS`)
@@ -180,3 +149,11 @@ The optional executor.thinking setting accepts only a level proven for the exact
 `delivery.require_human_approval` is a strict boolean with default true. The
 project policy selects human approval or automatic publication after validation
 and fresh target/candidate checks. Human merge authority is unchanged.
+
+## Explicit new-job workflow
+
+New jobs resolve WorkflowConfig.mode (auto/direct, default auto) with a validated optional manual aegis/direct override through requested_workflow. Existing jobs retain their saved workflow; task type is separate.
+
+## Current contract
+
+Current configuration is the closed typed model in `adore/config.py`. Executor selection is provider/model/thinking with RPC transport; budgets and clarification answer duration use their active fields. Generic unknown-key validation covers unsupported input. REQ-FUNC-97e17737 owns executor/egress validation.

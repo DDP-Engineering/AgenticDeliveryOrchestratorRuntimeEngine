@@ -27,6 +27,8 @@ from adore.isolation import IsolationError, WorktreeManager
 from adore.state import RunState, StateError, StateStore
 import pytest
 
+from tests.execution_records import execution_record
+
 from .test_config import MINIMAL_VALID
 from .test_isolation import FakeRunner, _fail, _ok
 from .test_orchestrator import (
@@ -301,7 +303,7 @@ def test_checkpoint_handoff_request_after_gate_prevents_next_session(tmp_path):
 
 def test_checkpoint_handoff_state_is_strict(tmp_path):
     """@brief Missing or corrupt checkpoint identities fail closed."""
-    original = RunState("run-1", 1).to_dict()
+    original = RunState("run-1", 1, execution=execution_record()).to_dict()
     missing = {key: value for key, value in original.items()
                if key not in ("checkpoint_remote_commit", "checkpoint_error")}
     with pytest.raises(StateError, match="missing keys"):
@@ -331,7 +333,7 @@ def test_checkpoint_handoff_cli_queues_with_live_lock(tmp_path, monkeypatch, cap
     config_path = _config_file(tmp_path)
     config = load_config(config_path)
     store = StateStore(config.state.store_root, config.agent.slug)
-    store.save(RunState("run-1", 1))
+    store.save(RunState("run-1", 1, execution=execution_record()))
     held = store.run_lock("run-1")
     held.__enter__()
 
@@ -572,7 +574,7 @@ def test_checkpoint_handoff_cli_rejects_released_run(tmp_path, monkeypatch, caps
     config_path = _config_file(tmp_path)
     config = load_config(config_path)
     store = StateStore(config.state.store_root, config.agent.slug)
-    store.save(RunState("run-1", 1, lifecycle=lifecycle))
+    store.save(RunState("run-1", 1, lifecycle=lifecycle, execution=execution_record()))
     monkeypatch.setattr(cli, "_engine", lambda _: (config, None))
     assert main(["-c", config_path, "handoff", "run-1"]) == 1
     assert "cannot request handoff" in capsys.readouterr().out
@@ -585,7 +587,7 @@ def test_checkpoint_handoff_cli_completes_when_lock_is_free(tmp_path, monkeypatc
     config_path = _config_file(tmp_path)
     config = load_config(config_path)
     store = StateStore(config.state.store_root, config.agent.slug)
-    store.save(RunState("run-1", 1))
+    store.save(RunState("run-1", 1, execution=execution_record()))
 
     class Engine:
         def handoff(self, run_id):

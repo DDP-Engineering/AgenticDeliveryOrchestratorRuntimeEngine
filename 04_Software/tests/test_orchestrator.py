@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-# IMPORTS
 from collections import deque
 from dataclasses import replace
 import json
@@ -42,6 +41,8 @@ from adore.state import RunState, StateError, StateStore, content_hash
 from adore.util import CommandResult, utc_now_iso
 import pytest
 
+# IMPORTS
+from tests.execution_records import execution_record
 from tests.usage_events import versioned_usage
 
 # CONSTANTS
@@ -568,6 +569,7 @@ def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunSt
             engine.forge.ticket.title, engine.forge.ticket.description
         ),
         active_started_at=utc_now_iso(),
+        execution=execution_record(),
     )
     plan = resolve_plan(engine.config, runner=getattr(engine.worktrees, "runner", None))
     resource = {} if plan["backend"] == "local" else {
@@ -695,6 +697,10 @@ def test_direct_one_session_reaches_unverified_approval_and_publication(
 ):
     """@brief A real product edit hands one exact unverified candidate to the human gate."""
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
+    for root in (Path(engine.config.worktree.repo_path), work):
+        (root / ".agentic").mkdir()
+        (root / ".agentic/aegis.py").write_text("raise RuntimeError('unusable payload')\n")
+    engine.config.workflow.mode = "direct"
     executor.attempts.append(direct_edit(worktrees, summary=summary))
     engine.config.budgets.max_iterations = 1  # Last permitted success is not another launch.
     if override is not None:
@@ -718,7 +724,7 @@ def test_direct_one_session_reaches_unverified_approval_and_publication(
         original_remove(run_id, artifact)
 
     monkeypatch.setattr(worktrees, "remove_summary", remove)
-    result = engine.poll_once(ticket_iid=7)
+    result = engine.poll_once(ticket_iid=7, workflow="direct")
     run = engine.store.load("github-owner-repo-7")
     assert result["picked"] == 7
     assert (run.workflow, run.stage, run.lifecycle) == ("direct", "done", "awaiting-approval")
@@ -735,8 +741,9 @@ def test_direct_one_session_reaches_unverified_approval_and_publication(
                    for e in engine.store.read_journal(run.run_id))
     assert all(exclusions == ("ADORE_SUMMARY.md", "questions/blocking.md")
                for exclusions in worktrees.progress_exclusions)
-    assert worktrees.checkpoint_paths and all(paths == {"feature.txt"}
+    assert worktrees.checkpoint_paths and all(paths == {"feature.txt", ".agentic/aegis.py"}
                                              for paths in worktrees.checkpoint_paths)
+    assert (work / ".agentic/aegis.py").read_text() == "raise RuntimeError('unusable payload')\n"
     prompt = executor.prompts[0]
     for text in (forge.ticket.title, forge.ticket.description, "AGENTS.md", "CLAUDE.md",
                  "CONTRIBUTING.md", "README", "ADORE_SUMMARY.md", "questions/blocking.md",
@@ -993,7 +1000,7 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
     _, source, _ = _project(tmp_path / "profile")
     initial_limit = 1 if change == "raise" else 3
     text = source.read_text(encoding="utf-8").replace(
-        "max_iterations           = 20", f"max_iterations           = {initial_limit}",
+        "max_iterations = 20", f"max_iterations = {initial_limit}",
     ).replace("enabled = true", "enabled = false").replace(
         "publish_checkpoints = true", "publish_checkpoints = false")
     if change == "capacity":
@@ -1013,9 +1020,9 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
         elif change == "identity":
             source.write_text(text.replace('target_branch = "develop"', 'target_branch = "other"'))
         else:
-            source.write_text(text.replace(f"max_iterations           = {initial_limit}",
-                                           "max_iterations           = 2" if change == "raise"
-                                           else "max_iterations           = 1"))
+            source.write_text(text.replace(f"max_iterations = {initial_limit}",
+                                           "max_iterations = 2" if change == "raise"
+                                           else "max_iterations = 1"))
         return GateRun(exit_code=1, stderr="retry with refreshed budget")
 
     executor.attempts.append(attempt)
@@ -1385,12 +1392,13 @@ def test_direct_publication_and_review_boundaries(tmp_path, monkeypatch, boundar
     assert len(executor.prompts) == 1
 
 
-@pytest.mark.parametrize("manual", [False, True])
+@pytest.mark.parametrize("manual,mode", [(False, "auto"), (False, "direct"),
+                                         (True, "auto"), (True, "direct"), (True, "aegis")])
 @pytest.mark.parametrize("clone_payload,worktree_payload", [
     (False, False), (True, True), (True, False), (False, True),
 ])
 def test_claim_selects_worktree_workflow_before_first_save(
-    tmp_path, monkeypatch, manual, clone_payload, worktree_payload,
+    tmp_path, monkeypatch, manual, clone_payload, worktree_payload, mode,
 ):
     """@brief Admission probes only present clones; immutable identity comes from the worktree."""
     from types import SimpleNamespace
@@ -1445,17 +1453,29 @@ def test_claim_selects_worktree_workflow_before_first_save(
         admissions.append(admitted.run_id)
 
     engine.on_admitted = on_admitted
-    result = engine.poll_once(ticket_iid=7 if manual else None)
+    engine.config.workflow.mode = "direct" if mode == "direct" and not manual else "auto"
+    override = mode if manual and mode != "auto" else None
+    if mode == "aegis" and not clone_payload:
+        result = engine.poll_once(ticket_iid=7, workflow=override)
+        assert result["start_reason"] == "workflow_unavailable" and not probes
+        assert not engine.store.list_runs()
+        return
+    if mode == "aegis" and not worktree_payload:
+        result = engine.poll_once(ticket_iid=7, workflow=override)
+        assert result["start_reason"] == "workflow_unavailable"
+        assert not engine.store.list_runs()
+        return
+    result = engine.poll_once(ticket_iid=7 if manual else None, workflow=override)
     run = engine.store.load("github-owner-repo-7")
-    expected = "aegis" if worktree_payload else "direct"
+    expected = "aegis" if mode != "direct" and worktree_payload else "direct"
     assert result["picked"] == 7
     assert admissions == [run.run_id]
     assert run.workflow == expected
-    assert run.stage == ("frame" if worktree_payload else "build")
+    assert run.stage == ("frame" if expected == "aegis" else "build")
     assert run.active_task_id is None and run.task_ids == []
     assert saved and all(row == (expected, run.stage, str(work)) for row in saved)
     assert not run.execution_pending
-    assert probes == (["probe"] if clone_payload else [])
+    assert probes == (["probe"] if mode != "direct" and clone_payload else [])
     assert allocations == [("origin/main", {"new_branch": True})]
     assert not executor.prompts
 
@@ -1474,7 +1494,8 @@ def test_run_owned_poll_preserves_other_jobs_and_counts_project_capacity(
     worktrees.repo_path = clone
     engine.owned_run_id = "github-owner-repo-7"
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P1"]
-    other = RunState("github-owner-repo-8", 8, workflow="direct", stage="build")
+    other = RunState("github-owner-repo-8", 8, workflow="direct", stage="build",
+        execution=execution_record())
     engine.store.save(other)
     engine.store.journal(other.run_id, "owned-by-another-worker")
     state_path = engine.store.run_dir(other.run_id) / "state.json"
@@ -1541,10 +1562,11 @@ def test_payload_presence_observation_failure_refuses_before_claim(tmp_path, mon
     assert engine.config.labels.lifecycle.ready in forge.ticket.labels
 
 
+@pytest.mark.parametrize("mode", ["auto", "aegis", "direct"])
 @pytest.mark.parametrize("entry", ["file", "directory", "dangling-link"])
 @pytest.mark.parametrize("failure", ["version", "protocol", "invocation"])
 def test_present_payload_refusal_never_claims_or_falls_back(
-    tmp_path, monkeypatch, entry, failure, request,
+    tmp_path, monkeypatch, entry, failure, request, mode,
 ):
     """@brief Present unusable entries remain governed, including dangling symlinks."""
     from adore.aegis import AegisError, AegisProtocolError
@@ -1575,7 +1597,12 @@ def test_present_payload_refusal_never_claims_or_falls_back(
             raise error(f"unsupported {failure}")
 
     monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
-    result = engine.poll_once(ticket_iid=7)
+    monkeypatch.setattr(engine, "_conduct", lambda *args: None)
+    result = engine.poll_once(ticket_iid=7, workflow=None if mode == "auto" else mode)
+    if mode == "direct":
+        assert result["picked"] == 7 and not probes
+        assert engine.store.load("github-owner-repo-7").workflow == "direct"
+        return
     assert result["picked"] is None and result["start_reason"] == "workflow_unavailable"
     assert probes == [failure]
     assert engine.config.labels.lifecycle.ready in forge.ticket.labels
@@ -2761,9 +2788,14 @@ def _approved_run(engine: Orchestrator, worktrees: FakeWorktrees) -> RunState:
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("draft", [True, False])
 def test_disabled_approval_publishes_fresh_waiting_candidate(
-    tmp_path: Path, draft: bool, backend: str,
+    tmp_path: Path, draft: bool, backend: str, monkeypatch,
 ) -> None:
     """@brief Disabling approval publishes the same validated candidate without a label."""
+    if backend == "local":
+        from tests.test_local_execution import local_fixture
+        native = tmp_path / "native"
+        native.mkdir()
+        local_fixture(native, monkeypatch)
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     engine.config.delivery.draft = draft
@@ -3398,7 +3430,7 @@ def test_public_pickup_obeys_optional_acceptance_criteria(tmp_path, monkeypatch,
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     forge.ready = [forge.ticket]
     selected = []
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     result = engine.poll_once()
     assert result["picked"] == (None if require_criteria else forge.ticket.iid)
@@ -3416,7 +3448,7 @@ def test_explicit_ticket_start_keeps_readiness_boundary(
                    labels=[ready, "P1", engine.config.labels.control.hold])
     forge.ready = [other, forge.ticket]
     selected = []
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
 
     assert engine.poll_once(ticket_iid=99)["picked"] is None
@@ -4246,8 +4278,9 @@ def test_purge_resources_touches_only_this_projects_non_human_runs(tmp_path: Pat
     saved_resource_run(engine, "done-run", 9, "done")
     saved_resource_run(engine, "cancelled-run", 11, "cancelled")
     engine.store.save(RunState(run_id="human-run", ticket_iid=8, lifecycle="handed-off",
-                               container="adore-run-human-run"))
-    engine.store.save(RunState(run_id="pending-run", ticket_iid=10, lifecycle="handoff-pending"))
+                               container="adore-run-human-run", execution=execution_record()))
+    engine.store.save(RunState(run_id="pending-run", ticket_iid=10, lifecycle="handoff-pending",
+        execution=execution_record()))
     for name in (failed.run_id, "done-run", "human-run", "pending-run", "other-project-run"):
         (root / name).mkdir(parents=True)
 
@@ -4279,7 +4312,7 @@ def saved_resource_run(engine, run_id, iid, lifecycle):
     run = RunState(run_id=run_id, ticket_iid=iid, lifecycle=lifecycle,
                    branch=engine._branch_name(run_id, iid),
                    container=engine._container_name(run_id),
-                   worktree=str(engine.worktrees.path_for(run_id)))
+                   worktree=str(engine.worktrees.path_for(run_id)), execution=execution_record())
     engine.store.save(run)
     return run
 
@@ -4376,7 +4409,8 @@ def test_cleanup_removes_this_projects_finished_and_stateless_run_resources(
     saved_resource_run(engine, "legacy-done", 4, "done")
     renamed = "adore-run-renamed-15"
     engine.store.save(RunState(run_id="github-owner-repo-15", ticket_iid=15,
-                               lifecycle="cancelled", container=renamed))
+                               lifecycle="cancelled", container=renamed,
+        execution=execution_record()))
     kept = [f"github-owner-repo-{iid}" for iid in (6, 7, 10, 11)]
     with_dirs = [f"github-owner-repo-{iid}" for iid in (5, 8, 9, 12)]  # 9: no state
     container_only = "github-owner-repo-16"  # no state, no worktree directory
@@ -4554,7 +4588,7 @@ def test_manual_start_preserves_monitoring_pause(tmp_path, monkeypatch):
     engine, forge, _, _, _ = make_engine(tmp_path)
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     selected = []
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     engine.store.pause()
     assert engine.poll_once()["picked"] is None
@@ -4582,17 +4616,18 @@ def test_paused_manual_start_reports_its_actual_blocker(tmp_path, monkeypatch, b
     engine, forge, _, _, _ = make_engine(tmp_path)
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     selected = []
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     engine.store.pause()
     if blocker == "held":
         forge.ticket.labels.append(engine.config.labels.control.hold)
     elif blocker == "capacity":
-        engine.store.save(RunState(run_id="busy", ticket_iid=88, lifecycle="working"))
+        engine.store.save(RunState(run_id="busy", ticket_iid=88, lifecycle="working",
+            execution=execution_record()))
         monkeypatch.setattr(engine, "_reconcile_runs", lambda summary: None)
         engine.config.polling.max_concurrent_runs = 1
     elif blocker == "payload":
-        def unavailable():
+        def unavailable(*args):
             raise AegisError("PRIVATE workflow error")
         monkeypatch.setattr(engine, "_probe_repository_payload", unavailable)
     result = engine.poll_once(ticket_iid=999 if blocker == "missing" else forge.ticket.iid)
@@ -4627,7 +4662,7 @@ def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, chan
     _, source, _ = _project(tmp_path)
     initial_limit = 1 if change == "raise" else 3
     text = source.read_text(encoding="utf-8").replace(
-        "max_iterations           = 20", f"max_iterations           = {initial_limit}").replace(
+        "max_iterations = 20", f"max_iterations = {initial_limit}").replace(
         "# internet = false", "internet = false")
     if change == "chatgpt-timeout":
         text = text.replace('provider = "openai"', 'provider = "chatgpt"')
@@ -4672,13 +4707,13 @@ def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, chan
         elif change in {"unknown-budget", "bool", "zero", "bad-value"}:
             replacement = {"unknown-budget": f"{initial_limit}\nunknown_limit = 9",
                            "bool": "true", "zero": "0", "bad-value": '\"many\"'}[change]
-            source.write_text(text.replace(f"max_iterations           = {initial_limit}",
-                                           f"max_iterations           = {replacement}"))
+            source.write_text(text.replace(f"max_iterations = {initial_limit}",
+                                           f"max_iterations = {replacement}"))
         else:
             limit = 2 if change == "raise" else 1
             source.write_text(text.replace(
-                f"max_iterations           = {initial_limit}",
-                f"max_iterations           = {limit}"))
+                f"max_iterations = {initial_limit}",
+                f"max_iterations = {limit}"))
         return result
 
     executor.run_gate = edited
@@ -4702,7 +4737,7 @@ def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path,
 
     profiles, source, store = _project(tmp_path)
     text = source.read_text(encoding="utf-8").replace(
-        "max_iterations           = 20", "max_iterations           = 1").replace(
+        "max_iterations = 20", "max_iterations = 1").replace(
         "enabled = true", "enabled = false").replace(
         "publish_checkpoints = true", "publish_checkpoints = false")
     source.write_text(text, encoding="utf-8")
@@ -4754,12 +4789,17 @@ def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path,
 
 @pytest.mark.parametrize("backend, expected", [("local", "local"), ("container", "container")])
 def test_terminal_comment_names_backend_and_retry_choices(
-    tmp_path: Path, backend: str, expected: str,
+    tmp_path: Path, backend: str, expected: str, monkeypatch,
 ) -> None:
     """@brief A timed-out parked run reports its own backend and recovery choices."""
+    if backend == "local":
+        from tests.test_local_execution import local_fixture
+        native = tmp_path / "native"
+        native.mkdir()
+        local_fixture(native, monkeypatch)
     engine, forge, _, _, _ = make_engine(tmp_path)
-    run = make_run(engine)
     engine.config.execution.backend = backend
+    run = make_run(engine)
     run.lifecycle = "parked-clarification"
     run.parked_at = "2000-01-01T00:00:00+00:00"
     engine.store.save(run)

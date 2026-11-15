@@ -175,8 +175,11 @@ class PortableDelivery(unittest.TestCase):
     def test_failed_service_pairs_exhaust_the_explicit_restart_limit(self) -> None:
         """@brief Public startup stops after two failed pairs with restart limit one."""
         root_module = ModuleType("adore")
+        root_module.__version__ = self.manifest["version"]
         profile_module = ModuleType("adore.profiles")
         profile_module.adore_home = lambda: self.bundle
+        process_module = ModuleType("adore.web.processes")
+        process_module.child_environment = lambda env: dict(env)
         created = []
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
@@ -192,8 +195,9 @@ class PortableDelivery(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="portable-unit-",
                                           dir=WORK) as home, \
                 mock.patch.dict(sys.modules, {"adore": root_module,
-                                               "adore.profiles": profile_module}), \
-                mock.patch.object(LAUNCHER, "verify", return_value=self.manifest), \
+                                               "adore.profiles": profile_module,
+                                               "adore.web.processes": process_module}), \
+                mock.patch.object(LAUNCHER, "read_manifest", return_value=self.manifest), \
                 mock.patch.object(LAUNCHER.signal, "signal"), \
                 mock.patch.object(LAUNCHER.subprocess, "Popen", side_effect=spawn):
             original_handlers = set(LAUNCHER.LOG.handlers)

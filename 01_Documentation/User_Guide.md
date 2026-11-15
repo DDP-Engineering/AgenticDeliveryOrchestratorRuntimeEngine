@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Using ADORE
 
-Applies to **ADORE 0.16.0**.
+Applies to **ADORE 0.17.0**.
 
 ADORE takes eligible repository tickets through implementation, checks and human
 review, then publishes a PR/MR. Merging remains a human decision.
@@ -90,3 +90,7 @@ The package-root README lists the data locations and startup options.
 
 - [Administration](Administrator_Guide.md): host prerequisites, credentials and backups.
 - [Troubleshooting](Troubleshooting.md): failed checks, startup and recovery.
+
+## Choose how a job works
+
+Before Start or a fresh Restart, choose **With AEGIS** or **Without AEGIS**. Direct implementation works even in a repository with AEGIS installed and preserves its other coding and verification rules. Retry and continuation retain the original job workflow. The Jobs list and details show the saved workflow. An administrator can set **Default workflow** in project Implementation settings; automatic detection is the default.

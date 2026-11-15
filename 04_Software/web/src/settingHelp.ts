@@ -16,6 +16,7 @@ import { localSettingHelp } from "./localExecution.ts";
  */
 export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   en: {
+    "workflow.mode": "Default for new jobs: auto detects AEGIS; direct skips it even when installed. Start and Restart choose per job; Retry keeps the saved workflow.",
     ...localSettingHelp.en,
     "execution.backend": "Where the executor runs: container (an image on the ADORE server, chosen under Agent container image) or local (installed on the server). Changing it applies after review.",
     "execution.preparation": "Reviewed tracked recipe: relative.yml#job@full Git commit. Empty disables setup. Review commands before applying; stale sources fail closed.",
@@ -124,6 +125,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Folder that holds one worktree per run (<root>/<run ID>). Use an absolute path; a relative one is resolved from the folder ADORE runs in.",
   },
   fr: {
+    "workflow.mode": "Défaut des nouvelles tâches : auto détecte AEGIS ; direct l’ignore même installé. Démarrer et Recommencer choisissent par tâche ; Relancer conserve le workflow.",
     ...localSettingHelp.fr,
     "executor.thinking": "Effort de raisonnement pour les étapes Pi et Tester la connexion IA. Choisissez un niveau pris en charge par le fournisseur et le modèle, ou laissez vide pour garder la valeur par défaut de Pi. Les points de terminaison personnalisés acceptent uniquement off.",
     "execution.backend": "Où tourne l’exécuteur : container (une image du serveur ADORE, choisie dans Image de l'exécuteur) ou local (installé sur le serveur). Le changement s’applique après revue.",
@@ -232,6 +234,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Dossier qui contient un arbre de travail par exécution (<root>/<identifiant d'exécution>). Utilisez un chemin absolu ; un chemin relatif part du dossier où ADORE s'exécute.",
   },
   de: {
+    "workflow.mode": "Standard für neue Jobs: auto erkennt AEGIS; direct überspringt es auch bei vorhandener Installation. Start und Neustart wählen je Job; Wiederholen behält den Workflow.",
     ...localSettingHelp.de,
     "executor.thinking": "Denkaufwand für Pi-Phasen und den KI-Verbindungstest. Wählen Sie eine vom Anbieter und Modell unterstützte Stufe oder lassen Sie das Feld für den Pi-Standard leer. Benutzerdefinierte Endpunkte unterstützen nur off.",
     "execution.backend": "Wo der Executor läuft: container (ein Image auf dem ADORE-Server, gewählt unter Executor-Image) oder local (auf dem Server installiert). Änderungen gelten nach Prüfung.",
@@ -340,6 +343,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Ordner mit einem Worktree je Lauf (<root>/<Lauf-ID>). Einen absoluten Pfad verwenden; ein relativer gilt ab dem Ordner, in dem ADORE läuft.",
   },
   ro: {
+    "workflow.mode": "Implicit pentru joburi noi: auto detectează AEGIS; direct îl ocolește chiar dacă este instalat. Pornirea și repornirea aleg per job; reluarea păstrează fluxul salvat.",
     ...localSettingHelp.ro,
     "executor.thinking": "Efort de raționament pentru etapele Pi și testul conexiunii AI. Alegeți un nivel acceptat de furnizor și model sau lăsați câmpul gol pentru valoarea implicită Pi. Endpointurile personalizate acceptă doar off.",
     "execution.backend": "Unde rulează executorul: container (o imagine de pe serverul ADORE, aleasă la Imagine executor) sau local (instalat pe server). Schimbarea se aplică după revizuire.",

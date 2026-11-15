@@ -44,11 +44,11 @@ else:
 # CONSTANTS
 
 EXPECTED_NAME = "adore"
-EXPECTED_VERSION = "0.16.0"
+EXPECTED_VERSION = "0.17.0"
 # The executor base and egress-proxy images are versioned by their own content,
 # independently of the project release; they stay at their built tag.
 EXPECTED_IMAGE_VERSION = "1.0.0"
-EXPECTED_CHANGELOG_HEADING = "## [0.16.0] - 2026-11-15"
+EXPECTED_CHANGELOG_HEADING = "## [0.17.0] - 2026-11-15"
 EXPECTED_PRODUCT = "Agentic Delivery Orchestrator & Runtime Engine"
 EXPECTED_TASK = "ADORE Orchestrator & Runtime Engine"
 EXPECTED_RUNTIME_PREFIX = "adore-runtime"

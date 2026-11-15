@@ -218,3 +218,7 @@ A busy-owner marker prints `cancellation requested; awaiting confirmed stop`;
 exit zero then means the request was accepted, not that cleanup completed.
 An unavailable result is reported as unconfirmed with a nonzero exit.
 Admission-only performs no reconciliation of other jobs.
+
+## Choose the workflow for a new job
+
+Use `adore --profile NAME run --once --ticket IID --workflow aegis` or `--workflow direct`. Unknown values are refused; `--workflow` requires `--once --ticket` and cannot be combined with continuous polling. Omit it to use the project’s `workflow.mode` default. Fresh recovery accepts `adore --profile NAME restart RUN_ID --force --expected-revision SHA256 --workflow direct` (or `aegis`). Retry has no workflow override and retains the saved job workflow. Explicit AEGIS requires usable installation; Direct bypasses AEGIS procedures while preserving other repository rules.

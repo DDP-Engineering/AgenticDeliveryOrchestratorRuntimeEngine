@@ -68,6 +68,8 @@ def test_rpc_producer_keeps_literal_live_and_archive_but_masks_operations(tmp_pa
             "role": "user", "content": text}}},
     ]), encoding="utf-8")
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    # The fake writes its durable session beside this job's exchange directory.
+    fake.record = run / "rpc-commands.log"
     fake.command[3:] = [str(fixture), "--hang"]
     assert fake.command[2] == str(FAKE)
     target = SpawnTarget(fake)
@@ -85,10 +87,10 @@ def test_rpc_producer_keeps_literal_live_and_archive_but_masks_operations(tmp_pa
             assert response.status_code == 200, response.text
             assert response.headers["cache-control"] == "no-store"
             observed.extend(item["text"] for item in response.json()["items"])
-            return True
+            return text in observed
 
         options = {"package_secrets": {"KEY": "package-known-token"}} if package else {}
-        result = PiExecutor("m").run_gate(target, worktree, io, "prompt", timeout=10,
+        result = PiExecutor("m").run_gate(target, worktree, io, text, timeout=10,
             archive_stem="build-attempt-1", cancel=cancel_after_live, **options)
         assert result.exit_code == 130 and observed == [text]
         archive = Path(result.artifact_dirs[0])
@@ -394,7 +396,7 @@ def test_recorded_session_replay_visibility_and_pagination(tmp_path, role):
 
 
 def test_bad_lines_bounds_and_incomplete_tail_are_isolated(tmp_path):
-    """@brief Bad records are notices, text is bounded and unfinished data waits."""
+    """@brief Bad records are notices, retained text stays exact and unfinished data waits."""
     _, items, stores, app = _fixture(tmp_path)
     folder = _archive(stores[0], records=[])
     source = folder / "output.jsonl"
@@ -410,11 +412,10 @@ def test_bad_lines_bounds_and_incomplete_tail_are_isolated(tmp_path):
         response = client.get(_url(items[0], f"/{folder.name}"))
         assert response.status_code == 200, response.text
         data = response.json()
-        assert len([x for x in data["items"] if x["kind"] == "notice"]) == 7
+        assert len([x for x in data["items"] if x["kind"] == "notice"]) == 6
         assert "DUPLICATE_SYSTEM_NEVER" not in response.text
         item = next(x for x in data["items"] if x["kind"] == "prompt")
-        assert len(item["text"].encode()) <= 16 * 1024
-        assert item["text"].endswith("[truncated]")
+        assert item["text"] == "🙂" * 10000
         assert "unfinished" not in response.text
 
 

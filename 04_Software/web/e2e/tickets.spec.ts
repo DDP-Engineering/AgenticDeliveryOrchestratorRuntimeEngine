@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
 import { cleanupBrowserPage } from "./lifecycle";
+import { workflowCopy } from "../src/workflowCopy";
 import { ticketCopy } from "../src/ticketCopy";
 
 async function signIn(page: Page, username = "admin", password = "admin") {
@@ -27,6 +28,7 @@ async function setMonitoring(page: Page, project: string, press: string, then: s
 test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin ===
     "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
+  await context.route("**/workflow-selection", route => route.fulfill({ json: { default: "aegis", aegis_available: true } }));
 });
 
 test.afterEach(async ({ context, page }) => {
@@ -112,7 +114,7 @@ test("the ticket number column leaves room for content in both scopes", async ({
   const table = page.locator(".ticket-table");
   const number = table.getByRole("columnheader", { name: "#", exact: true });
   const title = table.getByRole("columnheader", { name: "Title", exact: true });
-  for (const url of ["/tickets", `/projects/${alpha}/jobs`]) {
+  for (const url of ["/tickets", `/projects/${alpha}/tickets`]) {
     await page.goto(url);
     await page.getByRole("button", { name: "Read tickets", exact: true }).click();
     await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeEnabled();
@@ -142,10 +144,17 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
     const projects=await (await page.request.get("/api/v1/projects")).json();
     const alpha=projects.find((project:{name:string})=>project.name==="alpha").id;
     const copy=ticketCopy[locale];
+    let submitted=0;
+    await page.route("**/tickets/*/start", async route => {
+      expect(route.request().postDataJSON().workflow).toBe("direct");
+      submitted++;
+      await route.fulfill({json:{operation_id:90000,status:"pending",labels_added:[]}});
+    });
+    await page.route("**/operations/90000", route => route.fulfill({json:{id:90000,status:"succeeded",result:"completed"}}));
     try {
       for(const width of [1440,1600]) {
         await page.setViewportSize({width,height:900});
-        for(const url of ["/tickets",`/projects/${alpha}/jobs`]) {
+        for(const url of ["/tickets",`/projects/${alpha}/tickets`]) {
           await page.goto(url);
           await page.getByRole("button",{name:copy.read,exact:true}).click();
           await expect(page.getByRole("button",{name:copy.read,exact:true})).toBeEnabled();
@@ -174,6 +183,15 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
           if(width===1440 && url!=="/tickets") await page.screenshot({path:info.outputPath(`expanded-actions-${locale}.png`),fullPage:true});
           await row.getByRole("button",{name:copy.hide,exact:true}).click();
           expect(Math.abs((await rightEdge()).button - collapsed.button)).toBeLessThan(1);
+          await row.getByRole("button",{name:copy.start,exact:true}).click();
+          const choice=page.locator(".ticket-start-confirm").getByLabel(workflowCopy[locale].label,{exact:true});
+          await expect(choice).toHaveValue("aegis");
+          await expect(choice.locator("option[value=direct]")).toHaveText(workflowCopy[locale].direct);
+          await choice.selectOption("direct");
+          const before=submitted;
+          await page.locator(".ticket-start-confirm").getByRole("button",{name:copy.startTicket,exact:true}).click();
+          await expect.poll(()=>submitted).toBe(before+1);
+          await expect(page.locator(".ticket-start-confirm")).toHaveCount(0);
         }
       }
       await page.setViewportSize({width:360,height:800});
@@ -195,16 +213,13 @@ test("tickets sub-tab reads open tickets on request and controls them safely", a
   await setMonitoring(page, alpha, "Activate monitoring", "Pause monitoring");
   try {
     const reads: string[] = [];
-    page.on("request", request => { if (new URL(request.url()).pathname.endsWith("/tickets")) reads.push(request.url()); });
-    await page.goto(`/projects/${alpha}/jobs`);
-    const sections = page.locator(".jobs-subtabs");
+    page.on("request", request => { if (new URL(request.url()).pathname.startsWith("/api/v1/") && new URL(request.url()).pathname.endsWith("/tickets")) reads.push(request.url()); });
+    await page.goto(`/projects/${alpha}/tickets`);
+    const sections = page.locator(".project-tabs");
     await expect(sections.getByRole("tab", { name: "Tickets", exact: true })).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator(".ticket-table")).toHaveCount(0);
+    await expect(page.locator(".ticket-table")).toHaveCount(1);
     await expect(page.locator("#job-ticket-number")).toHaveCount(0);
-    await expect(page.getByText("Press Read tickets to load this project's open tickets", { exact: false })).toBeVisible();
-    expect(reads).toEqual([]);
 
-    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
     const rows = page.locator(".ticket-table tbody tr.ticket-row");
     await expect(rows).toHaveCount(7);
     expect(reads).toHaveLength(1);
@@ -247,14 +262,19 @@ test("tickets sub-tab reads open tickets on request and controls them safely", a
     await expect(readyDetail).not.toContainText("added ~agent-ready label");
 
     await ready.getByRole("button", { name: "Start", exact: true }).click();
+    await expect(page.getByLabel("Workflow", {exact:true})).toHaveValue("aegis");
+    await page.getByLabel("Workflow", {exact:true}).selectOption("direct");
+    const selected = page.waitForRequest(request => request.url().endsWith("/tickets/21/start"));
+    await page.getByRole("button", { name: "Add labels and start", exact: true }).click();
+    expect((await selected).postDataJSON().workflow).toBe("direct");
     await expect(page.locator(".ticket-notice")).toContainText("Start for #21 queued");
     await expect(page.locator(".ticket-start-confirm")).toHaveCount(0);
     await expect(ready.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
 
     // Start adds a missing ready label after confirmation.
     await unsafe.getByRole("button", { name: "Start", exact: true }).click();
-    await expect(page.locator(".ticket-start-confirm")).toContainText("agent-ready");
-    await expect(page.locator(".ticket-start-confirm select")).toHaveCount(0);
+    await expect(page.locator(".ticket-start-confirm p")).toHaveCount(0);
+    await expect(page.locator(".ticket-start-confirm select")).toHaveCount(1);
     await page.getByRole("button", { name: "Add labels and start", exact: true }).click();
     await expect(page.locator(".ticket-notice")).toContainText("Labels added: agent-ready.");
     await expect(page.locator(".ticket-notice")).toContainText("Start for #22 queued");
@@ -281,7 +301,7 @@ test("tickets sub-tab reads open tickets on request and controls them safely", a
     await expect(rows.filter({ hasText: "#21" })).toContainText("Missing label agent-ready");
 
     await sections.getByRole("tab", { name: "Jobs", exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?view=jobs$`));
+    await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
     await expect(page.locator("#job-search")).toBeVisible();
     await expect(page.locator("#job-ticket-number")).toHaveCount(0);
     await page.reload();
@@ -317,7 +337,7 @@ test("Start explains stopped pickup and a refused start keeps its reason, lines 
   await signIn(page);
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const alpha = projects.find((row: { name: string }) => row.name === "alpha").id;
-  await page.goto(`/projects/${alpha}/jobs`);
+  await page.goto(`/projects/${alpha}/tickets`);
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   const rows = page.locator(".ticket-table tbody tr.ticket-row");
   await expect(rows).toHaveCount(7);
@@ -329,17 +349,30 @@ test("Start explains stopped pickup and a refused start keeps its reason, lines 
   await expect(page.locator(".ticket-pickup-stopped")).toContainText("An administrator activates monitoring in the project Summary");
   await expect(rows.filter({ hasText: "#23" })).toContainText("On hold");
 
-  // A confirmation opens directly under its row, names the chosen priority and is the only one open.
+  // A compact confirmation opens directly under its row and is the only one open.
   const unlabelled = rows.filter({ hasText: "#25" });
   await unlabelled.getByRole("button", { name: "Start", exact: true }).click();
   const confirmRows = page.locator("tr.ticket-confirm-row");
   await expect(confirmRows).toHaveCount(1);
   expect(await unlabelled.evaluate(row => !!row.nextElementSibling?.querySelector(".ticket-start-confirm"))).toBe(true);
   const startConfirm = page.locator(".ticket-start-confirm");
-  await expect(startConfirm).toContainText("agent-ready, P3");
-  await expect(startConfirm.locator("p")).not.toContainText("Priority");
+  await expect(startConfirm.locator("p")).toHaveCount(0);
+  await expect(startConfirm.getByLabel("Workflow", { exact: true })).toHaveValue("aegis");
+  await expect(startConfirm.getByLabel("Priority", { exact: true })).toHaveValue("P3");
+  const controls = startConfirm.locator("select, button");
+  const controlBounds = await controls.evaluateAll(nodes => nodes.map(node => {
+    const box = node.getBoundingClientRect();
+    return { top: box.top, right: box.right };
+  }));
+  expect(controlBounds).toHaveLength(4);
+  expect(Math.max(...controlBounds.map(box => box.top)) - Math.min(...controlBounds.map(box => box.top))).toBeLessThan(1);
+  expect(Math.max(...controlBounds.map(box => box.right))).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await page.setViewportSize({ width: 360, height: 800 });
+  await expect(controls.last()).toBeVisible();
+  expect(await startConfirm.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await startConfirm.getByLabel("Priority", { exact: true }).selectOption("P1");
-  await expect(startConfirm).toContainText("agent-ready, P1");
+  await expect(startConfirm.getByLabel("Priority", { exact: true })).toHaveValue("P1");
   await stopped.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(startConfirm).toHaveCount(0);
   await expect(confirmRows).toHaveCount(1);
@@ -379,7 +412,7 @@ test("many tickets are paged with a rows-per-page selector", async ({ page }) =>
   await signIn(page);
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const alpha = projects.find((row: { name: string }) => row.name === "alpha").id;
-  await page.goto(`/projects/${alpha}/jobs`);
+  await page.goto(`/projects/${alpha}/tickets`);
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   const rows = page.locator(".ticket-table tbody tr.ticket-row");
   const pager = page.locator(".ticket-pagination");
@@ -416,8 +449,9 @@ test("many tickets are paged with a rows-per-page selector", async ({ page }) =>
 async function openBodies(page: Page, project = "alpha", read = "Read tickets", details = "Details") {
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const id = projects.find((row: { name: string }) => row.name === project).id;
-  await page.goto(`/projects/${id}/jobs`);
+  await page.goto(`/projects/${id}/tickets`);
   await page.getByRole("button", { name: read, exact: true }).click();
+  await expect(page.getByRole("button", {name:read,exact:true})).toBeEnabled();
   for (const iid of [21, 22]) await page.locator("tr.ticket-row").filter({ hasText: `#${iid}` }).getByRole("button", { name: details, exact: true }).click();
 }
 
@@ -439,40 +473,41 @@ test("ticket bodies render by default, share exact source and retain keyboard fo
   page.on("request", request => { if (new URL(request.url()).origin !== "http://127.0.0.1:18765") external.push(request.url()); });
   await signIn(page); await openBodies(page);
   const details = page.locator(".ticket-detail");
+  const description=page.locator('.ticket-detail[id$="-21"]'),empty=page.locator('.ticket-detail[id$="-22"]');
   const controls = details.getByRole("combobox", { name: "Body display", exact: true });
   await expect(controls).toHaveCount(2);
   await expect(page.locator(".ticket-labels").first()).toContainText('<b onclick="alert(1)">**label**</b>');
   await expect(page.locator(".ticket-labels b, .ticket-labels strong")).toHaveCount(0);
-  await expect(controls.first()).toHaveValue("rendered");
-  await expect(details.first().getByRole("heading", { name: "Goal", exact: true })).toBeVisible();
-  await expect(details.first().locator("strong")).toHaveText("bold");
-  await expect(details.first().getByRole("checkbox")).toBeDisabled();
-  await expect(details.last()).toContainText("No description.");
-  await expect(details.first().getByRole("link", { name: "allowed", exact: true })).toHaveAttribute("rel", "noopener noreferrer");
-  await expect(details.first().getByRole("link", { name: "allowed", exact: true })).toHaveAttribute("target", "_blank");
+  await expect(description.getByRole("combobox",{name:"Body display",exact:true})).toHaveValue("rendered");
+  await expect(description.getByRole("heading", { name: "Goal", exact: true })).toBeVisible();
+  await expect(description.locator("strong")).toHaveText("bold");
+  await expect(description.getByRole("checkbox")).toBeDisabled();
+  await expect(empty).toContainText("No description.");
+  await expect(description.getByRole("link", { name: "allowed", exact: true })).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(description.getByRole("link", { name: "allowed", exact: true })).toHaveAttribute("target", "_blank");
   await expect(details.getByRole("link", { name: "unsafe", exact: true })).toHaveCount(0);
   await expect(details.locator("script, img, iframe, b")).toHaveCount(0);
-  await expect(details.first()).toContainText('<script>window.__ticketInjected=true</script>');
+  await expect(description).toContainText('<script>window.__ticketInjected=true</script>');
   expect(await page.evaluate(() => (window as unknown as { __ticketInjected?: boolean }).__ticketInjected)).toBeUndefined();
   // Tab into the first native selector, then choose each mode without replacing the element.
-  await details.first().locator("h3").first().evaluate(el => { el.setAttribute("tabindex", "-1"); (el as HTMLElement).focus(); });
+  await description.locator("h3").first().evaluate(el => { el.setAttribute("tabindex", "-1"); (el as HTMLElement).focus(); });
   await page.keyboard.press("Tab");
-  await expect(controls.first()).toBeFocused();
+  await expect(description.getByRole("combobox",{name:"Body display",exact:true})).toBeFocused();
   await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
-  await expect(controls.first()).toHaveValue("source");
-  await expect(controls.last()).toHaveValue("source");
-  await expect(controls.first()).toBeFocused();
-  expect(await details.first().locator(".ticket-source").textContent()).toBe(source);
+  await expect(description.getByRole("combobox",{name:"Body display",exact:true})).toHaveValue("source");
+  await expect(empty.getByRole("combobox",{name:"Body display",exact:true})).toHaveValue("source");
+  await expect(description.getByRole("combobox",{name:"Body display",exact:true})).toBeFocused();
+  expect(await description.locator(".ticket-source").textContent()).toBe(source);
   releaseComments();
   await expect(details.locator(".ticket-comments .ticket-source")).toHaveCount(2);
-  expect(await details.first().locator(".ticket-comments .ticket-source").textContent()).toBe(comment);
-  await expect(details.last()).toContainText("No description.");
+  expect(await description.locator(".ticket-comments .ticket-source").textContent()).toBe(comment);
+  await expect(empty).toContainText("No description.");
   await expect(details.locator("a, img, script, b")).toHaveCount(0);
   await page.keyboard.press("ArrowUp"); await page.keyboard.press("Enter");
-  await expect(controls.first()).toHaveValue("rendered");
-  await expect(controls.first()).toBeFocused();
-  await expect(details.first().locator(".ticket-comments strong")).toHaveText("Comment");
-  await expect(details.first()).toContainText("<b>author</b>");
+  await expect(description.getByRole("combobox",{name:"Body display",exact:true})).toHaveValue("rendered");
+  await expect(description.getByRole("combobox",{name:"Body display",exact:true})).toBeFocused();
+  await expect(description.locator(".ticket-comments strong")).toHaveText("Comment");
+  await expect(description).toContainText("<b>author</b>");
   await expect(details.locator("img, script, iframe, b")).toHaveCount(0);
   expect(external).toEqual([]);
 });

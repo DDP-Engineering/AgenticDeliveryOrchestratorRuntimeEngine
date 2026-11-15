@@ -17,11 +17,14 @@
 from hashlib import sha256
 import json
 
+from adore.config import default_config
 from adore.isolation import IsolationError
 from adore.local_execution import LocalBackend
 from adore.local_process import LocalExecutionError
+from adore.preparation import resolve_plan
 import pytest
 
+from tests.execution_records import execution_record
 from tests.test_retry_revalidation import retry_fixture, upgrade
 
 # PUBLIC CONTRACT TESTS
@@ -122,8 +125,8 @@ def test_restart_checks_revision_and_preserves_paused_manual_admission(tmp_path,
     with pytest.raises(IsolationError, match="changed"):
         engine.restart(run.run_id, "0" * 64)
     assert engine.store.exists(run.run_id) and not calls
-    assert engine.restart(run.run_id, revision)["picked"] == run.ticket_iid
-    assert calls == [{"ticket_iid": run.ticket_iid, "reconcile": False}]
+    assert engine.restart(run.run_id, revision, workflow="direct")["picked"] == run.ticket_iid
+    assert calls == [{"ticket_iid": run.ticket_iid, "reconcile": False, "workflow": "direct"}]
 
 
 @pytest.mark.parametrize("fault", ["native", "state", "git", "lock"])
@@ -176,7 +179,10 @@ def test_web_restart_requires_confirmation_revision_and_rechecks_worker(tmp_path
     profiles = ProfileStore(tmp_path / "home")
     item = profiles.create("alpha")
     state = StateStore(item.store_root or profiles.default_store_root("alpha"))
-    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="failed")
+    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="failed", execution=execution_record())
+    run.execution = {"plan": resolve_plan(default_config()), "resource": {},
+                     "status": "not-required", "attempts": 0,
+                     "steps": [], "history": [], "reprepare": False}
     state.save(run)
     app = create_app(profiles.home)
     with TestClient(app) as client:
@@ -185,7 +191,8 @@ def test_web_restart_requires_confirmation_revision_and_rechecks_worker(tmp_path
         ).json()["csrf"]
         detail = client.get(f"/api/v1/jobs/{item.project_id}/run-1").json()["job"]
         revision = detail["state_revision"]
-        body = {"run_id": "run-1", "idempotency_key": "restart-once", "state_revision": revision}
+        body = {"run_id": "run-1", "idempotency_key": "restart-once",
+                "state_revision": revision, "workflow": "direct"}
         headers = {"X-CSRF-Token": csrf}
         url = f"/api/v1/projects/{item.project_id}/operations/restart"
         assert client.post(url, json=body, headers=headers).status_code == 400
@@ -195,6 +202,8 @@ def test_web_restart_requires_confirmation_revision_and_rechecks_worker(tmp_path
         accepted = client.post(url, json=body, headers=headers)
         assert accepted.status_code == 200
         assert client.post(url, json=body, headers=headers).json() == accepted.json()
+        conflict = client.post(url, json={**body, "workflow": "aegis"}, headers=headers)
+        assert conflict.status_code == 409
         web = WebStore(profiles.home / "web.db")
         calls = []
         worker = CommandWorker(profiles, web, runner=lambda argv, env: calls.append(argv) or 0)
@@ -245,12 +254,15 @@ def test_restart_worker_uses_fixed_bound_argv_and_rechecks_grants(tmp_path, revo
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed"))
+    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed", execution={
+        "plan": resolve_plan(default_config()), "resource": {}, "status": "not-required",
+        "attempts": 0, "steps": [], "history": [], "reprepare": False}))
     revision = sha256((state.run_dir("one") / "state.json").read_bytes()).hexdigest()
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "long-password", "developer")
     web.set_memberships(user["id"], ["alpha"])
-    operation = web.enqueue(user["id"], "alpha", "restart", "one." + revision, "restart-bound")
+    operation = web.enqueue(user["id"], "alpha", "restart", "one." + revision,
+                            "restart-bound", workflow="direct")
     if revoked:
         web.set_memberships(user["id"], [])
     calls = []
@@ -273,7 +285,8 @@ def test_restart_worker_uses_fixed_bound_argv_and_rechecks_grants(tmp_path, revo
         assert not calls
         assert web.operation(operation["id"])["status"] == "failed"
     else:
-        assert calls[0][-5:] == ["restart", "one", "--force", "--expected-revision", revision]
+        assert calls[0][-7:] == ["restart", "one", "--force", "--expected-revision", revision,
+                                  "--workflow", "direct"]
         assert web.operation(operation["id"])["status"] == "succeeded"
         assert web.operation(operation["id"])["result"] == (
             "restart:retained" if retained else "completed"
@@ -846,7 +859,8 @@ def test_restart_zero_exit_requires_matching_admission(tmp_path, output):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed"))
+    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed",
+        execution=execution_record()))
     revision = sha256((state.run_dir("one") / "state.json").read_bytes()).hexdigest()
     web = WebStore(profiles.home / "web.db")
     op = web.enqueue(1, "alpha", "restart", "one." + revision, "restart-proof")
@@ -882,7 +896,8 @@ def test_restart_history_distinguishes_refusal_and_failure(tmp_path, output, exp
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed"))
+    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed",
+        execution=execution_record()))
     revision = sha256((state.run_dir("one") / "state.json").read_bytes()).hexdigest()
     web = WebStore(profiles.home / "web.db")
     op = web.enqueue(1, "alpha", "restart", "one." + revision, "restart-outcome")
@@ -923,7 +938,8 @@ def test_restart_history_requires_bound_terminal_evidence(tmp_path, kind, expect
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed"))
+    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed",
+        execution=execution_record()))
     revision = sha256((state.run_dir("one") / "state.json").read_bytes()).hexdigest()
     web = WebStore(profiles.home / "web.db")
     op = web.enqueue(1, "alpha", "restart", "one." + revision, "restart-bound-result")
@@ -960,12 +976,14 @@ def test_cli_restart_emits_bound_refusal(tmp_path, monkeypatch, capsys):
     revision = "a" * 64
 
     class Engine:
-        def restart(self, run_id, expected_revision):
+        def restart(self, run_id, expected_revision, *, workflow):
+            assert workflow == "direct"
             raise IsolationError("checkpoint conflict")
 
     monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda *a, **kw: Engine())
     assert (
-        main(["--profile", "alpha", "restart", run_id, "--force", "--expected-revision", revision])
+        main(["--profile", "alpha", "restart", run_id, "--force",
+              "--expected-revision", revision, "--workflow", "direct"])
         == 1
     )
     assert read_restart_result(

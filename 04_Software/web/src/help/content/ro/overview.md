@@ -64,3 +64,7 @@ Dezvoltatorii încep de la pasul 3, după ce un administrator le-a dat acces la 
 - [Statistici și costuri](/help/statistics): utilizare, calitate, tendințe și costuri estimate.
 - [Administrare](/help/administration): utilizatori, acces, starea sistemului și istoricul modificărilor.
 - [Glosar](/help/glossary): termenii folosiți în interfață.
+
+## Alegerea fluxului de lucru {#workflow-choice}
+
+**Fără AEGIS** suprascrie numai instrucțiunile repository-ului care impun procedurile AEGIS. Celelalte reguli de cod, licențiere și verificare rămân valabile. Fișierele AEGIS instalate rămân intacte. Direct folosește Implementare, Validare și Finalizată; verificările sunt raportate de agent. Etapele AEGIS descrise aici se aplică opțiunii **Cu AEGIS**.

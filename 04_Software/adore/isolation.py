@@ -1025,9 +1025,10 @@ class WorktreeManager:
                                       exclude_paths: Sequence[str] = ()) -> str:
         """
         @brief      Observe candidate changes independently of task bookkeeping.
-        @details    Hash tracked diff against HEAD and untracked content, excluding
+        @details    Hash exact tracked diff bytes against HEAD and untracked content, excluding
                     journals and generated caches. Symlinks contribute their target
-                    text; directory symlinks and malformed paths fail closed.
+                    bytes; directory symlinks and malformed paths fail closed.
+                    File content has no encoding or replacement-character restrictions.
         @param[in]  run_id Stable run identifier.
         @param[in]  exclude_paths Literal exchange file names excluded only for this observation.
         @return     SHA-256 fingerprint, including dirty candidate changes.
@@ -1038,21 +1039,32 @@ class WorktreeManager:
         paths = (".", ":(exclude).agentic/tasks/**", *_GENERATED_PATHSPECS,
                  *(f":(top,literal,exclude){name}" for name in excluded))
 
-        def observe(*args: str) -> str:
-            """@brief Validate bounded Git evidence for workflow progress."""
+        def observe(*args: str) -> bytes:
+            """@brief Preserve arbitrary content bytes from a successful Git command."""
             result = self._run_wt(str(wt), *args)
             if (type(result.exit_code) is not int or result.timed_out
-                             or not isinstance(result.stdout, str)
-                             or len(result.stdout) > 4_000_000 or "\ufffd" in result.stdout):
+                    or not isinstance(result.stdout, str)):
                 raise IsolationError("invalid Git progress evidence")
-            return result.stdout
+            try:
+                output = result.stdout_bytes
+            except UnicodeError as exc:
+                raise IsolationError("invalid Git progress evidence") from exc
+            if not isinstance(output, bytes):
+                raise IsolationError("invalid Git progress evidence")
+            return output
 
         diff = observe("diff", "--binary", "HEAD", "--", *paths)
         untracked = observe("ls-files", "-z", "--others", "--exclude-standard", "--", *paths)
-        if untracked and not untracked.endswith("\0"):
+        if len(untracked) > 4_000_000:
+            raise IsolationError("oversized untracked progress path list")
+        if untracked and not untracked.endswith(b"\0"):
             raise IsolationError("unterminated untracked progress path list")
-        digest = hashlib.sha256(diff.encode("utf-8"))
-        for name in sorted(untracked.split("\0")[:-1]):
+        digest = hashlib.sha256(diff)
+        for raw_name in sorted(untracked.split(b"\0")[:-1]):
+            try:
+                name = os.fsdecode(raw_name)
+            except UnicodeError as exc:
+                raise IsolationError("invalid Git progress path encoding") from exc
             relative = PurePosixPath(name)
             if (not name or relative.is_absolute() or PureWindowsPath(name).drive
                     or "\\" in name or ".." in relative.parts
@@ -1074,7 +1086,7 @@ class WorktreeManager:
                     raise IsolationError(f"unsupported progress file: {name!r}")
             except OSError as exc:
                 raise IsolationError(f"cannot observe progress file {name!r}: {exc}") from exc
-            for value in (name.encode("utf-8"), kind, content):
+            for value in (raw_name, kind, content):
                 digest.update(len(value).to_bytes(8, "big"))
                 digest.update(value)
         return digest.hexdigest()

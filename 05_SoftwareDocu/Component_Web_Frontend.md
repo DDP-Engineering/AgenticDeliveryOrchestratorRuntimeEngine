@@ -158,3 +158,14 @@ The browser projects retained evidence; it does not recover deleted transcripts
 or infer unrecorded stages. Archived conversations are read-only. Live refresh is
 bounded polling rather than text-delta streaming. Native execution uses the host
 account's permissions; the interface cannot provide a host sandbox.
+
+## Shared workflow choice
+
+WorkflowChoice loads authorized new-job defaults and payload presence, validates the response and waits for it before enabling submission. TicketWorkspace always opens confirmation and sends the selected aegis/direct value in both scopes. JobDetails uses the same validated capability response for two explicit Restart buttons. JobWorkspace uses a short native confirmation, including the selected mode, and sends that mode with the saved state revision; no page-level confirmation panel is rendered. Retry has no selector or workflow override. Four-locale workflowCopy and settingHelp cover labels, defaults, unavailable AEGIS and the Direct instruction boundary.
+
+Ticket Start confirmation uses a wrapping flex row for Workflow, required Priority
+and the Start/Cancel actions in both global and project scopes. WorkflowChoice
+suppresses its helper paragraphs there; loading/error states and disabled AEGIS
+options still apply. Job actions removes Retry/Restart helper paragraphs and keeps
+its compact mode buttons together. Label mutations
+and the explicit selected-workflow request contract are unchanged.

@@ -19,11 +19,11 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 ## Purpose and users
 
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts a team's
-opt-in GitHub, GitLab or Gitea tickets. CLI/configured repositories without
-`.agentic/aegis.py` use bounded direct implementation attempts in one job conversation. The agent
+opt-in GitHub, GitLab or Gitea tickets. New jobs resolve the auto/direct project default or a manual aegis/direct choice.
+Direct skips AEGIS even when installed and uses bounded implementation attempts in one job conversation. The agent
 selects and reports repository checks; ADORE records completion and candidate
-evidence without independently rerunning repository suites. A present unsupported or
-broken payload is refused without fallback. Web enrollment accepts repositories
+evidence without independently rerunning repository suites. In automatic or explicit AEGIS mode, a present unsupported or
+broken payload is refused without fallback; explicit AEGIS also refuses absence. Web enrollment accepts repositories
 with or without AEGIS. Enrollment and Settings explain that the agent owns
 repository checks; no independent repository-test command is configured or run.
 API and browser readiness report a separate

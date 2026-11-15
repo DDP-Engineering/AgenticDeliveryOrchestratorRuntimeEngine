@@ -502,9 +502,9 @@ td.strong { font-weight: 800; }
 .job-actions { margin-left: auto; position: relative; color: var(--text); }
 .job-actions summary { cursor: pointer; border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; background: var(--surface); font-weight: 650; }
 .job-actions summary:focus-visible, .job-resources summary:focus-visible, .job-original summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.job-action-menu { position: absolute; right: 0; z-index: 4; width: min(350px, 75vw); padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
-.job-action-menu > div + div { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 10px; }
-.job-action-menu button { width: 100%; }
+.job-action-menu { position: absolute; right: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: max-content; max-width: min(720px, calc(100vw - 48px)); padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
+.job-action-menu .job-restart-actions { display: contents; }
+.job-action-menu button { width: auto; max-width: 100%; }
 .job-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; align-items: start; }
 .job-details .job-state { border: 1px solid var(--border); border-top: 4px solid var(--accent); background: var(--surface); border-radius: 12px; padding: 24px; margin: 0; min-width: 0; }
 .job-details .job-state-parked-clarification, .job-details .job-state-awaiting-approval { border-top-color: var(--warning); }
@@ -925,6 +925,18 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .ticket-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ticket-comments { display: grid; gap: 12px; margin: 0; padding-left: 1.2rem; }
 .ticket-start-confirm, .ticket-stop-confirm { margin: 0 0 8px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); }
+.ticket-start-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.ticket-start-confirm .workflow-choice { flex: 1 1 260px; min-width: 0; }
+.ticket-start-confirm label { flex-direction: row; align-items: center; white-space: nowrap; min-width: 0; }
+.ticket-start-confirm > label { flex: 0 1 180px; }
+.ticket-start-confirm select { flex: 1; min-width: 0; width: auto; }
+.ticket-start-confirm .button-row { flex-wrap: nowrap; }
+.ticket-start-confirm button { white-space: nowrap; }
+@media (max-width: 600px) {
+  .ticket-start-confirm .workflow-choice, .ticket-start-confirm > label { flex: 1 1 100%; }
+  .ticket-start-confirm .button-row { flex-wrap: wrap; }
+  .ticket-start-confirm button { white-space: normal; }
+}
 .ticket-confirm-row > td { padding-top: 0; }
 .operation-detail { margin: 6px 0 0; padding: 8px 10px; max-height: 16rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); }
 .executor-output { min-width: 0; margin-top: 12px; }

@@ -30,19 +30,19 @@ test("compact details keep filters on return and support keyboard evidence navig
   await page.getByLabel("Search jobs", { exact: true }).fill("ux-clarification");
   await page.locator(".action-jobs-table tbody tr td:first-child a").click();
   const detail = page.locator(".job-details");
-  await expect(detail.getByRole("tab")).toHaveText(["Activity", "Agent sessions", "Artifacts", "Technical information"]);
+  await expect(detail.getByRole("tab")).toHaveText(["Activity", "Agent sessions", "Job details"]);
   await expect(page.locator("#job-search, .action-jobs-table")).toHaveCount(0);
   await expect(detail.locator(".job-detail-title h2")).toHaveText(/Ticket #42 · Actual clarification ticket/);
   const stage = await detail.locator(".job-detail-meta > span").first().boundingBox();
   const actions = await detail.locator(".job-actions summary").boundingBox();
   expect(Math.abs(stage!.y + stage!.height / 2 - actions!.y - actions!.height / 2)).toBeLessThan(5);
   await detail.getByRole("button", { name: "Read the question", exact: true }).click();
-  const question = detail.getByRole("tab", { name: "Artifacts", exact: true });
+  const question = detail.getByRole("tab", { name: "Job details", exact: true });
   await expect(question).toBeFocused();
   await expect(question).toHaveAttribute("aria-selected", "true");
-  await expect(detail.getByRole("tabpanel", { name: "Artifacts", exact: true })).toContainText("Which export format?");
+  await expect(detail.getByRole("tabpanel", { name: "Job details", exact: true })).toContainText("Which export format?");
   await page.keyboard.press("End");
-  await expect(detail.getByRole("tab", { name: "Technical information", exact: true })).toBeFocused();
+  await expect(detail.getByRole("tab", { name: "Job details", exact: true })).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(detail.getByRole("tab", { name: "Activity", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.screenshot({ path: info.outputPath("job-details-desktop.png"), fullPage: true });
@@ -79,8 +79,9 @@ test("question readability preserves original evidence and never activates untru
   await expect(readable.locator("script, img, a[href^='javascript:']")).toHaveCount(0);
   await expect(readable).toContainText("<script>window.questionSentinel=true</script>");
   expect(await page.evaluate(() => Object.hasOwn(window, "questionSentinel"))).toBe(false);
+  await detail.locator(".job-diagnostics > summary").click();
   await detail.getByText("Original question and evidence", { exact: true }).click();
-  await expect(detail.locator(".job-question .job-original pre")).toHaveText(source);
+  await expect(detail.locator(".job-original pre")).toHaveText(source);
 });
 
 test("resuming a job removes the active question and its action without rewriting history", async ({ page }) => {
@@ -100,13 +101,13 @@ test("resuming a job removes the active question and its action without rewritin
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   const detail = page.locator(".job-details");
   await expect(detail.locator(".job-detail-meta .status")).toContainText("Working");
-  await expect(detail.getByRole("tab", { name: "Artifacts", exact: true })).toHaveCount(1);
+  await expect(detail.getByRole("tab", { name: "Job details", exact: true })).toHaveCount(1);
   await expect(detail.getByRole("button", { name: "Read the question", exact: true })).toHaveCount(0);
   await expect(detail.getByRole("heading", { name: "Agent question", exact: true })).toHaveCount(0);
   await expect(detail.locator(".job-question .forge-markdown")).toHaveCount(0);
   await expect(detail.getByRole("link", { name: "Answer on the ticket", exact: false })).toHaveCount(0);
   await expect(detail).not.toContainText("Active question");
   await detail.getByRole("tab", { name: "Activity", exact: true }).click();
-  await expect(detail.locator(".job-activity li").first()).toContainText("Work resumed");
-  await expect(detail.locator(".job-activity")).toContainText("parked");
+  await expect(detail.locator(".job-activity-table tbody tr").first()).toContainText("Work resumed");
+  await expect(detail.locator(".job-activity-table")).toContainText("Clarification was requested");
 });

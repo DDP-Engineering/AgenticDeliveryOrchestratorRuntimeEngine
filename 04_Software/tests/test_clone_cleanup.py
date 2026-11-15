@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-# IMPORTS
 import json
 from pathlib import Path
 import subprocess
@@ -32,6 +31,9 @@ from adore.web.app import create_app
 from adore.web.commands import CommandWorker
 from fastapi.testclient import TestClient
 import pytest
+
+# IMPORTS
+from tests.execution_records import execution_record
 
 # CONSTANTS
 CONFIG = """
@@ -237,7 +239,8 @@ def test_delete_preview_reports_the_clone_for_administrators(tmp_path):
         folder = worktrees.path_for("run-h")
         folder.mkdir(parents=True)
         StateStore(store.default_store_root("proj")).save(
-            RunState(run_id="run-h", ticket_iid=1, lifecycle="handed-off", worktree=str(folder))
+            RunState(run_id="run-h", ticket_iid=1, lifecycle="handed-off", worktree=str(folder),
+                execution=execution_record())
         )
         kept = client.get("/api/v1/projects/proj/delete-preview").json()["clone"]
         assert kept["removable"] is False and kept["reason"] == "worktrees"
@@ -383,7 +386,7 @@ def test_own_failed_run_worktree_does_not_block_before_the_sweep(tmp_path):
     _commit(clone)
     store = _profile(home, repo_path=clone, archived=True)
     config = load_config(store.config_path("proj"))
-    run = RunState(run_id="run-f", ticket_iid=1, lifecycle="failed")
+    run = RunState(run_id="run-f", ticket_iid=1, lifecycle="failed", execution=execution_record())
     subprocess.run(
         [
             "git",
@@ -460,5 +463,5 @@ def test_foreign_linked_worktree_blocks_before_the_sweep(tmp_path):
     subprocess.run(
         ["git", "-C", str(clone), "worktree", "add", "-q", str(tmp_path / "mine")], check=True
     )
-    run = RunState(run_id="run-f", ticket_iid=1, lifecycle="failed")
+    run = RunState(run_id="run-f", ticket_iid=1, lifecycle="failed", execution=execution_record())
     assert project_clone_decision(store, "proj", config, [run]).reason == "worktrees"

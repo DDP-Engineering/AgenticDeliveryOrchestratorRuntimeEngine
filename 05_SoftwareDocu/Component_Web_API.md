@@ -180,3 +180,7 @@ specialized component tests remain authoritative for exact route shapes.
 The control plane is single-host and backed by local files/SQLite. Job snapshots
 are optimistic source revisions, not a transactional frozen multi-file snapshot.
 External forge/model/runtime calls remain separately bounded and fallible.
+
+## Explicit new-job workflow
+
+TicketStartInput and OperationInput accept optional Literal aegis/direct workflow. Non-Start/Restart actions refuse an override. Replay checks project identity, target/action and workflow before returning an existing operation. The authorized workflow-selection read reports project default and read-only payload presence without invoking repository code; admission remains authoritative for usability. Direct-default readiness reports Direct independently of installed AEGIS.

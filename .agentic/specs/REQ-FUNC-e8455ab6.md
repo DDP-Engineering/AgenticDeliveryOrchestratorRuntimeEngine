@@ -5,73 +5,59 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Authorized persisted job reads
+# Read globally ordered authorized job pages
 
-Status: active
+This specification describes the current implemented contract.
 
-## Interface
+## Behavior and boundaries
 
-Add GET /api/v1/jobs-page and /api/v1/jobs/{project_id}/{run_id}.
-Global page accepts optional project_id, q (trimmed casefold substring, 1..80),
-status_group (active/waiting/review/terminal), lifecycle and stage exact values,
-limit (1..100 or all; default 25), offset >= 0 and optional snapshot (64 hex).
-Project filtering resolves the same authorized identity rules as existing routes.
-The existing project run routes retain their response contracts.
+### [REQ-DATA-0ba9e469](../requirements/data/REQ-DATA-0ba9e469.toml) — Expose persisted job evidence with honest unknowns
 
-Page contains items, total, counts (lifecycles), groups, limit, offset, complete=true,
-snapshot (SHA256 authorized source content), snapshot_semantics=optimistic-source-revision.
-Counts/groups describe the searched/project-filtered population before lifecycle/stage/group
-selection; total describes matching items. Archived projects are included explicitly.
-Order is last_activity_at descending as UTC instant, missing last activity last,
-then project_id ascending, run_id ascending. Search covers project name/display label,
-run ID, ticket number and actual title, lifecycle, stage and outcome; absent data adds no text.
+When a job read succeeds, the service shall expose exact persisted lifecycle, AEGIS stage, outcome, last activity and available ticket/title/wait/action/responsibility/evidence links, with explicit unknown coverage for evidence and consumption that was not recorded, using local snapshots without invoking external commands. A run state with an empty created_at or updated_at shall fail closed as run_state_corrupt.
 
-## Source revision and completeness
+Verification scope: Persist ticket and parked/approval evidence and read the public endpoints with a runner that fails on calls; assert observed evidence, safe links, exact stage/outcome, unknown person/consumption and missing wait timestamps; a project summary over a run without an aware updated_at answers 503 run_state_corrupt.
 
-Each request reads complete authorized profile and run source bytes into memory,
-then reinspects the same paths/membership/profile inventory before returning.
-A source change returns 409 job_snapshot_changed; callers restart at offset zero.
-The source digest includes project metadata and state/ticket/journal presence/content
-and authorization identity, independent of pagination or search. Consecutive pages pass
-snapshot to reject additions, deletion, rename, archive, changed evidence or grants.
-This is optimistic consistency, not a durable frozen snapshot or a transaction against
-uncoordinated host writes; a mutation after final reinspection is visible next request.
-No server cache or live forge fetch. Deleted projects have no retained searchable profile;
-archived projects retain authorized history. Missing state roots are empty sources;
-unreadable roots/files and malformed run folders fail closed.
+### [REQ-FUNC-e8455ab6](../requirements/functional/REQ-FUNC-e8455ab6.toml) — Read globally ordered authorized job pages
 
-## Evidence
+When an authenticated caller reads jobs, the service shall return a complete globally filtered and deterministically ordered page across authorized current and archived projects, identified by project_id and run_id, with matching totals, status groups and an optimistic source revision that rejects changed sources on continuation.
 
-Exact state values remain independent; stage never implies lifecycle/outcome/action.
-last_activity_at is max of updated_at and journal ts values.
-Every save stamps created_at and updated_at; an empty, malformed or naive value fails
-as run_state_corrupt.
-Ticket title and web_url come from optional ticket.json; iid if present must match state.
-Missing ticket/journal files are explicit coverage states, malformed ones are errors.
-Wait reason/action use only lifecycle-matching persisted evidence: parked questions plus
-question_comment_id and an event timestamp at/after the current parked_at; an absent
-correlation remains unknown. Awaiting approval comment ID plus presented candidate digests;
-in-review MR URL. Role is human_responder/human_approver/human_reviewer only with that
-actual evidence; responsible_person remains null because no assignee snapshot exists.
-Evidence locations use composite API detail URL and safe forge comment/MR anchors,
-with source identifiers; GitLab uses note anchors, GitHub/Gitea issuecomment anchors,
-and an unknown forge retains the observed ticket URL. Worktree paths, descriptions,
-outbox bodies and general validation payloads remain excluded. Direct details alone
-add the narrow allowlisted saved attempt/independent verification projection defined
-in REQ-DATA-08ed925c: redacted command/output, agreeing result, duration and explicit
-absence, validated from captured sources before filtering/counts. Lists omit this
-object and AEGIS details do not carry it. No engine or storage contract changes.
-Unknown evidence yields null values and availability=unknown, with no invented questions.
-Consumption is {availability: unknown}; metrics are a later contract.
+Verification scope: Create colliding runs across projects, request pages/search/groups and compare exact identities/totals; deny unassigned direct/project/search reads and reject stale revision, invalid filters and concurrent source changes.
 
-## Trust
+### [REQ-SEC-5d0f86e7](../requirements/security/REQ-SEC-5d0f86e7.toml) — Fail closed on corrupt job read evidence
 
-Strict JSON parsing rejects duplicate keys, non-finite constants and parser depth
-failures; projected strings require valid Unicode scalars. RunState.from_dict validates schema 1 and refuses unknown or missing keys, with additional read-surface type checks.
-Read raw journal JSONL strictly: malformed/torn lines fail this evidence read, while the
-operational recovery reader remains unchanged. No state/journal writes, migrations, optional
-schema fields or historical reset. Expose only selected fields; redact credential patterns in
-free text; URLs must be absolute HTTP(S), valid host/port, without credentials, controls,
-backslashes, query or fragments (except locally constructed safe comment anchors).
-Failures are typed JobReadError mapped to existing run_state_corrupt/run_journal_corrupt
-or new job_evidence_corrupt/job_snapshot_changed codes, with no source text in errors.
+If any authorized job source is malformed, unsafe or unreadable, the job service shall reject the read with a typed secret-free error and no partial totals, while keeping persisted state and existing operational journal recovery unchanged.
+
+Verification scope: Corrupt state, ticket, journal, timestamps and URLs independently; public reads return 503 codes without sensitive source values or totals; compare original bytes and verify unauthorized corrupt run sources are never read.
+
+## Implementation
+
+- `04_Software/adore/web/app.py`
+- `04_Software/adore/web/jobs.py`
+- `04_Software/adore/web/static/`
+- `04_Software/adore/web/static/index.html`
+- `04_Software/tests/test_web_jobs.py`
+- `04_Software/web/src/errors.ts`
+
+## Associated tests
+
+These links identify test definitions; they are not a claim that a test run passed.
+
+- `04_Software/tests/test_web_jobs.py::test_all_lifecycle_groups_exact_stage_review_and_redaction`
+- `04_Software/tests/test_web_jobs.py::test_bad_state_metadata_is_typed`
+- `04_Software/tests/test_web_jobs.py::test_broken_runs_root_symlink_fails_closed`
+- `04_Software/tests/test_web_jobs.py::test_corrupt_authorized_evidence_has_no_partial_totals_or_secrets`
+- `04_Software/tests/test_web_jobs.py::test_corrupt_profile_decoding_is_typed_on_global_project_and_direct_reads`
+- `04_Software/tests/test_web_jobs.py::test_developer_scope_precedes_reads_counts_search_and_details`
+- `04_Software/tests/test_web_jobs.py::test_direct_corrupt_evidence_refuses_lists_and_details_without_repair`
+- `04_Software/tests/test_web_jobs.py::test_empty_project_and_absent_default_state_root`
+- `04_Software/tests/test_web_jobs.py::test_free_text_masks_entire_quoted_and_authorization_credentials`
+- `04_Software/tests/test_web_jobs.py::test_global_pages_search_groups_and_collision_identity`
+- `04_Software/tests/test_web_jobs.py::test_invalid_job_queries_fail_closed`
+- `04_Software/tests/test_web_jobs.py::test_page_revision_rejects_source_changes`
+- `04_Software/tests/test_web_jobs.py::test_persisted_wait_evidence_unknowns_archive_and_last_activity`
+- `04_Software/tests/test_web_jobs.py::test_project_summary_refuses_a_run_without_an_aware_activity_time`
+- `04_Software/tests/test_web_jobs.py::test_source_mutation_during_read_is_rejected`
+- `04_Software/tests/test_web_jobs.py::test_stale_parked_questions_are_unknown_for_new_wait`
+- `04_Software/tests/test_web_jobs.py::test_unreadable_source_and_orphan_run_are_not_empty_success`
+- `04_Software/tests/test_web_jobs.py::test_unsafe_urls_fail_closed_without_exposure`
+- `04_Software/tests/test_web_jobs.py::test_wait_locations_respect_forge_and_reads_launch_no_commands`

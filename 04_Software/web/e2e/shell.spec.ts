@@ -39,8 +39,8 @@ test("shell links, project context, keyboard and deep links preserve supported n
   const context = page.getByRole("region", { name: "Project context" });
   const betaId = projectURL.split("/projects/")[1];
   await expect(context).toContainText("beta");
-  await context.getByRole("tab", { name: "Jobs", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${betaId}/jobs$`));
+  await context.getByRole("tab", { name: "Tickets", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${betaId}/tickets$`));
   await expect(context).toContainText("beta");
   await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeVisible();
   await expect(page.locator("#job-ticket-number")).toHaveCount(0);
@@ -51,7 +51,7 @@ test("shell links, project context, keyboard and deep links preserve supported n
   await page.reload();
   await expect(page.locator("#metrics-project")).toHaveValue(betaId);
   await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`/projects/${betaId}/jobs$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${betaId}/tickets$`));
   await page.goBack();
   await expect(page).toHaveURL(projectURL);
   await nav(page).getByRole("link", { name: "My account", exact: true }).click();

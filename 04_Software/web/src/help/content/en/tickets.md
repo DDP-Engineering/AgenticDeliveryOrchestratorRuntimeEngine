@@ -13,7 +13,7 @@ Each project has a **Monitoring** state, shown as **Active** or **Paused** in th
 
 An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 
-Before pickup, ADORE probes AEGIS only when `.agentic/aegis.py` is present. A broken or unsupported payload is refused. Without that file, the agent implements the ticket directly. The agent owns repository checks in both workflows; ADORE monitors progress and follows the configured approval policy. See [Repository workflows](/help/projects#workflows).
+Before automatic pickup, `workflow.mode = "auto"` probes a present AEGIS payload and refuses it if unusable; an absent payload selects Direct. `workflow.mode = "direct"` skips AEGIS. Manual Start chooses its workflow explicitly. The agent owns repository checks in both workflows; ADORE retains approval and publication controls. See [Repository workflows](/help/projects#workflows).
 
 ## Create the labels first {#labels}
 
@@ -88,3 +88,9 @@ HTML stays visible as text, not executable content. Only absolute http, https an
 5. Add `agent-ready` last.
 6. Wait for the next check, or press **Read tickets** and **Start**.
 7. Follow the job in [Job lifecycle](/help/jobs). Terms are in the [Glossary](/help/glossary).
+
+## Choose the workflow {#workflow-choice}
+
+In **Job actions**, choose **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** for a fresh job, then accept the short browser confirmation that discards existing work. Missing AEGIS disables its action. Tickets keeps its **Workflow** selector before **Start**. **Retry**, continuation and review corrections retain the saved workflow and the same Pi conversation.
+
+In Tickets, Workflow, any required Priority, Add labels and start, and Cancel share one compact row on wide screens and wrap on small screens.

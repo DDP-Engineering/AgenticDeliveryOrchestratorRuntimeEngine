@@ -138,6 +138,7 @@ branch_rule = ""
 # An invalid installed AEGIS is refused. The agent chooses and runs repository
 # checks. ADORE does not accept a separately configured verification command.
 [workflow]
+mode = "auto"                      # auto detects AEGIS; direct skips it for new jobs
 default_kind = "feature"
 kind_labels = { bug = "fix", fix = "fix", change = "change" }
 quick_label = "agent-quick"          # Framing hint for the AEGIS agent

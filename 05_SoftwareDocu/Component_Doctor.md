@@ -77,3 +77,7 @@ Gitea-auth tests, including missing/ambiguous metadata and protected scopes.
 The native executor probe verifies the server's Node and the pinned Pi CLI
 through the managed installation verifier. A missing or invalid prerequisite
 produces safe operator guidance. It never invokes a global Pi or calls a model.
+
+## Explicit workflow diagnostics
+
+AEGIS guidance distinguishes automatic/explicit AEGIS refusal from the operator’s Direct choice. Direct can skip an unusable installed payload per job or with workflow.mode=direct. The independent detect_aegis probe still certifies only the existing supported version/schema contract; it never installs or repairs AEGIS.

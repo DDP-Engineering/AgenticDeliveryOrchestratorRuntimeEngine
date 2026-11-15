@@ -21,7 +21,7 @@
 #          With Docker Engine in WSL2: -Runtime "wsl -d Ubuntu-24.04 -- docker"
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-11-15
-# @version 0.16.0
+# @version 0.17.0
 # -----------------------------------------------------------------------------
 [CmdletBinding()]
 param(

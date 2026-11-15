@@ -82,6 +82,10 @@ status across the loaded results before pagination. Start/Retry/Stop/Details
 availability follows recorded eligibility and job state. Manual Start remains
 available while monitoring is paused, but cannot bypass readiness or capacity.
 
+Manual Start opens a compact row with Workflow, Priority when required,
+Add labels and start, and Cancel. Wide screens keep them together; narrow
+screens wrap the controls. Start no longer repeats explanatory paragraphs.
+
 ## Jobs and History
 
 Jobs keeps search, lifecycle filters, sortable columns, pagination and project
@@ -152,7 +156,7 @@ Consumption distinguishes tokens, reported/estimated costs and missing coverage.
 Administrators can follow Adjust budgets in project Settings. Limits are not a
 percentage of job progress, and waiting time does not consume active work.
 
-Retry, Cancel and Abandon and start again follow confirmed worker outcomes.
+Retry, Cancel and both explicit abandon-and-restart actions follow confirmed worker outcomes.
 Acceptance/queueing is not completion. Destructive recovery requires confirmation;
 see [Operations](Operations_Guide.md#recovery).
 
@@ -219,3 +223,9 @@ Do not expose session recordings or raw exports as public files.
 The committed frontend bundle supports source launch without rebuilding. Changes
 to frontend inputs require `npm run build` in `04_Software/web`; packaging verifies
 the bundle fingerprint. See [Getting started](Getting_Started.md) for source startup.
+
+## Workflow choice at Start and Restart
+
+Every manual Start in global Tickets or Projects > Tickets opens a compact **Workflow** selector: **With AEGIS** or **Without AEGIS**. It is prefilled from the project’s **Default workflow** and observed payload presence. Missing AEGIS disables that choice; installed payload usability is checked on admission. Direct remains selectable. Job actions offers separate Abandon and restart with AEGIS / Abandon and restart without AEGIS buttons. Each uses a short browser confirmation naming the chosen workflow and discarding existing work; no additional page panel or selector opens. Missing AEGIS disables the AEGIS action. Retry retains the recorded workflow. Settings > Implementation exposes the auto/direct project default.
+
+The authenticated `/api/v1/projects/{id}/workflow-selection` read returns `default` (`aegis` or `direct`) and `aegis_available` (presence only). Ticket Start and operation Start/Restart accept optional `workflow: "aegis" | "direct"`; other actions refuse an override. The queue stores it in a structured column, includes it in idempotency binding and passes it to the worker CLI. The web database identifier stays fixed at schema 1 throughout pre-release; the current table structure is changed in place and validated when opened. Before using this build, stop ADORE and manually delete `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` to start fresh; this also resets web accounts, memberships and operation history. Profiles and run state are separate. No automatic reset or conversion is performed.

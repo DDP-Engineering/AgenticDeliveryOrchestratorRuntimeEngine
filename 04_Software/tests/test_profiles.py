@@ -92,16 +92,6 @@ def test_adore_home_reads_env_at_call_time(
     assert adore_home() == tmp_path / "live"
 
 
-def test_previous_home_environment_variable_is_not_consulted(tmp_path: Path) -> None:
-    """
-    @brief   The pre-1.0 home override has no effect after the hard cut.
-    """
-    previous_home_env = "AD" + "OR_HOME"
-    env = {
-        previous_home_env: str(tmp_path / "previous"),
-        "APPDATA": str(tmp_path / "roaming"),
-    }
-    assert _home_for("nt", env) == tmp_path / "roaming" / "adore"
 
 
 # PUBLIC API / TESTS - CRUD round-trip

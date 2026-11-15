@@ -22,6 +22,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.execution_records import execution_record
+
 # LOCAL HELPERS
 
 
@@ -209,7 +211,7 @@ def test_profile_owned_inbox_uses_shared_lock_directory_with_all_ancestors(tmp_p
     profiles = ProfileStore(tmp_path / "home")
     item = profiles.create("alpha")
     store = StateStore(profiles.default_store_root(item.name))
-    run = RunState(run_id="one", ticket_iid=1, lifecycle="working")
+    run = RunState(run_id="one", ticket_iid=1, lifecycle="working", execution=execution_record())
     store.save(run)
     box = api().InstructionInbox(store.run_dir(run.run_id))
     row = box.enqueue({"id": 7, "username": "operator"}, "Profile instruction", "now")

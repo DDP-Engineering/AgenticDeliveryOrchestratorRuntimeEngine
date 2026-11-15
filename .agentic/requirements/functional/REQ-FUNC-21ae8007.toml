@@ -4,14 +4,25 @@
 # See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 schema = 1
+
 id = "REQ-FUNC-21ae8007"
-title = "Persist direct validation entry before verification"
+
+title = "Persist Direct implementation completion before validation settlement"
+
 status = "active"
-requirement = "When a direct implementation session settles successfully without questions and changes non-exchange product progress with verification configured, the conductor shall persist completed implementation and stage validate before invoking the verification command."
-verification = "Offline public polling uses a fake Pi product edit plus summary and inspects reloaded state at the verification seam for completed implementation and validate; nonzero/unsettled execution, questions and summary-only progress invoke no verification, while a restart after durable completion reenters validation without another Pi launch."
+
+requirement = "When a Direct implementation attempt settles successfully, makes product progress and has no blocking questions, the conductor shall durably record completed implementation and enter validate before checkpointing the candidate and reaching done. Recovery after that durable completion shall settle the candidate without launching another implementation."
+
+verification = "Exercise successful Direct implementation and interrupted completion settlement; inspect saved completion, validate/done progression and recovery without another Pi launch. Executor failures, questions and absent product progress cannot authorize completion."
+
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_orchestrator.py::test_direct_completion_save_interruption_recovers_at_launch_limit", "04_Software/tests/test_orchestrator.py::test_direct_artifact_and_git_failures_preserve_cause"]
-spec = "specs/REQ-FUNC-bea4c0aa.md"
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_direct_completion_save_interruption_recovers_at_launch_limit", "04_Software/tests/test_orchestrator.py::test_direct_artifact_and_git_failures_preserve_cause"]
+
+spec = "specs/REQ-FUNC-21ae8007.md"
+
 priority = "high"
+
 created = 2026-11-12
-updated = 2026-11-12
+
+updated = 2026-11-15

@@ -22,7 +22,7 @@
 #            --uninstall stop/disable/remove the systemd unit (sudo)
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-11-15
-# @version 0.16.0
+# @version 0.17.0
 # -----------------------------------------------------------------------------
 set -euo pipefail
 

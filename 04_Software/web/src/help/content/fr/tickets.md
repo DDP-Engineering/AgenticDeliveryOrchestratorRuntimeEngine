@@ -13,7 +13,7 @@ Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En 
 
 Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 
-Avant la prise en charge, ADORE ne vérifie AEGIS que si `.agentic/aegis.py` est présent. Un AEGIS défectueux ou non pris en charge est refusé. Sans ce fichier, l’agent implémente directement le ticket. L’agent choisit les contrôles du dépôt dans les deux workflows ; ADORE observe la progression et suit la politique d’approbation configurée. Voir [Workflows du dépôt](/help/projects#workflows).
+Avant la prise automatique, `workflow.mode = "auto"` vérifie AEGIS présent et le refuse s’il est inutilisable ; son absence sélectionne Direct. `workflow.mode = "direct"` ignore AEGIS. Démarrer choisit explicitement le workflow. L’agent réalise les vérifications du dépôt dans les deux cas ; ADORE conserve les contrôles d’approbation et de publication. Voir [Workflows du dépôt](/help/projects#workflows).
 
 ## Créer d’abord les étiquettes {#labels}
 
@@ -88,3 +88,9 @@ Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens a
 5. Ajoutez `agent-ready` en dernier.
 6. Attendez la prochaine vérification, ou appuyez sur **Lire les tickets** puis **Démarrer**.
 7. Suivez la tâche dans [Cycle de vie d’une tâche](/help/jobs). Les termes sont dans le [Glossaire](/help/glossary).
+
+## Choisir le workflow {#workflow-choice}
+
+Dans **Actions du travail**, choisissez **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** pour un nouveau travail, puis acceptez la courte confirmation du navigateur qui supprime le travail existant. AEGIS absent désactive son action. Tickets conserve le sélecteur **Workflow** avant **Démarrer**. Réessayer, la continuation et les corrections de revue conservent le workflow enregistré et la même conversation Pi.
+
+Dans Tickets, Workflow, Priorité si nécessaire, Ajouter les étiquettes et démarrer et Annuler partagent une ligne compacte sur grand écran et passent à la ligne sur petit écran.

@@ -66,17 +66,17 @@ test("How ADORE works opens the help center with topics, outline, links and sear
 test("contextual help links open their topic in a new tab and keep the page", async ({ page }) => {
   await signIn(page);
   const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: { name: string }) => item.name === "alpha").id;
-  for (const [path, topic] of [[`/projects/${alpha}/jobs`, "tickets"], [`/projects/${alpha}/configuration`, "settings"], ["/projects/new", "projects"]]) {
+  for (const [path, topic] of [[`/projects/${alpha}/tickets`, "tickets"], [`/projects/${alpha}/configuration`, "settings"], ["/projects/new", "projects"]]) {
     await page.goto(path);
     const link = page.getByRole("link", { name: `Help: ${title("en", topic)}`, exact: true });
     await expect(link, path).toHaveAttribute("href", `/help/${topic}`);
     await expect(link, path).toHaveAttribute("target", "_blank");
   }
-  await page.goto(`/projects/${alpha}/jobs`);
+  await page.goto(`/projects/${alpha}/tickets`);
   const [popup] = await Promise.all([page.waitForEvent("popup"), page.getByRole("link", { name: `Help: ${title("en", "tickets")}`, exact: true }).click()]);
   await expect(popup).toHaveURL(/\/help\/tickets$/);
   await expect(popup.locator(".help-article").locator(".help-title")).toHaveText(title("en", "tickets"));
-  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/tickets$`));
   await popup.close();
 });
 
@@ -110,7 +110,7 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
       const direct = { en: "Direct workflow", fr: "Workflow direct", de: "Direkter Workflow", ro: "Flux direct" }[locale];
       await expect(article(page).getByRole("cell", { name: direct, exact: true })).toBeVisible();
       await page.goto("/help/tickets");
-      await expect(article(page)).toContainText(".agentic/aegis.py");
+      await expect(article(page)).toContainText("workflow.mode");
       await article(page).locator('a[href="/help/projects#workflows"]').click();
       await expect(page.locator("#workflows")).toBeInViewport();
     } finally {

@@ -93,3 +93,7 @@ Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherst
 Ein vorgemerktes kleineres Limit hält neue Starts und Wiederaufnahmen bereits zurück, bis die Belegung darunter liegt; bereits laufende Aufträge laufen weiter; eingereihte Reservierungen warten auf einen Ausführungsplatz. Es erhöht niemals die aktive Grenze. Die sichere Anwendung wartet weiterhin auf unfertige Arbeit; gespeicherter Wert und Kandidat bleiben bis Speichern oder Änderungen verwerfen sichtbar.
 
 Verbindungsentwürfe werden nur gültig gespeichert. Korrigieren Sie eine ungültige Adresse oder behalten Sie sie im Speicher; Zugangsdaten gelangen nie in gespeicherte Entwürfe.
+
+## Workflow auswählen {#workflow-choice}
+
+**Standardworkflow** unter **Implementierung** setzt `workflow.mode`: `auto` erkennt AEGIS und verweigert eine unbrauchbare Installation; `direct` überspringt AEGIS für neue Jobs. Start und Neustart überschreiben dies je Job. `workflow.default_kind` wählt nur den AEGIS-Aufgabentyp.

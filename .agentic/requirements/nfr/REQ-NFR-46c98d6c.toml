@@ -1,33 +1,30 @@
 # Copyright (c) 2026 DDP Engineering
 # This software is licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a separate commercial license.
-# See the LICENSE.txt in the .agentic folder for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 schema = 1
 
 id = "REQ-NFR-46c98d6c"
 
-title = "Request one table page at a time for Overview and Audit"
+title = "Request displayed Jobs and Audit pages from the server"
 
 status = "active"
 
-requirement = """
-When a user pages the Audit trail or an expanded Overview job table, the web interface shall request only the rows of the displayed page from the server, requesting every row only when the user chooses All, while keeping the 10, 25, 50 and All page-size choices and finite page navigation.
-"""
+requirement = "When the user pages Jobs or Change history, the interface shall request the selected server-side page under its authorized scope, preserving sorting and filtering before pagination and offering the current finite page-size/navigation controls."
 
-verification = "Manual: with more than 50 audit rows and more than 25 matching jobs, open Audit and an Overview job table with DevTools network logging; confirm each page change requests limit/offset for that page only, All requests limit=all once, and page totals and navigation stay correct."
+verification = "Browser paging journeys observe scoped page requests and reload behavior; API tests reject malformed page/filter input and unauthorized projects."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
 
-linked_tests = []
-
+linked_tests = ["04_Software/tests/test_web_paging.py", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/audit.spec.ts"]
 
 spec = ""
 
-priority = "normal"   # low | normal | high
-rationale = ""        # why this behavior exists, if not obvious
+priority = "normal"
+
+rationale = ""
 
 created = 2026-10-03
-updated = 2026-10-03
+
+updated = 2026-11-15

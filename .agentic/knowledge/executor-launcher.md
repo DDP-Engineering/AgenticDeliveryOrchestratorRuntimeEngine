@@ -142,24 +142,7 @@ launching Pi, and normal bounded recovery applies. Stage limits remain 3000 s.
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
 
-
 - `REQ-FUNC-e397f7f6`: Bound targets supply shell/worktree/IO paths and verified resource identity; plain injected callables retain the container defaults. Prompts/scripts remain file transported and quoted.
-
-- `REQ-FUNC-2df31adf` - every stage launches Pi with `[executor] provider` and `model`.
-- `REQ-FUNC-59ccdb74` - WSL-safe file transport and typed timeout propagation
-  for file-protocol launches.
-- `REQ-FUNC-116450ef` - container Pi stage through one RPC process.
-- `REQ-FUNC-7caa53e1` - Pi usage summed over turns, no billed cost.
-- `REQ-REL-0859d96e` / `REQ-REL-2d48ea39` - abort on timeout / cancel, then end.
-- `REQ-FUNC-1cb4bcc0` - classified, redacted Pi failure evidence.
-- `REQ-REL-12b7dee2` - Pi protocol failures fail closed.
-- `REQ-NFR-7a10768a` - bounded Pi streaming memory and evidence.
-- `REQ-SEC-a6d32441` - Pi isolation flags, agent directory and guard.
-- `REQ-PLAT-1a1960b2` - pinned Node/Pi/pi-web-access and guard in the image.
-- `REQ-FUNC-c6e5282d` - questions parking and immutable launch archives.
-- `REQ-FUNC-448cbde7` - usage and cost coverage for web metrics.
-- `REQ-SEC-0fb2bba3` - each ChatGPT stage receives only a short-lived access token.
-- `REQ-FUNC-87f05705` - a ChatGPT stage without an access token fails clearly without starting Pi.
 
 - `REQ-FUNC-f1b71231` - internet on: pi-web-access and web-search.json.
 - `REQ-FUNC-95778891` - a failed web-search.json copy fails the gate.
@@ -170,7 +153,6 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
-
 
 - `04_Software/adore/executor/base.py` - typed gate result and common helpers.
 - `04_Software/adore/executor/launcher.py` - file protocol, parsers and the
@@ -200,7 +182,6 @@ Recognized token-shaped module identifiers are withheld even when they satisfy P
 
 Pi stage argv includes --thinking when configured; blank leaves Pi default. Both native and container paths use the same level.
 
-
 ## Live launch ownership
 
 REQ-FUNC-fe8ecf4c: PiExecutor with a stage-attempt archive stem clears old output,
@@ -213,7 +194,6 @@ probes without a stage-attempt stem do not publish a job session. Existing archi
 layout and one-RPC-per-stage behavior remain. Completed persisted RPC records flush
 immediately for live readers. Offline lifetime/fault/producer visibility proof is in
 `test_pi_rpc.py`; web projections and cursor continuity route to web-interface.md.
-
 
 ## Literal session persistence boundary
 
@@ -276,3 +256,7 @@ Focused proof: existing test_pi_rpc.py launch parametrization covers restart,
 per-attempt accounting, exact identity, corruption, hardlinks and reparse paths;
 test_local_execution.py covers separate temporary settings and persistent paths
 on Windows/Linux; test_prompts.py covers incremental stage instructions.
+
+## Current contract
+
+Both execution targets launch Pi through the current RPC process contract. Gate outcomes, cancellation, questions and archives use the owned launcher flow; REQ-FUNC-116450ef and REQ-FUNC-a71d617b cover container and native launch.

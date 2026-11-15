@@ -17,7 +17,7 @@ unverified candidate. By default both require fresh human approval; `delivery.re
 can disable this gate while retaining candidate/target freshness. ADORE publishes
 a draft or ready MR/PR according to `delivery.draft` and never merges.
 
-Current release: **ADORE 0.16.0**.
+Current release: **ADORE 0.17.0**.
 
 ## How it works
 

@@ -91,3 +91,7 @@ Detectarea respectă `XDG_CONFIG_HOME`. Pe Windows verifică și directoarele Lo
 5. Verifică din nou cerințele gazdei. Credențialele Git pentru clone/push se configurează separat.
 
 Pe alt calculator, pregătește autentificarea CLI locală sau folosește acest formular de conectare. Arhiva de livrare nu conține tokenurile utilizatorilor.
+
+## Alegerea fluxului de lucru {#workflow-choice}
+
+**Fără AEGIS** suprascrie numai instrucțiunile repository-ului care impun procedurile AEGIS. Celelalte reguli de cod, licențiere și verificare rămân valabile. Fișierele AEGIS instalate rămân intacte. Direct folosește Implementare, Validare și Finalizată; verificările sunt raportate de agent. Etapele AEGIS descrise aici se aplică opțiunii **Cu AEGIS**.

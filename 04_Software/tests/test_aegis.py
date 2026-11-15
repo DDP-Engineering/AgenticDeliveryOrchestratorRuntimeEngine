@@ -339,16 +339,11 @@ def test_task_status_accepts_the_0_15_0_stages_and_step_files(
     assert task.done is (stage == "done")
 
 
-def test_task_status_refuses_a_task_at_the_removed_deliver_stage() -> None:
-    """
-    @brief   The pinned task is never conducted at deliver.
-    @details AEGIS 0.15.0 still reports a legacy deliver journal, pointing it at
-             the validate step file. ADORE conducts only the 0.15.0 paths, so
-             its own task at deliver fails closed as an unconducted stage.
-    """
-    payload = task_payload(stage="deliver")
-    assert payload["task"]["step_file"] == "5_validate.md"
-    with pytest.raises(AegisTaskError, match="invalid/disagreeing stage 'deliver'"):
+def test_task_status_refuses_an_unknown_stage() -> None:
+    """@brief A task outside the supported stage domain is refused without execution."""
+    payload = task_payload()
+    payload["task"]["stage"] = "unsupported_stage"
+    with pytest.raises(AegisTaskError, match="invalid/disagreeing stage 'unsupported_stage'"):
         AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
 
 

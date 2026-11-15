@@ -91,3 +91,7 @@ Discovery respects `XDG_CONFIG_HOME`. On Windows it also checks the account’s 
 5. Choose **Check host prerequisites** again. Git clone/push credentials are configured separately.
 
 On another computer, prepare that computer’s own CLI sign-in or use this connection form. The delivery archive contains no user tokens.
+
+## Choose the workflow {#workflow-choice}
+
+**Without AEGIS** overrides only repository instructions requiring AEGIS procedures. Other coding, licensing and verification rules remain in force. Installed AEGIS files stay intact. Direct uses Implementation, Validation and Done; checks are agent-reported. The AEGIS stages described here apply to **With AEGIS**.

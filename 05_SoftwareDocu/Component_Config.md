@@ -259,3 +259,7 @@ validation, draft state, guarded publication, or the human merge boundary.
 ## Preparation selection
 
 An empty execution.preparation disables preparation; it does not select an alternate execution-state model. Every job still pins its execution plan and provisioned resource.
+
+## New-job workflow contract
+
+`WorkflowConfig.mode` defaults to auto and validates only auto/direct. `requested_workflow(default, override)` is the shared closed-domain policy: optional manual aegis/direct takes precedence; invalid defaults/overrides raise ValueError. This selects workflow independently of AEGIS task kinds. Budgets and pinned execution policy are unchanged.

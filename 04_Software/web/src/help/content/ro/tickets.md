@@ -13,7 +13,7 @@ Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În
 
 Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 
-Înaintea preluării, ADORE verifică AEGIS numai dacă există `.agentic/aegis.py`. Un AEGIS defect sau nesuportat este refuzat. Fără acest fișier, agentul implementează direct tichetul. Agentul alege verificările repository-ului în ambele fluxuri; ADORE monitorizează progresul și urmează politica de aprobare configurată. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
+Înainte de preluarea automată, `workflow.mode = "auto"` verifică AEGIS prezent și îl refuză dacă este inutilizabil; lipsa lui selectează Direct. `workflow.mode = "direct"` ocolește AEGIS. Pornirea manuală alege explicit fluxul. Agentul efectuează verificările repository-ului în ambele fluxuri; ADORE păstrează aprobarea și publicarea configurate. Consultați [Fluxurile repository-ului](/help/projects#workflows).
 
 ## Creați mai întâi etichetele {#labels}
 
@@ -88,3 +88,9 @@ HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute 
 5. Adăugați `agent-ready` ultima.
 6. Așteptați următoarea verificare sau apăsați **Citește tichetele** și **Pornește**.
 7. Urmăriți lucrarea în [Ciclul de viață al lucrării](/help/jobs). Termenii sunt în [Glosar](/help/glossary).
+
+## Alegerea fluxului de lucru {#workflow-choice}
+
+În **Acțiuni job**, alegeți **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** pentru un job nou, apoi acceptați confirmarea scurtă a browserului privind ștergerea lucrului existent. Lipsa AEGIS dezactivează acea acțiune. Tichetele păstrează selectorul **Flux de lucru** înainte de **Pornește**. Reîncercarea, continuarea și corecțiile de review păstrează fluxul salvat și aceeași conversație Pi.
+
+În Tichete, Flux de lucru, Prioritate dacă este necesară, Adaugă etichetele și pornește și Renunță sunt pe un singur rând compact pe ecrane late și trec pe rânduri separate pe ecrane mici.

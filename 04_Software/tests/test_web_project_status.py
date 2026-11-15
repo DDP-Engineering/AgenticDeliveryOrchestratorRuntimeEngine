@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient as HttpClient
 import pytest
 
 from tests.configuration_client import TestClient
+from tests.execution_records import execution_record
 
 
 @pytest.fixture
@@ -56,7 +57,7 @@ def test_capacity_queue_and_feedback_are_project_scoped(setup):
     web.register_worker("configuration")
     worker_a = web.register_worker("project", project_id=aid)
     web.register_worker("project", project_id=bid)
-    states["alpha"].save(RunState("busy", 1, lifecycle="working"))
+    states["alpha"].save(RunState("busy", 1, lifecycle="working", execution=execution_record()))
     start = web.enqueue(1, "alpha", "start", "2", "a-start")
     response = client.get(f"/api/v1/projects/{aid}/capacity")
     assert response.status_code == 200, response.text
@@ -79,7 +80,7 @@ def test_capacity_queue_and_feedback_are_project_scoped(setup):
     )
     assert b["recent_operations"] == []
     assert data["recent_operations"][0]["id"] == start["id"]
-    states["alpha"].save(RunState("busy", 1, lifecycle="failed"))
+    states["alpha"].save(RunState("busy", 1, lifecycle="failed", execution=execution_record()))
     web.register_worker("run", project_id=aid, run_id="busy")
     retry = web.enqueue(1, "alpha", "retry", "busy", "a-retry")
     data = client.get(f"/api/v1/projects/{aid}/capacity").json()
@@ -269,8 +270,8 @@ def test_invalid_limit_reduction_staging_and_independent_save(setup):
         ),
         encoding="utf-8",
     )
-    states["alpha"].save(RunState("busy-one", 1, lifecycle="working"))
-    states["alpha"].save(RunState("busy-two", 2, lifecycle="working"))
+    states["alpha"].save(RunState("busy-one", 1, lifecycle="working", execution=execution_record()))
+    states["alpha"].save(RunState("busy-two", 2, lifecycle="working", execution=execution_record()))
     original = path.read_bytes()
     revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
     for value in ("0", "-1", "1.5", "true", "no"):
@@ -480,8 +481,10 @@ def test_capacity_exposes_only_current_job_states_and_monitoring(setup):
     for index, lifecycle in enumerate(("working", "publishing", "parked-clarification",
                                         "awaiting-approval", "in-review", "handoff-pending",
                                         "done", "failed", "cancelled"), 1):
-        states["alpha"].save(RunState(f"state-{index}", index, lifecycle=lifecycle))
-    states["alpha"].save(RunState("reserved", 20, execution_pending=True))
+        states["alpha"].save(RunState(f"state-{index}", index, lifecycle=lifecycle,
+            execution=execution_record()))
+    states["alpha"].save(RunState("reserved", 20, execution_pending=True,
+        execution=execution_record()))
     identity = profiles.load("alpha").project_id
     response = client.get(f"/api/v1/projects/{identity}/capacity")
     assert response.status_code == 200

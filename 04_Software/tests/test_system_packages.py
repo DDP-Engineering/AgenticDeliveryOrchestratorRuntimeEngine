@@ -143,8 +143,8 @@ def test_package_authority_fails_closed_on_missing_or_failed_confirmation(result
         authorize("owned-run")
 
 
-def test_package_execution_policy_pins_true_and_preserves_legacy_false_shape():
-    """@brief Opt-in is fingerprinted; omitted legacy false keeps old identity."""
+def test_package_execution_policy_fingerprints_permission():
+    """@brief Enabled and disabled package authority produce distinct validated execution plans."""
     config = package_config()
     plan = resolve_plan(config)
     assert plan["policy"]["container"].get("system_packages") is True

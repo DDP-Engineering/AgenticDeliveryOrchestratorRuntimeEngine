@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-# IMPORTS
 import os
 from pathlib import Path
 
@@ -30,6 +29,9 @@ from adore.orchestrator import LockHeldError
 from adore.process_log import ProcessLogger, process_log_path
 from adore.state import RunState, StateStore
 import pytest
+
+# IMPORTS
+from tests.execution_records import execution_record
 
 # CONSTANTS
 
@@ -237,7 +239,8 @@ def test_cli_reset_accepts_only_current_stages_and_publishing(
     config_path = _config_file(tmp_path)
     config = load_config(config_path)
     store = StateStore(config.state.store_root, config.agent.slug)
-    store.save(RunState(run_id="run-1", ticket_iid=1, stage="build", lifecycle="failed"))
+    store.save(RunState(run_id="run-1", ticket_iid=1, stage="build", lifecycle="failed",
+        execution=execution_record()))
 
     assert main(["-c", config_path, "reset", "run-1", "--to", target, "--force"]) == code
 
@@ -342,8 +345,10 @@ def test_cli_report_and_rebuild_reject_conflicting_usage(
     """@brief CLI metrics fail with a typed message on versioned replay conflict."""
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
-    store.save(RunState(run_id="a-clean", ticket_iid=2, lifecycle="done"))
-    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    store.save(RunState(run_id="a-clean", ticket_iid=2, lifecycle="done",
+        execution=execution_record()))
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
              "executor": "pi", "model": "example", "review_round": 0,
              "tokens_in": 10, "tokens_out": 2, "cost_usd": 0.5,
@@ -365,7 +370,8 @@ def test_cli_rebuild_replays_usage_idempotently_without_changing_run_state(
     """@brief Historical rebuild upserts known evidence and preserves journals."""
     config = _config_file(tmp_path)
     state = StateStore(tmp_path / ".adore")
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
              "executor": "pi", "model": "local/test", "review_round": 0,
              "tokens_in": 7, "tokens_out": 3, "cost_usd": 0,
@@ -596,7 +602,8 @@ def test_cli_operator_mutations_refuse_a_live_lock(
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
     lifecycle = "working" if argv[0] == "cancel" else "failed"
-    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle=lifecycle))
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle=lifecycle,
+        execution=execution_record()))
     before = (store.run_dir("run-1") / "state.json").read_bytes()
     engine = FakeMutationEngine(StateStore(store.root))
     monkeypatch.setattr(
@@ -637,7 +644,8 @@ def test_cli_operator_mutations_acquire_and_release_the_lock(
     """@brief Every successful operator mutation releases its acquired lock."""
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
-    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="failed"))
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="failed",
+        execution=execution_record()))
     engine = FakeMutationEngine(store)
     monkeypatch.setattr(
         "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: engine
@@ -823,19 +831,32 @@ def test_cli_manual_start_emits_safe_terminal_reason(tmp_path, monkeypatch, caps
     (RuntimeError("PRIVATE"), "engine_fault"),
     (None, "started"),
 ])
+@pytest.mark.parametrize("workflow", ["aegis", "direct"])
 def test_cli_manual_start_binds_exceptions_and_success(
-    tmp_path, monkeypatch, capsys, failure, reason,
+    tmp_path, monkeypatch, capsys, failure, reason, workflow,
 ):
     """@brief Terminal evidence identifies the gate while excluding raw fault details."""
     import json
 
+    for arguments in (["run", "--once", "--workflow", "invalid"],
+                      ["run", "--once", "--ticket", "7", "--workflow", "auto"]):
+        with pytest.raises(SystemExit) as refused:
+            main(arguments)
+        assert refused.value.code == 2
+    for arguments in (["run", "--workflow", "direct"],
+                      ["run", "--loop", "--ticket", "7", "--workflow", "aegis"]):
+        assert main(arguments) == EXIT_ERROR
+    capsys.readouterr()
+
     from adore import cli
     def poll(*args, **kwargs):
+        assert kwargs["workflow"] == workflow
         if failure is not None:
             raise failure
         return {"picked": 7}
     monkeypatch.setattr(cli.Orchestrator, "poll_once", poll)
-    code = main(["-c", _config_file(tmp_path), "run", "--once", "--ticket", "7"])
+    code = main(["-c", _config_file(tmp_path), "run", "--once", "--ticket", "7",
+                 "--workflow", workflow])
     assert code == (EXIT_OK if failure is None else EXIT_ERROR)
     line = capsys.readouterr().out.splitlines()[-1]
     record = json.loads(line.removeprefix("ADORE_START_RESULT "))

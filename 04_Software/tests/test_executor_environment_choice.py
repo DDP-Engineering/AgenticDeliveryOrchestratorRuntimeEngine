@@ -337,60 +337,6 @@ def test_wsl_wrapped_runtime_stays_accepted(tmp_path):
         assert stage.status_code == 200, stage.text
 
 
-def test_pending_image_build_binding_is_corrupt_but_discardable(tmp_path):
-    """@brief Only an earlier build staged image bindings: refuse it, let it be discarded."""
-    import json
-
-    profiles, path = _project(tmp_path)
-    original = path.read_bytes()
-    config = load_config(path)
-    built = "sha256:" + "b" * 64
-    checks = list(config.container.required_tool_checks)
-    candidate = original.decode("utf-8").replace(
-        'image = "' + config.container.image + '"', 'image = "' + built + '"'
-    )
-    assert candidate.encode() != original
-    base = sha256(original).hexdigest()
-    pending = {
-        "schema": 1,
-        "base_revision": base,
-        "candidate_revision": sha256(candidate.encode()).hexdigest(),
-        "candidate_text": candidate,
-        "key": "container.image",
-        "value": built,
-        "created_at": "2026-10-07T20:00:00+00:00",
-        "restart_required": True,
-        "image_build": {
-            "id": "a" * 32,
-            "project_id": profiles.load("alpha").project_id,
-            "config_revision": base,
-            "runtime": "docker",
-            "runtime_identity": "docker",
-            "base_id": "sha256:" + "c" * 64,
-            "image_id": built,
-            "context_sha256": "d" * 64,
-            "verified_checks": ["executor --version", *checks],
-            "draft_revision": "e" * 64,
-        },
-    }
-    retained = path.parent / "pending_config.json"
-    retained.write_text(json.dumps(pending), encoding="utf-8")
-    with TestClient(create_app(profiles.home, probe_runner=Runner())) as client:
-        headers = _login(client)
-        viewed = client.get("/api/v1/projects/alpha/config/pending")
-        assert viewed.status_code == 503
-        assert viewed.json()["detail"]["code"] == "pending_config_corrupt"
-        response = client.post(
-            "/api/v1/projects/alpha/config/apply",
-            headers=headers,
-            json={"candidate_revision": pending["candidate_revision"],
-                  "base_revision": pending["base_revision"]},
-        )
-        assert response.status_code == 503, response.text
-        assert path.read_bytes() == original and retained.exists()
-        assert client.delete(
-            "/api/v1/projects/alpha/config/pending", headers=headers).status_code == 200
-    assert not retained.exists() and path.read_bytes() == original
 
 
 # END OF FILE

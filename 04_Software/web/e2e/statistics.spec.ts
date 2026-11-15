@@ -194,8 +194,6 @@ test("all-project statistics show each per-project family once, in its own tab",
   for (const name of ["Reviewer rework", "MR/PR reviewer revisions", "Pipeline repairs", "Review rounds"])
     await expect(page.getByRole("columnheader", { name, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Repository", exact: true })).toHaveCount(0);
-  await page.goto("/metrics?tab=projects");
-  await expect(page.getByRole("tab", { name: "Summary", exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
 test("captured scope follows project, inclusive dates, DST, grouping, CSV and reload", async ({ page }) => {
@@ -325,9 +323,9 @@ test("job list and direct detail show lifetime consumption without same-run coll
   await page.goto(`/jobs?project=${alpha}&run=ux-working`);
   const detail = page.locator(".detail-panel"); await expect(detail.locator(".job-consumption").first()).toContainText("12");
   await expect(detail).not.toContainText("Selected period");
-  await detail.getByRole("tab",{name:"Technical information",exact:true}).click();
-  await expect(detail.getByRole("tabpanel",{name:"Technical information",exact:true})
-    .locator(".action-explanation")).toContainText(alpha);
+  await detail.getByRole("tab",{name:"Job details",exact:true}).click();
+  await detail.locator(".job-diagnostics > summary").click();
+  await expect(detail.locator(".job-diagnostics")).toContainText(alpha);
 });
 
 test("Dev direct statistics and CSV remain nonfinancial and denied project routes fail closed", async ({ page }) => {

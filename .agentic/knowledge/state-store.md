@@ -80,7 +80,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
 
 
-- `REQ-REL-d8fd134e`: The closed `execution` schema-1 record (empty in legacy container mode) validates plan/policy, resource IDs, attempts/history and complete ordered success. An empty record does not claim preparation success; state JSON rejects duplicates/non-finite constants.
+- `REQ-REL-d8fd134e`: The closed `execution` schema-1 record requires and validates plan/policy, resource IDs, attempts/history and complete ordered success. An empty record does not claim preparation success; state JSON rejects duplicates/non-finite constants.
 
 - `REQ-FUNC-0bdb23d5` - schema-1 state corruption fails closed.
 - `REQ-FUNC-51f9c365` - lock reclamation requires a provably dead local owner.

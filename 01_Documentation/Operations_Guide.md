@@ -29,9 +29,18 @@ projects progress independently up to their configured limits.
 
 ## Workflows
 
-The workflow is selected from the admitted worktree and retained for that job.
-A missing `.agentic/aegis.py` selects Direct. A present unsupported or broken
-payload is refused; ADORE does not install or change it.
+Before manual Start or Restart, choose **With AEGIS** or **Without AEGIS**.
+Start uses the same selector in global Tickets and Projects > Tickets. Restart
+creates a fresh job after confirmed owned cleanup; Retry, continuation and review
+corrections retain the job’s saved workflow and Pi conversation.
+
+`workflow.mode = "auto"` (default) detects AEGIS from the repository; absence
+selects Direct and a present unusable payload is refused. `workflow.mode = "direct"`
+skips AEGIS for new jobs. A manual `aegis` or `direct` choice overrides this default.
+Explicit AEGIS requires a usable installed payload and never falls back. Direct
+does not probe or invoke AEGIS, inspect its journals or create tasks/stages, even
+when AEGIS is installed or unusable. The actual workflow is pinned in run state
+before dispatch. ADORE leaves installed AEGIS files intact.
 
 | Workflow | Stages | Completion evidence |
 |---|---|---|
@@ -45,7 +54,10 @@ RPC with that same exact conversation. A permitted return to an earlier stage
 continues from the journal and retained Pi context. Supported version/schema policy is defined in
 `04_Software/adore/aegis.py`; retired stage names are refused.
 
-Direct implementation reads the repository instructions and writes
+The trusted Direct instruction overrides only repository obligations to use AEGIS
+procedures. Coding, licensing and relevant verification rules remain in force.
+The executor receives implementation work without deadline or budget instructions;
+ADORE retains its existing limits. Direct implementation reads the repository instructions and writes
 `ADORE_SUMMARY.md`. ADORE retains the summary and excludes the summary/questions
 exchange files from the candidate. Summary-only work is not a product change.
 Checks remain agent-reported; Direct does not claim independent verification.
@@ -272,6 +284,15 @@ Statistics distinguish observed tokens, reported cost, estimated cost and missin
 coverage. Missing evidence is not zero. Runtime evidence and summaries remain
 separate from session text. Use explicit export/report commands for retained data;
 `stats --rebuild` changes metrics, not job state or journals.
+
+## Repository content and progress
+
+ADORE observes Git progress using exact content bytes. Replacement characters,
+non-UTF-8 source data, binary files and large generated diffs do not invalidate
+that observation. Content correctness belongs to the repository checks performed
+by the executor. Git command failures, unsafe paths or unreadable files still
+produce explicit errors. This behavior applies to both AEGIS and Direct jobs,
+independently of the model, executor, programming language or framework.
 
 ## References
 

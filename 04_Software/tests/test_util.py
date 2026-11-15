@@ -162,18 +162,21 @@ def test_load_env_file(tmp_path) -> None:
 # END OF FILE
 
 
-def test_command_preserves_crlf_bytes(monkeypatch):
-    """@brief Exact Git source fingerprints retain CRLF subprocess output."""
+@pytest.mark.parametrize("payload", [b"first\r\nsecond\n", b"\xef\xbf\xbd", b"\xff\xfe\x00\r\n"])
+def test_command_preserves_crlf_bytes(monkeypatch, payload):
+    """@brief Raw output preserves newlines, literal replacement characters and binary bytes."""
     from types import SimpleNamespace
 
     from adore.util import run_command
 
     def execute(*args, **kwargs):
         assert not kwargs.get("text")
-        return SimpleNamespace(returncode=0, stdout=b"first\r\nsecond\n", stderr=b"")
+        return SimpleNamespace(returncode=0, stdout=payload, stderr=b"")
 
     monkeypatch.setattr("adore.util.subprocess.run", execute)
-    assert run_command(["git", "cat-file"]).stdout == "first\r\nsecond\n"
+    result = run_command(["git", "cat-file"])
+    assert result.stdout == payload.decode("utf-8", "replace")
+    assert result.stdout_bytes == payload
 
 
 @pytest.mark.parametrize("source", ['{"key":1,"key":2}', '{"key":NaN}', '[' * 2000])

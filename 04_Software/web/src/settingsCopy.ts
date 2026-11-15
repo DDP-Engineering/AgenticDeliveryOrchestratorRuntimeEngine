@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { workflowCopy } from "./workflowCopy.ts";
 import type { Locale } from "./i18n.ts";
 
 /** Branch row/editor/review names and server preview findings share four locales. */
@@ -172,7 +173,7 @@ const localizedSettingLabels: Partial<Record<Locale, Record<string, string>>> = 
 };
 
 /** A setting's name in a non-English locale, when the catalog has one. */
-export const localizedSettingLabel = (key: string, locale: Locale): string | undefined => localizedSettingLabels[locale]?.[key];
+export const localizedSettingLabel = (key: string, locale: Locale): string | undefined => key === "workflow.mode" ? workflowCopy[locale].default : localizedSettingLabels[locale]?.[key];
 
 /** Understandable English catalog labels, including named entries. */
 export function settingLabel(key: string): string {

@@ -12,12 +12,22 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-15
+
 ### Added
+
+- Choose With AEGIS or Without AEGIS for each manual Start/Restart, including CLI and durable web operations; new-job project defaults support automatic detection or Direct. Direct bypasses installed AEGIS procedures while preserving other repository rules, persistent Pi conversation and existing orchestration controls.
 
 - Windows/Linux delivery offers explicitly named offline and online archives. Offline includes Node, Pi, its web extension, fd and ripgrep without installation downloads; online includes Python/application dependencies and installs Pi later using host Node/npm.
 - A separate compressed executor-base image archive can be built/exported for offline Docker/Podman import on Linux or Docker/WSL on Windows; project-specific and proxy images are outside standard delivery.
 
 ### Changed
+
+- Compact failed-job actions into Retry and explicit AEGIS/Direct abandon-and-restart buttons, with short browser confirmation and no extra page panel or helper paragraphs.
+
+- Keep ticket Start workflow, required priority and confirmation actions on one compact row, without repeated helper paragraphs.
+
+- Keep the pre-release web schema identifier fixed at 1; delete `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` before starting this build with a refused web store (web accounts, grants and command history reset).
 
 - Keep one private Pi implementation conversation per job across stage, continuation and correction processes, with incremental prompts and per-attempt usage; retain existing checkpoints, cancellation, token renewal and independent-review policy.
 - Delete unfinished `runs/<run-id>` directories from builds with ephemeral Pi histories before starting new jobs.
@@ -28,6 +38,14 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Remove `executor.command`, `executor.mode`, `readiness.max_scope_hint`, `clarification.reminder_after`, `review.review_reminder_after` and `metrics.capture_resource` from TOML, and delete affected `runs/<run-id>` directories before starting fresh jobs.
 - New OpenAI projects default to `gpt-6.1-terra`; explicitly configured project models are preserved.
 - Remove the lazy `LocalBackend` reexport; import the adapter from `adore.local_execution`.
+
+### Fixed
+
+- Fingerprint Git progress from exact stdout bytes so literal replacement characters, non-UTF-8 file data and large generated diffs do not terminate jobs; retain Git command and path validation.
+
+### Removed
+
+- Remove obsolete AEGIS requirements, detached historical specification evidence and product tests dedicated to retired features or repository release scripts; align current contracts and test links with the implemented product.
 
 ## [0.16.0] - 2026-11-15
 

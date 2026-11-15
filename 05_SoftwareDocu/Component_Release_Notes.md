@@ -64,20 +64,18 @@ note.
 
 ## 6. Validation And Tests
 
-`tests/test_release_notes.py` runs the checker on the repository and on fixtures
-for each contract rule (locales, category, lengths, each technical-reference
-pattern, limits, ordering, dates, version form), the changelog cross-checks and
-the `--since` warning, checks parser shape errors, the About payload and its
-fail-soft path. `web/tests/
-releaseNotes.test.mjs` covers grouping and the English fallback; the e2e
-`shell.spec.ts` About test opens What's new.
+`tests/test_release_notes.py` covers the runtime parser's malformed-input boundary,
+the localized About payload and its fail-soft path. Repository release-note
+checks are tooling operations invoked directly when authorized; they are not
+part of the product test suite. `web/tests/releaseNotes.test.mjs` covers grouping
+and the English fallback; the `shell.spec.ts` About journey opens What's new.
 
 ## 7. Limitations
 
 Whether a change is user-visible stays a judgement made by the agent or
 developer; the checker verifies only form and alignment, and the `--since`
 warning is advisory. Translation quality is reviewed, not machine-checked.
-ADORE 0.16.0 assigns the accumulated release notes to the dated `0.16.0`
+ADORE 0.17.0 assigns the accumulated release notes to the dated `0.17.0`
 release, matching the changelog heading of 2026-11-15. Future user-visible
 changes start a new `Unreleased` group. The wheel includes
 `adore/release_notes.toml`; portable archives install that wheel and record the

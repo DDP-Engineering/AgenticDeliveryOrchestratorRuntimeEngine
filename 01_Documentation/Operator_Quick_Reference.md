@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Operator quick reference
 
-Applies to **ADORE 0.16.0**. This is a task reminder; the linked manuals define
+Applies to **ADORE 0.17.0**. This is a task reminder; the linked manuals define
 the complete setup, configuration and recovery contracts.
 
 ## Setup and first pickup
@@ -121,3 +121,7 @@ The following editable presentations cover the same current operator tasks:
 - [Monitoring and steering](Operator_Cheat_Sheets/Presentations/ADORE_03_Monitoring_And_Steering.pptx)
 - [Profiles and container images](Operator_Cheat_Sheets/Presentations/ADORE_04_Profiles_And_Container_Images.pptx)
 - [Failure recovery and cleanup](Operator_Cheat_Sheets/Presentations/ADORE_05_Failure_Recovery_And_Cleanup.pptx)
+
+## Explicit job workflow
+
+Start and fresh Restart require reviewing **With AEGIS** / **Without AEGIS**. CLI: `adore --profile NAME run --once --ticket IID --workflow direct` (or `aegis`). Automatic polling uses `workflow.mode = "auto"` or `"direct"`. Retry keeps the job’s saved workflow. Direct skips AEGIS even when installed; other repository rules and orchestrator limits remain in force.

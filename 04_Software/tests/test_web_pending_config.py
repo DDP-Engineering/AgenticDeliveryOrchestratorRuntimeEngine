@@ -596,14 +596,13 @@ def test_stage_timeout_map_handles_human_toml_and_removes_override(tmp_path, sha
 
 @pytest.mark.parametrize('key,value', [
     ('clarification.answer_timeout','0s'), ('clarification.max_rounds','0'),
-    ('clarification.reminder_after','1h'), ('clarification.timeout_state','stale'),
+    ('clarification.timeout_state','stale'),
     ('recovery.retry_backoff_seconds','[9007199254740992]'),
     ('recovery.retry_backoff_seconds','[]'), ('recovery.retry_backoff_seconds','[true]'),
     ('recovery.retry_backoff_seconds','[-1]'), ('recovery.retry_backoff_seconds','[1.5]'),
     ('workflow.stage_timeout_overrides','{"build":0}'),
     ('workflow.stage_timeout_overrides','{"build":true}'),
     ('workflow.stage_timeout_overrides','{"unknown":30}'),
-    ('workflow.stage_timeout_overrides','{"deliver":900}'),
     ('workflow.stage_timeout_overrides','{"build":30,"build":60}'),
     ('workflow.stage_timeout_overrides','[30]'),
 ])

@@ -72,6 +72,16 @@ class CommandResult:
     stdout: str = ""
     stderr: str = ""
     timed_out: bool = False
+    raw_stdout: bytes | None = field(default=None, repr=False)
+
+    @property
+    def stdout_bytes(self) -> bytes:
+        """@brief Exact captured stdout; text-only injected results encode their fixture.
+        @return Original command bytes, without decoding or newline conversion.
+        @note The production runner always supplies raw_stdout, including on timeout.
+        """
+        return (self.raw_stdout if self.raw_stdout is not None
+                else self.stdout.encode("utf-8", "surrogateescape"))
 
     @property
     def ok(self) -> bool:
@@ -161,8 +171,9 @@ def run_command(
     @details    Never raises for command failure; errors are reported through
                 the exit code (127 = binary missing, 126 = the OS refused the
                 spawn, 124 = timeout) so callers decide deterministically.
-                Output is decoded as UTF-8 with replacement to survive Windows
-                console encodings.
+                Raw stdout is retained for byte-exact consumers. Display output
+                is decoded as UTF-8 with replacement to survive Windows console
+                encodings; it must not be used to fingerprint file content.
 
                 `timed_out=True` is set ONLY on the wrapper-timeout path
                 below (`subprocess.TimeoutExpired`); the normal-completion
@@ -189,7 +200,7 @@ def run_command(
             **background_process_options(),
         )
     except FileNotFoundError as exc:
-        return CommandResult(argv=argv_list, exit_code=127, stderr=str(exc))
+        return CommandResult(argv=argv_list, exit_code=127, stderr=str(exc), raw_stdout=b"")
     except subprocess.TimeoutExpired as exc:
         stdout = _decode(exc.stdout)
         stderr = _decode(exc.stderr)
@@ -199,6 +210,7 @@ def run_command(
             stdout=stdout,
             stderr=stderr or f"timeout after {timeout}s",
             timed_out=True,
+            raw_stdout=exc.stdout if isinstance(exc.stdout, bytes) else stdout.encode("utf-8"),
         )
     except OSError as exc:
         # Everything else the OS can refuse: a locked or antivirus-held
@@ -209,12 +221,13 @@ def run_command(
         # Reporting a failed command keeps the failure inside the caller's
         # existing error path. 126 mirrors the shell's "found but not
         # executable", distinct from 127 (missing) and 124 (timeout).
-        return CommandResult(argv=argv_list, exit_code=126, stderr=str(exc))
+        return CommandResult(argv=argv_list, exit_code=126, stderr=str(exc), raw_stdout=b"")
     return CommandResult(
         argv=argv_list,
         exit_code=completed.returncode,
         stdout=_decode(completed.stdout),
         stderr=_decode(completed.stderr),
+        raw_stdout=completed.stdout,
     )
 
 

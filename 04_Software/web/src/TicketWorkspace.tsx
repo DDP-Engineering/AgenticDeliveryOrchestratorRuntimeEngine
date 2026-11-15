@@ -11,6 +11,7 @@ import { safeEvidenceLink } from "./jobModel";
 import { startVisiblePolling } from "./polling";
 import { keptLabels, outcomeText } from "./operationReason";
 import { jobCopy } from "./jobCopy";
+import { WorkflowChoice, type Workflow } from "./WorkflowChoice";
 import { fill, ticketCopy, operationResultText } from "./ticketCopy";
 import { SortHeader } from "./SortHeader";
 import { HelpLink } from "./HelpCenter";
@@ -43,7 +44,7 @@ type Props = {
 type Row = { key: string; project: Project; list: TicketList; ticket: Ticket };
 type TicketSort = "number" | "project" | "title" | "labels" | "status";
 
-type StartRequest = { row: Row; addsReady: boolean; needsPriority: boolean };
+type StartRequest = { row: Row; needsPriority: boolean };
 
 const FINISHED = ["done", "failed", "cancelled", "handed-off", "handoff-pending"];
 const REASONS = ["epic", "not_open", "missing_ready_label", "held", "excluded", "has_job", "missing_priority_label", "missing_acceptance_criteria"];
@@ -119,6 +120,7 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
   const [confirm, setConfirm] = useState<Row | null>(null);
   const [starting, setStarting] = useState<StartRequest | null>(null);
   const [priority, setPriority] = useState("");
+  const [workflow, setWorkflow] = useState<Workflow | null>(null);
   // A read returns up to 500 tickets; they are shown a page at a time.
   const [size, setSize] = useState<number | "all">(10);
   const [offset, setOffset] = useState(0);
@@ -219,10 +221,10 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
     const generation=actionGeneration.current;
     const current=()=>mounted.current && generation===actionGeneration.current && scopeKey===scopeRef.current;
     const iid = row.ticket.iid;
-    if (busyFor(row.project.id) || row.project.archived) return;
+    if (busyFor(row.project.id) || row.project.archived || workflow === null) return;
     setBusy(row.project.id,true); setCommandStatusError(false); setActionError(null); setNotice(null); setStarting(null);
     try {
-      const result = readStart(await request(`${base(row.project)}/tickets/${iid}/start`, "POST", { idempotency_key: crypto.randomUUID(), ...(chosen ? { priority: chosen } : {}) }, csrf));
+      const result = readStart(await request(`${base(row.project)}/tickets/${iid}/start`, "POST", { idempotency_key: crypto.randomUUID(), workflow, ...(chosen ? { priority: chosen } : {}) }, csrf));
       const lines = [...(result.labels_added.length ? [fill(copy.labelsAdded, { labels: result.labels_added.join(", ") })] : []), named(row, fill(copy.startQueued, { iid, id: result.operation_id })), copy.startEffect];
       if (current()) { setNotice({ lines, operation: { id: result.operation_id, status: result.status }, labels: result.labels_added }); setQueued(items => [...items, row.key]); }
     } catch (cause) {
@@ -234,9 +236,9 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
   };
   const requestStart = (row: Row) => {
     setConfirm(null);
-    if (!row.ticket.adds_ready_label && !row.ticket.needs_priority) { void start(row); return; }
+    setWorkflow(null);
     setPriority(row.list.priority_labels.at(-1) ?? "");
-    setStarting({ row, addsReady: row.ticket.adds_ready_label, needsPriority: row.ticket.needs_priority });
+    setStarting({ row, needsPriority: row.ticket.needs_priority });
   };
 
   const retry = async (row: Row) => {
@@ -340,9 +342,9 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
             </tr>
             {/* A confirmation opens directly under the ticket it acts on. */}
             {starting?.row.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-start-confirm" role="alertdialog" aria-label={copy.startTicket}>
-              <p>{named(row, fill(copy.startConfirm, { iid: ticket.iid, labels: [...(starting.addsReady ? [row.list.ready_label] : []), ...(starting.needsPriority && priority ? [priority] : [])].join(", ") }))}</p>
+              <WorkflowChoice key={row.key} project={row.project.id} locale={locale} request={request} value={workflow} onChange={setWorkflow} showHelp={false} />
               {starting.needsPriority && <label>{copy.priority}<select aria-label={copy.priority} value={priority} onChange={event => setPriority(event.target.value)}>{row.list.priority_labels.map(label => <option key={label} value={label}>{label}</option>)}</select></label>}
-              <div className="button-row"><button className="primary" type="button" disabled={busyFor(row.project.id) || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
+              <div className="button-row"><button className="primary" type="button" disabled={busyFor(row.project.id) || workflow === null || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
             </div></td></tr>}
             {confirm?.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-stop-confirm" role="alertdialog" aria-label={copy.stopTicket}>
               <p>{named(row, fill(copy.stopConfirm, { iid: ticket.iid, label: row.list.ready_label }))}</p>

@@ -225,3 +225,7 @@ latency. `test_branch_naming.py` retains actual matching and process-protocol pr
 
 
 Web guided enrollment includes the optional validated Pi thinking level in its reviewed candidate; the CLI wizard retains its existing Pi default.
+
+## Workflow diagnostics
+
+Profile diagnostics skip the AEGIS probe when workflow.mode is direct, while retaining independent Git and host checks. Automatic mode still reports missing/unsupported AEGIS. This setting affects new-job defaults; per-job manual choices remain at Start/Restart.

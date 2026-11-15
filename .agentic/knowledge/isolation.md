@@ -15,7 +15,6 @@ provisioning, egress and cancellation. Start at
 `04_Software/adore/isolation.py`; verify with
 `04_Software/tests/test_isolation.py`. Run policy belongs to `orchestrator.md`.
 
-
 `REQ-FUNC-93bd42af`: `remove_remote_branch` validates ref/target and exact published commit, deletes through host Git with an exact remote lease and verifies absence. Missing refs are idempotent success; malformed output, foreign commits and transport failures raise `IsolationError`.
 
 ## Purpose and boundaries
@@ -88,11 +87,6 @@ with values only in the client environment); the caller bounds and ends it.
   refuse without authorizing checkpoint. Missing summary is allowed. These
   helpers assume a settled executor boundary, not a concurrent authorized writer.
 
-- `REQ-FUNC-0d0625e1`: fresh repository containers use a read-only native Git pointer, clear inherited repository selectors and transport WSL arguments through direct execution. Independent and nested Git operations select their own repositories.
-- `REQ-REL-e1ecfbd5`: exact managed metadata, regular pointer bytes, bounded creation-mode JSON and a runtime discovery acknowledgement are required; corrupt evidence raises IsolationError.
-- `REQ-REL-b8c5946a`: warm resources keep their creation-time binding, identity and installed contents; historical containers retain their original environment until normal release.
-
-
 - REQ-FUNC-c405688e / REQ-SEC-c5d56d9f: authorize_system_packages measures the non-root UID and uses fixed root OS-Python code on a container ID to grant package-manager sudo. No installation or network mutation is performed by ADORE.
 
 - `REQ-REL-d8fd134e`: `resource_identity`/`image_identity` validate authoritative bounded runtime output, actual IDs/name/status and duplicate fields. ContainerBackend verifies owned identity before bound commands and lifecycle controls.
@@ -110,7 +104,6 @@ with values only in the client environment); the caller bounds and ends it.
 ## Files
 
 - `04_Software/tests/test_container_git.py`: fresh/warm binding and trust-boundary contracts.
-
 
 - `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
@@ -143,7 +136,6 @@ with a path-specific `SuspiciousCheckpointPathError`; invalid bounded Git
 evidence raises `IsolationError`. The operator inspects preserved files.
 Focused offline proof: `tests/test_isolation.py`.
 
-
 ## Concurrent resource ownership
 
 Shared worktree registry operations and checkpoint sequences use a bounded lock
@@ -158,3 +150,7 @@ worktree and IO mounts before reuse and starts its immutable ID. `release_owned`
 returns exact removed executor/proxy/network names after full path/identity proof.
 
 Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.
+
+## Current contract
+
+Git progress hashes original tracked diff bytes and untracked content/path bytes. Unicode replacement characters and non-UTF-8 file content are ordinary data. Command failure, malformed result metadata and unsafe paths remain typed refusals. See REQ-REL-2c632559 and `05_SoftwareDocu/Component_Isolation.md`.

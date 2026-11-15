@@ -46,7 +46,7 @@ test("literal recorded text and physical archive identity survive transport vali
   assert.equal(readSessionPage(page(),session.id,0,false).items[0].text,"API_KEY=fake-exact");
 });
 test("malformed identities, cursors, text bounds and structured costs fail closed",()=>{
-  for(const mutate of [p=>p.next_cursor=0,p=>p.session={...session,id:"../outside"},p=>p.items[0].text="🙂".repeat(5000),
+  for(const mutate of [p=>p.next_cursor=0,p=>p.session={...session,id:"../outside"},p=>p.items[0].text="🙂".repeat(4*1024*1024+1),
     p=>p.items[0].kind="system",p=>p.items[0].is_error="no",p=>p.items=[{kind:"usage",text:"",usage:{input:-1}}],
     p=>p.items=[{kind:"usage",text:"",usage:{cost:{total:1}}}]]){
     const value=page();mutate(value);assert.throws(()=>readSessionPage(value,session.id,0,false));

@@ -18,11 +18,13 @@ import { PagedTable } from "./PagedTable";
 import { conversationCopy } from "./conversationCopy";
 import { readSessions, type AgentSession } from "./sessionModel";
 import { formatRoute } from "./routes";
+import { readWorkflowSelection, type Workflow } from "./WorkflowChoice";
+import { describeError } from "./errors";
 
 type Tab = "activity" | "sessions" | "details";
 type Props = {
   job: Job; locale: Locale; t: (key: MessageKey) => string; admin: boolean; busy: boolean;
-  onClose: () => void; onCommand: (action: "retry" | "cancel" | "restart", job: Job) => void;
+  onClose: () => void; onCommand: (action: "retry" | "cancel" | "restart", job: Job, workflow?: Workflow) => void;
   request:<T>(path:string)=>Promise<T>; sessions: (active:boolean,target?:{id:string;sequence:number},toolbarHost?:HTMLElement|null,maximized?:boolean)=>ReactNode; consumption: ReactNode; output: ReactNode; directEvidence?: ReactNode;
   stageLabel: string; stageName: (stage: string) => string; statusLabel: string;
 };
@@ -30,6 +32,17 @@ type Props = {
 /** Present only saved job evidence; commands keep their existing worker-owned authorization. */
 export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, sessions, request, consumption, output, directEvidence, stageLabel, stageName, statusLabel }: Props) {
   const copy = jobCopy[locale], text = jobDetailsCopy[locale], budget = budgetCopy[locale];
+  const canRestart = commandAllowed(job, "restart");
+  const [restartAvailability, setRestartAvailability] = useState<boolean | null>(null);
+  const [restartError, setRestartError] = useState<unknown>(null);
+  useEffect(() => {
+    let active = true;
+    setRestartAvailability(null); setRestartError(null);
+    if (canRestart) void request<unknown>(`/projects/${encodeURIComponent(job.project_id)}/workflow-selection`)
+      .then(readWorkflowSelection).then(data => { if (active) setRestartAvailability(data.aegis_available); })
+      .catch(cause => { if (active) setRestartError(cause); });
+    return () => { active = false; };
+  }, [job.project_id, job.run_id, canRestart, request]);
   const [selected, setSelected] = useState<Tab>("activity");
   const [sessionsVisited,setSessionsVisited]=useState(false);
   const [sessionControls,setSessionControls]=useState<HTMLDivElement|null>(null);
@@ -113,8 +126,12 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
       <div className="job-detail-title"><h2><span>{t("ticket")} #{job.ticket_iid} · </span>{job.ticket_title || copy.titleUnknown}</h2></div>
       <div className="job-detail-meta"><StatusBadge code={job.lifecycle}>{statusLabel}</StatusBadge><span>{t("stage")}: <strong>{stageLabel}</strong></span><span>{directCopy[locale].workflow}: {job.workflow === "direct" ? directCopy[locale].direct : "AEGIS"}</span><span>{job.project_display_name}</span>
         {commands.length > 0 && <details className="job-actions"><summary>{text.actions}</summary><div className="job-action-menu">
-          {commands.map(action => <div key={action}><p className="field-hint">{action === "restart" ? recoveryCopy[locale].help : action === "retry" ? copy.retryHelp : copy.cancelHelp}</p>
-            <button className={action === "retry" ? "ghost" : "danger"} disabled={busy} onClick={() => onCommand(action, job)}>{action === "restart" ? recoveryCopy[locale].restart : t(action)}</button></div>)}
+          {commands.map(action => action === "restart" ? <div key={action} className="job-restart-actions">
+            <button className="danger" disabled={busy || restartAvailability !== true} onClick={() => onCommand("restart", job, "aegis")}>{recoveryCopy[locale].restartAegis}</button>
+            <button className="danger" disabled={busy || restartAvailability === null} onClick={() => onCommand("restart", job, "direct")}>{recoveryCopy[locale].restartDirect}</button>
+            {!!restartError && <p role="alert">{describeError(locale, restartError)}</p>}
+          </div> : <div key={action}>{action === "cancel" && <p className="field-hint">{copy.cancelHelp}</p>}
+            <button className={action === "retry" ? "ghost" : "danger"} disabled={busy} onClick={() => onCommand(action, job)}>{t(action)}</button></div>)}
         </div></details>}
       </div>
     </header>

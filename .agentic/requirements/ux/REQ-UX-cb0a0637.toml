@@ -2,6 +2,7 @@
 # This software is licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a separate commercial license.
 # See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
 schema = 1
 
 id = "REQ-UX-cb0a0637"
@@ -10,9 +11,7 @@ title = "Job details route stable drift to confirmed restart"
 
 status = "active"
 
-requirement = """
-When Job details shows a failed job with execution settings drift, the interface shall explain why Retry cannot fix stable settings drift and offer a confirmed abandon-and-restart action to authorized operators.
-"""
+requirement = "A failed job with stable execution drift shall retain its explicit diagnostic and offer separate Abandon and restart with AEGIS and Abandon and restart without AEGIS actions. Each shall use a short confirmation naming discarded work and the chosen workflow, and send the saved state revision. Retry retains the saved workflow; no extra page-level selector panel is opened."
 
 verification = "Offline UI positive confirmation and cancellation, stale state and revoked access refusal; four locales explain stable drift versus volatile environment revalidation."
 
@@ -20,11 +19,12 @@ affected_paths = ["04_Software/adore/cli.py", "04_Software/adore/metrics.py", "0
 
 linked_tests = ["04_Software/tests/test_drift_recovery.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/driftRecovery.spec.ts"]
 
-
 spec = ""
 
-priority = "normal"   # low | normal | high
-rationale = ""        # why this behavior exists, if not obvious
+priority = "normal"
+
+rationale = ""
 
 created = 2026-11-05
-updated = 2026-11-05
+
+updated = 2026-11-15

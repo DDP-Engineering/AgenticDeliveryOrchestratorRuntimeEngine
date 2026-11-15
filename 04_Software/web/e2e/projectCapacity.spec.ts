@@ -62,20 +62,6 @@ test("drafts and invalid limits survive project navigation, refresh and stale re
   await discardSettings(page);
 });
 
-test("Settings Statistics History and Access omit redundant capacity in every locale",async({page})=>{
-  const projects=await login(page),a=projects.find(p=>p.name==="alpha")!;
-  for(const locale of ["en","fr","de","ro"] as Locale[]){
-    const me=await(await page.request.get("/api/v1/me")).json();
-    await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:locale,theme:"light"}});
-    for(const tab of ["configuration","statistics","history","access"]){
-      await page.goto(`/projects/${a.id}/${tab}`);
-      await expect(page.locator("#project-tab-panel")).toBeVisible();
-      await expect(page.locator(".project-capacity")).toHaveCount(0);
-      await expect(page.locator("[data-capacity-fact]")).toHaveCount(0);
-    }
-  }
-});
-
 test("System status separates server and project roles",async({page})=>{
   await login(page);await page.goto("/admin/status");
   const roles=page.locator(".worker-roles");

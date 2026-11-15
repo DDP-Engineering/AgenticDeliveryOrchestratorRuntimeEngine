@@ -68,10 +68,6 @@ installed entrypoints separately.
 
 ## Key behaviors
 
-- `REQ-FUNC-e3daac09` - version-derived, state-free portable runtime bundle.
-- `REQ-FUNC-78969e20` - fail-fast installer/uninstaller and explicit unattended egress policy.
-- `REQ-PLAT-a1b60ff9` - offline web installation from host-matched media.
-
 ## Routing
 
 For shipped executor source definitions, inspect `04_Software/pyproject.toml`
@@ -90,13 +86,16 @@ has no automated product-test workflow under the repository applicability rule.
 
 ## Files
 
-- `02_Tools/package_runtime.*`, `package_web_offline.py` - delivery media.
-- `02_Tools/install_web_offline.py`, `launch_web.py` - offline install and launch.
+- `02_Tools/package/create_delivery_package.py` - delivery media.
+- `02_Tools/package/launcher_templates/` - offline install and launch.
 - `02_Tools/package/release_checks/check_release_consistency.py` - release contract checker.
 - `02_Tools/setup/` - OS service installation.
-- `04_Software/tests/test_web_package.py`, `test_release_consistency.py` - checks.
 
 Canonical resource verification uses an isolated wheel build in automatically
 cleaned OS temporary storage, confirming the four resources and builtin resolution
 with only the extracted wheel on the Python import path. REQ-FUNC-4404d38b owns
 this packaging seam; source-level contracts are in test_executor_recipes.py.
+
+## Current contract
+
+Environment setup, installation, launch, deployment and delivery are repository operations outside the product requirement registry and product automated tests. Their sources are in `02_Tools/setup/`, `02_Tools/build/` and `02_Tools/package/`. Operator checks use those public commands directly when authorized.

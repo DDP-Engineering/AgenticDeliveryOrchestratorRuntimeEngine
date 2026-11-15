@@ -80,3 +80,7 @@ in the target cwd. Version exit 127 names that executable and skips status.
 - 05_SoftwareDocu/Component_Doctor.md — component documentation.
 
 Native executor detection calls the managed verifier and reports Node/Pi prerequisites.
+
+## Explicit workflow diagnostics
+
+AEGIS guidance distinguishes automatic/explicit AEGIS refusal from the operator’s Direct choice. Direct can skip an unusable installed payload per job or with workflow.mode=direct. The independent detect_aegis probe still certifies only the existing supported version/schema contract; it never installs or repairs AEGIS.

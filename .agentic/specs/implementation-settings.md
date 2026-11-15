@@ -5,12 +5,51 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Implementation setting editors
+# Independent positive clarification answer duration
 
-Administrator edits are exact single-setting candidates under existing CSRF, revision, role and idle locks. clarification.answer_timeout is a positive duration independent of reserved reminder_after; clarification.max_rounds is an integer at least one. Reserved clarification keys remain read-only.
+This specification describes the current implemented contract.
 
-The JSON-string wire contract admits two complete collections: recovery.retry_backoff_seconds is a nonempty list of nonnegative integers; workflow.stage_timeout_overrides is a closed map of frame/specify/design/build/validate to positive integers. Empty map selects general timeout for every stage. Unknown keys, JSON duplicates, booleans, fractional/nonfinite numbers and unsupported TOML spelling fail closed before publication. Typed bounds use portable safe integers for these browser-edited values. Writers preserve unrelated configuration semantically and its line endings.
+## Behavior and boundaries
 
-Metadata exposes one timeout-map row for all five stages. Admin opens one editor, selects general/custom per stage and prepares one mapping. Custom values must be positive seconds; general selection omits that key. Delay editor accepts one whole nonnegative value per line and serializes JSON. Duration editor supplies integer value and seconds/minutes/hours/days. Exact active/proposed values and keys remain visible during review. Dev reads the controls without editors. Shared names/help cover four locales; mobile rows wrap.
+### [REQ-FUNC-c6c694cc](../requirements/functional/REQ-FUNC-c6c694cc.toml) — Independent positive clarification answer duration
 
-Existing stage failures, transient attempts, clarification expiration, cost/file budgets and general strict-check timeout retain their runtime behavior. Full-suite validation is deferred under standing user instruction; focused config, API, helper and browser cases provide task proof.
+ADORE shall validate a positive clarification answer duration independently of the reserved reminder duration while retaining duration-format validation and unchanged expiration behavior.
+
+Verification scope: Config tests accept a 12-hour answer timeout with the default 24-hour reserved reminder and reject zero/invalid answer durations. Existing conductor clarification expiry tests retain the runtime contract.
+
+### [REQ-FUNC-d67a1d33](../requirements/functional/REQ-FUNC-d67a1d33.toml) — Reviewed clarification and recovery collection settings
+
+When an administrator prepares an Implementation setting, ADORE shall review and apply clarification.answer_timeout, clarification.max_rounds, the complete nonempty nonnegative integer retry schedule and the complete five-stage (frame, specify, design, build, validate) positive integer timeout map through the existing single-candidate revision, role and idle gates, rejecting malformed or corrupt collection input without changing active configuration.
+
+Verification scope: Offline HTTP tests verify exact prepare/read/apply values, absent/inline/nested/multiline TOML, unrelated configuration preservation, malformed types/unknown or deliver stage/duplicate JSON/corrupt persisted value rejection and developer denial.
+
+### [REQ-UX-66547cbf](../requirements/ux/REQ-UX-66547cbf.toml) — Human duration retry schedule and five-stage timeout editors
+
+In Implementation, the dashboard shall provide localized administrator editors for answer duration with unit, question-round count, one integer retry delay per line and five per-stage timeout choices (frame, specify, design, build, validate) using the general limit or a positive seconds override, displaying exact active/proposed values through single-candidate review while developers remain read-only.
+
+Verification scope: Settings helper and offline browser tests prove canonical serialization, invalid drafts and malformed candidate rejection, five stages with add/remove overrides, review/apply/discard, developer controls absent four-locale names, normal control height and actions below the stack at desktop/mobile widths.
+
+## Implementation
+
+- `04_Software/adore/config.py`
+- `04_Software/adore/web/app.py`
+- `04_Software/adore/web/implementation_settings.py`
+- `04_Software/web/e2e/settings.spec.ts`
+- `04_Software/web/src/App.tsx`
+- `04_Software/web/src/implementationSettings.ts`
+- `04_Software/web/src/settingHelp.ts`
+- `04_Software/web/src/settings.ts`
+- `04_Software/web/src/settingsCopy.ts`
+- `04_Software/web/src/styles.css`
+- `04_Software/web/tests/settings.test.mjs`
+
+## Associated tests
+
+These links identify test definitions; they are not a claim that a test run passed.
+
+- `04_Software/tests/test_config.py`
+- `04_Software/tests/test_orchestrator.py`
+- `04_Software/tests/test_web_config.py`
+- `04_Software/tests/test_web_pending_config.py`
+- `04_Software/web/e2e/settings.spec.ts`
+- `04_Software/web/tests/settings.test.mjs`
