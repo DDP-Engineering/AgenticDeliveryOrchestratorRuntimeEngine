@@ -82,11 +82,13 @@ image/runtime selector defaults are cleared. Native Git therefore honors cwd,
 -C and nested repositories. A bounded runtime receipt verifies the pointer,
 selector absence and actual discovery.
 
-The creation label io.ddp.adore.git-binding=pointer-v1 selects pointer validation
-on reuse; unknown labels are refused. The current runtime code also accepts an
-empty/null binding label and leaves that container's creation-time Git environment
-unchanged. This is a remaining unlabelled-container reuse branch, not a stored-data
-conversion or a guarantee that an earlier build is supported. This document records that remaining code path without authorizing a format conversion.
+Repository container reuse requires the creation label
+io.ddp.adore.git-binding=pointer-v1, the exact saved pointer and runtime confirmation.
+Missing, empty, null or unknown labels are refused before starting or executing
+anything in the container. The error names the container to delete before a fresh
+job. ADORE never relabels, converts, removes or replaces it automatically. Containers
+without repository Git metadata, such as isolated diagnostic helpers, have no
+repository pointer to validate.
 
 ### Environment and wrapped runtimes
 
@@ -151,7 +153,7 @@ run_args; this component does not infer them from observed resource use.
 
 The implementation uses the injectable command runner, typed configuration,
 branding/identity, strict JSON and platform-aware path helpers. Existing offline
-coverage includes `04_Software/tests/test_isolation.py`, `test_execution.py`,
+coverage includes `04_Software/tests/test_isolation.py`, `test_container_git.py`, `test_execution.py`,
 `test_drift_recovery.py`, `test_merged_branch_cleanup.py`, `test_container_timeout.py`
 and `test_shared_resources.py`. Actual runtime provisioning and host credentials
 remain separate operator acceptance work; dated local acceptance receipts are not

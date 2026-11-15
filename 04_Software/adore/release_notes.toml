@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Unrecognized job containers are refused; remove them manually before a fresh start.", fr = "Les conteneurs de travail non reconnus sont refusés ; supprimez-les avant de recommencer.", de = "Nicht erkannte Jobcontainer werden abgewiesen; vor einem Neustart manuell entfernen.", ro = "Containerele nerecunoscute sunt refuzate; elimină-le manual înainte de un job nou." }
+
+[[release.entry]]
+category = "fixed"
 topic = { en = "Configuration", fr = "Configuration", de = "Konfiguration", ro = "Configurare" }
 text = { en = "Removed settings are rejected with a clear instruction to delete them.", fr = "Les paramètres supprimés sont refusés avec une indication claire pour les retirer.", de = "Entfernte Einstellungen werden mit einem klaren Hinweis zum Löschen abgewiesen.", ro = "Setările eliminate sunt respinse cu o indicație clară pentru ștergerea lor." }
 

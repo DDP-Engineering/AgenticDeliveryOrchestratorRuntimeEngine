@@ -1825,11 +1825,9 @@ class ContainerManager:
         state = self.status(name)
         git_payload = _git_binding_payload(env)
         git_pointer = Path(io_path) / "container.git"
-        git_mode = ""
         if git_payload is not None and state != "absent":
-            git_mode = self._git_binding_mode(name)
-            if git_mode == _GIT_BINDING_VERSION:
-                _admit_git_pointer(git_pointer, git_payload)
+            self._require_git_binding_label(name)
+            _admit_git_pointer(git_pointer, git_payload)
         owned_id = name
         if state != "absent":
             identity = self.resource_identity(name, bindings={
@@ -1839,14 +1837,14 @@ class ContainerManager:
             })
             owned_id = identity["container_id"]
         if state == "running":
-            if git_mode == _GIT_BINDING_VERSION:
+            if git_payload is not None:
                 self._verify_git_binding(owned_id, git_payload)
             return "running"
         if self.egress.mode == "allowlist-proxy":
             self._ensure_proxy_context(name, io_path)
         if state != "absent":
             self.start(owned_id)
-            if git_mode == _GIT_BINDING_VERSION:
+            if git_payload is not None:
                 self._verify_git_binding(owned_id, git_payload)
             return "started"
         Path(io_path).mkdir(parents=True, exist_ok=True)
@@ -1903,10 +1901,10 @@ class ContainerManager:
             self._verify_git_binding(name, git_payload)
         return "created"
 
-    def _git_binding_mode(self, name: str) -> str:
-        """@brief Read one bounded creation-time binding label without guessing.
+    def _require_git_binding_label(self, name: str) -> None:
+        """@brief Require the current creation-time Git binding before reuse.
         @param[in] name Exact owned resource selected for reuse.
-        @return Empty for historical mode, otherwise the known pointer version.
+        @return None after confirming the current binding label.
         @exception IsolationError For failed, corrupt or unknown runtime evidence.
         """
         result = self.runner([
@@ -1918,13 +1916,13 @@ class ContainerManager:
                     or len(result.stdout) > 1024):
                 raise ValueError
             value = strict_json_loads(result.stdout)
-            if value is None or value == "":
-                return ""
-            if isinstance(value, str) and value == _GIT_BINDING_VERSION:
-                return value
-            raise ValueError
         except (ValueError, TypeError) as exc:
-            raise IsolationError("container Git binding mode unavailable or corrupt") from exc
+            raise IsolationError("container Git binding label unavailable or corrupt") from exc
+        if value != _GIT_BINDING_VERSION:
+            raise IsolationError(
+                f"container {name!r} has no supported Git binding label; "
+                "delete that container before starting a fresh job"
+            )
 
     def _verify_git_binding(self, name: str, payload: bytes) -> None:
         """@brief Confirm actual pointer, native discovery and selector absence.

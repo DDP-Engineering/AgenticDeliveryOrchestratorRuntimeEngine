@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Delete retained repository containers without the current `io.ddp.adore.git-binding=pointer-v1` label before starting fresh jobs.
 - Remove `workflow.verify_command` from `config.toml` before starting this build.
 - Remove unused frontend sources and generated local remnants, keep source-checkout configuration local, and move live runtime verification into `02_Tools/build/`.
 - Simplify the configuration example and refresh setup, credentials and container documentation.
