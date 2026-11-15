@@ -140,6 +140,8 @@ def main(argv: list[str] | None = None) -> int:
                               "--version"], timeout=60)
                 if actual != PI_VERSION:
                     raise RuntimeError("executor image does not contain the current pinned Pi")
+                run([args.runtime, "run", "--rm", "--network", "none",
+                     "--entrypoint", "test", image, "-s", "/usr/local/LICENSE"], timeout=30)
                 for tool in ("fd", "rg"):
                     run([args.runtime, "run", "--rm", "--network", "none",
                          "--entrypoint", tool, image, "--version"], timeout=30)

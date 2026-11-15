@@ -57,7 +57,7 @@ RUN curl -fsSL -o /tmp/node.tar.xz \
         "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
     && echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum -c - \
     && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
-        --exclude='*/CHANGELOG.md' --exclude='*/LICENSE' --exclude='*/README.md' \
+        --exclude='*/CHANGELOG.md' --exclude='*/README.md' \
     && rm -f /tmp/node.tar.xz \
     && node --version
 

@@ -79,7 +79,8 @@ frontend build inputs change.
 
 The wheel also includes the canonical executor base Dockerfile and Pi helpers
 from `04_Software/docker/` as product assets for source-recipe export. The image-delivery tool builds
-and exports them before delivery. End users load the compressed archives without
+and exports them before delivery. Node license text is retained in the image at
+/usr/local/LICENSE, alongside the Pi dependency and search-tool notices. End users load the compressed archives without
 registry access or build tools; Docker/Podman itself remains a prerequisite.
 
 ## Source services
