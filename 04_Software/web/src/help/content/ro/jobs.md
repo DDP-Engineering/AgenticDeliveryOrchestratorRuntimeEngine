@@ -87,6 +87,8 @@ Dacă un job șters anterior a lăsat un branch fără checkpoint înregistrat, 
 
 ## Urmărirea lucrărilor {#following-jobs}
 
+Citirile automate păstrează rândurile, consumul, comenzile tabelului și detaliile lucrării deschise. **Reîmprospătează** folosește aceeași citire în fundal; **Ultima actualizare reușită** arată când s-a încheiat. O eroare temporară de conexiune a listei sau a consumului poate păstra instantaneul anterior cu un avertisment de învechire și **Reîncearcă**. Dovezile invalide sau un instantaneu expirat al paginării cer în continuare recuperare ori reîncărcarea primei pagini; informațiile învechite nu autorizează acțiuni asupra lucrării.
+
 Folosește **Lucrări** din meniul lateral sau fila separată **Lucrări** a proiectului. Tabelul are următoarele coloane:
 
 | Coloană | Conținut |

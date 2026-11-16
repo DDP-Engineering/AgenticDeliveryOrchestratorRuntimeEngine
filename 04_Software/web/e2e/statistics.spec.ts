@@ -245,12 +245,12 @@ test("out-of-order old scope cannot overwrite new data or exports; route transit
     await route.fulfill({ json: body });
   });
   await page.goto(`/metrics?project=${alpha}`); await expect(page.locator(".statistics-evidence")).toBeVisible();
-  const staleResponse = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1/projects/${alpha}/metrics` && new URL(response.url()).searchParams.get("day_from") === "2026-10-24");
+  const staleRead = page.waitForEvent("requestfailed", { predicate: request => new URL(request.url()).pathname === `/api/v1/projects/${alpha}/metrics` && new URL(request.url()).searchParams.get("day_from") === "2026-10-24" });
   await page.getByLabel("From", { exact: true }).fill("2026-10-24"); await started;
   await expect(page.locator(".statistics-evidence")).toHaveCount(0); await expect(page.getByText("Export CSV", { exact: true })).toHaveCount(0);
   await page.getByLabel("From", { exact: true }).fill("2026-10-25");
   const card = page.locator(".stat-card").filter({ has: page.getByText("Input tokens", { exact: true }) });
-  await expect(card).toContainText("7"); release(); await staleResponse;
+  await expect(card).toContainText("7"); release(); await staleRead;
   await expect(card).not.toContainText("91"); await expect(card).toContainText("7");
   await page.getByText("Export CSV", { exact: true }).click(); await expect(page.getByRole("link", { name: "Project metrics", exact: true })).toHaveAttribute("href", /day_from=2026-10-25/);
   await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Jobs", exact: true }).click();

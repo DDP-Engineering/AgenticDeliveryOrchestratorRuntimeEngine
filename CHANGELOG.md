@@ -20,6 +20,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Refresh Statistics, Jobs, consumption, change history and Users without blanking
+  valid same-context content or resetting controls. Coalesce reads, publish scoped
+  reporting cohorts together, show explicit informational stale/retry feedback,
+  and preserve settings drafts and authorization/integrity failure boundaries.
 - Address Azure REST operations by exact Microsoft location IDs rather than ambiguous
   resource names, retaining the official extension's host authentication.
 - Launch the standard Windows Azure CLI through its bundled Python without shell

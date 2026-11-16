@@ -64,7 +64,11 @@ test("LA-01 global tickets auto-read once, fence old scopes and retain manual re
   expect(calls[alpha]).toBe(1);
   await page.locator("#jobs-project").selectOption(beta);
   await expect(page.locator(".ticket-row").first()).toBeVisible();
+  // Complete the coalesced alpha read before testing a new failed read. A
+  // counter observes request start, not completion of the previously held body.
+  const alphaResponse = page.waitForResponse(response => response.url().endsWith(`/projects/${alpha}/tickets`));
   release();
+  await (await alphaResponse).finished();
   await expect(page.locator("#jobs-project")).toHaveValue(beta);
   await expect(page.locator(".ticket-row").first()).toContainText("beta");
   await page.getByRole("button",{name:"Read tickets",exact:true}).click();

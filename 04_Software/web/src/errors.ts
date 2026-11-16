@@ -11,6 +11,7 @@ export class ApiError extends Error {
   code: string;
   detail: string;
   components?: Array<"supervisor"|"configuration">;
+  status?: number;
   constructor(code: string, detail = "") {
     super(code);
     this.name = "ApiError";

@@ -9,6 +9,8 @@ Un semnal recent arată că supervisorul este disponibil. **Ocupat** înseamnă 
 
 ## Utilizatori {#users}
 
+**Reîmprospătează** din antet păstrează lista afișată și ciornele de cont fără legătură în timpul recitirii. **Ultima actualizare reușită** arată finalizarea. Modificările conturilor existente așteaptă recitirea; o listă ilizibilă sau autoritatea schimbată invalidează acțiunile ori reviziile afectate.
+
 Sub **Administrare**, deschideți [Utilizatori](/admin/users). Pagina are un panou **Adaugă utilizator** și o listă **Utilizatori**.
 
 Pentru a crea un cont:
@@ -41,7 +43,7 @@ Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actuali
 
 ## Istoricul modificărilor {#change-history}
 
-Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Ambele pagini se actualizează la fiecare 15 secunde cât timp sunt vizibile și păstrează filtrele, pagina și dovezile deschise. În Istoricul modificărilor global, **Actualizează** reîncarcă imediat lista.
+Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Ambele pagini se actualizează la fiecare 15 secunde cât timp sunt vizibile și păstrează filtrele, pagina și dovezile deschise. În ambele vizualizări, **Reîmprospătează** recitește aceeași interogare fără a goli rândurile, filtrele, paginarea sau dovezile deschise. **Ultima actualizare reușită** arată finalizarea. O eroare temporară de conexiune poate păstra ultimul instantaneu informativ cu un avertisment de învechire și **Reîncearcă**; dovezile invalide sau neautorizate sunt ascunse.
 
 Istoricul identifică tichetele și lucrările separat de numerele operațiilor. O operație eșuată apare ca **Eșuat**, iar una refuzată ca **Respins**. Ștergerile din CLI au autorul CLI și rămân vizibile după eliminarea lucrării. O ștergere întreruptă rămâne **Incert** până la confirmarea rezultatului.
 

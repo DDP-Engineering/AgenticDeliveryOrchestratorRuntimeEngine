@@ -8,6 +8,8 @@ System status lists **Supervisor**, **Configuration worker**, **Project worker**
 
 ## Users {#users}
 
+Header **Refresh** keeps the displayed list and unrelated account drafts while rereading. **Last successful update** records completion. Changes to existing accounts wait for the reread; an unreadable list or changed authority invalidates the affected actions or reviews.
+
 Under **Administration**, open [Users](/admin/users). The page has an **Add user** panel and a **Users** list.
 
 To create an account:
@@ -40,7 +42,7 @@ Under **Administration**, open [System status](/admin/status). It refreshes by i
 
 ## Change history {#change-history}
 
-Under **Administration**, open [Change history](/admin/audit) to see who changed what, when, and with what result. A project's **History** tab shows the same evidence for that project alone, together with its finished jobs. Both views refresh every 15 seconds while visible and keep your filters, page and open evidence. On the global Change history page, **Refresh** reloads the list immediately.
+Under **Administration**, open [Change history](/admin/audit) to see who changed what, when, and with what result. A project's **History** tab shows the same evidence for that project alone, together with its finished jobs. Both views refresh every 15 seconds while visible and keep your filters, page and open evidence. In either view, **Refresh** rereads the same query without clearing rows, filters, paging or open evidence. **Last successful update** records completion. A temporary connection failure may keep the last informational snapshot with an out-of-date warning and **Retry**; invalid or unauthorized evidence is hidden.
 
 History identifies ticket and job targets separately from operation numbers. A failed operation is shown as **Failed**; a refused operation is **Rejected**. CLI deletions identify the actor as CLI and remain visible after the job is removed. An interrupted deletion stays **Uncertain** until its result is confirmed.
 

@@ -145,6 +145,54 @@ failed states are distinct. Refused refreshes withhold unverifiable totals;
 selected session history and editor drafts retain their own accepted state.
 Transient notifications do not replace persistent errors or confirmation.
 
+### Non-destructive revalidation
+
+`useSnapshot.ts` owns context-keyed, abortable, single-flight reads for job lists,
+job details, lifetime consumption, audit pages and manual account rereads.
+`RefreshStatus.tsx` supplies four-locale Refresh/Retry, a last-success timestamp
+and an announced stale warning only on failed informational refreshes. Success
+stamps are not live regions. Manual clicks coalesce; operation revision changes
+abort older reads and revalidate without removing the same-context snapshot.
+Requests have a 30-second deadline (10 seconds for audit), abort on context exit,
+and fence late completions. `polling.ts` also races cancellation against transports
+that ignore AbortSignal, so a stalled read releases its single-flight slot.
+Identical validated data retains object identity; usage buckets must have unique
+date/executor/model identities before their stable row keys are rendered.
+
+`useReporting.ts` coordinates metrics and usage as one reporting cohort, with
+separate single-flight source reads. Selected metrics retains its 15-second
+cadence; global metrics and usage retain 30 seconds. Faster metrics results stage
+until usage has also completed; publication waits for both in-flight sources and
+matching canonical scopes. Neither new source is combined with a source from the
+previous displayed cohort. A failed source invalidates the entire pending cohort.
+Project Statistics requests only that project's sources, including for admins.
+Context keys include principal/session, role, authorized project identity, scope,
+period, time zone and grouping. Context changes immediately hide old data/exports.
+
+Transient network failures and unstructured HTTP 502/503/504 may retain only
+informational same-context snapshots, with stale feedback and last-success time.
+Authentication, access, missing identity, malformed evidence and paging/integrity
+failures discard affected data. Job commands are disabled with failed list/detail
+evidence. Accounts and job-detail authority do not use stale retention. Account
+rereads keep rows/forms while pending but disable affected actions; changed account
+authority invalidates membership reviews and removed reset targets. Configuration
+and Access keep their existing fail-closed readers and dirty/mutation guards.
+Operation-triggered settings revalidation follows the guarded background path,
+not initial-load setup. A blocked revalidation is deferred until dirty/mutation
+guards release, and supersedes an older in-flight settings read. Metadata reads
+coalesce per session generation and overview mode; mutation completion aborts an
+older catalog read and requests a replacement, fenced by request identity.
+Audit, Access and statistics tables are not keyed by a refresh counter or sort
+direction; stable row keys preserve valid disclosures,
+paging, focus and scroll. Server job snapshot conflicts still require explicit
+first-page reload. Executor-output provenance/conflict handling is unchanged.
+
+Other refreshing surfaces retain their existing readers and cadences: project
+metadata 15 seconds, worker readiness 5 seconds, storage 30 seconds, pending
+operations 2 seconds and finite ChatGPT sign-in 1 second. Hidden-tab timers pause;
+visible-tab events revalidate through the same single-flight readers. Tickets,
+comments, executor output and connectivity checks retain their explicit reads.
+
 Semantic navigation, current-page markers, keyboard focus, labels, associated
 field help and error states are maintained with the controls that own them.
 Dates are formatted for the selected locale; missing evidence is not rendered as
@@ -162,6 +210,14 @@ settings and help contracts. Existing `web/e2e/` journeys cover authentication,
 enrollment, project access, Jobs/Tickets, recovery and settings against controlled
 local APIs/workers. Test locations are relative to `04_Software/`.
 Deployment/environment setup scripts have no product test workflow.
+`e2e/refresh.spec.ts` holds periodic responses in both Statistics scopes and all
+four tabs, exercises independent completion order, export/focus and Usage
+paging/sort/scroll continuity, changed values, duplicate/hidden-tab reads,
+transport-stale recovery, corrupt evidence, Jobs/History/detail consumption and
+manual audit/account draft continuity. Existing statistics, audit, jobs, settings,
+access, sessions and account suites cover context fencing and authority failures.
+Run `npm test`, `npm run typecheck` and `npm run test:e2e` from `04_Software/web`.
+`npm run build` updates the committed application assets.
 
 ## Limitations
 

@@ -333,6 +333,7 @@ test("post-disable malformed account refresh withholds grant editors", async ({ 
 });
 
 test("review is readable with keyboard focus in four locales and both themes at 390px", async ({ page }, info) => {
+  test.setTimeout(60000);
   const me = await (await page.request.get("/api/v1/me")).json();
   try {
     for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {

@@ -87,6 +87,8 @@ Si une ancienne tâche supprimée a laissé une branche sans checkpoint enregist
 
 ## Suivre les tâches {#following-jobs}
 
+Les lectures automatiques gardent les lignes, la consommation, les commandes du tableau et le détail ouvert visibles. **Actualiser** utilise la même lecture en arrière-plan ; **Dernière actualisation réussie** indique sa fin. Une panne de connexion temporaire de la liste ou de la consommation peut conserver l’instantané précédent avec un avertissement de péremption et **Réessayer**. Des preuves invalides ou un instantané de pagination expiré exigent toujours une reprise ou un retour à la première page ; des informations périmées n’autorisent pas les actions sur les tâches.
+
 Utilisez **Travaux** dans la barre latérale ou l’onglet **Travaux** distinct du projet. Le tableau comporte les colonnes suivantes :
 
 | Colonne | Contenu |

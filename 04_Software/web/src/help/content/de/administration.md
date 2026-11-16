@@ -8,6 +8,8 @@ Der Systemstatus trennt **Supervisor**, **Konfigurationsdienst**, **Projektdiens
 
 ## Benutzer {#users}
 
+**Aktualisieren** im Kopfbereich behält beim erneuten Lesen die Liste und unabhängige Kontoentwürfe. **Letzte erfolgreiche Aktualisierung** zeigt den Abschluss. Änderungen bestehender Konten warten auf das erneute Lesen; eine unlesbare Liste oder geänderte Berechtigungen machen betroffene Aktionen oder Prüfungen ungültig.
+
 Öffnen Sie unter **Verwaltung** die Seite [Benutzer](/admin/users). Sie hat ein Feld **Benutzer hinzufügen** und eine Liste **Benutzer**.
 
 So legen Sie ein Konto an:
@@ -40,7 +42,7 @@ Ein Entwickler mit Zugriff sieht das Projekt und kann dessen Aufträge starten, 
 
 ## Änderungsverlauf {#change-history}
 
-Öffnen Sie unter **Verwaltung** den [Änderungsverlauf](/admin/audit), um zu sehen, wer was wann geändert hat und mit welchem Ergebnis. Der Reiter **Verlauf** eines Projekts zeigt dieselben Nachweise nur für dieses Projekt, zusammen mit seinen abgeschlossenen Aufträgen. Beide Ansichten aktualisieren sich alle 15 Sekunden, solange sie sichtbar sind. Filter, Seite und geöffnete Nachweise bleiben erhalten. Im globalen Änderungsverlauf lädt **Aktualisieren** die Liste sofort neu.
+Öffnen Sie unter **Verwaltung** den [Änderungsverlauf](/admin/audit), um zu sehen, wer was wann geändert hat und mit welchem Ergebnis. Der Reiter **Verlauf** eines Projekts zeigt dieselben Nachweise nur für dieses Projekt, zusammen mit seinen abgeschlossenen Aufträgen. Beide Ansichten aktualisieren sich alle 15 Sekunden, solange sie sichtbar sind. Filter, Seite und geöffnete Nachweise bleiben erhalten. In beiden Ansichten liest **Aktualisieren** dieselbe Abfrage erneut, ohne Zeilen, Filter, Seitennavigation oder offene Nachweise zu löschen. **Letzte erfolgreiche Aktualisierung** zeigt den Abschluss. Bei einer vorübergehenden Verbindungsstörung kann der letzte Informationsstand mit Veraltet-Hinweis und **Wiederholen** bleiben; ungültige oder unberechtigte Nachweise werden ausgeblendet.
 
 Der Verlauf unterscheidet Tickets und Aufträge von Vorgangsnummern. Fehlgeschlagene Vorgänge zeigen **Fehlgeschlagen**, abgelehnte **Abgelehnt**. Löschungen per CLI zeigen CLI als Akteur und bleiben nach dem Entfernen des Auftrags sichtbar. Eine unterbrochene Löschung bleibt bis zur Bestätigung **Ungewiss**.
 

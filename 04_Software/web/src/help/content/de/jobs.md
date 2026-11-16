@@ -87,6 +87,8 @@ Hat ein früher gelöschter Auftrag einen Branch ohne gespeicherten Checkpoint h
 
 ## Aufträge verfolgen {#following-jobs}
 
+Automatische Abfragen behalten Zeilen, Verbrauch, Tabellensteuerung und offene Jobdetails. **Aktualisieren** nutzt dieselbe Hintergrundabfrage; **Letzte erfolgreiche Aktualisierung** zeigt ihren Abschluss. Bei einer vorübergehenden Verbindungsstörung der Liste oder des Verbrauchs kann der vorherige Stand mit Veraltet-Hinweis und **Wiederholen** bleiben. Ungültige Jobnachweise oder abgelaufene Seitenstände verlangen weiterhin Wiederherstellung oder Neuladen der ersten Seite; veraltete Informationen berechtigen nicht zu Jobaktionen.
+
 **Jobs** in der Seitenleiste oder den separaten **Jobs**-Reiter des Projekts verwenden. Die Tabelle enthält diese Spalten:
 
 | Spalte | Inhalt |

@@ -212,6 +212,30 @@ aggregation. Its current tabs are Summary, Usage, Quality and Trends. Missing
 measurements remain unavailable rather than zero; cost estimates are distinct
 from reported amounts. Cost/price administration is role-protected.
 
+Automatic reads refresh existing content in the background. Statistics keeps the
+selected tab, sorting, table page/page size and open CSV menu while both metrics
+and usage are revalidated; replacements appear together for the same authorized
+reporting scope. Selected metrics is read every 15 seconds, usage and all-project
+metrics every 30 seconds. Faster metrics reads wait for the usage counterpart
+before the displayed reporting snapshot is replaced. Project Statistics does not
+wait for unrelated all-project reads. Jobs and project job History keep rows,
+paging, open details and consumption during same-context refreshes. Refresh is
+available on these informational views and on both change-history views; Users
+keeps its manual header Refresh. Repeated clicks join a pending read.
+
+Refresh/Retry shows the last successful update time. An informational transport
+failure may leave the last validated snapshot visible with an explicit warning
+that it may be out of date; Retry uses the same background path. A first read or
+changed project, reporting period, filter or authorization scope has normal
+loading feedback instead. Rejected access, missing identity, corrupt evidence and
+server paging conflicts withhold affected data; job paging conflicts keep the
+explicit first-page reload. Retained information is not current action authority.
+Changes to existing Users accounts wait for the reread; changed authority
+invalidates reviews. Settings drafts and valid confirmations are not replaced by
+unrelated polls or operation completion. Hidden browser tabs pause periodic reads
+and revalidate when visible. Ticket/comment and executor-output reads keep their
+existing explicit lifecycle; this does not add forge polling.
+
 Administration exposes worker/system state, accounts, project access and change
 history. Queued operations retain their own final outcome and can be inspected
 after navigation. A 202 response is an operation reference, not proof of success.

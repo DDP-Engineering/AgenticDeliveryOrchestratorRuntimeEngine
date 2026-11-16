@@ -4,6 +4,18 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+/** Fence even a transport that ignores cancellation; late fulfillment is never published. */
+export async function readUntilAbort<T>(read: Promise<T>, signal: AbortSignal): Promise<T> {
+  let onAbort = () => {};
+  const cancelled = new Promise<never>((_, reject) => {
+    onAbort = () => reject(new DOMException("Read cancelled", "AbortError"));
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try { return await Promise.race([cancelled, read]); }
+  finally { signal.removeEventListener("abort", onAbort); }
+}
+
 export type PollEnv = {
   document: { visibilityState: string; addEventListener(type: string, listener: () => void): void; removeEventListener(type: string, listener: () => void): void };
   setInterval(handler: () => void, ms: number): number;
