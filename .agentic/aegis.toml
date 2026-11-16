@@ -36,16 +36,16 @@ workdir = "04_Software"                # run commands here, not at the root
 [layout]
 # Globs used by the traceability heuristics of `aegis check`.
 source = [
-  "04_Software/adore/", "04_Software/web/", "02_Tools/",
+  "04_Software/adore/", "04_Software/web/",
   "04_Software/pyproject.toml", "04_Software/ruff.toml",
   "04_Software/uv.lock",
 ]
-tests = ["04_Software/tests/", "04_Software/web/tests/"]
+tests = ["04_Software/tests/", "04_Software/web/tests/", "04_Software/web/e2e/"]
 docs = [
   "00_Planning/", "01_Documentation/", "05_SoftwareDocu/",
   "README.md", "CHANGELOG.md", "LICENSE.txt",
-  "02_Tools/README.md", "04_Software/README.md", "02_Tools/deploy/README.md",
-  "04_Software/docker/README.md", "07_Delivery/README.md",
+  "02_Tools/README.md", "04_Software/README.md", "02_Tools/setup/README.md",
+  "04_Software/docker/README.md",
 ]
 
 [interaction]

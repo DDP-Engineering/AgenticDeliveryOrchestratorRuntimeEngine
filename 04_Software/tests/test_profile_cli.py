@@ -15,13 +15,15 @@
 
 from __future__ import annotations
 
-# IMPORTS
 from pathlib import Path
 
 from adore.cli import EXIT_ERROR, EXIT_OK, main
 from adore.metrics import RunSummary, record_summary
 from adore.profiles import ProfileStore
 import pytest
+
+# IMPORTS
+from tests.execution_records import execution_record
 
 # CONSTANTS
 
@@ -265,7 +267,7 @@ def test_profile_delete_remove_resources_sweeps_then_deletes(tmp_path: Path, mon
     home = _home(tmp_path, monkeypatch)
     store = _ready_profile(home)
     StateStore(store.default_store_root("proj")).save(
-        RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+        RunState(run_id="run-1", ticket_iid=1, lifecycle="done", execution=execution_record()))
     calls: list[str] = []
     _purge_stub(monkeypatch, calls)
     assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_OK
@@ -307,10 +309,12 @@ def test_profile_delete_remove_resources_refuses_unsafe_states(tmp_path: Path, m
     calls: list[str] = []
     _purge_stub(monkeypatch, calls)
     state = StateStore(store.default_store_root("proj"))
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_ERROR
     assert store.exists("proj") and not calls
-    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     assert state.acquire_lock()
     try:
         assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_ERROR

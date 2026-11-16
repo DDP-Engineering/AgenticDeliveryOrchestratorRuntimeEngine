@@ -27,7 +27,6 @@ import ntpath
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import tempfile
 from uuid import uuid4
@@ -136,26 +135,6 @@ def fingerprint(value: dict) -> str:
     ).hexdigest()
 
 
-def local_argv(template: str, *, prompt: str, model: str, worktree: str) -> list[str]:
-    """@brief Tokenize before substitution, keeping spaces/prompts as native data.
-    @param[in] template Explicit argv template, with no shell compounds.
-    @param[in] prompt Full gate instruction.
-    @param[in] model Configured model identifier.
-    @param[in] worktree Native ticket worktree.
-    @return Fresh-session argv.
-    @exception LocalExecutionError Unsupported or malformed argv template.
-    """
-    try:
-        tokens = shlex.split(template)
-        if not tokens or any(token in {"&&", "||", ";", "|", ">", "<", "&"} for token in tokens):
-            raise ValueError
-        result = [
-            token.format(prompt=prompt, model=model, worktree=worktree)
-            for token in tokens
-        ]
-        return [token for token in result if token]
-    except (ValueError, KeyError, IndexError) as exc:
-        raise LocalExecutionError("local executor requires a native argv template") from exc
 
 
 def local_environment(config, context: dict, secrets: dict | None = None) -> dict[str, str]:
@@ -188,6 +167,11 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
         USERNAME=context["account"],
         PYTHONIOENCODING="utf-8",
     )
+    from adore.pi_installation import bundled_tool_path
+
+    tools = bundled_tool_path()
+    if tools:
+        env["PATH"] = tools + os.pathsep + env["PATH"]
     approved = set(secret_names(config.executor, "local"))
     env.update({key: value for key, value in (secrets or {}).items() if key in approved
                 and key.upper() not in {name.upper() for name in env}

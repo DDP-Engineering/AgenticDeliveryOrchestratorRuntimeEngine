@@ -5,76 +5,70 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Preparation component
+# Component: Preparation planning
 
-## 1. Purpose
+## Purpose and source ownership
 
-Resolve closed reviewed preparation plans before executable project effects.
+`04_Software/adore/preparation.py` resolves one reviewed execution plan before
+project execution. It owns selection/recipe parsing, image precedence, closed
+policy validation and non-secret plan fingerprints. The backend executes the
+plan; the conductor owns recovery and authorization to replay it.
 
-## 2. Responsibilities
+## Public contract and processing
 
-`parse_selection`, `parse_recipe`, `resolve_plan`, `validate_plan`, `preview_plan`, `public_plan` and `effective_probe_config` validate exact Git source, image precedence, fixed-depth grammar, closed persisted policy and non-secret SHA-256 identity. Every job is validated; unsupported syntax raises `PreparationError`. Configuration apply and the conductor share this authority.
+`parse_selection`, `parse_recipe`, `resolve_plan`, `validate_plan`, `preview_plan`,
+`public_plan` and `effective_probe_config` share the same normalized authority.
+Resolution follows typed configuration → exact regular Git blob where selected
+→ complete grammar validation → fingerprinted plan. Preview performs no install,
+fetch, model call or image pull.
 
-## 3. Implementation Overview
+Every job receives a plan. Containers can select the published bounded recipe
+subset or no recipe; local plans use backend=local, image_source=local and empty
+image/selection/steps. Preparation commands execute only in containers. A local
+backend being available does not make container recipe steps native commands.
 
-Typed selection → exact regular Git blob → complete grammar validation → normalized fingerprinted plan. No install, fetch, model call or image pull occurs in preview.
-
-## 4. Dependencies
-
-Python standard library; typed configuration, injectable command runner and
-container isolation. The execution runner requires Python 3 and POSIX sh in the
-selected locally available image. Core package dependencies remain empty.
-
-## 5. Inputs And Outputs
-
-Typed profile, exact tracked source selection, pinned plan and owned target.
-Outputs are normalized plans or bounded timestamped step results. Secret values
-remain in memory/environment and are excluded from plan policy/fingerprints.
-
-## 6. Data Contracts
-
-The closed version-1 grammar, profile limits, source/image precedence and schema-1
-additive recovery record are defined in
+The closed version-1 grammar, limits and source/image precedence are specified in
 [Container preparation](../01_Documentation/Container_Preparation.md).
-Malformed external source, JSON, identity, receipts or persisted evidence fails
-closed. Successful resume requires the original plan, image/container IDs and
-intact immutable receipts; ordinary retry cannot replay partial setup.
+Unsupported syntax, changed source, invalid image identity, unknown keys or
+corrupt persisted evidence raise `PreparationError`/the caller's typed refusal.
+No earlier-plan reader or automatic rewriting is supplied.
 
-## 7. Workflow Integration
+## Policy and persisted evidence
 
-Plan resolution precedes worktree creation and setup. Provision/tool checks/auth
-staging precede setup; setup precedes every AEGIS/AI gate. CLI plan preview and runtime checks use the same
-plan resolver. Host and explicit model checks normalize the image without running
-project preparation. Owned cancel/delete boundaries preserve shared caches/images.
+The plan binds complete non-secret execution policy: backend, selected image and
+source, provider/model/endpoint, thinking, internet/search and
+additional credential names, plus backend-specific native identity where relevant.
+Secret values never enter policy/fingerprints. Changes to pinned authority require
+a fresh job rather than a silent Retry update.
 
-## 8. Usage
+Enabled container system-package policy carries canonical system_packages=true;
+disabled policy omits that field. Unknown or noncanonical values are refused.
+Recipe selection and package-install permission are separate operations.
+See [Package permissions](Component_Package_Permissions.md).
 
-See `config plan`, reviewed `execution.preparation` selection and explicit
-`retry --reprepare` in [Container preparation](../01_Documentation/Container_Preparation.md).
+The closed run execution record includes the validated plan even when preparation
+is disabled. Not-required status has zero attempts and empty step/history evidence.
+Resource identity is recorded after provisioning. Resume verifies the original
+plan, image/container IDs and immutable receipts. A corrupt record is refused with
+explicit affected-store removal guidance, never completed with defaults.
 
-## 9. Validation And Tests
+## Integration and limits
 
-Focused offline contract proof: `tests/test_preparation.py`. Source and runtime boundaries are
-injected; no real Git/container/model/forge acceptance runs in these tests.
+CLI `config plan`, configuration review/apply, readiness and the conductor share
+the resolver. Provision/tool checks/auth staging precede setup; successful setup
+precedes agent work. Host/model diagnostics normalize the selected image without
+executing project preparation. Explicit `retry --reprepare` is the bounded replay
+authorization; ordinary Retry cannot repeat partially applied steps.
 
-## 10. Limitations And Future Work
+Project recipes cover the documented subset, not a general CI workflow engine.
+Interrupted steps can leave retained worktree effects and require operator
+inspection. Project-specific image building is external; shared runtime prerequisite
+preparation remains separate. See [Execution](Component_Execution.md) and
+[Project images](Component_Project_Images.md).
 
-Only the container adapter is enabled. Local execution (#21) supplies backend-native
-transport; ADORE builds no images, container images are managed outside it.
-Recipes are the published subset, not general Actions compatibility. Interrupted
-setup needs operator inspection and explicit bounded replay, with retained
-worktree partial effects and no exactly-once guarantee.
+## Dependencies and validation coverage
 
-## Native execution contract
-
-Local plans use backend=local, empty image/selection/steps and image_source=local. Closed local policy fingerprints machine/account/environment/executable without commands. Container policy keys and fingerprints retain their established shape.
-
-See [Local execution](../01_Documentation/Local_Execution.md) and
-[Local execution component](Component_Local_Execution.md). Focused native proof:
-`04_Software/tests/test_local_execution.py`.
-
-## Agent-controlled system packages
-
-Enabled container policies carry canonical system_packages=true; disabled policies omit the field, preserving legacy fingerprints. validate_plan rejects noncanonical booleans and unknown fields. Optional recipe parsing and commands retain their contracts. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
-
-The execution policy pins the complete non-secret Pi configuration: provider, model, endpoint, internet switch, web search, container command preset and additional secret names. Changing network/provider authority changes the fingerprint and requires a fresh job; stored plans must match the current closed structure. No earlier-plan reader or migration is supplied.
+The planner uses standard-library parsing/hashing, typed configuration and injected
+Git command execution. Existing `04_Software/tests/test_preparation.py`,
+`test_preparation_lifecycle.py` and `test_local_execution.py` cover the public
+planning and replay boundaries offline.

@@ -5,6 +5,12 @@ Un exécuteur est ce qu’ADORE lance pour chaque tâche : l’agent de programm
 
 **Effort de raisonnement** propose les niveaux pris en charge par le modèle dans le catalogue Pi fourni. La valeur par défaut laisse Pi choisir. Les modèles absents et les points personnalisés ne peuvent pas déclarer de niveaux non pris en charge. Le choix vaut pour les tâches et le test de connexion IA.
 
+Les nouveaux projets OpenAI utilisent initialement le modèle `gpt-6.1-terra`. Les choix des projets existants restent inchangés.
+
+Le catalogue de modèles fourni provient de Pi 1.5.2 et inclut GPT-6.1 Terra.
+
+La livraison Windows/Linux propose des archives offline et online. Offline inclut Node, Pi, son extension web et les outils de recherche. Online inclut Python et les dépendances de l’application ; l’exécution native nécessite Node.js 22.23.4+ (22.x) avec npm préparé séparément, puis `pi install` avec Internet ; Node n’est pas téléchargé automatiquement. Les images de conteneurs sont des archives séparées à importer avec Docker ou Podman, sans compilation ni registre sur la cible. Les installations depuis les sources nécessitent toujours la préparation documentée. Les fournisseurs IA et dépôts distants nécessitent le réseau.
+
 ## Ce qu’est un exécuteur {#what}
 
 Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copie de travail isolée, et Pi suit les étapes AEGIS du dépôt avec le fournisseur et le modèle configurés. ADORE utilise le Pi intégré à l’image dans un conteneur et son installation gérée de Pi pour les tâches sur le serveur.
@@ -14,7 +20,7 @@ Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copi
 Ouvrez **Paramètres → Agent et modèle**. Modifiez ensemble **Fournisseur**, **Modèle** et, pour un point de terminaison, **URL de base du point de terminaison** et **Type d’API du point de terminaison** en une seule modification à relire.
 
 - **Fournisseur** : un fournisseur Pi à clé API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral et d’autres), **Abonnement ChatGPT** ou **Point de terminaison compatible OpenAI**.
-- **Modèle** : choisissez dans la liste de Pi pour ce fournisseur ou saisissez tout ID de modèle accepté par le fournisseur, par exemple `gpt-5.4`. La liste accompagne la version de Pi fournie par ADORE et se lit sans accès à internet. Il n’y a pas de modèle universel par défaut.
+- **Modèle** : choisissez dans la liste de Pi pour ce fournisseur ou saisissez tout ID de modèle accepté par le fournisseur, par exemple `gpt-6.1-terra`. La liste accompagne la version de Pi fournie par ADORE et se lit sans accès à internet. Il n’y a pas de modèle universel par défaut.
 - **Abonnement ChatGPT** : Pi utilise le compte ChatGPT Plus ou Pro auquel ce serveur ADORE est connecté, voir [Se connecter avec ChatGPT](#chatgpt). La liste propose les modèles servis par un abonnement ChatGPT, par exemple `gpt-5.6-luna`.
 
 **Enregistrer** sauvegarde les paramètres ensemble après confirmation des effets importants ; voir [Paramètres du projet](/help/settings#editing) pour suspendre la surveillance. ADORE lance un nouveau processus Pi par étape et l’arrête en cas de délai dépassé ou d’annulation.

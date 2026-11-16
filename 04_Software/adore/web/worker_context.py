@@ -54,7 +54,8 @@ class WorkerContext:
             if operation is None:
                 raise OwnershipError("worker ownership operation is missing")
             self.request_identity = {key: operation[key] for key in (
-                "actor_id", "project_id", "domain", "action", "run_id", "resource_key")}
+                "actor_id", "project_id", "domain", "action", "run_id", "resource_key",
+                "workflow")}
             resource = operation["resource_key"]
             if resource.startswith("job:"):
                 self.command_run_id = resource[4:]
@@ -188,6 +189,8 @@ class WorkerContext:
                    "profile" if action == "delete" else action)
         if args.command != command or getattr(args, "config", None):
             raise OwnershipError("worker ownership command mismatch")
+        if getattr(args, "workflow", None) != operation.get("workflow"):
+            raise OwnershipError("worker ownership workflow mismatch")
         if action == "delete":
             valid = (getattr(args, "profile_action", None) == "delete"
                      and getattr(args, "name", None) == operation["project"]

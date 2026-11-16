@@ -5,65 +5,65 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Bounded container timeout recovery
+# Settle timed-out container commands before reuse
 
-Shared implemented protocol for the four requirements linked by TASK-f6de6c0b.
+This specification describes the current implemented contract.
 
-## Observable behavior
+## Behavior and boundaries
 
-A bound container timeout is a distinct outcome from an ordinary nonzero exit,
-including exit 124. Recovery confirms that no process from the timed-out
-execution remains before permitting another bound command. The original command
-result retains its exit, timeout and captured stream fields.
+### [REQ-DATA-62052e16](../requirements/data/REQ-DATA-62052e16.toml) — Preserve the original timeout result after container recovery
 
-The existing owned container, image, persistent files, user and egress authority
-remain intact. Recovery does not remove or replace resources or install tools.
-Normal command completion retains its established behavior.
+After successful timeout recovery, the execution backend shall return the original command's timeout status and result data unchanged.
 
-Identity drift, corrupt runtime evidence, or failed cleanup/restart produces a
-typed recovery error; the active recovery sequence does not admit a new command
-under unconfirmed ownership or quiescence. Existing native execution behavior,
-operator cancellation/release and preparation replay contracts remain separate.
+Verification scope: Public bound-target tests compare timeout, exit and captured stream fields before and after successful recovery, including a timeout carrying a nonstandard exit; normal non-timeout exit 124 remains a non-timeout result.
 
-## Authority and data
+### [REQ-FUNC-bff135e2](../requirements/functional/REQ-FUNC-bff135e2.toml) — Settle timed-out container commands before reuse
 
-The public shared bound target receives the run name and optional expected
-container/image identity. Runtime evidence is authoritative only after the
-existing bounded strict identity parser accepts it. Control commands address the
-admitted immutable resource rather than a replaceable name. No new profile or
-persisted run-state field is intended; the existing
-lifecycle and fatal recovery paths are retained.
+When a bound container command reports a timeout, the execution backend shall quiesce that command's remaining container processes before admitting a subsequent bound command.
 
-## Verification
+Verification scope: Offline public bound-target tests inject a timeout and observe verified quiescence before later execution; ordinary completion and a normal exit 124 do not trigger timeout recovery. Controlled disposable Docker acceptance confirms the original timed-out writer is absent before a later command.
 
-Offline public bound-target fixtures use injected command runners and inspect
-normal/timeout ordering, preserved result values and same-resource recovery.
-They reject changed IDs/images, corrupt or unexpected status evidence, failed
-interrupt/restart and subsequent unsafe execution. Native/preparation, package
-policy and ordinary exit controls are regression seams.
+### [REQ-REL-d8e08cca](../requirements/reliability/REQ-REL-d8e08cca.toml) — Preserve owned container state during timeout recovery
 
-A controlled Docker fixture uses a temporary IO mount and cached image under
-network none. A deliberately timed-out child writer establishes current runtime
-behavior; the fixed path must prevent that writer continuing into a later
-command, preserve the resource/image/network/user and an installed-state marker,
-and clean up only the disposable fixture. This acceptance is operator work,
-never real Git/Docker in unit tests.
+During timeout recovery, the execution backend shall preserve the original container identity, image, persistent filesystem and configured execution authority.
 
-## Recovery protocol
+Verification scope: Offline lifecycle tests admit same-resource recovery without create/remove/policy mutations; controlled Docker acceptance compares resource/image/network/user identity and a filesystem marker before and after recovery.
 
-The current running identity is captured before dispatch. Supplied pins must
-match it; legacy unpinned commands still capture an immutable invocation target.
-The command addresses that ID. Normal non-timeout results do not change runtime
-lifecycle.
+### [REQ-REL-ea593cbb](../requirements/reliability/REQ-REL-ea593cbb.toml) — Reject unsafe container timeout recovery evidence
 
-On timed_out, the backend marks admission blocked while verifying the original
-identity, requests bounded interruption of that exact ID and requires a same-ID,
-same-image exited receipt. It then retains a pending restart and returns the
-original result. A later bound command/provision verifies the stopped original,
-starts that ID and verifies running identity before dispatch. Unconfirmed or
-failed recovery remains a typed error with blocked active admission.
+If container identity or timeout recovery cannot be confirmed, the execution backend shall reject further bound execution with a typed recovery error.
 
-Operator stop/interrupt/remove cancels pending automatic restart. The conductor
-checks cancellation before finalizing an infrastructure recovery failure. No
-new persisted state or configuration is added; existing crash and explicit
-operator recovery contracts remain authoritative.
+Verification scope: Injected runtime tests provide changed resource/image identities, corrupt receipts and failed interruption or restart; observe a typed recovery error without signalling a replacement or dispatching a later bound command.
+
+## Implementation
+
+- `04_Software/adore/execution.py`
+- `04_Software/adore/executor/launcher.py`
+- `04_Software/adore/orchestrator.py`
+- `04_Software/adore/release_notes.toml`
+- `04_Software/adore/web/static/assets/`
+- `04_Software/adore/web/static/index.html`
+- `04_Software/web/src/help/content/de/jobs.md`
+- `04_Software/web/src/help/content/en/jobs.md`
+- `04_Software/web/src/help/content/fr/jobs.md`
+- `04_Software/web/src/help/content/ro/jobs.md`
+
+## Associated tests
+
+These links identify test definitions; they are not a claim that a test run passed.
+
+- `04_Software/tests/test_container_timeout.py::test_bound_commands_address_the_admitted_immutable_id`
+- `04_Software/tests/test_container_timeout.py::test_changed_caller_pins_cannot_restart_pending_recovery`
+- `04_Software/tests/test_container_timeout.py::test_failed_admission_stays_blocked_until_operator_uses_a_fresh_backend`
+- `04_Software/tests/test_container_timeout.py::test_normal_provision_resumes_a_confirmed_timeout_resource`
+- `04_Software/tests/test_container_timeout.py::test_operator_interrupt_during_restart_prevents_executor_dispatch`
+- `04_Software/tests/test_container_timeout.py::test_operator_stop_cancels_pending_automatic_restart`
+- `04_Software/tests/test_container_timeout.py::test_ordinary_exits_do_not_trigger_timeout_recovery`
+- `04_Software/tests/test_container_timeout.py::test_pi_rpc_timeout_settles_container_before_next_gate`
+- `04_Software/tests/test_container_timeout.py::test_recovery_preserves_timeout_result_fields`
+- `04_Software/tests/test_container_timeout.py::test_rpc_timeout_does_not_interrupt_a_replacement_after_unpinned_spawn`
+- `04_Software/tests/test_container_timeout.py::test_timeout_parks_then_resumes_the_original_container`
+- `04_Software/tests/test_container_timeout.py::test_unconfirmed_recovery_is_terminal_without_another_executor_attempt`
+- `04_Software/tests/test_container_timeout.py::test_unconfirmed_restart_blocks_the_next_executor`
+- `04_Software/tests/test_container_timeout.py::test_unconfirmed_timeout_cleanup_blocks_later_bound_execution`
+- `04_Software/tests/test_container_timeout.py::test_untrusted_initial_identity_dispatches_no_command`

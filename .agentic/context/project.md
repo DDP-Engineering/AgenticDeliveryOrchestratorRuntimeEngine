@@ -19,11 +19,11 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 ## Purpose and users
 
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts a team's
-opt-in GitHub, GitLab or Gitea tickets. CLI/configured repositories without
-`.agentic/aegis.py` use bounded fresh direct implementation attempts. The agent
+opt-in GitHub, GitLab or Gitea tickets. New jobs resolve the auto/direct project default or a manual aegis/direct choice.
+Direct skips AEGIS even when installed and uses bounded implementation attempts in one job conversation. The agent
 selects and reports repository checks; ADORE records completion and candidate
-evidence without independently rerunning repository suites. A present unsupported or
-broken payload is refused without fallback. Web enrollment accepts repositories
+evidence without independently rerunning repository suites. In automatic or explicit AEGIS mode, a present unsupported or
+broken payload is refused without fallback; explicit AEGIS also refuses absence. Web enrollment accepts repositories
 with or without AEGIS. Enrollment and Settings explain that the agent owns
 repository checks; no independent repository-test command is configured or run.
 API and browser readiness report a separate
@@ -36,7 +36,7 @@ evidence without an AEGIS task, plus the last recorded executor attempt and
 agent-reported completion and summary. Unknown workflows and corrupt direct
 evidence fail closed; current configuration cannot replace saved results.
 Four-locale Jobs and Settings help map direct stage limits to build/validate with general fallback.
-In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
+In an AEGIS-governed repository it restarts a bounded executor process per AEGIS stage in one job conversation inside an
 isolated branch/worktree with container or native local execution, observes the agent-owned completion evidence,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval when configured, or automatically after validation and freshness checks when disabled. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
 Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while the inactive scope-hint control is omitted.
@@ -182,7 +182,7 @@ protects the worktree from routine cleanup and further autonomous execution.
   and never merges; `delivery.draft` selects draft (`true`, default) or ready (`false`) creation.
 - Secrets live only in the process environment or a gitignored `.env`.
 - Version assignment, packaging and delivery are repository operations outside
-  AEGIS scope, checked by `02_Tools/internal/check_release_consistency.py`. This
+  AEGIS scope, checked by `02_Tools/package/release_checks/check_release_consistency.py`. This
   repository's own `.agentic/` companion does not ship in the runtime bundle.
 - Code follows `01_Documentation/Code_Style.md`. Each component keeps a
   contract in `05_SoftwareDocu/` and a page in `.agentic/knowledge/`, updated
@@ -201,7 +201,7 @@ duplicate identities while genuine absence remains missing; no schema/timestamp 
   environment verification. The durable queue owns actual command outcomes.
 - `04_Software/web/` is the build-time React source; the packaged static build
   lives in `04_Software/adore/web/static/`.
-- `02_Tools/deploy/` holds the host installers and systemd unit;
+- `02_Tools/setup/` holds the host installers and systemd unit;
   `04_Software/docker/` holds the executor base and egress-proxy images.
 - `01_Documentation/` is operator documentation, `05_SoftwareDocu/` holds
   component contracts, `02_Tools/` holds release tooling, `07_Delivery/` holds
@@ -213,7 +213,7 @@ duplicate identities while genuine absence remains missing; no schema/timestamp 
 
 - `README.md` - product summary, current release and repository layout.
 - `01_Documentation/README.md` - operator guide index; start with
-  `Getting_Started.md` and `Integrating_A_Runtime_Project.md`.
+  `Getting_Started.md` and `Operations_Guide.md`.
 - `01_Documentation/Configuration_Reference.md` and `CLI_Reference.md` - every
   setting and command.
 - `01_Documentation/Security_And_Credentials.md` - credential placement and
@@ -380,7 +380,7 @@ Companion updates do not renumber ADORE or replace project payloads.
 
 ## Agent-controlled container packages
 
-Explicit container.system_packages enables direct noninteractive package-manager sudo by the normal agent, independent of egress. The conductor pins authority and resource IDs even without recipes and preserves existing stage limits and forge boundaries. Settings reviews the separate boolean; false preserves legacy authority. See knowledge/package-permissions.md and 01_Documentation/Agent_Dependency_Installation.md.
+Explicit container.system_packages enables direct noninteractive package-manager sudo by the normal agent, independent of egress. The conductor pins authority and resource IDs even without recipes and preserves existing stage limits and forge boundaries. Settings reviews the separate boolean; false preserves legacy authority. See knowledge/package-permissions.md and 01_Documentation/Security_And_Credentials.md.
 
 
 ## Container Git context
@@ -511,3 +511,10 @@ Shared instruction API errors have explicit en/fr/de/ro messages, while the comp
 retains contextual copy. Native and image Pi guards share the project-policy explanation
 and unchanged publication/trust rules. The settings key inventory is lexically sorted
 with exact membership; reviewed environment responses retain202 even when already ready.
+
+Pi keeps one private implementation conversation for each job, using its own
+persistence and compaction across bounded RPC processes. Stage checkpoints,
+limits, cancel/Retry and per-attempt token renewal remain. Exact path/identity
+checks refuse missing/corrupt required history. Unchanged ticket and old journal
+logs are omitted from continuation prompts. Attempt archives and usage contain
+only new activity. Existing AEGIS review policy alone requires separate reviewers.

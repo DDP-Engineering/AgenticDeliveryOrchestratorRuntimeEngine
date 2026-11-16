@@ -380,10 +380,12 @@ def test_readiness_probe_requires_admin_csrf_and_valid_config(tmp_path):
                            headers={"X-CSRF-Token": dev_csrf}).status_code == 403
 
 
+@pytest.mark.parametrize("mode", ["auto", "direct"])
 @pytest.mark.parametrize("backend", ["container", "local"])
 @pytest.mark.parametrize("files,workflow", [([], "direct"), (["aegis.toml"], "direct"),
     (["aegis.py"], "aegis"), (["aegis.py", "aegis.toml"], "aegis")])
-def test_workflow_is_read_only_file_information(tmp_path, monkeypatch, backend, files, workflow):
+def test_workflow_is_read_only_file_information(
+        tmp_path, monkeypatch, backend, files, workflow, mode):
     """@brief Both backends inspect only aegis.py and leave clone bytes untouched."""
     import adore.local_execution as local_execution
 
@@ -410,6 +412,8 @@ def test_workflow_is_read_only_file_information(tmp_path, monkeypatch, backend, 
         text += '\n[local]\naccount = "current"\n'
         monkeypatch.setattr(local_execution, "probe_local_executor", lambda *a, **kw:
                             {"ready": True, "reason": "ready", "exit_code": 0})
+    text = text.replace('mode = "auto"', f'mode = "{mode}"')
+    workflow = "direct" if mode == "direct" else workflow
     path.write_text(text, encoding="utf-8")
     before = {str(p.relative_to(clone)): p.read_bytes() for p in clone.rglob("*") if p.is_file()}
     calls = []
@@ -422,6 +426,8 @@ def test_workflow_is_read_only_file_information(tmp_path, monkeypatch, backend, 
     with TestClient(module.create_app(profiles.home, probe_runner=runner)) as client:
         csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
                            ).json()["csrf"]
+        selection = client.get("/api/v1/projects/alpha/workflow-selection").json()
+        assert selection == {"default": workflow, "aegis_available": "aegis.py" in files}
         result = client.post("/api/v1/projects/alpha/readiness-check",
                              headers={"X-CSRF-Token": csrf})
         assert result.status_code == 200, result.text

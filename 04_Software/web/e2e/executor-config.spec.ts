@@ -11,7 +11,6 @@ import {chatgptCopy} from "../src/chatgptCopy";
 import {errorMessages} from "../src/errors";
 import {test, expect} from "@playwright/test";
 
-const PI_PRESET="pi -p --mode json --model {model} {prompt}";
 
 test("executor workspace owns model, credentials and coherent evidence", async ({page}) => {
  await page.context().route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
@@ -19,9 +18,8 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
  const projects=await (await page.request.get("/api/v1/projects")).json();
  const id=projects.find((p:{name:string})=>p.name==="alpha").id;
- await page.goto(`/projects/${id}/executor`);
+ await page.goto(`/projects/${id}/configuration`);
  await expect(page.getByRole("tab",{name:"Settings",exact:true})).toHaveAttribute("aria-selected","true");
- await expect(page.getByRole("tab",{name:"Executor configuration",exact:true})).toHaveCount(0);
  await page.getByText(/^Agent and model \(\d+\)$/).click();
  await page.locator('[data-setting-topic="authentication"] > summary').click();
  await expect(page.getByRole("button",{name:"Edit Model",exact:true})).toBeVisible();
@@ -37,17 +35,6 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  expect(titleBox && testBox).toBeTruthy();
  expect(testBox!.x).toBeGreaterThan(titleBox!.x+titleBox!.width);
  expect(Math.abs((testBox!.y+testBox!.height/2)-(titleBox!.y+titleBox!.height/2))).toBeLessThan(10);
- // Pi is the only coding agent: no agent choice and no agent sign-in hint.
- await expect(panel.getByRole("button",{name:"Edit Default coding agent",exact:true})).toHaveCount(0);
- await expect(panel.getByLabel("Default coding agent",{exact:true})).toHaveCount(0);
- await expect(panel.getByText("Subscription or browser sign-in",{exact:true})).toHaveCount(0);
- await expect(panel).not.toContainText(".pi/agent");
- await panel.getByRole("button",{name:"Edit Executor launch command",exact:true}).click();
- const command=panel.getByLabel("Executor launch command",{exact:true});
- await expect(command).toHaveJSProperty("tagName","SELECT");
- await command.selectOption(PI_PRESET);
- await expect(page.locator(".settings-save-bar")).toHaveCount(0);
- await panel.getByRole("button",{name:"Cancel",exact:true}).click();
  await page.getByLabel("Credential variable",{exact:true}).selectOption("OPENAI_API_KEY");
  await page.getByLabel("API key",{exact:true}).fill("offline-private-key");
  await page.getByRole("button",{name:"Save API key",exact:true}).click();
@@ -65,42 +52,6 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  await expect(page.getByRole("heading",{name:"Provider API key",exact:true})).toHaveCount(1);
 });
 
-for (const user of ["admin", "developer"]) {
- test(`executor preset editor preserves current commands and role boundaries ${user}`, async ({page}) => {
-  await page.context().route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
-  await page.goto("/"); await page.getByLabel("Username",{exact:false}).fill(user); await page.getByLabel("Password",{exact:false}).fill(user === "admin" ? "admin" : "test-password"); await page.getByRole("button",{name:"Sign in",exact:true}).click();
-  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
-  const projects=await(await page.request.get("/api/v1/projects")).json();
-  const id=projects.find((p:{name:string})=>p.name==="alpha").id;
-  const config=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
-  const current="pi -p --mode json --model {model} --thinking medium {prompt}";
-  config.config.executor.command=current;
-  await page.route("**/projects/*/config", route=>route.fulfill({json:config}));
-  await page.goto(`/projects/${id}/executor`);
-  await expect(page.getByRole("tab",{name:"Agent and model",exact:true})).toHaveCount(0);
-  await page.getByText(/^Agent and model \(\d+\)$/).click();
-  const panel=page.locator("#project-settings");
-  await expect(panel.getByRole("heading",{name:"AI connection",exact:true})).toBeVisible();
-  await expect(panel).toContainText(current);
-  if (user === "admin") {
-   await panel.getByRole("button",{name:"Edit Executor launch command",exact:true}).click();
-   const command=panel.getByLabel("Executor launch command",{exact:true});
-   await expect(command).toHaveValue(current);
-   await expect(page.locator(".settings-save-bar")).toHaveCount(0);
-   await command.selectOption(config.settings.find((s:{key:string})=>s.key==="executor.command").choices[0]);
-   await expect(settingsSave(page)).toBeEnabled();
-   await panel.getByRole("button",{name:"Cancel",exact:true}).click();
-   await page.setViewportSize({width:390,height:844});
-   const box=await panel.getByRole("button",{name:"Test AI connection",exact:true}).boundingBox();
-   expect(box!.x+box!.width).toBeLessThanOrEqual(390);
-   await page.screenshot({path:"test-results/executor-unified-mobile.png",fullPage:true});
-  } else {
-   await expect(panel.getByRole("button",{name:/^Edit /})).toHaveCount(0);
-   await expect(panel.getByRole("button",{name:"Test AI connection",exact:true})).toHaveCount(0);
-   await expect(panel.locator("#executor-credentials")).toHaveCount(0);
-  }
- });
-}
 
 
 test("current model evidence remains coherent in Summary and host check details",async({page})=>{
@@ -272,7 +223,7 @@ test("estimated prices live in Agent and model for administrators only",async({p
  const config=(await (await page.request.get(`/api/v1/projects/${project.id}/config`)).json()).config;
  const model=config.executor?.model ?? "";
  expect(model).not.toBe("");
- await page.goto(`/projects/${project.id}/prices`);
+ await page.goto(`/projects/${project.id}/configuration`);
  await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/configuration$`));
  await expect(page.getByRole("tab",{name:"Settings",exact:true})).toHaveAttribute("aria-selected","true");
  await expect(page.getByRole("tab",{name:"Prices",exact:true})).toHaveCount(0);
@@ -308,7 +259,7 @@ test("an administrator signs the server in with ChatGPT and disconnects it",asyn
   await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
   await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
   const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
-  await page.goto(`/projects/${id}/executor`);await page.getByText(/^Agent and model \(\d+\)$/).click();
+  await page.goto(`/projects/${id}/configuration`);await page.getByText(/^Agent and model \(\d+\)$/).click();
   await page.locator('[data-setting-topic="authentication"] > summary').click();
   const panel=page.locator("#chatgpt-sign-in"),c=chatgptCopy.en;
   await expect(panel.getByRole("heading",{name:c.title,exact:true})).toBeVisible();

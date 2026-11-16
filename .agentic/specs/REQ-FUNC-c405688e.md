@@ -5,24 +5,69 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Agent-controlled system packages
+# Direct agent package installation
 
-## Interface and authority
+This specification describes the current implemented contract.
 
-`[container] system_packages = false` is a strict boolean, enabled only by explicit operator configuration. Native execution rejects true. False retains the image authority; it does not claim to revoke arbitrary custom-image privileges. True authorizes direct noninteractive `sudo -n` package managers, retaining agent reasoning, command outputs and existing stage limits. It never changes egress or exposes forge credentials.
+## Behavior and boundaries
 
-The runtime measures a non-root numeric UID and configures a root-owned 0440 sudoers file inside the owned container. Supported installed absolute manager paths are apt-get, apt, dpkg, dnf, yum, apk, pacman and zypper. Package-manager hooks/scripts have effective container-root authority. Privileged containers, host namespace overrides, additional mounts/devices/capabilities and user/environment/entrypoint overrides are incompatible with this managed mode. Normal rootless Podman keep-id is supported.
+### [REQ-FUNC-c405688e](../requirements/functional/REQ-FUNC-c405688e.toml) — Direct agent package installation
 
-## State and recovery
+When container system-package permission is enabled for a run, ADORE shall authorize the executor guard only in its verified owned container and confirm the change before further execution. The permission is part of the pinned execution policy and does not grant host installation, network changes or unrelated privilege overrides.
 
-Only enabled policies add `system_packages = true` to the container policy; disabled policies omit this optional true marker. Enabled jobs use the existing execution record, status not-required without a recipe, and actual container/image IDs. The status describes recipe execution only, never installed package readiness. Resource/policy drift fails closed; an absent resource requires a fresh job or existing explicit recipe recovery. Same-resource authorization may be repeated, never package installation itself. Existing custom images must supply sudo, visudo and a supported manager; ADORE does not download them.
+Verification scope: Exercise enabled/disabled package permission and owned-container confirmation with injected runtime results; reject missing/failed confirmation and host or privilege overrides.
 
-## Verification
+### [REQ-REL-6922cfe5](../requirements/reliability/REQ-REL-6922cfe5.toml) — Pinned package-enabled execution recovery
 
-Offline injected commands prove authorization uses only the owned container, preserves all egress modes, and never executes an installation on the server. Negative cases cover root/malformed UID, missing tools, root bootstrap nonzero/timeout, drift/corrupt state, local mode and unsafe runtime arguments. API/frontend tests prove reviewed boolean configuration, local hiding, four locales and independent network values. Live installation is separate operator acceptance; do not claim it from mocked commands.
+When a package-enabled job is resumed, ADORE shall bind installation authority to its persisted policy and exact container/image identities, failing explicitly on drift or resource loss rather than assuming the prior installed environment exists.
 
-## Retained output and authentication
+Verification scope: Offline conductor and persisted-state tests cover same-container resume, policy changes, replaced/missing resources and corrupt package permission fields, with both enabled and disabled current package-permission policies.
 
-Enabled RPC gates keep returned operational tails, stderr and questions sanitized and bounded at 64 KiB. Their separate session stdout preserves literal bounded events, including known API keys and ephemeral stage access tokens that the agent printed, and archives without post-gate rewriting. The shared reader authorizes job readers and excludes system messages. Complete original usage remains authoritative. Native RPC shares this policy; non-RPC file-protocol streams retain their sanitized 64 KiB bounds. The refresh token and server sign-in stay outside the job container.
+### [REQ-SEC-c5d56d9f](../requirements/security/REQ-SEC-c5d56d9f.toml) — Independent package and network authority
 
-Operational limits count encoded UTF-8 bytes after sanitization. RPC archives copy the literal bounded session file, independently of returned operational tails. Non-RPC archives encode sanitized retained streams without newline expansion. Original usage remains authoritative.
+When administrative package installation is enabled for a container, ADORE shall preserve its separately configured open, none or allowlist-proxy egress and host/forge credential boundaries.
+
+Verification scope: Offline Docker, Podman and WSL argv tests cover all three egress modes with package authorization; unsafe container overrides and local-backend elevation are refused.
+
+### [REQ-UX-812acd4b](../requirements/ux/REQ-UX-812acd4b.toml) — Reviewed package installation permission
+
+When an administrator configures a container project, ADORE shall expose a separately reviewed boolean permission for agent system package installation, defaulting to disabled without changing network settings.
+
+Verification scope: Offline API tests inspect metadata, stage/apply an exact boolean candidate with paused idle guards, and reject malformed/unauthorized/stale requests; frontend tests verify localized container-only visibility.
+
+## Implementation
+
+- `04_Software/adore/config.py`
+- `04_Software/adore/execution.py`
+- `04_Software/adore/executor/base.py`
+- `04_Software/adore/executor/launcher.py`
+- `04_Software/adore/isolation.py`
+- `04_Software/adore/orchestrator.py`
+- `04_Software/adore/package_permissions.py`
+- `04_Software/adore/preparation.py`
+- `04_Software/adore/state.py`
+- `04_Software/adore/web/app.py`
+- `04_Software/docker/Dockerfile.executor-base`
+- `04_Software/tests/test_system_packages.py`
+- `04_Software/web/e2e/system-packages.spec.ts`
+- `04_Software/web/src/App.tsx`
+- `04_Software/web/src/executorSettings.ts`
+- `04_Software/web/src/settingHelp.ts`
+- `04_Software/web/src/settingKeys.json`
+- `04_Software/web/src/settings.ts`
+- `04_Software/web/tests/systemPackages.test.mjs`
+
+## Associated tests
+
+These links identify test definitions; they are not a claim that a test run passed.
+
+- `04_Software/tests/test_system_packages.py::test_package_authority_fails_closed_on_missing_or_failed_confirmation`
+- `04_Software/tests/test_system_packages.py::test_package_authority_uses_owned_container_without_network_or_host_installs`
+- `04_Software/tests/test_system_packages.py::test_package_execution_policy_fingerprints_permission`
+- `04_Software/tests/test_system_packages.py::test_package_only_state_preserves_exact_resource_without_claiming_recipe_success`
+- `04_Software/tests/test_system_packages.py::test_package_permission_rejects_host_or_privilege_overrides`
+- `04_Software/tests/test_system_packages.py::test_package_permission_rejects_native_host_but_accepts_rootless_keep_id`
+- `04_Software/tests/test_system_packages.py::test_package_plan_rejects_noncanonical_opt_in`
+- `04_Software/tests/test_system_packages.py::test_package_setting_refuses_non_boolean_candidates`
+- `04_Software/tests/test_system_packages.py::test_package_setting_requires_review_and_preserves_network`
+- `04_Software/tests/test_system_packages.py::test_public_retry_pins_package_authority_and_container`

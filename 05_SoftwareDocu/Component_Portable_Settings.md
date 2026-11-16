@@ -15,8 +15,7 @@ reading; enrollment and profile persistence remain separate responsibilities.
 
 ## 2. Responsibilities
 
-Validate complete recognized source structure before the existing lenient
-configuration loader; validate configuration; project only `PORTABLE_FIELDS`;
+Validate complete recognized source structure before typed configuration loading; validate configuration; project only `PORTABLE_FIELDS`;
 encode deterministic schema-1 JSON; reject duplicate/malformed/incompatible
 packages and return fresh portable values. Secrets, identity, host locations,
 access state and references remain outside the format.
@@ -54,7 +53,7 @@ temporary configuration snapshot is automatically removed on success or failure.
 The enumerated allowlist, numeric/list bounds, omissions, new-project default,
 canonical encoding and exact-version compatibility are defined in
 [Portable project settings](../01_Documentation/Portable_Project_Settings.md)
-and the [strict specification](../.agentic/specs/REQ-DATA-9528fad6.md).
+and the current `PORTABLE_FIELDS`/parser in `04_Software/adore/portable_settings.py`.
 Checksum offers change detection only. Input errors never echo source values.
 
 ## 7. Workflow Integration
@@ -62,8 +61,8 @@ Checksum offers change detection only. Input errors never echo source values.
 Admin-only `/config/portable-settings` exports one authoritative active snapshot.
 Optional checksum binding returns a conflict if included values/source changed;
 the API rechecks immutable project ownership after reading/exporting the snapshot.
-The keyed localized browser panel explicitly previews, then fetches and validates
-the unchanged canonical server bytes for download; pending records are not read.
+Portable JSON export is an administrator API operation. The browser exposes
+server-ready TOML and image-source export, not a separate portable JSON panel.
 Target enrollment must supply and confirm target-host configuration separately.
 
 ## 9. Validation And Tests
@@ -72,9 +71,9 @@ Target enrollment must supply and confirm target-host configuration separately.
 projection, nested exclusion, strict schemas/types/bounds, source compatibility,
 duplicates, corrupt checksums/encoding/size/depth. `test_web_portable_settings.py`
 proves Admin snapshot/download and preview binding, Dev/session denial before IO,
-missing/corrupt source errors and pending omission. Frontend helper and offline
-Chromium tests prove safe transport, explicit/failed/late reads, exact downloads,
-four locales and keyboard/390px themes. Live acceptance remains human work.
+missing/corrupt source errors and pending omission. Offline Chromium scenarios
+cover the current raw-configuration export/import interface. Live acceptance
+remains human work.
 
 ## 10. Limitations
 

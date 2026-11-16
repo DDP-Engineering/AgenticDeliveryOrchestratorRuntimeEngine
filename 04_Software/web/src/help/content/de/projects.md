@@ -55,7 +55,7 @@ Bei Bestätigung der geführten Registrierung oder eines Konfigurationsimports b
 
 ## Originalkonfiguration importieren {#import-project}
 
-Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei `config.toml`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau.
+Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei `config.toml`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau. Nur aktuelle Konfigurationsschlüssel werden akzeptiert. Entfernen Sie jeden von der Prüfung genannten nicht unterstützten Schlüssel; ADORE verändert die Datei nicht.
 
 Wählen Sie die vollständige exportierte ZIP direkt: Konfiguration und Image-Definitionen werden zusammen importiert. ADORE prüft auch den Quellgraphen, die Image-Zuordnung und vorhandene Definitionen. Eine andere Definition mit demselben Root-Image-Namen wird abgelehnt. TOML-Dateien dürfen bis zu 512 KiB, ZIPs bis zu 18 MiB groß sein. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei. Siehe [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml).
 
@@ -95,3 +95,7 @@ Die Erkennung beachtet `XDG_CONFIG_HOME`. Unter Windows prüft sie außerdem Loc
 5. Prüfen Sie die Host-Voraussetzungen erneut. Git-Zugangsdaten für clone/push werden getrennt eingerichtet.
 
 Richten Sie auf einem anderen Rechner dessen eigene CLI-Anmeldung ein oder nutzen Sie dieses Formular. Das Lieferarchiv enthält keine Benutzertokens.
+
+## Workflow auswählen {#workflow-choice}
+
+**Ohne AEGIS** überschreibt nur Repository-Anweisungen, die AEGIS-Verfahren verlangen. Andere Code-, Lizenz- und Prüfregeln gelten weiter. Installierte AEGIS-Dateien bleiben erhalten. Direct nutzt Implementierung, Validierung und Fertig; Prüfungen werden vom Agenten gemeldet. Die hier beschriebenen AEGIS-Phasen gelten für **Mit AEGIS**.

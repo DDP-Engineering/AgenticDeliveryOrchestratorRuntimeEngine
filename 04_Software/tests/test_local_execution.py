@@ -90,6 +90,10 @@ def local_fixture(tmp_path, monkeypatch):
             fixture = Path(__file__).parent / "fixtures/pi_rpc/run_connection_test_endpoint.jsonl"
             command = [sys.executable, "-I", str(Path(__file__).with_name("fake_pi_rpc.py")),
                        str(fixture), *self.rpc_options]
+            if "--session" in argv:
+                session = argv[argv.index("--session") + 1]
+                command.extend(["--session-file", session, "--session-path", session,
+                                "--session-cwd", str(cwd)])
             with subprocess.Popen(  # noqa: S603 - repository-owned offline fake
                 command, cwd=cwd, stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -139,9 +143,6 @@ def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
     assert validate_config(config) == []
 
 
-def test_local_backend_is_available_through_the_shared_contract():
-    """@brief Local selection has an adapter on the established backend boundary."""
-    assert hasattr(execution, "LocalBackend"), "local backend adapter is absent"
 
 
 def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path, monkeypatch):
@@ -488,13 +489,13 @@ def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
 
     controller.stream = stream
     pi = managed_pi()
-    executor = PiExecutor("ignored", "model", "questions.md", provider="openai")
+    executor = PiExecutor("model", "questions.md", provider="openai")
     assert executor.cancel_grace_seconds(target) is not None
     result = executor.run_gate(
         target, work, exchange,
         "Connection test. Run echo ADORE_TOOL_" + "a" * 32
         + ". Then reply with exactly: ADORE_OK_" + "b" * 32,
-        timeout=5, archive_stem="native-build",
+        timeout=5, archive_stem="build-attempt-1",
     )
     argv, _, _ = controller.streams[0]
     assert argv[:2] == [str(pi.node), str(pi.cli)]
@@ -505,6 +506,17 @@ def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
     assert result.exit_code == 0 and result.tokens_in and result.tokens_out
     assert result.questions == "operator question: [REDACTED]"
     assert (Path(result.artifact_dirs[0]) / "meta.json").is_file()
+    history = exchange / "pi-conversation/session.jsonl"
+    original = history.read_bytes()
+    resumed = executor.run_gate(target, work, exchange, "Continue this job",
+                                timeout=5, archive_stem="validate-attempt-1")
+    assert resumed.ok and resumed.tokens_in == result.tokens_in
+    assert resumed.tokens_out == result.tokens_out and "differ" not in resumed.stderr
+    assert history.read_bytes().startswith(original)
+    assert len(agent_dirs) == 2 and agent_dirs[0] != agent_dirs[1]
+    assert all(not path.exists() for path in agent_dirs)
+    assert controller.streams[0][0][-4:] == controller.streams[1][0][-4:]
+    assert controller.streams[0][0][-3].replace("\\", "/") == str(history).replace("\\", "/")
 
 
 def test_local_aegis_file_transport_uses_native_argv(tmp_path):
@@ -578,11 +590,16 @@ def test_local_conductor_pins_target_parks_retries_and_never_lists_containers(
 
     monkeypatch.setattr(module, "AegisClient", Client)
     run = make_run(engine)
+    backend.provision(run.container, work, work, engine.store.run_dir(run.run_id) / "io",
+                      backend.executor_environment())
+    run.execution["resource"] = backend.resource_identity(run.container)
+    (engine.store.run_dir(run.run_id) / "execution-plan.json").write_text(
+        json.dumps(run.execution["plan"]), encoding="utf-8")
     run.active_task_id, run.task_ids, run.lifecycle = None, [], "failed"
     engine.store.save(run)
     assert engine.retry(run.run_id)
     saved = engine.store.load(run.run_id)
-    assert saved.lifecycle == "parked-clarification"
+    assert saved.lifecycle == "parked-clarification", saved.outcome
     assert saved.execution["resource"]["kind"] == "local"
     assert saved.execution["status"] == "not-required"
     saved.lifecycle = "failed"

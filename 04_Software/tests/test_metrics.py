@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-# IMPORTS
 from dataclasses import fields
 import json
 from pathlib import Path
@@ -37,6 +36,8 @@ from adore.metrics import (
 from adore.state import RunState, StateError, StateStore
 import pytest
 
+# IMPORTS
+from tests.execution_records import execution_record
 from tests.usage_events import versioned_usage
 
 # HELPER FUNCTIONS
@@ -52,6 +53,7 @@ def _seed_run(tmp_path: Path) -> StateStore:
     store.save(RunState(
         run_id="r-45", ticket_iid=45, lifecycle="done", outcome="merged",
         clarification_rounds=2, review_rounds=1, mr_url="https://x/mr/29",
+        execution=execution_record(),
     ))
     store.save_ticket("r-45", {"iid": 45, "title": "PILOT ticket",
                                "labels": ["agent-ready", "P1"]})
@@ -65,7 +67,7 @@ def _seed_run(tmp_path: Path) -> StateStore:
         ("2026-07-04T10:03:02Z", "stage-launch", {"stage": "specify"}),
         ("2026-07-04T10:05:00Z", "stage-failed", {"stage": "specify"}),
         ("2026-07-04T10:05:01Z", "stage-launch", {"stage": "specify"}),
-        ("2026-07-04T10:08:00Z", "strict-verification", {"passed": False}),
+        ("2026-07-04T10:08:00Z", "validation-accepted", {"passed": False}),
         ("2026-07-04T10:08:01Z", "parked", {"round": 1}),
         ("2026-07-04T11:08:01Z", "resumed", {}),
         ("2026-07-04T11:08:02Z", "stage-launch", {"stage": "specify"}),
@@ -118,7 +120,8 @@ def test_summary_serializes_recorded_workflow(tmp_path: Path, workflow: str) -> 
     store = StateStore(tmp_path / "state")
     run = RunState(run_id="workflow-1", ticket_iid=1, workflow=workflow,
                    stage="done", lifecycle="done",
-                   validation_evidence={"verification": "not configured"})
+                   validation_evidence={"verification": "not configured"},
+        execution=execution_record())
     store.save(run)
     summary = summarize_run(store, run.run_id)
     assert getattr(summary, "workflow", None) == workflow
@@ -171,7 +174,8 @@ def test_summary_missing_workflow_column_is_refused(tmp_path: Path, loader) -> N
 def test_versioned_usage_replay_counts_once_and_conflict_fails(tmp_path: Path) -> None:
     """@brief Replayed launch usage cannot inflate a terminal summary."""
     store = StateStore(tmp_path / "state")
-    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done",
+        execution=execution_record()))
     usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
              "executor": "codex", "model": "example", "review_round": 0,
              "tokens_in": 10, "tokens_out": 2, "cost_usd": 0.5,

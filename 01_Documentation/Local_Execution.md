@@ -7,8 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Local execution
 
-Choose **Runs in → Installed on the server** during enrollment or in
-**Settings → Agent and model** to run ADORE-managed Pi in a dedicated worktree
+Choose **Runs in â†’ Installed on the server** during enrollment or in
+**Settings â†’ Agent and model** to run ADORE-managed Pi in a dedicated worktree
 under the current ADORE service account. Container execution remains the default.
 Pi has no permission prompts. Use a dedicated, least-privilege OS account:
 a worktree and a process scope do not prevent access to files, credentials or
@@ -32,13 +32,33 @@ never choose Node. ADORE invokes npm and Pi with that executable directly,
 including paths with spaces; it does not run an npm shim or require a global Pi.
 
 Installation requires registry access and write permission under
-`<ADORE home>/tools/pi`. npm installs the build's Pi and web extension pins
+`<ADORE home>/tools/pi`. npm installs Pi 1.5.2 and pi-web-access 0.46.0
 there without lifecycle scripts or personal npm settings. ADORE checks Node,
 the package versions and Pi's version before publishing the version directory.
 On a build with a new Pi pin, run `adore pi install` again; the build selects its
 own prefix and leaves other prefixes alone. `adore pi verify` checks the install
 without making an AI request. A corrupt prefix is refused; move it aside and
 install again.
+
+## User delivery variants
+
+The smaller **online** archive includes Python and application dependencies only.
+For native execution, prepare Node.js 22.23.4+ in the 22.x line with npm, then
+run `adore pi install` with registry access. Node is not downloaded automatically.
+
+Windows/Linux **offline** delivery archives include Node 22.23.4, Pi 1.5.2, pi-web-access
+0.46.0, fd 10.5.1 and ripgrep 15.2.0 with their licenses. The bundled Python
+runtime marks this installation as an offline delivery; Pi is read directly from
+the application-owned payload. No host Node or npm installation is needed.
+Both `adore pi verify` and `adore pi install` verify this payload without network
+access or writes to the ADORE data home. A missing or corrupt payload is refused
+with an instruction to extract the complete archive again.
+
+The native executor prepends the bundled Node/npm and search-tool directories
+to its controlled PATH. Git, the forge CLI, project SDKs and Linux scope
+delegation remain operator prerequisites. AI providers and remote forges still
+need their configured network access. Source installations use the managed
+installation flow above.
 
 ## Project settings
 
@@ -60,7 +80,7 @@ The launcher is fixed. Remove `[executor] command` and unsupported
 credential; ADORE never reads personal Pi sign-in. For an OpenAI-compatible
 endpoint, use the address as seen from the server and configure a key only
 when the endpoint needs one. For a ChatGPT subscription, select `provider = "chatgpt"` and sign in under
-Settings → Agent and model. The native helper uses managed Node and Pi
+Settings â†’ Agent and model. The native helper uses managed Node and Pi
 without Docker. Each stage gets only a temporary access token and has a
 maximum timeout of 3000 seconds. ADORE inside WSL2 uses the Linux setup,
 its own service account and tools, and a delegated cgroup.
@@ -84,16 +104,6 @@ Container recipes, runtime options and system package installation permissions
 do not apply locally. **Internet access for the agent** cannot restrict host
 network access. When it is On and a search service is selected, Pi loads ADORE's
 pinned web extension; Off disables that extension only.
-
-## Direct verification commands
-
-**The command runs with all permissions of the ADORE service account, without
-container isolation or a host sandbox.** Process ownership limits process
-lifetime, not filesystem, credential-helper or network access. Use a dedicated
-least-privilege account, install project tools separately and review the command
-before saving it. Output must be UTF-8; invalid output or unconfirmed cleanup
-fails closed. Sanitized bounded trailing output is retained for approval and
-bounded fix sessions. AEGIS runs ignore this setting.
 
 ## Isolation and recovery
 
@@ -123,4 +133,4 @@ check proves the project's toolchain or a complete job.
 Native RPC job-session recordings retain literal bounded stdout events, including
 known credentials printed by the agent. Operational tails, stderr, questions, diagnostics
 and model-check responses retain masking. Session reads use the authorized no-store
-job surface and exclude system messages; no old recording is rewritten.
+job surface and exclude system messages. Reading does not modify stored recordings.

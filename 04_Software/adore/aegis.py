@@ -67,12 +67,8 @@ FULL_STAGES = ("frame", "specify", "design", "build", "validate", "done")
 QUICK_STAGES = ("frame", "build", "validate", "done")
 ALL_STAGES = FULL_STAGES
 ADOPTION_STAGES = ("survey", "components", "close")
-#: Every stage AEGIS 0.15.0 reports for a journal: the conducted stages, the
-#: legacy deliver stage older journals still hold, and adoption's phases.
-#: Listings and deviation markers accept it all, so a journal another task
-#: left behind never blocks a probe; the pinned task decodes against
-#: ALL_STAGES only.
-STATUS_STAGES = (*ALL_STAGES, "deliver", *ADOPTION_STAGES)
+#: Current task and adoption stages accepted by status listings and deviations.
+STATUS_STAGES = (*ALL_STAGES, *ADOPTION_STAGES)
 STAGE_STEP_FILES = {
     "frame": "1_frame.md",
     "specify": "2_specify.md",
@@ -608,7 +604,9 @@ class AegisClient:
                 raise AegisProtocolError(f"AEGIS task {task_id} has a mismatched file")
             stage = item.get("stage")
             if stage not in STATUS_STAGES:
-                raise AegisProtocolError(f"AEGIS task {task_id} has unknown stage {stage!r}")
+                raise AegisProtocolError(
+                    f"AEGIS task {task_id} has unknown stage {stage!r}; "
+                    f"remove {file} from the repository to start fresh")
             result.append(dict(item))
         return result
 

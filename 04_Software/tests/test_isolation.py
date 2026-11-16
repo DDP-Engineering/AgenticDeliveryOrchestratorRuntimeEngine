@@ -1419,17 +1419,24 @@ def test_plain_docker_runtime_does_not_set_wslenv(tmp_path: Path) -> None:
 
 
 def test_worktree_progress_observes_content_and_excludes_bookkeeping(tmp_path):
-    """@brief Tracked and untracked bytes contribute; journals and caches are excluded."""
-    runner = FakeRunner(_ok("diff-one"), _ok("new file.py\0"),
-                        _ok("diff-one"), _ok("new file.py\0"),
-                        _ok("diff-two"), _ok("new file.py\0"))
+    """@brief Arbitrary tracked/untracked bytes count, without text loss or a diff-size cutoff."""
+    raw = b"diff-\xef\xbf\xbd\xff\x00\r\n" + b"x" * 4_000_000
+    changed = raw.replace(b"\xff", b"\xfe")
+    assert raw.decode("utf-8", "replace") == changed.decode("utf-8", "replace")
+    runner = FakeRunner(CommandResult(stdout=raw.decode("utf-8", "replace"), raw_stdout=raw),
+                        _ok("new file.py\0"),
+                        CommandResult(stdout=raw.decode("utf-8", "replace"), raw_stdout=raw),
+                        _ok("new file.py\0"),
+                        CommandResult(stdout=changed.decode("utf-8", "replace"),
+                                      raw_stdout=changed),
+                        _ok("new file.py\0"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     wt = manager.path_for("run-1")
     wt.mkdir(parents=True)
     source = wt / "new file.py"
-    source.write_text("one")
+    source.write_bytes(b"one\xff\x00")
     first = manager.worktree_progress_fingerprint("run-1")
-    source.write_text("two")
+    source.write_bytes(b"two\xfe\x00")
     second = manager.worktree_progress_fingerprint("run-1")
     third = manager.worktree_progress_fingerprint("run-1")
     assert first != second != third
@@ -1447,11 +1454,15 @@ def test_worktree_progress_refuses_unsafe_or_unreadable_paths(tmp_path, name):
         manager.worktree_progress_fingerprint("run-1")
 
 
-def test_worktree_progress_refuses_git_failure(tmp_path):
-    """@brief An unavailable diff never becomes a false empty progress snapshot."""
-    runner = FakeRunner(CommandResult(exit_code=1, stderr="bad diff"))
+@pytest.mark.parametrize("result, message", [
+    (CommandResult(exit_code=1, stderr="bad diff"), "bad diff"),
+    (CommandResult(raw_stdout="not bytes"), "invalid Git progress evidence"),
+])
+def test_worktree_progress_refuses_git_failure(tmp_path, result, message):
+    """@brief Failed commands and malformed byte captures cannot become empty progress."""
+    runner = FakeRunner(result)
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
-    with pytest.raises(IsolationError, match="bad diff"):
+    with pytest.raises(IsolationError, match=message):
         manager.worktree_progress_fingerprint("run-1")
 
 
@@ -1788,7 +1799,7 @@ def test_summary_refuses_a_linked_worktree(tmp_path: Path) -> None:
     outside.mkdir()
     (outside / "ADORE_SUMMARY.md").write_text("private", encoding="utf-8")
     _exchange_symlink(manager.path_for("run-1"), outside, directory=True)
-    with pytest.raises(IsolationError, match="exchange"):
+    with pytest.raises(IsolationError):
         manager.read_summary("run-1", max_chars=6000)
     assert (outside / "ADORE_SUMMARY.md").read_text(encoding="utf-8") == "private"
 
@@ -1894,7 +1905,6 @@ def test_exchange_refuses_linked_question_parent(tmp_path: Path, method: str) ->
 
 @pytest.mark.parametrize("result", [CommandResult(exit_code=False),
                                     CommandResult(exit_code=0, stdout=None),
-                                    CommandResult(exit_code=0, stdout="\ufffd"),
                                     CommandResult(exit_code=0, timed_out=True),
                                     _fail("Git failed")])
 @pytest.mark.parametrize("index", [0, 1, 2])

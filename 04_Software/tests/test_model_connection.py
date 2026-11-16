@@ -132,7 +132,7 @@ def set_executor(profiles, provider: str, model: str, base_url: str = "") -> Non
     path = profiles.config_path("alpha")
     raw = path.read_text(encoding="utf-8")
     raw = raw.replace('provider = "openai"\n', f'provider = "{provider}"\n', 1)
-    raw = raw.replace('model = "gpt-5.5"\n', f'model = "{model}"\n', 1)
+    raw = raw.replace('model = "gpt-6.1-terra"\n', f'model = "{model}"\n', 1)
     if base_url:
         raw += f'\n[executor.endpoint]\nbase_url = "{base_url}"\n'
     path.write_text(raw, encoding="utf-8")
@@ -213,13 +213,14 @@ def test_rpc_probe_reports_each_outcome_distinctly(tmp_path, monkeypatch, fixtur
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     runtime = Runtime(tmp_path, fixture, "--key-hint", "sk-test****6789")
     result = probe(profiles, runtime)
-    assert result == {"executor": "pi", "model": "gpt-5.5", "ready": reason == "ready",
+    assert result == {"executor": "pi", "model": "gpt-6.1-terra", "ready": reason == "ready",
                       "reason": reason}
     argv, env = runtime.spawned[0]
     assert argv[argv.index("exec") + 1] == "-i"
     pi = argv[argv.index("node"):]
     assert pi[pi.index("--mode") + 1] == "rpc"
-    assert pi[pi.index("--provider") + 1] == "openai" and pi[pi.index("--model") + 1] == "gpt-5.5"
+    assert pi[pi.index("--provider") + 1] == "openai"
+    assert pi[pi.index("--model") + 1] == "gpt-6.1-terra"
     sent = [json.loads(line) for line in runtime.record.read_text("utf-8").splitlines()]
     assert sent[0]["type"] == "prompt" and "echo ADORE_TOOL_" in sent[0]["message"]
     run = next(kwargs for argv, kwargs in runtime.calls if "run" in argv and "infinity" in argv)
@@ -235,8 +236,8 @@ def test_connection_probe_passes_thinking_to_pi(tmp_path, monkeypatch):
     """@brief The disposable RPC probe receives the configured Pi reasoning effort."""
     profiles = project(tmp_path)
     path = profiles.config_path("alpha")
-    path.write_text(path.read_text(encoding="utf-8").replace('model = "gpt-5.5"',
-                    'model = "gpt-5.5"\nthinking = "medium"'), encoding="utf-8")
+    path.write_text(path.read_text(encoding="utf-8").replace('model = "gpt-6.1-terra"',
+                    'model = "gpt-6.1-terra"\nthinking = "medium"'), encoding="utf-8")
     (profiles.profile_dir("alpha") / ".env").write_text(f"OPENAI_API_KEY={SECRET}\n")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     runtime = Runtime(tmp_path, "run_connection_test_endpoint")
@@ -249,8 +250,10 @@ def set_internet(profiles, internet: bool, search: str = "") -> None:
     """@brief Set [executor] internet (and [executor.web] search) in the project config."""
     path = profiles.config_path("alpha")
     raw = path.read_text(encoding="utf-8")
-    raw = raw.replace('model = "gpt-5.5"\n',
-                      f'model = "gpt-5.5"\ninternet = {str(internet).lower()}\n', 1)
+    import re
+
+    raw = re.sub(r"(?m)^internet\s*=\s*(?:true|false)[^\n]*$",
+                 f"internet = {str(internet).lower()}", raw, count=1)
     if search:
         raw += f'\n[executor.web]\nsearch = "{search}"\n'
     path.write_text(raw, encoding="utf-8")

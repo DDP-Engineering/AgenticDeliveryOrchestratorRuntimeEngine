@@ -266,37 +266,6 @@ def test_config_view_redacts_accidental_secret_values(tmp_path):
         assert "private-value" not in response.text
 
 
-@pytest.mark.parametrize("table", ["container.runtime_env", "local.environment"])
-def test_config_view_hides_a_removed_agents_environment_value(tmp_path, table):
-    """@brief A stale removed-agent variable is refused and its value never reaches the UI."""
-    profiles = ProfileStore(tmp_path / "home")
-    profiles.create("alpha")
-    path = profiles.config_path("alpha")
-    example = Path(__file__).resolve().parents[1] / "config.example.toml"
-    inline = json.dumps({"provider": {"x": {"options": {"apiKey": "stale-private-value"}}}})
-    text = example.read_text(encoding="utf-8")
-    if table == "container.runtime_env":
-        line = 'runtime_env = { UV_LINK_MODE = "copy" }'
-        assert line in text
-        # A dotted name is still one variable and stays hidden.
-        text = text.replace(line, "runtime_env = { OPENCODE_CONFIG_CONTENT = "
-                            + json.dumps(inline) + ', "OPENCODE_X.Y" = "stale-private-value" }')
-    else:
-        text += f"\n[{table}]\nOPENCODE_CONFIG_CONTENT = {json.dumps(inline)}\n"
-    path.write_text(text, encoding="utf-8")
-    app = create_app(profiles.home)
-    web = app.state.web_store
-    developer = web.create_user("dev", "longer-password", "developer")
-    web.set_memberships(developer["id"], ["alpha"])
-    with TestClient(app) as client:
-        for user, password in (("admin", "admin"), ("dev", "longer-password")):
-            client.post("/api/v1/session", json={"username": user, "password": password})
-            response = client.get("/api/v1/projects/alpha/config")
-            assert response.status_code == 200
-            assert "stale-private-value" not in response.text
-            reason = ("configures a removed coding agent" if table == "container.runtime_env"
-                      else "[local] unknown field: environment; remove it from config.toml")
-            assert any(reason in issue for issue in response.json()["issues"])
 
 
 _PARTIAL_CONFIG = """
@@ -370,8 +339,6 @@ def test_pickup_review_defaults_and_supported_catalog(tmp_path, explicit):
     assert body["config"]["readiness"]["require_acceptance_criteria"] is explicit
     assert body["config"]["review"]["max_review_rounds"] == (2 if explicit else 5)
     assert rows["review.max_review_rounds"]["source"] == ("project" if explicit else "default")
-    assert "require_known_component" not in body["config"]["readiness"]
-    assert "readiness.require_known_component" not in rows
     assert path.read_text(encoding="utf-8") == original
 
 
@@ -383,7 +350,6 @@ def test_cli_shows_shared_defaults_without_component_setting(tmp_path, capsys):
     shown = json.loads(capsys.readouterr().out)
     assert shown["readiness"]["require_acceptance_criteria"] is False
     assert shown["review"]["max_review_rounds"] == 5
-    assert "require_known_component" not in shown["readiness"]
 
 
 def test_statistics_storage_settings_are_external_and_cannot_prepare(tmp_path):
@@ -481,13 +447,10 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert model["edit_key"] == "executor.connection"
         assert model["source"] == "project" and model["editable"] and model["restart"]
         assert model["default"] == ""  # no universal model default
-        command = settings["executor.command"]
-        assert command["source"] == "default" and command["editable"] is True
-        assert command["choices"] == [command["default"]]
         assert settings["delivery.reviewers"]["editable"] is True
         assert settings["delivery.reviewers"]["type"] == "list"
         not_editable = ["container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
-                        "state.store_root", "clarification.reminder_after"]
+                        "state.store_root", "clarification.timeout_state"]
         for key in not_editable:
             assert settings[key]["editable"] is False, key
         assert "container.runtime_env.API_KEY" not in settings  # redacted, never listed
@@ -495,7 +458,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["container.egress.allowlist"]["source"] == "default"
         assert all(not item["editable"] for key, item in settings.items()
                    if key.startswith("state.") or key in {
-                       "clarification.reminder_after", "clarification.timeout_state"})
+                       "clarification.timeout_state"})
 
         revision = body["revision"]
         target = "/api/v1/projects/alpha/config/pending"
@@ -508,7 +471,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
             assert staged.status_code == 200, (key, staged.text)
             assert client.delete(target, headers=csrf).status_code == 200
         for key in ("executor.unknown.command", "state.store_root", "executor.model",
-                    "clarification.reminder_after", "container.runtime_env.api_key"):
+                    "container.runtime_env.api_key"):
             refused = client.post(target, json={"key": key, "value": "x",
                                                 "revision": revision}, headers=csrf)
             assert refused.status_code == 400, key

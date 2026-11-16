@@ -281,19 +281,20 @@ def test_git_binding_rejects_link_evidence_before_open(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("status", ["running", "exited"])
-@pytest.mark.parametrize("mode", ["legacy", "pointer"])
-def test_git_binding_warm_reuse_preserves_creation_mode(tmp_path, status, mode):
-    """@brief Warm recovery preserves exact resources and validates new-mode evidence.
+@pytest.mark.parametrize("mode", ["missing", "pointer"])
+def test_git_binding_warm_reuse_requires_current_binding(tmp_path, status, mode):
+    """@brief Warm recovery requires the current binding without changing resources.
     @param[in] tmp_path Isolated IO root.
     @param[in] status Observed owned resource state.
-    @param[in] mode Existing creation-time binding mode.
+    @param[in] mode Current or missing creation-time binding label.
     """
     io = tmp_path / "io"
     io.mkdir()
     if mode == "pointer":
         (io / "container.git").write_bytes(b"gitdir: /adore/repo/.git/worktrees/run-1\n")
     replies = [CommandResult(stdout=status), CommandResult(
-        stdout='"pointer-v1"' if mode == "pointer" else '""')]
+        stdout='"pointer-v1"' if mode == "pointer" else
+        "null" if status == "running" else '""')]
     if status == "exited":
         replies.append(CommandResult())
     if mode == "pointer":
@@ -303,12 +304,20 @@ def test_git_binding_warm_reuse_preserves_creation_mode(tmp_path, status, mode):
 
     runner.results.insert(2, owned_container_receipt(
         manager, "c", tmp_path / "repo", tmp_path / "work", io))
+    if mode == "missing":
+        with pytest.raises(IsolationError, match="container 'c'.*delete that container"):
+            manager.provision("c", tmp_path / "repo", tmp_path / "work", io,
+                              build_container_env("run-1", "Bot", "bot@example.test"))
+        assert not any(part in call for call in runner.calls
+                       for part in ("start", "run", "exec", "rm"))
+        assert list(io.iterdir()) == []
+        return
     assert manager.provision("c", tmp_path / "repo", tmp_path / "work", io,
                              build_container_env("run-1", "Bot", "bot@example.test")) == (
         "running" if status == "running" else "started")
     assert not any("run" in call or "rm" in call for call in runner.calls)
     assert any("start" in call for call in runner.calls) == (status == "exited")
-    assert any("exec" in call for call in runner.calls) == (mode == "pointer")
+    assert any("exec" in call for call in runner.calls)
     assert any("io.ddp.adore.git-binding" in part for call in runner.calls for part in call)
 
 
@@ -318,7 +327,7 @@ def test_git_binding_warm_reuse_preserves_creation_mode(tmp_path, status, mode):
     CommandResult(exit_code=1, stderr="denied"), CommandResult(timed_out=True),
 ])
 def test_git_binding_reuse_rejects_untrusted_mode_receipts(tmp_path, reply):
-    """@brief Corrupt or failed inspect data cannot downgrade to historical mode.
+    """@brief Corrupt or failed inspect data cannot authorize resource reuse.
     @param[in] tmp_path Isolated IO root.
     @param[in] reply Untrusted CLI receipt.
     """
@@ -348,7 +357,7 @@ def test_git_binding_requires_exact_runtime_confirmation(tmp_path, reply):
 
 
 def test_git_binding_new_mode_requires_saved_pointer_before_start(tmp_path):
-    """@brief Missing mounted-mode data is corruption, never a legacy fallback.
+    """@brief Missing current pointer data refuses reuse before starting a container.
     @param[in] tmp_path Isolated IO root without saved pointer evidence.
     """
     runner = FakeRunner(CommandResult(stdout="exited"), CommandResult(stdout='"pointer-v1"'),

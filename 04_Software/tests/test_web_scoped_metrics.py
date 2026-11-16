@@ -29,6 +29,7 @@ from adore.web.app import create_app
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.execution_records import execution_record
 from tests.usage_events import versioned_usage
 
 
@@ -128,7 +129,8 @@ def test_scope_uses_half_open_local_midnights_and_own_events(tmp_path, day, star
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="cross", ticket_iid=1, lifecycle="failed"))
+    state.save(RunState(run_id="cross", ticket_iid=1, lifecycle="failed",
+        execution=execution_record()))
     state.journal("cross", "picked", ts="2026-01-01T00:00:00Z")
     state.journal("cross", "usage", **versioned_usage("cross", 32, ts=start,
                   tokens_in=7, tokens_out=2))
@@ -166,7 +168,8 @@ def test_jobs_keep_lifetime_period_unallocated_and_composite_identity(tmp_path):
         profile = profiles.create(name, store_root=str(tmp_path / name))
         identities.append(profile.project_id)
         state = StateStore(profile.store_root)
-        state.save(RunState(run_id="same", ticket_iid=1, lifecycle="working"))
+        state.save(RunState(run_id="same", ticket_iid=1, lifecycle="working",
+            execution=execution_record()))
         for attempt, (stamp, count) in enumerate((
             ("2026-01-01T12:00:00Z", 3),
             ("2026-01-02T12:00:00Z", amount),
@@ -181,8 +184,10 @@ def test_jobs_keep_lifetime_period_unallocated_and_composite_identity(tmp_path):
                 model="m",
                 cost_usd=0,
                 cost_reported=True),)
-        state.save(RunState(run_id="unknown", ticket_iid=2, lifecycle="working"))
-        state.save(RunState(run_id="zero", ticket_iid=3, lifecycle="working"))
+        state.save(RunState(run_id="unknown", ticket_iid=2, lifecycle="working",
+            execution=execution_record()))
+        state.save(RunState(run_id="zero", ticket_iid=3, lifecycle="working",
+            execution=execution_record()))
         state.journal(
             "zero",
             "usage", **versioned_usage("zero", 35,
@@ -191,7 +196,8 @@ def test_jobs_keep_lifetime_period_unallocated_and_composite_identity(tmp_path):
             tokens_out=0,
             cost_usd=0,
             cost_reported=True),)
-        state.save(RunState(run_id="summary", ticket_iid=4, lifecycle="done"))
+        state.save(RunState(run_id="summary", ticket_iid=4, lifecycle="done",
+            execution=execution_record()))
         metrics.record_summary(
             state.root / "metrics.db",
             metrics.RunSummary(run_id="summary", tokens_in=19, tokens_out=2),
@@ -248,7 +254,8 @@ def test_corrupt_sources_fail_before_filtering_and_preserve_bytes(tmp_path, raw)
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     journal = state.run_dir("r") / "journal.jsonl"
     journal.write_bytes(raw)
     with TestClient(create_app(profiles.home)) as client:
@@ -292,7 +299,8 @@ def test_replay_includes_timestamp_and_schema_is_strict(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     usage = dict(
         event_id="r:1",
         attempt=1,
@@ -332,10 +340,11 @@ def test_server_samples_and_quality_cohorts_are_scoped(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     for name, first_day, passed, seconds in (("old", "01", False, 120), ("new", "02", True, 0)):
-        state.save(RunState(run_id=name, ticket_iid=1, lifecycle="done", outcome="merged by human"))
+        state.save(RunState(run_id=name, ticket_iid=1, lifecycle="done", outcome="merged by human",
+            execution=execution_record()))
         state.journal(name, "picked", ts=f"2026-01-{first_day}T00:00:00Z")
         state.journal(
-            name, "strict-verification", passed=passed, ts=f"2026-01-{first_day}T00:01:00Z"
+            name, "validation-accepted", passed=passed, ts=f"2026-01-{first_day}T00:01:00Z"
         )
         state.journal(name, "mr-opened", ts=f"2026-01-{first_day}T00:02:00Z")
         if name == "old":
@@ -373,7 +382,8 @@ def test_price_history_uses_consumption_utc_day_and_filtered_job_csv(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     for attempt, (stamp, amount, reported) in enumerate((
         ("2026-01-01T22:30:00Z", 1_000_000, False),
         ("2026-01-02T00:30:00Z", 0, False),
@@ -417,7 +427,7 @@ def test_summary_table_of_another_build_fails_closed_untouched(tmp_path, columns
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="done"))
+    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="done", execution=execution_record()))
     db = state.root / "metrics.db"
     if columns == "extra":
         metrics.record_summary(db, metrics.RunSummary(run_id="r", tokens_in=5))
@@ -440,7 +450,8 @@ def test_usage_without_an_aware_timestamp_fails_closed(tmp_path, stamp):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     state.journal("r", "usage", **versioned_usage("r", 1, ts=stamp, tokens_in=3))
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
@@ -458,7 +469,8 @@ def test_numeric_boundaries_fail_before_filtering(tmp_path, fault):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     if fault == "sum-overflow":
         for attempt in (1, 2):
             state.journal(
@@ -527,10 +539,11 @@ def test_quality_only_activity_selects_period_job_without_new_start(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="in-review"))
+    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="in-review",
+        execution=execution_record()))
     state.journal("r", "picked", ts="2026-01-01T00:00:00Z")
     state.journal("r", "mr-opened", ts="2026-01-02T00:00:00Z")
-    state.journal("r", "strict-verification", ts="2026-01-02T00:01:00Z", passed=True)
+    state.journal("r", "validation-accepted", ts="2026-01-02T00:01:00Z", passed=True)
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         body = client.get("/api/v1/projects/alpha/metrics?day_from=2026-01-02"
@@ -549,7 +562,8 @@ def test_unrepresentable_local_event_timestamp_fails_typed(tmp_path, event):
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     state.journal("r", event, ts="9999-12-31T23:59:59Z", tokens_in=1, tokens_out=0)
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})

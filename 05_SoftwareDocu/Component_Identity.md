@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/adore/identity.py`.
-> Design context: `00_Planning/ADORE_System_Overview.md`.
+> System overview: [Operations guide](../01_Documentation/Operations_Guide.md#system-overview).
 
 ## 1. Purpose
 
@@ -87,7 +87,7 @@ second, independent identity signal.
 from adore.identity import AgentIdentity
 
 ident = AgentIdentity(name="ADORE", slug="adore")
-body = ident.status_comment("gitlab-x-14", "working", "intake", "2026-07-02 14:02")
+body = ident.status_comment("gitlab-x-14", "working", "build", "2026-11-15 14:02")
 ident.is_own_comment(body)        # True
 ident.parse_marker(body)["kind"]  # "status"
 ```
@@ -100,10 +100,9 @@ ident.parse_marker(body)["kind"]  # "status"
   treated as human.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_identity.py`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
 - A marker quoted inside a code fence would still be detected as ours
   (acceptable: false "own comment" only delays resume by one reply).
-- Comment-id matching (the second identity signal) lives in run state, not
-  here; the resume-detection logic that combines both arrives with the
-  clarification phase.
+- Saved comment IDs and clarification-resume decisions belong to run state
+  and the conductor; this component supplies marker parsing only.

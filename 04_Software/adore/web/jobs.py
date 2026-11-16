@@ -239,6 +239,9 @@ def _journal(raw: bytes | None) -> list[dict]:
         _text(event["event"], "run_journal_corrupt")
         if _stamp(event.get("ts"), "run_journal_corrupt") is None:
             raise JobReadError("run_journal_corrupt")  # The journal stamps every event.
+        if event["event"] == "stage-launch" and (
+                type(event.get("attempt")) is not int or not 1 <= event["attempt"] <= 2**53 - 1):
+            raise JobReadError("run_journal_corrupt")
         for key in ("questions", "stage"):
             if key in event:
                 _text(event[key], "run_journal_corrupt")
@@ -394,12 +397,16 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
     activity = [stamp for stamp in [updated, *(_stamp(event["ts"],
                 "run_journal_corrupt") for event in events)] if stamp is not None]
     last = max(activity, key=datetime.fromisoformat) if activity else None
+    branch = _text(run.branch, "run_state_corrupt")
+    if len(branch) > 4096 or re.search(r"[\x00-\x20\x7f]", branch):
+        raise JobReadError("run_state_corrupt")
     detail_url = f"/api/v1/jobs/{item.project_id}/{quote(run_id, safe='')}"
     return {
         "project_id": item.project_id, "project_name": _text(item.name, "job_evidence_corrupt"),
         "project_display_name": _text(item.display_name or item.name, "job_evidence_corrupt"),
         "project_archived": item.archived, "run_id": run.run_id, "ticket_iid": run.ticket_iid,
         "ticket_title": title, "ticket_url": ticket_url, "mr_url": mr_url,
+        "branch": branch or None, "published_commit": run.checkpoint_remote_commit or None,
         "lifecycle": run.lifecycle, "stage": run.stage, "workflow": run.workflow,
         **({"direct": _direct_evidence(run, events)} if run.workflow == "direct" else {}),
         "state_revision": sha256(sources[(item.project_id, run_id, "state.json")]).hexdigest(),
@@ -417,7 +424,9 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
                         if run.execution and run.execution["plan"]["selection"] else None),
         "timeline": [{"ts": _stamp(event["ts"], "run_journal_corrupt"),
                       "event": _text(event["event"], "run_journal_corrupt"),
-                      "stage": _event_stage(event)} for event in events],
+                      "stage": _event_stage(event),
+                      "attempt": (event["attempt"] if event["event"] == "stage-launch" else None)}
+                     for event in events],
         "coverage": {"ticket": "missing" if raw_ticket is None else "present",
                      "journal": "missing" if raw_journal is None else "present",
                      "title": "unknown" if title is None else "observed",

@@ -23,6 +23,8 @@ from adore.web.store import WebStore, WebStoreError
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.execution_records import execution_record
+
 
 def test_default_admin_is_hashed_and_preserved(tmp_path):
     """@brief A fresh install permits login and a restart preserves changes."""
@@ -206,7 +208,8 @@ def test_stopped_service_home_copy_restores_identity_profile_and_run(tmp_path):
     profiles = ProfileStore(original)
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
-    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done"))
+    state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done",
+        execution=execution_record()))
     web = WebStore(original / "web.db")
     admin = web.authenticate("admin", "admin")
     web.change_password(admin["id"], "admin", "replacement-long-password")

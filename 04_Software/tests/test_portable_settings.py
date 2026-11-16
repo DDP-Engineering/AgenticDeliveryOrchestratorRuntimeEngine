@@ -56,7 +56,7 @@ def test_portable_public_export_exists_and_roundtrips():
         "max_concurrent_runs",
     }
     assert b"OPENCODE" not in encoded and b"worktrees" not in encoded
-    changed = raw.replace(b"max_iterations           = 20", b"max_iterations           = 37")
+    changed = raw.replace(b"max_iterations = 20", b"max_iterations = 37")
     assert (
         portable.parse_settings(portable.export_settings(changed))["budgets"]["max_iterations"]
         == 37
@@ -84,7 +84,7 @@ def test_portable_omits_recognized_nested_secrets_and_rejects_unknown_source():
             portable.export_settings(raw + extra)
         assert "SECRET" not in str(error.value)
 
-    obsolete = raw.replace(b"[readiness]", b"[readiness]\nrequire_known_component=true")
+    obsolete = raw.replace(b"[readiness]", b"[readiness]\nunexpected_readiness_option=true")
     with pytest.raises(portable.PortableSettingsError):
         portable.export_settings(obsolete)
 
@@ -122,7 +122,7 @@ def test_portable_rejects_envelope_corruption(change):
         ("polling", "poll_backoff", 1),
         ("polling", "unknown", "SECRET"),
         ("readiness", "require_priority_label", {"secret": "SECRET"}),
-        ("readiness", "require_known_component", True),
+        ("readiness", "unexpected_readiness_option", True),
         ("recovery", "retry_backoff_seconds", []),
         ("recovery", "retry_backoff_seconds", [False]),
         ("recovery", "retry_backoff_seconds", [-1]),
@@ -229,8 +229,8 @@ def test_portable_rejects_duplicates_in_otherwise_valid_package():
 def test_portable_valid_zero_cap_and_false_rules_reproduce():
     """@brief Working-rule boundary values remain explicit rather than defaulted."""
     portable = import_module("adore.portable_settings")
-    source = EXAMPLE.read_bytes().replace(b"max_cost_usd             = 5.0", b"max_cost_usd = 0")
-    source = source.replace(b"poll_backoff          = true", b"poll_backoff = false")
+    source = EXAMPLE.read_bytes().replace(b"max_cost_usd = 5.0", b"max_cost_usd = 0")
+    source = source.replace(b"poll_backoff = true", b"poll_backoff = false")
     # Use TOML section append via existing declaration replacements, preserving other keys.
     import re
 
@@ -250,8 +250,8 @@ def test_portable_valid_zero_cap_and_false_rules_reproduce():
             b'runtime_env = { UV_LINK_MODE = "copy" }',
             b'runtime_env = { TOKEN = { secret = "SECRET" } }',
         ),
-        (b"max_iterations           = 20", b"max_iterations = false"),
-        (b"poll_backoff          = true", b'poll_backoff = "SECRET"'),
+        (b"max_iterations = 20", b"max_iterations = false"),
+        (b"poll_backoff = true", b'poll_backoff = "SECRET"'),
     ],
 )
 def test_portable_rejects_malformed_known_source_values(original, replacement):

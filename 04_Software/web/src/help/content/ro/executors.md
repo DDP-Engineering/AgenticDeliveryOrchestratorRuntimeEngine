@@ -5,6 +5,12 @@ Un executor este ceea ce ADORE lansează pentru fiecare lucrare: agentul de prog
 
 **Efort de raționament** oferă nivelurile acceptate de model în catalogul Pi inclus. Implicit Pi lasă alegerea în seama Pi. Modelele nelistate și endpointurile proprii nu pot pretinde niveluri neconfirmate. Alegerea se aplică lucrărilor și testului conexiunii AI.
 
+Proiectele OpenAI noi pornesc cu modelul `gpt-6.1-terra`. Modelul ales în proiectele existente rămâne neschimbat.
+
+Catalogul de modele inclus provine din Pi 1.5.2 și include GPT-6.1 Terra.
+
+Livrarea Windows/Linux oferă arhive offline și online. Offline include Node, Pi, extensia web și uneltele de căutare. Online include Python și dependențele aplicației; execuția nativă necesită Node.js 22.23.4+ (22.x) cu npm pregătit separat, apoi `pi install` cu acces la Internet; Node nu este descărcat automat. Imaginile de containere sunt arhive separate, importate cu Docker sau Podman; pe destinație nu trebuie construite imagini sau accesat un registry. Instalările din surse necesită în continuare pregătirea documentată. Furnizorii AI și repository-urile la distanță necesită acces la rețea.
+
 ## Ce este un executor {#what}
 
 Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu furnizorul și modelul configurate. ADORE folosește Pi din imagine pentru lucrările în container și instalarea Pi administrată de ADORE pentru lucrările pe server.
@@ -14,7 +20,7 @@ Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într
 Deschideți **Setări → Agent și model**. Editați împreună **Furnizor**, **Model** și, pentru un endpoint, **URL de bază al endpointului** și **Tip API al endpointului** ca o singură modificare revizuită.
 
 - **Furnizor**: unul dintre furnizorii Pi cu cheie API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral și alții), **Abonament ChatGPT** sau **Endpoint compatibil OpenAI**.
-- **Model**: alegeți din lista Pi pentru acel furnizor sau scrieți orice ID de model acceptat de furnizor, de exemplu `gpt-5.4`. Lista vine cu versiunea Pi livrată de ADORE și se citește fără acces la internet. Nu există un model implicit universal.
+- **Model**: alegeți din lista Pi pentru acel furnizor sau scrieți orice ID de model acceptat de furnizor, de exemplu `gpt-6.1-terra`. Lista vine cu versiunea Pi livrată de ADORE și se citește fără acces la internet. Nu există un model implicit universal.
 - **Abonament ChatGPT**: Pi folosește contul ChatGPT Plus sau Pro cu care este autentificat acest server ADORE, vezi [Autentificare cu ChatGPT](#chatgpt). Lista conține modelele servite de un abonament ChatGPT, de exemplu `gpt-5.6-luna`.
 
 **Salvează** scrie împreună setările editate după confirmarea efectelor importante; vezi [Setările proiectului](/help/settings#editing) pentru pauza monitorizării. ADORE pornește un proces Pi nou la fiecare etapă și îl oprește la expirarea timpului sau la anulare.

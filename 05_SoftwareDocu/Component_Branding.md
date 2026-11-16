@@ -30,6 +30,5 @@ defaults and fixed product-controlled resources.
 
 ## 4. Validation
 
-`tests/test_branding.py` asserts every public constant and the absence of
-legacy aliases. Release validation additionally compares these values with
-package, deployment, Docker, and delivery surfaces.
+Product/API and resource-operation tests cover the observable identity values.
+Release tooling can inspect package and deployment naming separately when authorized.

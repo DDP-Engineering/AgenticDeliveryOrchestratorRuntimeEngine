@@ -29,10 +29,13 @@ both check current membership.
 ## 3. Implementation Overview
 
 Each method opens a short-lived SQLite connection with foreign keys and a ten
-second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 18): a new
-file gets it, and a database in any other version is refused with a message
-naming `web.db` and `web.db.initialized` to delete. There are no migrations
-while ADORE is in development (AGENTS.md "Stored data during development").
+second busy timeout. The web schema identifier remains fixed at 1 throughout
+pre-release. The current `_SCHEMA` definitions change in place; startup still
+validates required columns and ownership/audit constraints. A new file gets the
+current structure. Another identifier or an incomplete structure is refused;
+there is no version dispatch, conversion, repair or automatic reset. Stop both
+services and delete `web.db` and `web.db.initialized` for an operator-selected
+fresh start (AGENTS.md "Stored data during development").
 Audit rows carry schema-1 structured evidence, opaque unique event
 correlations and an `audit_attempts` receipt ledger; an audit row without
 structured evidence is corrupt. Unknown or damaged audit schemas, missing columns/uniqueness, invalid dates,
@@ -197,7 +200,7 @@ unchanged corrupt rows and schema/column refusal without rewriting the database.
 `tests/test_web_rbac.py` proves the same API boundaries with session/CSRF checks
 and isolated accounts.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
 This is a single-host store. There is no email password recovery or
 multi-host dispatch. The account lockout key uses the direct client address;
@@ -265,7 +268,7 @@ Transient execution commands use an independent `command` owner per immutable
 project. They consume only execution-domain operations and cannot poll or consume
 configuration. The project worker stays alive independently; demonstrated command
 process death makes only that command incarnation’s unfinished claims uncertain.
-This build accepts web schema 18 only; delete `web.db` and `web.db.initialized`
+This build accepts web schema 1 only; delete `web.db` and `web.db.initialized`
 if the store is refused and a fresh start is intended.
 
 ## Scoped operation status reads

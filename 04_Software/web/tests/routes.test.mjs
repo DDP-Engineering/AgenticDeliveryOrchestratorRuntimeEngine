@@ -72,14 +72,14 @@ test("every route parses from and formats to its URL", () => {
 test("trailing slashes and unknown query parameters are ignored", () => {
   assert.deepEqual(parseRoute("/projects/", ""), { view: "projects" });
   assert.deepEqual(parseRoute("/jobs", `?project=${ID}&sort=desc`), { view: "jobs", project: ID });
-  assert.deepEqual(parseRoute("/metrics", "?tab=bogus"), { view: "metrics" });
+  assert.equal(parseRoute("/metrics", "?tab=bogus"), null);
 });
 
-test("former raw import and configuration clone paths open Projects", () => {
-  for (const path of ["/projects/import", "/projects/clone"]) {
-    const route = parseRoute(path);
-    assert.deepEqual(route, { view: "projects" });
-    assert.equal(formatRoute(route), "/projects");
+test("retired raw import and configuration clone paths have no aliases", () => {
+  for (const id of ["import", "clone"]) {
+    const route = parseRoute(`/projects/${id}`);
+    assert.deepEqual(route, { view: "projectDetails", project: id, tab: "overview" });
+    assert.equal(formatRoute(route), `/projects/${id}`);
   }
 });
 
@@ -96,14 +96,9 @@ test("normalization replaces unknown and role-restricted routes", () => {
     assert.deepEqual(normalizeRoute({ view }, { isAdmin: true }), { route: { view }, replaced: false }, view);
   }
   assert.deepEqual(
-    normalizeRoute({ view: "projectDetails", project: ID, tab: "prices" }, { isAdmin: false }),
-    { route: { view: "projectDetails", project: ID, tab: "configuration" }, replaced: true });
-  assert.deepEqual(
     normalizeRoute({ view: "projectDetails", project: ID, tab: "access" }, { isAdmin: false }),
     { route: { view: "projectDetails", project: ID, tab: "overview" }, replaced: true });
-  for (const isAdmin of [false, true]) assert.deepEqual(
-    normalizeRoute({ view: "metrics", tab: "projects" }, { isAdmin }),
-    { route: { view: "metrics", tab: "summary" }, replaced: true });
+  assert.equal(parseRoute("/metrics", "?tab=projects"), null);
   assert.deepEqual(normalizeRoute({ view: "settings" }, { isAdmin: false }), { route: { view: "settings" }, replaced: false });
 });
 
@@ -116,8 +111,8 @@ test("identifiers follow the API alphabet and a run needs its project", () => {
   assert.equal(formatRoute({ view: "jobs", run: "run-26" }), "/jobs");
 });
 
-test("legacy executor links redirect to Settings for both roles", () => {
- for (const isAdmin of [true,false]) assert.deepEqual(normalizeRoute(parseRoute(`/projects/${ID}/executor`),{isAdmin}),{route:{view:"projectDetails",project:ID,tab:"configuration"},replaced:true});
+test("retired executor paths have no alias", () => {
+  assert.equal(parseRoute(`/projects/${ID}/executor`), null);
 });
 
 test("project tab queries are kept only where they belong and validated", () => {
@@ -127,19 +122,16 @@ test("project tab queries are kept only where they belong and validated", () => 
   assert.equal(formatRoute({ view: "projectDetails", project: ID, tab: "jobs", jobsView: "jobs", run: "run-26" }), `/projects/${ID}/jobs?run=run-26`);
   assert.deepEqual(parseRoute(`/projects/${ID}/statistics`, "?view=jobs"), { view: "projectDetails", project: ID, tab: "statistics" });
   assert.deepEqual(parseRoute(`/projects/${ID}/configuration`, "?run=run-26&tab=usage"), { view: "projectDetails", project: ID, tab: "configuration" });
-  assert.deepEqual(parseRoute(`/projects/${ID}/statistics`, "?tab=projects"), { view: "projectDetails", project: ID, tab: "statistics" });
+  assert.equal(parseRoute(`/projects/${ID}/statistics`, "?tab=projects"), null);
   assert.equal(parseRoute(`/projects/${ID}/statistics`, "?from=10/01/2026"), null);
   assert.equal(formatRoute({ view: "projectDetails", project: ID, tab: "history", run: "run-26" }), `/projects/${ID}/history`);
   for (const isAdmin of [true, false]) for (const tab of ["jobs", "statistics"]) assert.deepEqual(
     normalizeRoute({ view: "projectDetails", project: ID, tab }, { isAdmin }), { route: { view: "projectDetails", project: ID, tab }, replaced: false });
 });
 
-test("legacy price links open Settings, where prices live, for both roles", () => {
-  for (const isAdmin of [true, false]) assert.deepEqual(
-    normalizeRoute(parseRoute(`/projects/${ID}/prices`), { isAdmin }),
-    { route: { view: "projectDetails", project: ID, tab: "configuration" }, replaced: true }, String(isAdmin));
+test("retired price paths have no alias", () => {
+  assert.equal(parseRoute(`/projects/${ID}/prices`), null);
 });
-
 
 test("capacity sub-tabs retain global and project scope across direct links",()=>{
   for(const route of [{view:"jobs",jobsView:"capacity"},{view:"jobs",project:ID,jobsView:"capacity"},

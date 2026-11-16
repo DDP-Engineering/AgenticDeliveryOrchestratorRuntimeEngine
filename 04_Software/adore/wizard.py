@@ -66,7 +66,7 @@ _LICENSE_LINES = (
     "# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
 _DEFAULT_PROVIDER = "openai"
-_DEFAULT_MODEL = "gpt-5.5"
+_DEFAULT_MODEL = "gpt-6.1-terra"
 _RECOMMENDED_BUDGETS = {
     "max_iterations": 20,
     "max_wall_clock_seconds": 5400,
@@ -747,7 +747,7 @@ def run_wizard(
             "config_path": str(store.config_path(name)), "store_root": store_root,
         })
 
-    _report_aegis(out, runner, repo_path, key, config.workflow.aegis_python)
+    _report_aegis(out, runner, repo_path, key, config.workflow.aegis_python, config.workflow.mode)
 
     config_path = store.config_path(name)
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -790,6 +790,7 @@ def _report_aegis(
     repo_path: str,
     os_key: str,
     aegis_python: str,
+    workflow_mode: str = "auto",
 ) -> None:
     """
     @brief      Report whether the target clone carries usable AEGIS.
@@ -802,17 +803,21 @@ def _report_aegis(
     @param[in]  repo_path Local clone to probe.
     @param[in]  os_key Host OS key (selects guidance wording).
     @param[in]  aegis_python Interpreter from the validated candidate configuration.
+    @param[in]  workflow_mode Validated new-job default; Direct skips the AEGIS probe.
     """
-    status = doctor.detect_aegis(repo_path, runner, aegis_python=aegis_python)
-    if not status.wrapper_present:
-        out(f"  [INFO] {status.detail}")
+    if workflow_mode == "direct":
+        out("  [INFO] Direct selected: AEGIS is not probed or invoked")
     else:
-        out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS payload"
-            + (f" (schema {status.schema_version})" if status.ok else ""))
-        if not status.ok:
-            if status.detail:
-                out(f"        {status.detail}")
-            out("        " + doctor.guidance_for(doctor.AEGIS, os_key))
+        status = doctor.detect_aegis(repo_path, runner, aegis_python=aegis_python)
+        if not status.wrapper_present:
+            out(f"  [INFO] {status.detail}")
+        else:
+            out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS payload"
+                + (f" (schema {status.schema_version})" if status.ok else ""))
+            if not status.ok:
+                if status.detail:
+                    out(f"        {status.detail}")
+                out("        " + doctor.guidance_for(doctor.AEGIS, os_key))
     # Host git push access is probed here because this is where the clone path
     # is known. It is the one prerequisite that otherwise fails at the very end
     # of a run, discarding a human approval (see doctor.detect_push_access).

@@ -29,7 +29,7 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 | Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |
 | Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
 
-Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans une nouvelle session, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
+Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans la même conversation du travail, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
 ## Travaux directs {#direct-evidence}
 
@@ -41,7 +41,7 @@ La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon l
 
 ## Clarification {#clarification}
 
-Lorsque l’exécuteur a besoin d’informations, ADORE publie un commentaire de ticket, « Clarification required for stage » (en anglais, tel que publié par ADORE), qui liste les questions, et pose `agent-clarify`. La tâche affiche **En attente de clarification**, et son détail propose **Répondre sur le ticket**. Choisissez **Lire la question** pour ouvrir **Question de l’agent**, puis **Répondre sur le ticket** si un emplacement enregistré est disponible.
+Lorsque l’exécuteur demande des informations, ADORE publie un commentaire de clarification avec les questions et ajoute `agent-clarify`. Le travail indique l’attente de clarification. **Lire la question** ouvre la question dans **Détails du travail** ; **Répondre sur le ticket** utilise son emplacement enregistré.
 
 Répondez par un commentaire normal sur le ticket, puis ajoutez `agent-answered`. Les deux sont nécessaires ; les commentaires d’ADORE lui-même ne comptent pas. ADORE retire les deux étiquettes et reprend. Les questions ne comptent pas comme des tentatives échouées. **Nombre maximal de tours de questions** (3 par défaut) limite le nombre de fois qu’une tâche peut poser des questions, et **Temps accordé à une réponse humaine** (72 heures par défaut) fait échouer la tâche à l’expiration.
 
@@ -73,9 +73,11 @@ Pour les tâches locales, **Relancer** revérifie l’exécuteur installé et ac
 
 Lorsqu’une commande en conteneur dépasse sa limite, ADORE arrête ce conteneur avant toute autre commande. La prochaine tentative autorisée reprend le même conteneur avec ses dépendances et fichiers ; l’accès réseau reste inchangé. Si l’arrêt ou le redémarrage sûr ne peut être confirmé, la tâche échoue et conserve ses preuves à examiner avant de **Relancer**. Une préparation échouée conserve sa procédure de reprise explicite.
 
+Les travaux en conteneur conservent l’image et la ressource choisies au démarrage, même sans préparation. Si cette ressource est remplacée, démarrez un nouveau travail. La préparation reste facultative.
+
 ## Abandonner et recommencer {#restart}
 
-Pour une tâche échouée, **Abandonner et recommencer** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.
+Pour une tâche échouée, **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.
 
 Réessayer ne corrige pas les changements de mode ou de paramètres stables ; les détails l’expliquent et proposent l’action confirmée. Restaurez les paramètres enregistrés pour conserver le travail. Réessayer peut toujours revalider les changements volatils de l’environnement natif, dont les variables processeur après redimensionnement d’une VM.
 
@@ -85,7 +87,7 @@ Si une ancienne tâche supprimée a laissé une branche sans checkpoint enregist
 
 ## Suivre les tâches {#following-jobs}
 
-Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un projet, puis le sous-onglet **Tâches**. Le tableau a ces colonnes :
+Utilisez **Travaux** dans la barre latérale ou l’onglet **Travaux** distinct du projet. Le tableau comporte les colonnes suivantes :
 
 | Colonne | Contenu |
 |---|---|
@@ -97,25 +99,31 @@ Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un pr
 
 Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.
 
-Le détail remplace sa liste d’origine. Au-dessus du titre : **Activité**, **Sessions de l’agent**, **Artefacts** et **Informations techniques**, puis **Afficher le ticket** et **Fermer** à droite. L’état, l’étape et le workflow enregistrés suivent le titre. Actions, budgets, consommation et commandes de clarification, approbation et revue restent disponibles. **Fermer** restaure la vue, le périmètre, la recherche, les filtres et la pagination.
+Le détail remplace sa liste d’origine. **Activité**, **Sessions de l’agent** et **Détails du travail** sont au-dessus du titre, avec **Afficher le ticket** et **Fermer** à droite. État, étape et workflow suivent le titre. Budgets et consommation occupent la colonne droite. Les actions de question, approbation et revue restent visibles si nécessaires. **Fermer** restaure la vue, le périmètre, la recherche, les filtres et la pagination.
+
+**Activité** est un tableau paginé avec heure, activité, étape et session. Choisissez 10, 25, 50 ou Tout et utilisez Précédent/Suivant. **Ouvrir la conversation** ouvre la session exacte quand l’étape et la tentative identifient un seul lancement enregistré ; les événements sans lien certain n’ont pas de lien. Le retour conserve la page. Budgets et consommation occupent la colonne droite, sous le contenu sur petit écran.
 
 ## Historique des sessions de l’agent {#agent-sessions}
 
-Dans **Sessions de l’agent**, choisissez une tentative terminée, les plus récentes en premier. Les données viennent de la sortie Pi archivée de cette tâche : consigne envoyée par ADORE, texte de l’assistant, appels et résultats d’outils, tours et jetons. Dépliez un outil pour lire son texte complet. Le raisonnement lisible est replié ; les messages système ne sont jamais affichés. Les deltas et listes finales dupliquées sont omis. **Charger la suite** poursuit la lecture. L’heure de fin d’archivage est affichée ; l’absence d’heure de début est explicite.
+**Sessions de l’agent** ouvre la session actuelle ou la dernière session terminée. La conversation montre la consigne initiale, les réponses de l’agent, les messages utilisateur et les appels/résultats d’outils dépliables. Les réponses utilisent Markdown. Les messages apparaissent directement avec un seul auteur ; le raisonnement et les outils peuvent être dépliés. La consommation reste dans le panneau droit.
 
-Administrateurs et développeurs affectés au projet voient le texte tel qu’enregistré, y compris ses secrets. Les montants structurés restent réservés aux administrateurs. Les réponses ne sont pas mises en cache. **Voir la dernière sortie de l’exécuteur** reste dans **Informations techniques**. Chaque texte est limité à 16 Kio avec un marqueur ; les enregistrements malformés ou omis deviennent des informations. Au-delà de 64 Mio, une information indique la limite.
+Pi conserve une conversation d’implémentation pour le travail entre étapes, reprises et corrections. Les processus peuvent redémarrer aux points de contrôle ; la conversation reprend avec son contexte et la compaction automatique de Pi. Le sélecteur montre toujours les tentatives enregistrées, avec leur nouvelle activité et consommation uniquement. Les revues indépendantes utilisent des contextes séparés si la politique du dépôt l’exige.
 
-La tentative actuelle apparaît en premier avec **En direct** pendant l’exécution de l’agent. Cet onglet actualise les messages terminés et les appels/résultats d’outils toutes les trois secondes, uniquement si la tâche est en cours et si cette vue et l’onglet du navigateur sont visibles. **L’agent travaille** indique l’outil inachevé ou la réflexion ; les fragments de texte ne sont pas diffusés. Une ligne partielle attend sa fin. À la fin d’un lancement, son archive finale reste disponible et la vue suit le lancement suivant en direct. Le choix d’une archive antérieure reste conservé lors des actualisations et changements d’onglet. La lecture périodique s’arrête si la tâche quitte l’état en cours ou si la vue ou l’onglet du navigateur est masqué.
+Session, son sélecteur et l’activité en direct partagent une ligne juste au-dessus de la conversation, sur sa largeur. La conversation tient dans la hauteur disponible et défile à l’intérieur à l’arrivée des messages. Les boutons d’envoi sont à droite du champ sur grand écran et dessous sur petit écran.
+
+L’historique se charge progressivement sans raccourcir le texte conservé. Les nouveaux messages défilent automatiquement uniquement en bas ; **Nouveaux messages** permet d’y revenir. Le sélecteur conserve les autres tentatives et **Session actuelle** revient au travail en direct.
+
+Les nouveaux lancements conservent explicitement les consignes envoyées et l’heure des messages. Les anciennes sessions montrent uniquement ce qui a été enregistré. Les droits des administrateurs et développeurs affectés restent identiques ; les coûts structurés restent réservés aux administrateurs.
+
+**Agrandir** utilise toute la page pour les sessions. **Rétablir** ou Échap revient à la vue normale. La session choisie, les messages et le brouillon sont conservés.
 
 ### Envoyer des instructions {#instructions}
 
-Sous la vue en direct dans **Sessions de l’agent**, saisissez une **Instruction pour l’agent**, puis choisissez **Envoyer maintenant** ou **Envoyer à la fin**. Les administrateurs et développeurs affectés au projet peuvent envoyer des instructions pendant le travail, même entre deux sessions ou avant la première. Utilisez 1 à 4000 caractères sans NUL ; chaque tâche conserve au plus 256 instructions.
+Saisissez un **Message à l’agent** au bas de la conversation actuelle. **Envoyer maintenant** soumet le message à la prochaine limite sûre ; **Mettre en attente** attend la fin du travail actuel. Entre les sessions, la mise en attente reste disponible pendant le travail. Les conversations historiques sont en lecture seule.
 
-**En attente** signifie que Pi n’a pas accusé réception. **Transmise** signifie que Pi a accusé réception, sans confirmer la fin du travail. Le texte est conservé exactement. Une instruction refusée ou sans accusé reste en attente pour la prochaine session, après la discussion humaine dans sa consigne. Une instruction malformée reste non envoyée avec une preuve du refus. L’envoi devient indisponible lorsque la tâche ne travaille plus.
+Le message apparaît dans la conversation avec **En attente**, **Reçu par l’agent** ou un échec. Reçu confirme la réception, pas la fin du travail. Les erreurs de saisie sont expliquées à l’envoi : 1 à 4000 caractères sans NUL et au plus 256 instructions conservées par travail.
 
-Chaque transmission est enregistrée dans la tâche et copiée une seule fois sur le ticket en commentaire ADORE. Un échec temporaire du commentaire est réessayé séparément et n’annule pas la transmission à Pi.
-
-> **Envoyer maintenant** attend la fin des outils en cours sans les interrompre. **Envoyer à la fin** attend que l’agent n’ait plus de travail.
+Les instructions non confirmées restent en attente pour une session ultérieure. La réception confirmée est conservée dans le travail et publiée sur le ticket ; les échecs temporaires du commentaire sont réessayés séparément.
 
 ## Budgets du travail {#budgets}
 
@@ -127,27 +135,28 @@ Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative
 
 Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.
 
-## État et preuves de l’exécuteur {#operational-evidence}
+## Détails du travail et diagnostic {#operational-evidence}
 
-**En cours** signifie qu’ADORE conduit l’étape enregistrée ; aucune action humaine n’est demandée. **En attente de clarification** nécessite une réponse sur le ticket. **Échoué** arrête le travail autonome et conserve les preuves de récupération. La carte affiche les tentatives échouées de l’étape courante même si le travail reste En cours.
+**Détails du travail** affiche une seule fois le résultat enregistré, la **Branche**, le **Dernier commit publié** si disponible, le lien MR/PR et les tours de revue séparément. Une branche absente indique **Non enregistré**. Le commit publié correspond au dernier point de contrôle poussé et vérifié, pas à une empreinte de candidat.
 
-Les questions apparaissent dans **Question de l’agent** en Markdown avec listes, tableaux et code. Les commentaires HTML initiaux sont omis de la vue lisible ; **Question originale et preuves** conserve la source exacte. Le reste du HTML reste littéral, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les tableaux larges et le code défilent dans la question.
+Lorsqu’une clarification est requise, **Lire la question** ouvre cet onglet. La question utilise Markdown lisible, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les actions de réponse, approbation et revue restent visibles près de l’état si nécessaires. La question originale est dans **Diagnostic**.
 
-Les étapes de la chronologie viennent de l’étape, du contexte d’étape ou de la destination de transition enregistrés dans chaque événement ; les événements sans rapport restent inconnus. Les heures incluent les secondes. Un événement est une preuve enregistrée, pas une progression en direct.
+**Diagnostic** est replié au départ. Ouvrez-le pour les identifiants internes du projet et du travail, les **Tentatives échouées à l’étape actuelle**, les preuves de tentative directe ou de préparation et la dernière sortie de l’exécuteur. Les tours de revue sont distincts des échecs de l’étape actuelle.
 
-Dans **Informations techniques**, choisissez **Voir la dernière sortie de l’exécuteur**. Les sorties opérationnelles capturées par l’hôte du dernier lancement terminé sont affichées, avec modules absents et totaux des tests. Prompts, raisonnement, scripts, configuration, chemins, identifiants et données financières sont masqués. Les sorties inconnues deviennent un avis ou une catégorie de diagnostic. Seuls les 500 derniers diagnostics par flux, dans 64 Kio, sont conservés.
+**Données indisponibles** nomme le ticket, l’historique, le titre ou l’heure d’activité seulement lorsque ces sources manquent. Il s’agit des preuves disponibles, pas des jetons consommés. La consommation reste à droite.
 
-Le résumé affiche la tentative, son heure, le résultat et le code de sortie. Dépliez **stdout** ou **stderr** si des données sont présentes. Si un lancement est en cours, le panneau le signale et conserve la dernière sortie terminée. Si le journal change pendant la lecture, choisissez **Réessayer**. La dernière sortie vérifiée est signalée comme potentiellement périmée.
+La dernière sortie de l’exécuteur présente stdout/stderr opérationnels normalisés, avec heure, tentative, étape et code de sortie. Le contenu privé est masqué ; au plus 500 enregistrements dans 64 Kio par flux sont conservés. Les preuves absentes ou corrompues sont signalées et une lecture modifiée propose Réessayer.
 
-Un lancement sans capture prouvée ou un instantané supprimé est explicitement indisponible ; aucune archive brute ne sert de repli. Les preuves corrompues sont refusées. Un travail existant peut rester sans sortie jusqu’à un lancement ultérieur ; cette vue n’en démarre aucun.
-
-Si **Consommation** ne se charge pas, utilisez **Actualiser la consommation** près de l’erreur. Preuves et récupération restent séparées. Une source corrompue nécessite toujours l’intervention de l’opérateur.
-
+**Activité** est l’unique tableau d’événements. Le code publié est accessible par le lien MR/PR. Les détails utilisent les preuves sauvegardées sans créer de fichiers ni démarrer d’exécuteur.
 
 ## Capacité du projet {#project-capacity}
 
-Le **Résumé** affiche seulement **Limite de tâches en parallèle**, **Libres** et **Tâches en file** dans des rectangles compacts avec les informations opérationnelles. Dans l’onglet **Tâches** du projet, choisissez **Capacité** à côté de **Tickets** et **Tâches**. Chaque projet occupe une ligne avec sa limite, ses places libres, sa file, sa surveillance et les états actuels des tâches. Les tâches terminées, l’historique des opérations et les journaux sont exclus. Choisissez 10, 25, 50 ou Tout dans **Lignes par page**, puis **Précédent** ou **Suivant**.
+**Résumé** affiche la limite de travaux parallèles, les places libres et les travaux en attente avec les faits opérationnels du projet. Travaux et Tickets sont des onglets distincts sans sous-onglet Capacité. La page globale Travaux conserve son tableau Capacité avec limites, places libres, file et surveillance, ainsi que sa pagination.
 
 La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. Les paramètres conservent **Vos dernières opérations** et leurs résultats ; En file et En cours ne signifient pas Confirmé.
 
 Une limite réduite préparée retient déjà les nouveaux démarrages et reprises jusqu’à ce que l’occupation passe sous la limite ; les tâches déjà en cours continuent ; les réservations en file attendent une place d’exécution. Elle n’augmente jamais la limite active. L’application sûre attend les travaux inachevés ; la valeur enregistrée et le candidat restent visibles jusqu’à Enregistrer ou Abandonner les modifications.
+
+## Choisir le workflow {#workflow-choice}
+
+Dans **Actions du travail**, choisissez **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** pour un nouveau travail, puis acceptez la courte confirmation du navigateur qui supprime le travail existant. AEGIS absent désactive son action. Tickets conserve le sélecteur **Workflow** avant **Démarrer**. Réessayer, la continuation et les corrections de revue conservent le workflow enregistré et la même conversation Pi.

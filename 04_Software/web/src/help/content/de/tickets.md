@@ -13,7 +13,7 @@ Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle u
 
 Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 
-Vor der Aufnahme prüft ADORE AEGIS nur, wenn `.agentic/aegis.py` vorhanden ist. Eine defekte oder nicht unterstützte Installation wird abgelehnt. Ohne diese Datei implementiert der Agent das Ticket direkt. Repository-Prüfungen gehören bei beiden Workflows dem Agenten; ADORE beobachtet den Fortschritt und folgt der Freigaberichtlinie. Siehe [Repository-Workflows](/help/projects#workflows).
+Vor automatischer Aufnahme prüft `workflow.mode = "auto"` vorhandenes AEGIS und verweigert es bei Unbrauchbarkeit; ohne Payload gilt Direct. `workflow.mode = "direct"` überspringt AEGIS. Der manuelle Start wählt den Workflow ausdrücklich. Der Agent führt Repository-Prüfungen in beiden Workflows aus; ADORE behält Freigabe und Veröffentlichung bei. Siehe [Repository-Workflows](/help/projects#workflows).
 
 ## Azure Work Items und PR-Labels {#azure-tags}
 
@@ -53,9 +53,11 @@ Optionale Labels formen den Auftrag: `bug` oder `fix` ergibt eine Fehlerbehebung
 
 ## Tickets prüfen und starten {#tickets-view}
 
-**Tickets** in der Seitenleiste öffnet eine eigene globale Seite. Sie liest beim Öffnen und Bereichswechsel automatisch; **Tickets lesen** aktualisiert manuell. Tickets und Aufträge bieten alle berechtigten Projekte oder ein einzelnes. Lesefehler werden angezeigt. Die Projektzentrale behält Tickets, Aufträge und Kapazität; ihr Ticket-Untertab liest weiter auf Anfrage.
+**Tickets** in der Seitenleiste zeigt alle berechtigten Projekte oder eines; im Projekt gibt es einen separaten **Tickets**-Reiter. Beide lesen beim Öffnen automatisch, die globale Seite auch bei geändertem Umfang. **Tickets lesen** bleibt zur manuellen Aktualisierung. Jobs behält Suche, Filter und Seitennavigation.
 
-In der Projektzentrale drücken Sie **Tickets lesen**. Die globale Ticketseite liest beim Öffnen und Bereichswechsel automatisch; **Tickets lesen** aktualisiert weiterhin manuell. Das lädt bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
+Auf Nummer, Projekt, Titel, Labels oder Status klicken, um aufsteigend zu sortieren; erneutes Klicken kehrt die Richtung um. Projekt erscheint nur bei mehreren Projekten. Alle geladenen Tickets werden vor der Seiteneinteilung sortiert; die erste Seite wird geöffnet und die Sortierung bleibt nach Tickets lesen erhalten. Dieselben Bedienelemente gibt es im Tickets-Reiter des Projekts.
+
+Die Seite liest bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
 
 | Status | Bedeutung |
 |---|---|
@@ -90,3 +92,9 @@ HTML bleibt sichtbarer Text und wird nicht ausgeführt. Nur absolute http-, http
 5. Setzen Sie `agent-ready` zuletzt.
 6. Warten Sie auf die nächste Prüfung oder drücken Sie **Tickets lesen** und **Starten**.
 7. Verfolgen Sie den Auftrag unter [Lebenszyklus eines Auftrags](/help/jobs). Begriffe stehen im [Glossar](/help/glossary).
+
+## Workflow auswählen {#workflow-choice}
+
+Wählen Sie in **Jobaktionen** für einen neuen Job **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** und bestätigen Sie den kurzen Browserdialog zum Verwerfen bestehender Arbeit. Fehlendes AEGIS deaktiviert diese Aktion. Tickets behält die Auswahl **Workflow** vor **Starten**. Wiederholen, Fortsetzung und Review-Korrekturen behalten den gespeicherten Workflow und dieselbe Pi-Unterhaltung.
+
+In Tickets stehen Workflow, bei Bedarf Priorität, Labels hinzufügen und starten und Abbrechen auf breiten Bildschirmen in einer kompakten Zeile; auf kleinen Bildschirmen werden sie umgebrochen.

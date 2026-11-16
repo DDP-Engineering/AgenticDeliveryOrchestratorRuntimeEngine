@@ -15,7 +15,7 @@ requirement = """
 When Overview encounters incompatible saved job state in an authorized project, ADORE shall identify that project as unreadable and show verified job data for the other selected projects.
 """
 
-verification = "In offline API and browser fixtures with legacy state or activity timestamps and healthy jobs, verify healthy rows and named warnings in each project scope; exercise authorization, a cross-project read race, a stale continuation and the strict directory and history boundaries."
+verification = "In offline API and browser fixtures with corrupt current state or activity timestamps and healthy jobs, verify healthy rows and named warnings in each project scope; exercise authorization, a cross-project read race, a stale continuation and the strict directory and history boundaries."
 
 affected_paths = [
   "04_Software/adore/release_notes.toml",
@@ -34,4 +34,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-10
-updated = 2026-11-10
+updated = 2026-11-15

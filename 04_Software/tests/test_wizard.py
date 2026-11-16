@@ -113,7 +113,7 @@ def _answers(clone: Path, **overrides: object) -> dict[str, object]:
         "branch_rule": r"^(feature|bugfix|release|hotfix)/.*$",
         "branch_template": "feature/{slug}-{iid}",
         "runtime": "docker",
-        "provider": "openai", "model": "gpt-5.5",
+        "provider": "openai", "model": "gpt-6.1-terra",
         "auth_mode": "api-key",
         "reviewers": "reviewer.one, reviewer.two",
         "budgets_choice": "recommended",
@@ -166,7 +166,9 @@ def test_wizard_writes_pi_without_agent_choice_or_host_sign_in(tmp_path: Path) -
     store = _store(tmp_path)
     clone = _clone(tmp_path)
     asked: list[str] = []
-    asker = ScriptedAsker(_answers(clone), interactive=False)
+    answers = _answers(clone)
+    answers.pop("model")
+    asker = ScriptedAsker(answers, interactive=False)
     original = asker.read
 
     def record(spec):
@@ -178,7 +180,7 @@ def test_wizard_writes_pi_without_agent_choice_or_host_sign_in(tmp_path: Path) -
                runner=_runner(), os_key="linux", name="pi")
     assert "executor_cli" not in asked and "auth_mode" not in asked
     document = tomllib.loads(store.config_path("pi").read_text(encoding="utf-8"))
-    assert document["executor"] == {"provider": "openai", "model": "gpt-5.5",
+    assert document["executor"] == {"provider": "openai", "model": "gpt-6.1-terra",
                                     "env_keys": []}
     asker = ScriptedAsker(_answers(
         clone, execution_backend="local", auth_mode="host-auth"

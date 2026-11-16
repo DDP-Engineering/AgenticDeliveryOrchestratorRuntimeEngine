@@ -17,7 +17,7 @@ unverified candidate. By default both require fresh human approval; `delivery.re
 can disable this gate while retaining candidate/target freshness. ADORE publishes
 a draft or ready MR/PR according to `delivery.draft` and never merges.
 
-Current release: **ADORE 0.15.0**.
+Current release: **ADORE 0.17.0**.
 
 ## How it works
 
@@ -92,8 +92,8 @@ ADORE never installs or edits the target's AEGIS payload.
 ## Quick start
 
 For the packaged web application, extract the platform-specific archive from
-`07_Delivery/`: `adore-<version>-windows-x64.zip` or
-`adore-<version>-linux-x64.tar.gz`. Double-click `Start-ADORE.cmd` on Windows
+`07_Delivery/`: `adore-<version>-<offline|online>-windows-x64.zip` or
+`adore-<version>-<offline|online>-linux-x64.tar.gz`. Double-click `Start-ADORE.cmd` on Windows
 or run `./start-adore.sh` on Linux. Python and the web dependencies are included;
 the launcher starts both services and opens the ready interface. See the
 package README for first sign-in, stopping, data and logs. Project tools and
@@ -119,30 +119,27 @@ through CLI/configuration. Label a small ticket
 `agent-ready` with a priority such as `P2`, run one supervised poll, review the
 presented evidence, add `agent-approved`, and poll again to see the draft MR/PR
 open. Unattended operation on Ubuntu (systemd) or Windows 11 (Task Scheduler)
-is set up by the scripts in `02_Tools/deploy/`.
+is set up by the scripts in `02_Tools/setup/`.
 
 ## Documentation
 
 | Read | For |
-| --- | --- |
-| [Getting Started](01_Documentation/Getting_Started.md) | host setup, first profile, first safe poll |
-| [Security and Credentials](01_Documentation/Security_And_Credentials.md) | where every credential lives and the human merge boundary |
-| [Integrating a Runtime Project](01_Documentation/Integrating_A_Runtime_Project.md) | the target-repository contract and the AEGIS ownership boundary |
-| [Operations Guide](01_Documentation/Operations_Guide.md) | states, approval, review and failure interpretation |
-| [Recovery and Maintenance](01_Documentation/Recovery_And_Maintenance.md) | retry, reset, cancel, delete and cleanup |
-| [Configuration Reference](01_Documentation/Configuration_Reference.md) | every `config.toml` key |
-| [CLI Reference](01_Documentation/CLI_Reference.md) | every command and exit code |
-| [Operator Cheat Sheets](01_Documentation/Operator_Cheat_Sheets/README.md) | one-page reminders and slide decks |
-| [System Overview](00_Planning/ADORE_System_Overview.md) | design, components, known limits and open work |
+|---|---|
+| [Documentation index](01_Documentation/README.md) | user, operator and engineering guides |
+| [Getting started](01_Documentation/Getting_Started.md) | installation and first project |
+| [Operations](01_Documentation/Operations_Guide.md) | system overview, workflows, approval, review and recovery |
+| [Web interface](01_Documentation/Web_Interface.md) | current screens, scopes, job details and sessions |
+| [CLI reference](01_Documentation/CLI_Reference.md) | commands and intervention flags |
+| [Configuration reference](01_Documentation/Configuration_Reference.md) | settings, defaults and limits |
+| [Security](01_Documentation/Security_And_Credentials.md) | credentials, account isolation and authority |
 
 ## Repository layout
 
 | Path | Contents |
 | --- | --- |
-| `00_Planning/` | system overview and design position |
-| `01_Documentation/` | operator and administrator guides |
-| `02_Tools/` | release-identity checker and runtime-bundle packagers |
-| `04_Software/` | the `adore` package, offline tests, deploy scripts and container images |
+| `01_Documentation/` | current user, operator, administrator and engineering guides |
+| `02_Tools/` | setup, installation, deployment, packaging and repository automation |
+| `04_Software/` | runnable Python/frontend implementation and offline tests |
 | `05_SoftwareDocu/` | one implementation contract per component |
 | `07_Delivery/` | final user archives and optional SHA-256 files only |
 | `.agentic/` | this repository's own AEGIS workflow, requirements and task journals |
@@ -158,21 +155,29 @@ python -m ruff check adore tests
 
 The suite is fully offline. ADORE's own development follows the AEGIS
 workflow installed in `.agentic/`; read `AGENTS.md` before contributing. A
-release additionally passes `python 02_Tools/internal/check_release_consistency.py
+release additionally passes `python 02_Tools/package/release_checks/check_release_consistency.py
 --require-artifacts`. End-user Windows/Linux archives are built with
-`python 02_Tools/create_package.py`; `07_Delivery/` contains only the two
-archives and their optional adjacent hashes. Temporary build/verification work
+`python 02_Tools/package/create_delivery_package.py --runtime-mode offline` and
+`--runtime-mode online`. Both include Python and application dependencies. Offline
+adds Node, Pi, its web extension and search tools; online requires host Node/npm
+and a later `pi install` with registry access for native execution.
+`python 02_Tools/package/create_executor_image_archives.py --build` creates
+a separate generic base-executor image archive for offline Docker/Podman import
+on Linux or Docker/WSL on Windows. Project-specific and proxy images are prepared separately. `07_Delivery/` contains only final delivery archives and
+their optional adjacent hashes; new media stays outside Git. Temporary build/verification work
 is removed automatically and results are printed without saved reports.
-The three public repository tools are `setup_environment.py`, `create_package.py`
-and `verify_package.py` under `02_Tools/`. Internal release/license helpers are
-called automatically. Setup/deployment scripts do not require automated tests.
+Repository tools are grouped under `02_Tools/setup/`, `02_Tools/build/` and
+`02_Tools/package/`. The public commands prepare development dependencies,
+build production web assets, create delivery archives and verify those archives.
+See the [tools guide](02_Tools/README.md). Release/license helpers are called
+automatically. Setup/deployment scripts do not require automated tests.
 
 ## Versioning and AEGIS compatibility
 
 AEGIS is a separate project with its own repository. ADORE consumes its companion
 CLI; supported version and schema policy is declared once in
 `04_Software/adore/aegis.py`. The AEGIS 0.15 contract is covered by
-captured offline regression evidence; see [AEGIS compatibility](01_Documentation/AEGIS_Compatibility.md).
+captured offline regression evidence; see [AEGIS compatibility](01_Documentation/Operations_Guide.md#workflows).
 ADORE keeps its own Semantic Versioning and preserves saved job progress across
 compatible companion updates. Run state remains schema 1.
 

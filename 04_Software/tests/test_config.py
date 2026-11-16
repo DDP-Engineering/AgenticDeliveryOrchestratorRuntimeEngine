@@ -64,7 +64,6 @@ def test_pickup_and_review_defaults_and_explicit_overrides(tmp_path: Path) -> No
     assert config.readiness.require_acceptance_criteria is False
     assert config.readiness.require_priority_label is True
     assert config.review.max_review_rounds == 5
-    assert not hasattr(config.readiness, "require_known_component")
     assert validate_config(config) == []
     explicit = MINIMAL_VALID + (
         "\n[readiness]\nrequire_acceptance_criteria = true\n"
@@ -81,7 +80,6 @@ def test_pickup_and_review_defaults_and_explicit_overrides(tmp_path: Path) -> No
     sample = load_config(Path(__file__).parents[1] / "config.example.toml")
     assert sample.readiness.require_acceptance_criteria is False
     assert sample.review.max_review_rounds == 5
-    assert "require_known_component" not in sample.raw["readiness"]
 
 
 def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
@@ -119,44 +117,10 @@ def test_reviewer_config_requires_account_list(tmp_path, reviewers):
     assert any("reviewers" in issue for issue in validate_config(config))
 
 
-@pytest.mark.parametrize(("addition", "key"), [
-    ('[executor.opencode]\ncommand = "opencode run {prompt}"\nmodel = "m"\n',
-     "[executor] unknown key 'opencode'"),
-    ('[executor.codex]\ncommand = "codex exec {prompt}"\nmodel = "m"\n',
-     "[executor] unknown key 'codex'"),
-    ('[executor.qwen]\ncommand = "qwen -p {prompt}"\nmodel = "m"\n',
-     "[executor] unknown key 'qwen'"),
-    ('[executor.pi]\ncommand = "pi -p {prompt}"\nmodel = "m"\n',
-     "[executor] unknown key 'pi'"),
-    ('[labels.executor]\nprefix = "agent-exec:"\n', "[labels] unknown key 'executor'"),
-])
-def test_removed_agent_tables_are_refused_with_the_fix(tmp_path, addition, key) -> None:
-    """@brief A table of a removed coding agent is refused, naming the key and the fix."""
-    issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + addition)))
-    assert f"{key}: remove it from config.toml" in issues
 
 
-@pytest.mark.parametrize("line", ['default = "codex"', 'default = "opencode"',
-                                  'default = "pi"', "stage_host_auth = true"])
-def test_removed_agent_keys_are_refused_with_the_fix(tmp_path, line) -> None:
-    """@brief The agent choice and host sign-in staging keys are refused, naming the key."""
-    text = MINIMAL_VALID.replace("[executor]\n", f"[executor]\n{line}\n")
-    issues = validate_config(load_config(_write_config(tmp_path, text)))
-    name = line.split(" ")[0]
-    assert f"[executor] unknown key {name!r}: remove it from config.toml" in issues
 
 
-@pytest.mark.parametrize(("table", "name"), [
-    ("[container.runtime_env]", "OPENCODE_CONFIG_CONTENT"),
-    ("[container.runtime_env]", "CODEX_HOME"),
-])
-def test_removed_agent_environment_is_refused_with_the_fix(tmp_path, table, name) -> None:
-    """@brief An environment variable of a removed coding agent is refused, naming it."""
-    text = MINIMAL_VALID + f'\n{table}\n{name} = "x"\n'
-    section = table.strip("[]")
-    issues = validate_config(load_config(_write_config(tmp_path, text)))
-    assert (f"[{section.split('.')[0]}] {section.split('.')[1]}.{name} configures a "
-            "removed coding agent: remove it from config.toml") in issues
 
 
 def test_pi_is_the_only_executor_and_needs_only_a_provider_and_model(tmp_path: Path) -> None:
@@ -165,7 +129,7 @@ def test_pi_is_the_only_executor_and_needs_only_a_provider_and_model(tmp_path: P
     assert validate_config(config) == []
     assert (config.executor.provider, config.executor.model) == ("openai", "gpt-5.4-fast")
     assert config.executor.env_keys == []
-    assert config.executor.command == "pi -p --mode json --model {model} {prompt}"
+    assert "command" not in config.executor.__dataclass_fields__
 
 
 def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
@@ -249,23 +213,23 @@ def test_platform_gitea_repo_shape_and_login_rules(tmp_path: Path) -> None:
     assert any("login is only supported for gitea" in issue for issue in issues)
 
 
-def test_validation_requires_a_model_and_prompt_placeholder(tmp_path: Path) -> None:
+def test_validation_requires_a_model_and_rejects_unknown_executor_keys(tmp_path: Path) -> None:
     """
-    @brief   Pi needs a model, and a command template must carry {prompt}.
+    @brief   A missing model and an unknown executor key are reported without guessing defaults.
     """
     text = """
 [platform]
 repo = "g/p"
 
 [executor]
-command = "pi -p --model {model}"
+unexpected_option = "invalid"
 
 [delivery]
 reviewers = ["r"]
 """
     issues = validate_config(load_config(_write_config(tmp_path, text)))
     assert "[executor] model is required" in issues
-    assert "[executor] command must contain a {prompt} placeholder" in issues
+    assert any("unknown key" in issue and "unexpected_option" in issue for issue in issues)
 
 
 def test_validation_catches_bad_durations(tmp_path: Path) -> None:
@@ -327,10 +291,10 @@ def test_file_budget_rejects_zero(tmp_path: Path) -> None:
     assert any("max_files_touched" in issue for issue in issues)
 
 
-def test_validation_accepts_answer_timeout_independently_of_reserved_reminder(
+def test_validation_accepts_positive_answer_timeout(
         tmp_path: Path) -> None:
-    """@brief An active positive answer deadline is independent of the reserved reminder."""
-    text = MINIMAL_VALID + '\n[clarification]\nreminder_after = "24h"\nanswer_timeout = "12h"\n'
+    """@brief Positive answer deadlines are accepted; zero and malformed durations are refused."""
+    text = MINIMAL_VALID + '\n[clarification]\nanswer_timeout = "12h"\n'
     assert validate_config(load_config(_write_config(tmp_path, text))) == []
     for timeout in ('0s', 'invalid'):
         bad = text.replace('answer_timeout = "12h"', f'answer_timeout = "{timeout}"')
@@ -380,17 +344,6 @@ quiet_hours = ["late night"]
     assert any("quiet_hours" in issue for issue in issues)
 
 
-def test_validation_rejects_auto_flag_in_executor_command(tmp_path: Path) -> None:
-    """
-    @brief   --auto in the executor command is a validation error (it would
-             auto-approve the push/merge permissions; prereq report sec. 6).
-    """
-    text = MINIMAL_VALID.replace(
-        "[executor]\n",
-        '[executor]\ncommand = "pi -p --auto --model {model} {prompt}"\n',
-    )
-    issues = validate_config(load_config(_write_config(tmp_path, text)))
-    assert any("--auto" in issue for issue in issues)
 
 
 def test_validation_checks_container_run_args(tmp_path: Path) -> None:
@@ -449,25 +402,6 @@ selinux_relabel = "Z"
     assert "clone" in relabel_issues[0]
 
 
-def test_executor_command_rejects_a_placeholder_the_launcher_cannot_fill(
-    tmp_path: Path,
-) -> None:
-    """
-    @brief   The launcher renders the template with str.format, so an
-             unsupported brace raises KeyError at GATE time, once per attempt
-             until the stage budget is spent, pointing at nothing. No executor
-             supplies {resume} any more, and a shell `${HOME}` fails the same
-             way. Both are caught at setup instead.
-    """
-    text = MINIMAL_VALID.replace(
-        "[executor]\n",
-        '[executor]\ncommand = "pi -p --model {model} {resume}${HOME} {prompt}"\n',
-    )
-    issues = validate_config(load_config(_write_config(tmp_path, text)))
-    placeholder = [issue for issue in issues if "placeholder" in issue]
-    assert len(placeholder) == 2
-    assert any("{resume}" in issue for issue in placeholder)
-    assert any("{HOME}" in issue for issue in placeholder)
 
 
 def test_container_runtime_env_defaults_and_validation(tmp_path: Path) -> None:
@@ -582,28 +516,6 @@ def test_internet_and_search_values_are_validated(tmp_path: Path) -> None:
     assert any("[executor.web] unknown key 'extra'" in issue for issue in issues)
 
 
-def test_container_egress_mode_is_refused_naming_the_switch(tmp_path: Path) -> None:
-    """
-    @brief   The removed [container.egress] mode is refused and points at
-             [executor] internet; the remaining egress settings validate.
-    """
-    old = load_config(_write_config(tmp_path, MINIMAL_VALID + """
-[container.egress]
-mode = "open"
-"""))
-    issues = validate_config(old)
-    assert any("[container.egress] unknown key 'mode'" in issue
-               and "[executor] internet" in issue for issue in issues)
-    current = load_config(_write_config(tmp_path, MINIMAL_VALID + """
-[container.egress]
-allowlist = ["gitlab.example.com", "*.pythonhosted.org"]
-no_proxy = ["localhost", "127.0.0.1", "::1", "*.internal.example"]
-proxy_image = "adore-egress-proxy:1.0.0"
-proxy_port = 3128
-network_prefix = "adore-egress"
-"""))
-    assert current.container.egress.allowlist == ["gitlab.example.com", "*.pythonhosted.org"]
-    assert validate_config(current) == []
 
 
 def test_container_egress_rejects_bad_allowlist_entries(tmp_path: Path) -> None:
@@ -693,6 +605,7 @@ def test_workflow_defaults_are_valid_and_documented(tmp_path: Path) -> None:
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert validate_config(config) == []
     assert config.workflow.default_kind == "feature"
+    assert config.workflow.mode == "auto"
     assert config.workflow.kind_labels == {"bug": "fix", "fix": "fix",
                                            "change": "change"}
     assert config.workflow.quick_label == "agent-quick"
@@ -711,9 +624,11 @@ def test_workflow_rejects_kinds_aegis_does_not_conduct(tmp_path: Path) -> None:
     """
     issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow]
+mode = "aegis"
 default_kind = "refactor"
 kind_labels = { bug = "fix", legacy = "adoption", odd = "nonsense", dead = "bug" }
 """)))
+    assert any("mode must be auto or direct" in issue for issue in issues)
     assert any("default_kind must be one of" in issue for issue in issues)
     assert any("kind_labels.legacy must name an AEGIS run kind" in issue
                for issue in issues)
@@ -783,13 +698,12 @@ design = "long"
     assert not any("stage_timeout_overrides.build" in i for i in issues)
 
 
-def test_stage_timeout_overrides_accept_five_stages_and_refuse_deliver(
+def test_stage_timeout_overrides_accept_current_stages_and_reject_unknown(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   AEGIS 0.15.0 conducts five stages; deliver is no longer one.
-    @details Validate closes the task, so an override for deliver bounds
-             nothing and is reported like any other unknown stage.
+    @brief   Timeout overrides accept the current five-stage domain.
+    @details Unknown stage names are rejected before execution.
     """
     accepted = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow.stage_timeout_overrides]
@@ -802,9 +716,9 @@ validate = 3600
     assert not any("stage_timeout_overrides" in i for i in accepted)
     refused = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow.stage_timeout_overrides]
-deliver = 900
+unsupported_stage = 900
 """)))
-    message = next(i for i in refused if "stage_timeout_overrides.deliver" in i)
+    message = next(i for i in refused if "stage_timeout_overrides.unsupported_stage" in i)
     assert "is not an AEGIS stage (frame, specify, design, build, validate)" in message
 
 
@@ -848,15 +762,3 @@ def test_cost_cap_zero_is_explicit_opt_out_and_invalid_inputs_fail_closed(tmp_pa
         assert issues == []
     else:
         assert any("max_cost_usd" in issue for issue in issues)
-
-
-@pytest.mark.parametrize("legacy", ['"npm test"', 'true', '["old"]'])
-def test_removed_direct_check_is_ignored_without_rewriting_profile(tmp_path, legacy):
-    text = MINIMAL_VALID + '\n[workflow]\nverify_command = ' + legacy + '\n'
-    path = tmp_path / "config.toml"
-    path.write_text(text, encoding="utf-8")
-    config = load_config(path)
-    assert not hasattr(config.workflow, "verify_command")
-    assert "verify_command" not in config.to_dict()["workflow"]
-    assert not any("verify_command" in issue for issue in validate_config(config))
-    assert path.read_text(encoding="utf-8") == text

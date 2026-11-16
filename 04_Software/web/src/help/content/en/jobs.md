@@ -29,7 +29,7 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |
 | Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
 
-The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
+The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in the same job conversation within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
 ## Direct jobs {#direct-evidence}
 
@@ -41,7 +41,7 @@ Direct **Implementation** uses the `build` override in `workflow.stage_timeout_o
 
 ## Clarification {#clarification}
 
-When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**, and its detail offers **Answer on the ticket**. Choose **Read the question** to open **Agent question**, then **Answer on the ticket** when a saved location is available.
+When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**. **Read the question** opens the question in **Job details**; **Answer on the ticket** uses its saved location.
 
 Reply with a normal comment on the ticket, then add `agent-answered`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.
 
@@ -73,9 +73,11 @@ For local jobs, explicit **Retry** rechecks the installed executor and accepts a
 
 When a container command exceeds its time limit, ADORE stops that container before another command can run. The next allowed attempt resumes the same container with its installed dependencies and files; network access stays unchanged. If safe stopping or restarting cannot be confirmed, the job fails and keeps its evidence for inspection before **Retry**. A failed preparation still needs its existing explicit recovery.
 
+Container jobs keep the image and resource selected when they start, even without preparation. If that resource is replaced, start a fresh job. Preparation remains optional.
+
 ## Abandon and start again {#restart}
 
-For a failed job, **Abandon and start again** discards its saved state, worktree including unpublished work, and unchanged owned remote branch. Review the warning and confirm. ADORE verifies ownership before cleanup and starts the same open ticket with current settings only after cleanup succeeds. Monitoring stays paused if already paused. Administrators and assigned developers can use this action.
+For a failed job, **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** discards its saved state, worktree including unpublished work, and unchanged owned remote branch. Review the warning and confirm. ADORE verifies ownership before cleanup and starts the same open ticket with current settings only after cleanup succeeds. Monitoring stays paused if already paused. Administrators and assigned developers can use this action.
 
 Stable execution settings or backend drift cannot be fixed by Retry; Job details explains this and offers the confirmed action. Restore the saved settings to keep existing work. Native Retry can still revalidate volatile environment changes, including processor variables after resizing a VM.
 
@@ -85,7 +87,7 @@ If an older deleted job left a branch without a recorded checkpoint, ADORE keeps
 
 ## Following jobs {#following-jobs}
 
-Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-tab. The table has these columns:
+Use **Jobs** in the sidebar or the project’s separate **Jobs** tab. The table has these columns:
 
 | Column | Content |
 |---|---|
@@ -97,25 +99,31 @@ Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-t
 
 Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.
 
-The detail replaces its originating list while open. Above the title are **Activity**, **Agent sessions**, **Artifacts** and **Technical information**, then **Show ticket** and **Close** on the right. Saved status, stage and workflow appear below the title. Job actions, budgets and consumption remain available. Clarification, approval and review controls use saved locations. **Close** restores the originating view, scope, search, filters and pagination.
+The detail replaces its originating list while open. Above the title are **Activity**, **Agent sessions** and **Job details**, with **Show ticket** and **Close** on the right. Saved status, stage and workflow appear below the title. Budgets and consumption occupy the right-hand column. Required question, approval and review actions stay visible. **Close** restores the originating view, scope, search, filters and pagination.
+
+**Activity** is a paginated table with time, activity, stage and session. Choose 10, 25, 50 or All rows and use Previous/Next. **Open conversation** opens the exact session when the stage and attempt identify one recorded launch; unrelated or ambiguous events have no link. Returning to Activity keeps its page. Job budgets and Consumption occupy the right-hand column, below the content on narrow screens.
 
 ## Agent session history {#agent-sessions}
 
-In **Agent sessions**, choose a completed attempt, newest first. Each attempt comes from the job’s own archived Pi output. Read the prompt ADORE sent, assistant text, tool calls and results, turn boundaries and token usage. Expand a tool row for its full recorded text. Readable reasoning starts collapsed; system messages are never shown. Streaming deltas and duplicate final message lists are omitted. **Load more** follows the recorded cursor. The archive completion time is shown; a missing start time is stated explicitly.
+**Agent sessions** opens the current session, or the latest completed session. The conversation shows the initial prompt, agent replies, user messages and expandable tool calls/results. Agent replies use readable Markdown. Messages appear inline with a single author label; reasoning and tools can be expanded. Usage remains in the right-hand Consumption panel.
 
-Administrators and developers assigned to this project see text exactly as recorded, including any secrets it contains. Structured cost amounts remain administrator-only. Responses are not cached. The existing **View latest executor output** remains in **Technical information**. Each text item is limited to 16 KiB with a visible truncation marker; malformed or omitted records become notices. Sessions above 64 MiB show a size-bound notice.
+Pi keeps one implementation conversation for the job across stages, continuations and corrections. Processes can restart at checkpoints; the conversation resumes with its context and Pi's automatic compaction. The selector still shows recorded attempts, with only each attempt's new activity and usage. Independent reviews use separate contexts when the repository's review policy requires them.
 
-The current attempt is listed first as **Live** while the agent is running. This tab updates completed messages and tool calls/results every three seconds while the job is working and this view and browser tab are visible. **Agent is working** names the unfinished tool or thinking; text fragments do not stream. A partial record waits until its line is complete. When a launch ends, its final archive remains available and the view follows the next live launch. Selecting an earlier archive keeps your choice during refreshes and tab changes. Polling stops when the job leaves working or the view or browser tab is hidden.
+Session, its selector and the live activity indicator share a row directly above the conversation, aligned with its width. The conversation fits the available screen height and scrolls internally as messages arrive. Send now and Queue message sit beside the message box on wide screens, below it on narrow screens.
+
+History loads progressively without shortening retained message text. New messages follow automatically only while you are at the bottom; use **New messages** to return after reading earlier messages. The session selector keeps other attempts available, and **Current session** returns to live work.
+
+New launches explicitly retain their outgoing prompts and message times. Earlier sessions show only what was recorded. Administrators and assigned developers retain the same access; structured costs remain administrator-only.
+
+Use **Maximize** to fill the page with Agent sessions. **Restore** or Escape returns to the normal view. The selected session, messages and unsent draft are preserved.
 
 ### Sending instructions {#instructions}
 
-Below the live view in **Agent sessions**, enter an **Instruction for the agent** and choose **Send now** or **Send when finished**. Administrators and developers assigned to the project can queue instructions while the job is working, including between sessions or before any session appears. Use 1–4000 characters without NUL; each job retains at most 256 instructions.
+Enter a **Message to the agent** at the bottom of the current conversation. **Send now** submits it at the next safe agent boundary; **Queue message** waits until current work finishes. Between sessions, Queue message remains available while the job is working. Historical conversations are read-only.
 
-**Queued** means Pi has not acknowledged the instruction. **Delivered** means Pi acknowledged receipt, not that the work is complete. Text is preserved exactly. A rejected or unacknowledged instruction stays queued for the next session, whose prompt includes it after the human discussion. A malformed instruction stays unsent with refusal evidence. Sending is unavailable after the job leaves working.
+Your message appears in the conversation with **Queued**, **Received by agent** or a failure status. Received confirms receipt, not completed work. Invalid input is explained only when sending: 1–4000 characters without NUL, with at most 256 retained instructions per job.
 
-Each delivery is recorded in the job and copied once to the ticket as an ADORE comment. A temporary ticket-comment failure is retried independently and does not undo Pi delivery.
-
-> **Send now** waits for the current tools to finish and does not interrupt them. **Send when finished** waits until the agent has no more work.
+Unacknowledged instructions remain queued for a later session. Acknowledged delivery is saved in the job and posted to the ticket; temporary comment failures retry independently.
 
 ## Job budgets {#budgets}
 
@@ -127,27 +135,28 @@ Budgets are reread before each attempt, including resume and retry. A running at
 
 If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.
 
-## Status and executor evidence {#operational-evidence}
+## Job details and diagnostic {#operational-evidence}
 
-**Working** means ADORE is conducting the saved stage; no human action is currently requested. **Waiting for clarification** needs an answer on the ticket. **Failed** stops autonomous work and keeps recovery evidence. The status card shows failed attempts in the current stage even while the job stays Working.
+**Job details** shows the saved result once, the recorded **Branch**, the **Last published commit** when available, the MR/PR link and **Review rounds** separately. A missing branch is shown as **Not recorded**. A published commit identifies the last verified pushed checkpoint, not a candidate fingerprint.
 
-Questions appear in **Agent question** as Markdown with lists, tables and code. Leading HTML comments are omitted in the readable view; **Original question and evidence** retains the exact source. Other HTML remains literal, unsafe links are inactive and images do not load automatically. Wide tables and code scroll inside the question.
+When clarification is required, **Read the question** opens this tab. The question uses readable Markdown, with unsafe links inactive and images not loaded automatically. **Answer on the ticket**, approval and review actions remain visible near the status when needed. The original question is available inside **Diagnostic**.
 
-Timeline stages come from each event's recorded stage, stage context or transition destination; unrelated events remain unknown. Job times include seconds. An event is saved evidence, not a live progress signal.
+**Diagnostic** starts collapsed. Open it for internal project/job IDs, **Failed attempts in current stage**, direct-attempt or preparation evidence, and **View latest executor output**. Review rounds are separate from current-stage failures.
 
-Under **Technical information**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
+**Unavailable data** names missing ticket, activity history, title or last activity time only when relevant sources are absent. This describes available evidence, not token usage. Consumption remains in the right-hand panel.
 
-The summary shows the attempt, recorded time, result and exit code. Expand **stdout** or **stderr** when records are present. If a launch is in progress, the panel identifies it and keeps the latest completed output. When the journal changes during a read, choose **Retry**. The last verified output is marked as possibly out of date.
+**View latest executor output** reads normalized operational stdout/stderr for the latest recorded launch, with its time, attempt, stage and exit code. Private content is withheld; at most 500 diagnostic records within 64 KiB per stream are retained. Missing or corrupt evidence is reported explicitly, and changing evidence offers Retry.
 
-A launch without proven capture, or a deleted snapshot, is explicitly unavailable; raw archives are never used as a fallback. Corrupt evidence is refused. Existing jobs can remain unavailable until a later executor launch records evidence; this view never starts one.
-
-If **Consumption** cannot load, use **Refresh consumption** beside the error. Job evidence and recovery controls remain separate. A corrupt source still requires operator investigation.
-
+**Activity** is the single event table. Published code is accessible through the MR/PR link. Job details uses saved evidence and does not create files or start an executor.
 
 ## Project capacity {#project-capacity}
 
-**Summary** shows only **Parallel job limit**, **Free** and **Queued jobs** as compact rectangles alongside the project’s operational facts. In the project’s **Jobs** tab, choose **Capacity** beside **Tickets** and **Jobs**. Each project has one table row with its limit, free places, queue, monitoring and current job states. Finished jobs, operation history and logs are excluded. Choose 10, 25, 50 or All in **Rows per page** and use **Previous** and **Next**.
+**Summary** shows **Parallel job limit**, **Free** and **Queued jobs** beside the project’s operational facts. Project Jobs and Tickets are separate top-level tabs and have no Capacity sub-tab. The global Jobs page retains its Capacity table with per-project limits, free places, queue and monitoring; use its existing pagination.
 
 The queue counts submitted requests and admitted jobs waiting for dispatch, not unrequested forge tickets. A project at capacity does not block other projects. Settings still shows **Your latest operations** with saved Start, Retry, Cancel and settings results; Queued and In progress do not mean Confirmed.
 
 A staged lower limit already stops new starts and resumptions until occupancy falls below it; already-running jobs continue; queued reservations wait for a current execution place. It never raises the active limit. Safe application still waits for unfinished work; the saved value and staged candidate remain visible until Save or Discard changes.
+
+## Choose the workflow {#workflow-choice}
+
+In **Job actions**, choose **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** for a fresh job, then accept the short browser confirmation that discards existing work. Missing AEGIS disables its action. Tickets keeps its **Workflow** selector before **Start**. **Retry**, continuation and review corrections retain the saved workflow and the same Pi conversation.

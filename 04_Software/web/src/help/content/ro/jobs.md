@@ -29,7 +29,7 @@ ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă 
 | Construire | Agentul implementează tichetul și alege verificările potrivite conform instrucțiunilor repository-ului. |
 | Validare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |
 
-Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
+Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă în aceeași conversație a jobului, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
 
 ## Joburi directe {#direct-evidence}
 
@@ -41,7 +41,7 @@ Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, con
 
 ## Clarificare {#clarification}
 
-Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează `agent-clarify`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**. Alege **Citește întrebarea** pentru a deschide **Întrebarea agentului**, apoi **Răspunde pe tichet** când există un loc înregistrat.
+Când executorul cere informații, ADORE publică pe tichet un comentariu de clarificare cu întrebările și adaugă `agent-clarify`. Jobul arată așteptarea clarificării. **Citește întrebarea** deschide întrebarea în **Detalii job**, iar **Răspunde pe tichet** folosește locația salvată.
 
 Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați `agent-answered`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.
 
@@ -73,9 +73,11 @@ Pentru lucrările locale, **Reia** verifică executorul instalat și acceptă ac
 
 Când o comandă în container depășește limita de timp, ADORE oprește containerul înaintea altei comenzi. Următoarea încercare permisă reia același container, cu dependențele și fișierele instalate; accesul la rețea rămâne neschimbat. Dacă oprirea sau repornirea sigură nu poate fi confirmată, lucrarea eșuează și păstrează dovezile pentru verificare înainte de **Reia**. Pregătirea eșuată păstrează procedura sa explicită de recuperare.
 
+Joburile în container păstrează imaginea și resursa alese la pornire, chiar fără pregătire. Dacă resursa este înlocuită, pornește un job nou. Pregătirea rămâne opțională.
+
 ## Renunță și pornește din nou {#restart}
 
-Pentru un job eșuat, **Renunță și pornește din nou** șterge starea salvată, worktree-ul cu lucrul nepublicat și branchul remote propriu nemodificat. Citește avertismentul și confirmă. ADORE verifică proprietatea înainte de curățare și pornește același tichet deschis cu setările curente doar după curățarea completă. Monitorizarea rămâne în pauză dacă era oprită. Administratorii și dezvoltatorii alocați pot folosi acțiunea.
+Pentru un job eșuat, **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** șterge starea salvată, worktree-ul cu lucrul nepublicat și branchul remote propriu nemodificat. Citește avertismentul și confirmă. ADORE verifică proprietatea înainte de curățare și pornește același tichet deschis cu setările curente doar după curățarea completă. Monitorizarea rămâne în pauză dacă era oprită. Administratorii și dezvoltatorii alocați pot folosi acțiunea.
 
 Reîncercarea nu poate corecta mediul de execuție sau setările stabile schimbate; detaliile jobului explică situația și oferă acțiunea confirmată. Restabilește setările salvate pentru a păstra lucrul existent. Reîncercarea poate revalida schimbările volatile ale mediului nativ, inclusiv variabilele procesorului după redimensionarea unui VM.
 
@@ -85,7 +87,7 @@ Dacă un job șters anterior a lăsat un branch fără checkpoint înregistrat, 
 
 ## Urmărirea lucrărilor {#following-jobs}
 
-Folosiți **Lucrări** din bara laterală sau fila **Lucrări** a unui proiect, apoi sub-fila **Lucrări**. Tabelul are aceste coloane:
+Folosește **Lucrări** din meniul lateral sau fila separată **Lucrări** a proiectului. Tabelul are următoarele coloane:
 
 | Coloană | Conținut |
 |---|---|
@@ -97,25 +99,31 @@ Folosiți **Lucrări** din bara laterală sau fila **Lucrări** a unui proiect, 
 
 Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potrivește titluri, numere, proiecte, ID-uri de lucrare, stare, etapă sau rezultat. Filtrul **Stare** oferă Lucrări active, În așteptare, Revizie umană și Joburi încheiate. Pagina se reîmprospătează singură cât timp este vizibilă.
 
-Detaliile înlocuiesc lista de origine. Deasupra titlului sunt **Activitate**, **Sesiunile agentului**, **Artefacte** și **Informații tehnice**, apoi **Arată tichetul** și **Închide** în dreapta. Starea salvată, etapa și fluxul apar sub titlu. Acțiunile, bugetele, consumul și comenzile de clarificare, aprobare și revizie rămân disponibile. **Închide** restabilește vizualizarea, domeniul, căutarea, filtrele și pagina.
+Detaliile înlocuiesc lista din care au fost deschise. Deasupra titlului sunt **Activitate**, **Sesiunile agentului** și **Detalii job**, cu **Arată tichetul** și **Închide** în dreapta. Statusul, etapa și workflow-ul sunt sub titlu. Bugetele și consumul ocupă coloana din dreapta. Acțiunile necesare pentru întrebare, aprobare și review rămân vizibile. **Închide** restaurează pagina, selecția proiectului, căutarea, filtrele și paginarea.
+
+**Activitate** este un tabel paginat cu ora, activitatea, etapa și sesiunea. Alege 10, 25, 50 sau Toate și folosește Anterior/Următor. **Deschide conversația** deschide sesiunea exactă atunci când etapa și încercarea identifică o singură lansare înregistrată; evenimentele fără o asociere sigură nu au legătură. Revenirea păstrează pagina. Bugetele și consumul sunt în coloana din dreapta, sub conținut pe ecrane înguste.
 
 ## Istoricul sesiunilor agentului {#agent-sessions}
 
-În **Sesiunile agentului**, alegeți o încercare încheiată, cele mai noi primele. Sursa este ieșirea Pi arhivată a lucrării: instrucțiunea trimisă de ADORE, textul asistentului, apelurile și rezultatele instrumentelor, turele și tokenurile. Extindeți un instrument pentru textul complet. Raționamentul lizibil este restrâns; mesajele de sistem nu sunt afișate. Fragmentele intermediare și listele finale duplicate sunt omise. **Încarcă mai mult** continuă înregistrarea. Se afișează finalizarea arhivării, iar lipsa orei de început este explicită.
+**Sesiunile agentului** deschide sesiunea curentă sau ultima sesiune încheiată. Conversația arată promptul inițial, răspunsurile agentului, mesajele utilizatorului și apelurile/rezultatele instrumentelor care pot fi extinse. Răspunsurile folosesc Markdown lizibil. Mesajele apar direct, cu un singur autor; raționamentul și instrumentele pot fi extinse. Consumul rămâne în panoul din dreapta.
 
-Administratorii și dezvoltatorii alocați proiectului văd textul exact cum a fost înregistrat, inclusiv secretele. Sumele structurate sunt rezervate administratorilor. Răspunsurile nu sunt memorate în cache. **Vezi ultima ieșire a executorului** rămâne în **Informații tehnice**. Fiecare text are cel mult 16 KiB cu marcaj vizibil; înregistrările incorecte sau omise devin notificări. Peste 64 MiB apare o notificare de limită.
+Pi păstrează o conversație de implementare pentru job între etape, continuări și corecții. Procesele pot reporni la checkpointuri; conversația se reia cu contextul și compactarea automată Pi. Selectorul arată în continuare încercările înregistrate, fiecare cu activitatea și consumul propriu. Revizuirile independente folosesc contexte separate când politica repository-ului le cere.
 
-Încercarea curentă apare prima, ca **În direct**, cât timp agentul rulează. Fila actualizează mesajele încheiate și apelurile/rezultatele instrumentelor la fiecare trei secunde, doar când lucrarea este în execuție, iar această vizualizare și fila browserului sunt vizibile. **Agentul lucrează** numește instrumentul neterminat sau raționamentul; fragmentele de text nu sunt transmise continuu. O linie parțială așteaptă completarea. La încheierea unei lansări, arhiva finală rămâne disponibilă, iar vizualizarea urmărește următoarea lansare în direct. Alegerea unei arhive anterioare se păstrează la actualizări și schimbări de filă. Citirea periodică se oprește când lucrarea nu mai este în execuție sau când vizualizarea ori fila browserului este ascunsă.
+Sesiune, selectorul și activitatea în direct sunt pe același rând, deasupra conversației, aliniate cu lățimea acesteia. Conversația folosește înălțimea disponibilă și se derulează în interior când apar mesaje noi. Butoanele de trimitere sunt în dreapta câmpului pe ecrane late și sub el pe ecrane înguste.
+
+Istoricul se încarcă progresiv fără scurtarea textului păstrat. Mesajele noi sunt urmărite automat doar când ești la final; **Mesaje noi** te aduce înapoi. Selectorul păstrează celelalte încercări, iar **Sesiunea curentă** revine la lucrul în direct.
+
+Lansările noi păstrează explicit prompturile trimise și ora mesajelor. Sesiunile vechi arată doar ce a fost înregistrat. Drepturile administratorilor și dezvoltatorilor alocați rămân aceleași; costurile structurate rămân doar pentru administratori.
+
+**Maximizează** folosește toată pagina pentru sesiune. **Restabilește** sau Escape revine la afișarea normală. Sesiunea selectată, mesajele și mesajul netrimis se păstrează.
 
 ### Trimiterea instrucțiunilor {#instructions}
 
-Sub vizualizarea live din **Sesiunile agentului**, introdu o **Instrucțiune pentru agent** și alege **Trimite acum** sau **Trimite la final**. Administratorii și dezvoltatorii alocați proiectului pot pune instrucțiuni în așteptare cât timp jobul lucrează, inclusiv între sesiuni sau înaintea primei sesiuni. Folosește 1–4000 de caractere fără NUL; fiecare job păstrează cel mult 256 de instrucțiuni.
+Introdu un **Mesaj pentru agent** la baza conversației curente. **Trimite acum** îl transmite la următorul punct sigur al agentului; **Pune mesajul în așteptare** așteaptă încheierea lucrului curent. Între sesiuni, punerea în așteptare rămâne disponibilă cât timp jobul lucrează. Conversațiile istorice sunt doar pentru citire.
 
-**În așteptare** înseamnă că Pi nu a confirmat primirea. **Livrată** înseamnă că Pi a confirmat primirea, nu finalizarea lucrării. Textul este păstrat exact. O instrucțiune refuzată sau neconfirmată rămâne în așteptare pentru următoarea sesiune, după discuția umană în promptul acesteia. O instrucțiune incorectă rămâne netrimisă, cu dovezi ale refuzului. Trimiterea nu mai este disponibilă după ce jobul nu mai lucrează.
+Mesajul apare în conversație cu **În așteptare**, **Primit de agent** sau eroare. Primit confirmă recepția, nu finalizarea lucrului. Erorile de introducere sunt explicate la trimitere: 1–4000 de caractere fără NUL și cel mult 256 de instrucțiuni păstrate pe job.
 
-Fiecare livrare este înregistrată în job și copiată o singură dată pe tichet, într-un comentariu ADORE. Un eșec temporar al comentariului este reîncercat separat și nu anulează livrarea către Pi.
-
-> **Trimite acum** așteaptă terminarea instrumentelor curente și nu le întrerupe. **Trimite la final** așteaptă până când agentul nu mai are de lucru.
+Instrucțiunile neconfirmate rămân în așteptare pentru o sesiune ulterioară. Primirea confirmată este salvată în job și publicată pe tichet; erorile temporare ale comentariului sunt reîncercate separat.
 
 ## Bugetele jobului {#budgets}
 
@@ -127,27 +135,28 @@ Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și 
 
 Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
 
-## Stare și dovezi ale executorului {#operational-evidence}
+## Detalii job și diagnostic {#operational-evidence}
 
-**În lucru** înseamnă că ADORE conduce etapa salvată; momentan nu se cere intervenția unui om. **Așteaptă clarificare** necesită un răspuns pe tichet. **Eșuat** oprește lucrul autonom și păstrează dovezile de recuperare. Cardul afișează încercările eșuate ale etapei curente chiar când jobul rămâne În lucru.
+**Detalii job** arată o singură dată rezultatul salvat, **Branch**, **Ultimul commit publicat** când există, legătura MR/PR și rundele de review separat. Un branch absent apare ca **Neînregistrat**. Commitul publicat este ultimul checkpoint trimis și verificat, nu amprenta unui candidat.
 
-Întrebările apar în **Întrebarea agentului** ca Markdown cu liste, tabele și cod. Comentariile HTML de la început sunt omise din vizualizarea lizibilă; **Întrebarea originală și dovezile** păstrează sursa exactă. Restul HTML rămâne text, linkurile nesigure sunt inactive și imaginile nu se încarcă automat. Tabelele late și codul se derulează în interiorul întrebării.
+Când este necesară clarificarea, **Citește întrebarea** deschide această filă. Întrebarea folosește Markdown lizibil, legăturile nesigure sunt inactive și imaginile nu sunt încărcate automat. Acțiunile de răspuns, aprobare și review rămân vizibile lângă status când sunt necesare. Întrebarea originală este în **Diagnostic**.
 
-Etapele cronologiei provin din etapa, contextul de etapă sau destinația tranziției salvate în fiecare eveniment; evenimentele fără legătură rămân necunoscute. Orele includ secunde. Un eveniment este o dovadă salvată, nu progres în timp real.
+**Diagnostic** este inițial restrâns. Deschide-l pentru identificatorii interni ai proiectului și jobului, **Încercări eșuate în etapa curentă**, dovezi ale încercării directe sau pregătirii și ultima ieșire a executorului. Rundele de review sunt separate de erorile etapei curente.
 
-În **Informații tehnice**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
+**Date indisponibile** numește tichetul, istoricul, titlul sau ora activității doar când aceste surse lipsesc. Acestea descriu dovezile disponibile, nu consumul de tokenuri. Consumul rămâne în dreapta.
 
-Rezumatul arată încercarea, ora înregistrării, rezultatul și codul de ieșire. Extinde **stdout** sau **stderr** când au înregistrări. Dacă o lansare este în curs, panoul o semnalează și păstrează ultima ieșire finalizată. Dacă jurnalul se schimbă în timpul citirii, alege **Reîncearcă**. Ultima ieșire verificată este marcată ca posibil neactualizată.
+Ultima ieșire a executorului prezintă stdout/stderr operaționale normalizate, cu ora, încercarea, etapa și codul de ieșire. Conținutul privat este ascuns; sunt păstrate cel mult 500 de înregistrări în 64 KiB pe flux. Dovezile lipsă sau corupte sunt semnalate, iar datele modificate oferă Reîncearcă.
 
-O lansare fără captură dovedită sau cu snapshotul șters este explicit indisponibilă; arhivele brute nu sunt citite ca alternativă. Dovezile corupte sunt refuzate. Joburile existente pot rămâne fără ieșire până la o lansare ulterioară; această vizualizare nu pornește niciuna.
-
-Dacă **Consum** nu se încarcă, folosește **Actualizează consumul** lângă eroare. Dovezile și recuperarea rămân separate. O sursă coruptă necesită în continuare investigarea operatorului.
-
+**Activitate** este singurul tabel de evenimente. Codul publicat este accesibil prin legătura MR/PR. Detaliile folosesc dovezile salvate fără să creeze fișiere sau să pornească executorul.
 
 ## Capacitatea proiectului {#project-capacity}
 
-**Rezumatul** arată doar **Limita lucrărilor în paralel**, **Libere** și **Lucrări în coadă** ca dreptunghiuri compacte lângă informațiile operaționale. În fila **Lucrări** a proiectului, alege **Capacitate** lângă **Tichete** și **Lucrări**. Fiecare proiect are un rând cu limita, locurile libere, coada, monitorizarea și stările curente ale joburilor. Joburile încheiate, istoricul operațiilor și logurile sunt excluse. Alege 10, 25, 50 sau Toate în **Rânduri pe pagină**, apoi **Anterior** sau **Următor**.
+**Rezumat** arată limita lucrărilor paralele, locurile libere și lucrările în așteptare alături de informațiile operaționale. Lucrări și Tichete sunt file separate în proiect, fără subfilă Capacitate. Pagina globală Lucrări păstrează tabelul Capacitate cu limite, locuri libere, coadă, monitorizare și paginarea existentă.
 
 Coada numără cererile trimise și joburile admise care așteaptă lansarea, nu tichetele necerute. Un proiect ocupat nu blochează alte proiecte. Setările păstrează **Ultimele tale operații** și rezultatele salvate; În coadă și În desfășurare nu înseamnă Confirmat.
 
 O limită redusă pregătită oprește deja pornirile și reluările noi până când ocuparea scade sub ea; joburile deja pornite continuă; rezervările în coadă așteaptă un loc de execuție. Nu mărește niciodată limita activă. Aplicarea sigură așteaptă în continuare lucrul neterminat; valoarea salvată și candidatul rămân vizibile până la Salvează sau Renunță la modificări.
+
+## Alegerea fluxului de lucru {#workflow-choice}
+
+În **Acțiuni job**, alegeți **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** pentru un job nou, apoi acceptați confirmarea scurtă a browserului privind ștergerea lucrului existent. Lipsa AEGIS dezactivează acea acțiune. Tichetele păstrează selectorul **Flux de lucru** înainte de **Pornește**. Reîncercarea, continuarea și corecțiile de review păstrează fluxul salvat și aceeași conversație Pi.

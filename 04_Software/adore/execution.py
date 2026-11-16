@@ -303,7 +303,7 @@ class ContainerBackend:
         *,
         image: str | None = None,
     ) -> str:
-        """@brief Provision using the normalized image while retaining legacy defaults."""
+        """@brief Provision the selected image without running preparation implicitly."""
         resumed = name in self._pending_resume
         if resumed or name in self._blocked:
             self._admit_command(name, self._pending_resume.get(name))
@@ -517,13 +517,5 @@ def run_preparation_step(
             raise PreparationResultError(outcome) from exc
     return outcome
 
-
-def __getattr__(name: str):
-    """@brief Expose the local adapter lazily without cyclic contract imports."""
-    if name == "LocalBackend":
-        from adore.local_execution import LocalBackend
-
-        return LocalBackend
-    raise AttributeError(name)
 
 # END OF FILE

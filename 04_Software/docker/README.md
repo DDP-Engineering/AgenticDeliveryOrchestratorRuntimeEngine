@@ -8,21 +8,24 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # ADORE Executor Images
 
-ADORE uses a two-layer executor-image contract:
+Container execution uses a base image plus a project image. Native local
+execution uses managed Pi and host tools; see
+[Local execution](../../01_Documentation/Local_Execution.md).
 
 - `Dockerfile.executor-base` builds `adore-executor-base:1.0.0`. It contains
   the generic executor tools: Python 3.11 via uv, Node 22.23.4/npm, git,
-  `glab`, `gh`, Pi 1.4.0 (ADORE's only coding agent) with pi-web-access 0.46.0
+  `glab`, `gh`, Pi 1.5.2 (ADORE's only coding agent) with pi-web-access 0.46.0
   under `/opt/pi`, ADORE's Pi guard extension (`pi/adore-guard.ts`, copied to
   `/opt/adore/pi/`), ADORE's ChatGPT helper (`pi/adore-chatgpt.mjs`, copied to
   `/opt/adore/pi/adore-chatgpt.mjs`), the ADORE-owned Pi agent directory
   `/home/adore/.adore-pi-agent`, the non-root `adore` user, fixed mount points,
   caches, HOME pinning, and Git safe-directory setup. ADORE runs the ChatGPT
-  helper only in a one-off helper container that mounts the server's ChatGPT
+  helper for container execution in a one-off helper container that mounts the server's ChatGPT
   credential directory (`<ADORE home>/chatgpt`), to sign in with ChatGPT and to
   get each stage's short-lived access token; a run container never mounts that
-  directory. `verify-runtime.sh` checks the Node, Pi and pi-web-access versions,
-  and its step 14 checks that the ChatGPT helper loads the pinned Pi. Rebuild
+  directory. The manual verifier at
+  `02_Tools/build/verify_container_runtime.sh` checks the pinned tools and loads
+  the ChatGPT helper with an empty credential directory. Rebuild
   the image after pulling a change to these pins.
 - Each runtime project supplies a Dockerfile that extends the base with that
   project's build and test tools. Tag the resulting image as
@@ -55,10 +58,11 @@ When Docker runs inside WSL, substitute the Linux-visible path to this
 directory and the installed distribution name:
 
 ```powershell
-wsl -d <distribution> -- docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) `
-  -f <linux-path-to-docker-dir>/Dockerfile.executor-base `
-  -t adore-executor-base:1.0.0 `
-  <linux-path-to-docker-dir>
+wsl -d <distribution> -- sh -lc '
+  cd <linux-path-to-docker-dir>
+  docker build --build-arg USER_UID="$(id -u)" --build-arg USER_GID="$(id -g)" \
+    -f Dockerfile.executor-base -t adore-executor-base:1.0.0 .
+'
 
 wsl -d <distribution> -- docker build `
   -f <linux-path-to-docker-dir>/Dockerfile.egress-proxy `
@@ -100,18 +104,19 @@ any executor stage runs:
 [container]
 image = "adore-executor-<project>:<tag>"
 required_tool_checks = [
-  # the prerequisites the AEGIS payload needs inside the container
+  # tools needed by this project and its selected workflow
   "python3 --version",
   "node --version",
   "bash --version",
-  # plus whatever the runtime project's own gates invoke
+  # plus the project's build and test tools
   "<project-tool> --version",
 ]
 ```
 
 The AEGIS CLI is stdlib-only, so nothing has to be installed for it beyond a
-Python 3.11+ resolvable as `python3`. `node` is listed because the executors
-are npm packages and cannot start without it.
+Python 3.11+ resolvable as `python3`. Pi requires Node in both AEGIS and Direct
+workflows. The agent discovers and runs repository checks; ADORE does not run a
+separately configured verification command.
 
 ## Egress proxy image
 
@@ -151,46 +156,52 @@ hosts are in the allowlist.
 network backend. The executor reaches the proxy by the DNS alias
 `adore-egress-proxy` on an `--internal` network, and Podman 3.x with the older
 CNI backend both disables DNS on internal networks and cannot attach a running
-container to a second network. Ubuntu 22.04 packages Podman 3.4, so check
-`podman --version` there, and confirm with:
+container to a second network. Check the installed Podman version and network
+backend on the execution host. From the repository root, confirm explicitly with:
 
 ```bash
-EGRESS_MODE=allowlist-proxy RUNTIME=podman ./verify-runtime.sh
+EGRESS_MODE=allowlist-proxy RUNTIME=podman bash 02_Tools/build/verify_container_runtime.sh
 ```
 
 Docker has no equivalent constraint, and an internet-on project works on every
-supported runtime version. `EGRESS_MODE` is a parameter of `verify-runtime.sh`
+supported runtime version. `EGRESS_MODE` is a parameter of `verify_container_runtime.sh`
 only; `config.toml` has no egress mode.
 
 ## Verify a container runtime
 
-`verify-runtime.sh` checks the operations ADORE performs: image inspect/build,
+Run the following commands from the repository root on the Linux execution
+host or inside its WSL distribution. The verifier resolves Docker build inputs
+from `04_Software/docker/`, independently of the caller's working directory.
+It creates scratch resources and can build an absent image, so run it explicitly
+when checking a runtime.
+
+`verify_container_runtime.sh` checks the operations ADORE performs: image inspect/build,
 volume create, mounted execution, egress modes, Git worktrees, parking and
-resuming, listing, cleanup, and absence detection. Step 14 runs the ChatGPT
+resuming, listing, cleanup, and absence detection. It runs the ChatGPT
 helper's `token` command against an empty directory and expects
 `{"status":"not-signed-in"}`, which proves the helper loads the pinned Pi.
 
 ```bash
 # Generic base-image validation.
-RUNTIME=docker ./verify-runtime.sh
+RUNTIME=docker bash 02_Tools/build/verify_container_runtime.sh
 
 # Rootless Podman.
-RUNTIME=podman RUN_ARGS="--userns=keep-id" ./verify-runtime.sh
+RUNTIME=podman RUN_ARGS="--userns=keep-id" bash 02_Tools/build/verify_container_runtime.sh
 
 # Project image validation.
 IMAGE=adore-executor-<project>:<tag> \
 REQUIRED_TOOL_CHECKS="<project-tool> --version" \
-./verify-runtime.sh
+bash 02_Tools/build/verify_container_runtime.sh
 
 # No-network executor validation.
-EGRESS_MODE=none ./verify-runtime.sh
+EGRESS_MODE=none bash 02_Tools/build/verify_container_runtime.sh
 
 # Allowlist-proxy validation.
 EGRESS_MODE=allowlist-proxy \
 ALLOWLIST="example.com" \
 ALLOWED_URL="https://example.com" \
 DENIED_URL="https://github.com" \
-./verify-runtime.sh
+bash 02_Tools/build/verify_container_runtime.sh
 ```
 
 For rootless Podman, install `podman`, `uidmap`, and `slirp4netns`; build images

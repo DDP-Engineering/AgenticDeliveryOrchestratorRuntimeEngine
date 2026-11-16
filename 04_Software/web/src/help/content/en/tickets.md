@@ -13,7 +13,7 @@ Each project has a **Monitoring** state, shown as **Active** or **Paused** in th
 
 An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 
-Before pickup, ADORE probes AEGIS only when `.agentic/aegis.py` is present. A broken or unsupported payload is refused. Without that file, the agent implements the ticket directly. The agent owns repository checks in both workflows; ADORE monitors progress and follows the configured approval policy. See [Repository workflows](/help/projects#workflows).
+Before automatic pickup, `workflow.mode = "auto"` probes a present AEGIS payload and refuses it if unusable; an absent payload selects Direct. `workflow.mode = "direct"` skips AEGIS. Manual Start chooses its workflow explicitly. The agent owns repository checks in both workflows; ADORE retains approval and publication controls. See [Repository workflows](/help/projects#workflows).
 
 ## Azure Work Items and PR labels {#azure-tags}
 
@@ -53,9 +53,11 @@ Optional labels shape the job: `bug` or `fix` makes a fix task, `change` a chang
 
 ## Reviewing and starting tickets {#tickets-view}
 
-Use **Tickets** in the sidebar for a separate global page. It reads automatically on opening and after a scope change; **Read tickets** refreshes manually. Both Tickets and Jobs offer all authorized projects or one selected project. A failed read reports an error. The project hub keeps its existing Tickets, Jobs and Capacity sub-tabs, and its Tickets sub-tab still reads on request.
+Use **Tickets** in the sidebar for all authorized projects or one selected project, or the separate **Tickets** tab in a project. Both read automatically on opening; the global page also rereads after scope changes. **Read tickets** remains the manual refresh. Jobs retains its search, filters and pagination.
 
-In the project hub, press **Read tickets** to load tickets. The global Tickets page reads automatically on entry and scope changes; **Read tickets** remains a manual refresh. It loads up to 500 open tickets. More than 10 tickets are shown a page at a time: choose 10, 25, 50 or All in **Rows per page**, and move with **Previous** and **Next**; the pager shows the page number of the page count. Each row shows the number in a narrow column alongside the title, labels, Status and actions. Status names what blocks a ticket:
+Click Number, Project, Title, Labels or Status to sort ascending; click the active heading again to reverse the order. Project appears only when several projects are shown. Sorting covers all loaded tickets before pagination, returns to the first page and stays selected after Read tickets. The same controls are available in the project’s Tickets tab.
+
+The page reads up to 500 open tickets. More than 10 tickets are shown a page at a time: choose 10, 25, 50 or All in **Rows per page**, and move with **Previous** and **Next**; the pager shows the page number of the page count. Each row shows the number in a narrow column alongside the title, labels, Status and actions. Status names what blocks a ticket:
 
 | Status | Meaning |
 |---|---|
@@ -90,3 +92,9 @@ HTML stays visible as text, not executable content. Only absolute http, https an
 5. Add `agent-ready` last.
 6. Wait for the next check, or press **Read tickets** and **Start**.
 7. Follow the job in [Job lifecycle](/help/jobs). Terms are in the [Glossary](/help/glossary).
+
+## Choose the workflow {#workflow-choice}
+
+In **Job actions**, choose **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** for a fresh job, then accept the short browser confirmation that discards existing work. Missing AEGIS disables its action. Tickets keeps its **Workflow** selector before **Start**. **Retry**, continuation and review corrections retain the saved workflow and the same Pi conversation.
+
+In Tickets, Workflow, any required Priority, Add labels and start, and Cancel share one compact row on wide screens and wrap on small screens.

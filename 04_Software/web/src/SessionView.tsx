@@ -4,16 +4,27 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {createPortal} from "react-dom";
 import type {Locale,MessageKey} from "./i18n";
+import {InstructionComposer} from "./InstructionComposer";
+import type {Instruction} from "./instructionModel";
+import {instructionCopy} from "./instructionCopy";
+import {conversationCopy} from "./conversationCopy";
+import {ForgeMarkdown} from "./forgeMarkdown";
+import {ticketCopy} from "./ticketCopy";
 import {sessionCopy,workflowStageLabel} from "./jobCopy";
 import {readSessions,readSessionPage,shouldPollSession,applySessionActivity,type AgentSession,type SessionItem,type SessionActivity} from "./sessionModel";
 
 type Request=<T>(path:string,method?:string,body?:unknown,csrf?:string)=>Promise<T>;
 
 /** Follow a launch with fenced cursor reads; explicit history selection owns the view. */
-export function SessionView({project,run,workflow,locale,admin,request,t,lifecycle,active}:{project:string;run:string;workflow:"aegis"|"direct";locale:Locale;admin:boolean;request:Request;t:(key:MessageKey)=>string;lifecycle:string;active:boolean}) {
-  const copy=sessionCopy[locale];
+export function SessionView({project,run,workflow,locale,admin,request,t,lifecycle,active,csrf,target,toolbarHost,maximized=false}:{maximized?:boolean;toolbarHost?:HTMLElement|null;csrf:string;target?:{id:string;sequence:number};project:string;run:string;workflow:"aegis"|"direct";locale:Locale;admin:boolean;request:Request;t:(key:MessageKey)=>string;lifecycle:string;active:boolean}) {
+  const copy=sessionCopy[locale],chat=conversationCopy[locale],instructionsText=instructionCopy[locale];
+  const [instructions,setInstructions]=useState<Instruction[]>([]);
+  const [newMessages,setNewMessages]=useState(false);
+  const composeArea=useRef<HTMLDivElement>(null);
+  const chatWindow=useRef<HTMLDivElement>(null),stickToBottom=useRef(true),appliedTarget=useRef(0);
   const [sessions,setSessions]=useState<AgentSession[]>([]),[selected,setSelected]=useState("");
   const [items,setItems]=useState<SessionItem[]>([]),[cursor,setCursor]=useState<number|null>(null);
   const [activity,setActivity]=useState<SessionActivity>({thinking:false,tools:{}});
@@ -103,24 +114,94 @@ export function SessionView({project,run,workflow,locale,admin,request,t,lifecyc
       void load(row.id,latest.current.cursor??0,true);
     }
   },[lifecycle]);
+  useEffect(()=>{
+    if(!target||target.sequence===appliedTarget.current)return;
+    const row=sessions.find(row=>row.id===target.id||row.archive_id===target.id);
+    if(row){appliedTarget.current=target.sequence;following.current=Boolean(row.live);setSelected(row.id);}
+  },[target,sessions]);
+  useEffect(()=>{
+    if(active&&visible&&selected&&cursor!==null&&!pageLoading&&!pageError&&!sessions.find(row=>row.id===selected)?.live)
+      void load(selected,cursor,true);
+  },[cursor,pageLoading,pageError,selected,active,visible]);
+  useEffect(()=>{stickToBottom.current=true;setNewMessages(false);},[selected]);
   const date=(value:string)=>new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"medium"}).format(new Date(value));
-  const renderItem=(item:SessionItem,index:number)=>{
-    const label=copy[item.kind];
-    if(item.kind==="reasoning")return <li key={index}><details><summary>{label}</summary><pre tabIndex={0}>{item.text}</pre></details></li>;
-    if(item.kind==="tool_call" || item.kind==="tool_result")return <li key={index}><details className="session-tool"><summary>{label} · {item.tool}{item.is_error?` · ${t("failed")}`:""} · {item.text.slice(0,100)}</summary><pre tabIndex={0}>{item.text}</pre></details></li>;
-    return <li key={index} className={`session-${item.kind}`}><strong>{label}</strong>{item.kind==="usage"?<dl className="session-usage">{Object.entries(item.usage||{}).map(([key,value])=><div key={key}><dt>{copy.counters[key as keyof typeof copy.counters]||key}</dt><dd>{typeof value==="object"?Object.entries(value).map(([name,amount])=>`${name}: ${amount}`).join(" · "):value}</dd></div>)}</dl>:<pre tabIndex={0}>{item.kind==="turn"?(item.text==="turn_start"?copy.turnStart:copy.turnEnd):item.text}</pre>}</li>;
+  const selectedSession=sessions.find(row=>row.id===selected);
+  const liveSession=sessions.find(row=>row.live);
+  const currentView=Boolean(selectedSession?.live||following.current&&!liveSession);
+  const end=selectedSession?.end_at?Date.parse(selectedSession.end_at):Infinity;
+  const preceding=sessions.filter(row=>row.end_at&&Date.parse(row.end_at)<end).map(row=>Date.parse(row.end_at!));
+  const start=selectedSession?.start_at?Date.parse(selectedSession.start_at):preceding.length?Math.max(...preceding):-Infinity;
+  const represented=new Set(items.map(item=>item.instruction_id).filter(Boolean));
+  const extra=instructions.filter(row=>!represented.has(row.id)&&(currentView&&!row.delivery||row.delivery&&Date.parse(row.delivery.at)>start&&Date.parse(row.delivery.at)<=end));
+  const entries=items.filter(item=>item.kind!=="turn"&&item.kind!=="usage").map((item,index)=>{const instruction=instructions.find(row=>row.id===item.instruction_id);return {item:instruction?{...item,at:instruction.created_at}:item,key:`event-${index}`,instruction};});
+  entries.push(...extra.map(row=>({item:{kind:"prompt" as const,text:row.text,at:row.created_at,instruction_id:row.id},key:row.id,instruction:row})));
+  if(entries.every(entry=>entry.item.at))entries.sort((a,b)=>Date.parse(a.item.at!)-Date.parse(b.item.at!));
+  const messageVersion=entries.map(entry=>`${entry.key}:${entry.item.text.length}:${Boolean(entry.instruction?.delivery)}:${entry.instruction?.last_error||""}`).join(",");
+  useEffect(()=>{
+    if(!active)return;
+    if(stickToBottom.current){const frame=requestAnimationFrame(()=>{if(chatWindow.current)chatWindow.current.scrollTop=chatWindow.current.scrollHeight;});return()=>cancelAnimationFrame(frame);}
+    setNewMessages(true);
+  },[messageVersion,active]);
+  useLayoutEffect(()=>{
+    const node=chatWindow.current,footer=composeArea.current;
+    if(!active||!visible||!node||!footer)return;
+    let frame=0;
+    const fit=()=>{
+      const viewport=window.visualViewport;
+      const height=viewport?.height||window.innerHeight;
+      const top=Math.max(0,node.getBoundingClientRect().top-(viewport?.offsetTop||0));
+      const footerHeight=footer.getBoundingClientRect().height;
+      const available=Math.min(height-24,Math.max(160,height-top-footerHeight-24));
+      if(Math.abs(node.getBoundingClientRect().height-available)>1)node.style.height=`${available}px`;
+      node.parentElement?.style.setProperty("--session-footer-height",`${footerHeight}px`);
+    };
+    const schedule=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(fit);};
+    const scrolled=(event:Event)=>{if(event.target instanceof Node&&!node.contains(event.target))schedule();};
+    const observer=new ResizeObserver(schedule);
+    observer.observe(footer);
+    if(node.parentElement)observer.observe(node.parentElement);
+    if(toolbarHost)observer.observe(toolbarHost);
+    const header=toolbarHost?.closest("header");if(header)observer.observe(header);
+    window.addEventListener("resize",schedule);
+    document.addEventListener("scroll",scrolled,true);
+    window.visualViewport?.addEventListener("resize",schedule);
+    fit();
+    return()=>{cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener("resize",schedule);document.removeEventListener("scroll",scrolled,true);window.visualViewport?.removeEventListener("resize",schedule);};
+  },[active,visible,toolbarHost,maximized]);
+  const results=new Map(items.filter(item=>item.kind==="tool_result").map(item=>[item.call_id,item]));
+  const calls=new Set(items.filter(item=>item.kind==="tool_call").map(item=>item.call_id));
+  const markdown=(source:string)=><ForgeMarkdown source={source} imageLabel={ticketCopy[locale].imageNotLoaded} codeLabel={ticketCopy[locale].code} tableLabel={ticketCopy[locale].table}/>;
+  const renderItem=(entry:typeof entries[number])=>{
+    const {item,instruction,key}=entry;
+    if(item.kind==="tool_result"&&calls.has(item.call_id))return null;
+    if(item.kind==="reasoning")return <li key={key} className="session-reasoning"><details><summary>{copy.reasoning}</summary><pre tabIndex={0}>{item.text}</pre></details></li>;
+    if(item.kind==="tool_call"||item.kind==="tool_result"){
+      const result=item.kind==="tool_call"?results.get(item.call_id):undefined;
+      return <li key={key} className="session-tool"><details><summary>{item.tool} {(item.is_error||result?.is_error)&&<span className="error">· {t("failed")}</span>}</summary><pre tabIndex={0}>{item.text}</pre>{result&&<><strong>{copy.tool_result}</strong><pre tabIndex={0}>{result.text}</pre></>}</details></li>;
+    }
+    return <li key={key} className={`session-message session-${item.kind}`}>
+      <div className="session-message-meta"><strong>{instruction?instruction.user.username:item.kind==="assistant"?chat.agent:item.kind==="prompt"?"ADORE":copy[item.kind]}</strong>{item.at&&<time dateTime={item.at}>{date(item.at)}</time>}{instruction&&<span className="session-delivery">{instruction.last_error?t("failed"):instruction.delivery?chat.received:instructionsText.queued}</span>}</div>
+      {item.kind==="assistant"||item.kind==="prompt"&&!item.instruction_id?markdown(item.text):<pre tabIndex={0}>{instruction?.text||item.text}</pre>}
+      {instruction?.last_error&&<p role="status">{instructionsText.rejected}</p>}
+    </li>;
   };
+  const latestSession=()=>{following.current=true;stickToBottom.current=true;if(liveSession)setSelected(liveSession.id);else void refresh(null);};
+  const toolbar=(<div className="session-toolbar">
+      {sessions.length>0&&<label>{chat.session}<select aria-label={chat.session} value={selected} onChange={event=>{following.current=Boolean(sessions.find(row=>row.id===event.target.value)?.live);setSelected(event.target.value);}}>{sessions.map(row=><option value={row.id} key={row.id}>{workflowStageLabel(row.stage,workflow,t)} · {row.attempt} · {row.live?copy.live:`${date(row.end_at!)} · ${copy[row.outcome === "failed" ? "failedOutcome" : row.outcome!]}`}</option>)}</select></label>}
+      {lifecycle==="working"&&!selectedSession?.live&&<button className="ghost" onClick={latestSession}>{chat.current}</button>}
+      {selectedSession?.live&&<span className="session-live" role="status">● {copy.live}{activity.thinking||Object.keys(activity.tools).length?` · ${Object.values(activity.tools).at(-1)||copy.thinking}`:""}</span>}
+    </div>);
   return <section className="agent-sessions" aria-label={copy.title}>
-    <p className="field-hint">{copy.help}</p>
+    {toolbarHost?createPortal(toolbar,toolbarHost):toolbar}
     {loading&&<p role="status">{t("loadingData")}</p>}
     {error&&<p role="alert">{copy.failed} <button className="ghost" onClick={()=>setReload(value=>value+1)}>{t("retry")}</button></p>}
     {!loading&&!error&&!sessions.length&&<p role="status">{copy.empty}</p>}
-    {sessions.length>0&&<label>{copy.attempt}<select aria-label={copy.attempt} value={selected} onChange={event=>{following.current=Boolean(sessions.find(row=>row.id===event.target.value)?.live);setSelected(event.target.value);}}>{sessions.map(row=><option value={row.id} key={row.id}>{workflowStageLabel(row.stage,workflow,t)} · {row.attempt} · {row.live?copy.live:date(row.end_at!)} · {row.live?copy.live:copy[row.outcome === "failed" ? "failedOutcome" : row.outcome!]}</option>)}</select></label>}
-    {selected&&!sessions.find(row=>row.id===selected)?.live&&<p className="field-hint">{copy.startUnknown}</p>}
-    {sessions.find(row=>row.id===selected)?.live&&(activity.thinking||Object.keys(activity.tools).length>0)&&<p role="status">{copy.working.replace("{activity}",Object.values(activity.tools).at(-1)||copy.thinking)}</p>}
-    <ol className="session-timeline">{items.map(renderItem)}</ol>
-    {pageLoading&&<p role="status">{t("loadingData")}</p>}
-    {pageError&&<p role="alert">{copy.failed} <button className="ghost" onClick={()=>void load(selected,cursor??0,items.length>0)}>{t("retry")}</button></p>}
-    {cursor!==null&&!sessions.find(row=>row.id===selected)?.live&&!pageError&&<button className="ghost" disabled={pageLoading} onClick={()=>void load(selected,cursor,true)}>{copy.more}</button>}
+    <div className="session-chat-window" ref={chatWindow} onScroll={()=>{const node=chatWindow.current;if(node){stickToBottom.current=node.scrollHeight-node.scrollTop-node.clientHeight<80;if(stickToBottom.current)setNewMessages(false);}}}>
+      <ol className="session-timeline">{entries.map(renderItem)}</ol>
+      {pageLoading&&<p role="status">{t("loadingData")}</p>}
+      {pageError&&<p role="alert">{copy.failed} <button className="ghost" onClick={()=>void load(selected,cursor??0,items.length>0)}>{t("retry")}</button></p>}
+    </div>
+    {newMessages&&<button className="ghost session-new-messages" onClick={()=>{stickToBottom.current=true;setNewMessages(false);chatWindow.current?.scrollTo({top:chatWindow.current.scrollHeight,behavior:"smooth"});}}>{chat.newMessages} ↓</button>}
+    <div className="session-compose-area" ref={composeArea}><InstructionComposer project={project} run={run} locale={locale} lifecycle={lifecycle} active={active} csrf={csrf} request={request} t={t} show={lifecycle==="working"&&currentView} canSendNow={Boolean(selectedSession?.live)} onRows={setInstructions} onSent={()=>{stickToBottom.current=true;setNewMessages(false);}}/></div>
   </section>;
 }

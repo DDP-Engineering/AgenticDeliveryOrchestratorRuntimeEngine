@@ -55,7 +55,7 @@ When you confirm guided enrollment or a raw import, ADORE prepares missing share
 
 ## Import raw configuration {#import-project}
 
-In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 `config.toml` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes.
+In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 `config.toml` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes. Only current configuration keys are accepted. Remove each unsupported key named by validation; ADORE leaves the file unchanged.
 
 Select a complete exported ZIP directly; its configuration and image definitions are imported together. ADORE also checks the source graph, image correspondence and existing definitions. A different definition already using the root image name is refused. TOML files may be up to 512 KiB and ZIPs up to 18 MiB. Use the included Compose file to build images separately on the destination server. See [Settings → Export raw configuration](/help/settings#toml).
 
@@ -95,3 +95,7 @@ Discovery respects `XDG_CONFIG_HOME`. On Windows it also checks the account’s 
 5. Choose **Check host prerequisites** again. Git clone/push credentials are configured separately.
 
 On another computer, prepare that computer’s own CLI sign-in or use this connection form. The delivery archive contains no user tokens.
+
+## Choose the workflow {#workflow-choice}
+
+**Without AEGIS** overrides only repository instructions requiring AEGIS procedures. Other coding, licensing and verification rules remain in force. Installed AEGIS files stay intact. Direct uses Implementation, Validation and Done; checks are agent-reported. The AEGIS stages described here apply to **With AEGIS**.

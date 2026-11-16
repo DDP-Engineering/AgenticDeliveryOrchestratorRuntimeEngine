@@ -18,6 +18,7 @@ from adore.web.app import create_app
 # IMPORTS
 from fastapi.testclient import TestClient
 
+from tests.execution_records import execution_record
 from tests.test_web_pending_config import _headers, _project
 
 
@@ -215,7 +216,8 @@ def test_unsafe_apply_retains_project_candidate_and_other_project_bytes(tmp_path
     profiles, path, state = _project(tmp_path)
     beta = _beta(profiles, path, tmp_path)
     originals = path.read_bytes(), beta.read_bytes()
-    state.save(RunState(run_id="active-a", ticket_iid=1, lifecycle="working"))
+    state.save(RunState(run_id="active-a", ticket_iid=1, lifecycle="working",
+        execution=execution_record()))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         headers = _headers(client)

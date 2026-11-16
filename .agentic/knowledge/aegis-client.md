@@ -75,20 +75,6 @@ the journal-evidence rule.
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
 
-
-- `REQ-FUNC-8472a560` - AEGIS outside major 0 or older than 0.15.0 is refused at
-  probe with an error naming 0.15.0.
-- `REQ-FUNC-16237c6d` - pinned task identity, 0.15.0 stages and step files, and
-  internally consistent strict-check evidence.
-- `REQ-FUNC-faab24b2` - done -> validate is the legal return when ADORE must
-  revalidate a candidate.
-- `REQ-FUNC-ab65704b` - deviations are harvested with AEGIS's own marker rule.
-- `REQ-FUNC-4fe259b0` - bounded container exchange and typed timeout handling.
-- `REQ-FUNC-e397f7f6` - file transport uses the bound backend worktree, IO and
-  shell paths, quoted, including spaces; direct host probes keep argv.
-- `REQ-FUNC-ffb9ed29` / `REQ-UX-b75e1df8` - native `run_files` launches local
-  Python argv under the same bounded file and JSON contracts.
-
 ## Files
 
 - `04_Software/tests/test_aegis_compatibility.py`: captured supported and refused companion replay.

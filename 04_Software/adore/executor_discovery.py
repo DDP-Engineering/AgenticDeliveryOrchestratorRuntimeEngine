@@ -22,7 +22,7 @@ from pathlib import Path
 import platform
 import shlex
 
-from adore.config import PI_NATIVE_COMMAND
+from adore.branding import PI_NATIVE_COMMAND
 from adore.local_process import native_context
 
 # CONSTANTS

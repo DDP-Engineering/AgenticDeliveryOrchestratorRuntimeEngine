@@ -74,50 +74,14 @@ that cap for a subscription/local model while other run limits remain.
 Prepare-only mode validates the same candidate offline, with Docker as the
 unprovided runtime default. CLI mode retains probes and persistence.
 
-## Repository verification hints
-
-`adore/verification_hint.py` supplies the shared pure filesystem reader used
-by CLI init and web setup-preview. It returns `(command, source)` or None:
-the eight ordered rows in Configuration_Reference.md, root before exactly one
-matching immediate child, with portable child names and clone-relative manifest
-provenance. External links, nonregular files and evidence over 1 MiB are ignored;
-only bounded package.json/Makefile content is read. Malformed package JSON,
-including JSON decoder integer/recursion-limit failures, is a JavaScript miss;
-later rows remain eligible. Access/encoding failures propagate; static link loops
-are OSError(ELOOP), including on Python 3.11/3.12 where pathlib uses RuntimeError.
-No commands, network or writes occur.
-Proof: `04_Software/tests/test_verification_hint.py`; component contract:
-`05_SoftwareDocu/Component_Verification_Hint.md`.
-
-Outside prepare-only, an absent AEGIS entrypoint offers `verification_choice`:
-use suggestion (the default when available), enter another command, or no
-verification (default without a match). The edit field defaults to the suggestion;
-explicit none clears it. Source is shown before selection. Only command input
-retains whitespace, controls/DEL/Unicode survive TOML serialization exactly, and
-CR/LF/NUL are refused. Confirmation and config validation precede publication;
-read failures raise `WizardError` on repo_path. A present AEGIS entrypoint,
-including a symlink, suppresses discovery. Focused proof: test_wizard.py.
 
 ## Change map
 
 | Change requested | Start with | Focused verification |
 |---|---|---|
-| Ordered manifest hints, containment, file limits and child selection | `adore/verification_hint.py`, `suggest_verification_command` | `tests/test_verification_hint.py` |
-| Init defaults/provenance and exact keep/edit/none choices | `wizard.py`, `run_wizard`, `ConsoleAsker`, `_toml_string` | `tests/test_wizard.py` |
 | Candidate validation and profile publication | `wizard.py`, `ask`, `_validate_or_raise`, `run_wizard` | `tests/test_wizard.py`, `tests/test_web_enrollment.py` |
-| Transient web hint and canonical reviewed enrollment | `web/app.py`, `EnrollmentWizard.tsx`; see `web-interface.md` | `tests/test_web_enrollment.py`, `web/e2e/enrollment.spec.ts` |
 
 ## Key behaviors
-
-- REQ-NFR-6badc5b8 / REQ-SEC-95dddb65 / REQ-SEC-ecafbce6: shared discovery is
-  file-read-only, clone-contained and bounded to 1 MiB evidence; root/table order
-  and unique safe-named immediate-child fallback determine command/source.
-- REQ-REL-cbc3b8e1: malformed package structure and decoder-limit failures are
-  misses, with later rows still eligible; other file/encoding errors propagate.
-- REQ-FUNC-f753863b / REQ-UX-7f47b773 / REQ-FUNC-65db4fd5 /
-  REQ-FUNC-b0f69285: direct init offers the shared default and source, keeps human
-  keep/edit/none authority and saves only confirmed validated text; present AEGIS
-  suppresses discovery.
 
 - REQ-FUNC-6e20aea3: missing payload is direct-workflow information; a present
   incompatible payload stays CHECK rather than a silent fallback.
@@ -131,7 +95,6 @@ including a symlink, suppresses discovery. Focused proof: test_wizard.py.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
-
 
 - `REQ-FUNC-3d8f6f5e` - offline preparation and field-specific safe findings;
   `test_web_enrollment.py` proves preparation and preserved default CLI mode.
@@ -147,9 +110,6 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
-
-- `04_Software/adore/verification_hint.py` — shared bounded repository reader.
-- `04_Software/tests/test_verification_hint.py` — ordered root/child and refusal proof.
 - `04_Software/adore/wizard.py` — setup and validated profile publication.
 - `04_Software/tests/test_wizard.py` — scripted CLI setup and refusal proof.
 
@@ -161,3 +121,11 @@ non-interactive output, branch checks, and the no-invalid-save guarantee.
 The wizard gives install and verify instructions for managed Pi; it never runs npm.
 
 Guided web setup records an optional validated thinking level; CLI setup keeps the Pi default.
+
+## Explicit new-job workflow
+
+New-job Direct project defaults skip AEGIS diagnostics/probing while retaining independent host/Git diagnostics. Auto preserves existing detection.
+
+## Current contract
+
+Current setup chooses repository, provider/model and container/native execution configuration, validates the current fields and saves only after confirmation. Repository checks belong to the executor; the wizard does not discover or store a separate verification command.

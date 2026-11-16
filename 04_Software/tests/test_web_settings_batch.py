@@ -26,6 +26,7 @@ from adore.web.store import WebStore
 import pytest
 
 from tests.configuration_client import TestClient
+from tests.execution_records import execution_record
 from tests.test_web_pending_config import _headers, _project
 
 # CONSTANTS
@@ -334,7 +335,8 @@ def test_parked_job_allows_only_reviewed_budget_batch(project, extra):
 
     _, path, state, _, _ = project
     state.save(RunState(run_id="parked", ticket_iid=1,
-                        lifecycle="parked-clarification", iterations=9, stage="build"))
+                        lifecycle="parked-clarification", iterations=9, stage="build",
+        execution=execution_record()))
     before = (state.run_dir("parked") / "state.json").read_bytes()
     original = path.read_bytes()
     edits = [{"key": "budgets.max_iterations", "value": "30"},
@@ -362,12 +364,14 @@ def test_parked_budget_edit_retains_all_other_apply_boundaries(project, boundary
 
     _, path, state, _, _ = project
     state.save(RunState(run_id="parked", ticket_iid=1,
-                        lifecycle="parked-clarification", iterations=9))
+                        lifecycle="parked-clarification", iterations=9,
+        execution=execution_record()))
     staged = stage(project, [{"key":"budgets.max_iterations", "value":"30"}])
     assert staged.status_code == 200, staged.text
     held = False
     if boundary in {"working", "awaiting-approval", "in-review", "handoff-pending"}:
-        state.save(RunState(run_id="other", ticket_iid=2, lifecycle=boundary))
+        state.save(RunState(run_id="other", ticket_iid=2, lifecycle=boundary,
+            execution=execution_record()))
     elif boundary == "corrupt":
         (state.run_dir("parked") / "state.json").write_text("{}")
     elif boundary == "lock":
@@ -391,7 +395,8 @@ def test_parked_budget_candidate_cannot_smuggle_unreviewed_configuration(project
     from adore.state import RunState
 
     _, path, state, client, headers = project
-    state.save(RunState(run_id="parked", ticket_iid=1, lifecycle="parked-clarification"))
+    state.save(RunState(run_id="parked", ticket_iid=1, lifecycle="parked-clarification",
+        execution=execution_record()))
     revision = client.get(CONFIG).json()["revision"]
     staged = client.post(PENDING, headers=headers, json={
         "key":key, "revision":revision,

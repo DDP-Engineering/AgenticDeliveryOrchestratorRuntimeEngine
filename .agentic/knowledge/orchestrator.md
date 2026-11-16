@@ -17,7 +17,6 @@ publication and recovery. Start at `04_Software/adore/orchestrator.py` and
 verify with `04_Software/tests/test_orchestrator.py`. Web queueing belongs to
 `web-interface.md`; CLI argument parsing belongs to `cli.md`.
 
-
 `REQ-FUNC-93bd42af`: Human-merged reviews trigger configured, leased remote run-branch cleanup on every forge. Final publication persists its commit independently of progress-publication policy. Bounded cleanup failure completes the merge with a branch-retained warning and preserves local evidence. Closed unmerged reviews authorize no remote deletion.
 
 ## Purpose and boundaries
@@ -89,50 +88,6 @@ requests do not conduct in the HTTP process.
 
 ## Key behaviors
 
-- `REQ-FUNC-7d73a3eb`, `REQ-REL-2c632559`: direct completion requires settled
-  success, no questions and non-exchange progress. Summary-only work fails
-  NO_CHANGES. Summary is sanitized/saved before owned removal; completion and
-  validate are saved atomically so Retry can checkpoint at the final launch
-  limit without Pi. Missing completion needs build authority.
-- `REQ-FUNC-9b2bf2fb`, `REQ-FUNC-8e4ff7bc`: even empty questions park; answered
-  resumes a fresh direct session with the thread and cumulative budgets.
-- `REQ-SEC-23063055`, `REQ-REL-37072309`: all direct checkpoints, including
-  Retry settlement and handoff, pass literal exchange exclusions and refuse
-  unsafe artifacts; isolation owns index/path/summary mechanics.
-- `REQ-UX-1dcd528c`, `REQ-UX-38ee0625`, `REQ-UX-0d63ca91`, `REQ-UX-50f9bf53`:
-  approval and MR/PR descriptions show summary, file count and candidate binding
-  without a task line. Configured verification shows command, result, exit,
-  duration and literal output; no command retains the exact unverified notice.
-  Adoption/revision refreshes the description only after fresh approval;
-  update refusal retains MR_CREATE_FAILED and Retry repeats without Pi.
-- `REQ-DATA-3e54b751`, `REQ-FUNC-ff7dad34`: direct revisions retain workflow,
-  worktree/branch and no task; drift retains completed implementation but
-  requires integration, exact new evidence and fresh approval. Conflicts
-  return to bounded build. A changed candidate/target requires another configured
-  command result before fresh approval.
-- `REQ-FUNC-21ae8007`, `REQ-FUNC-bea4c0aa`: configured direct completion persists
-  validate before verification, integrates the target and runs the bound command
-  with the validate override/general timeout. Passing evidence precedes final
-  checkpoint/fingerprint/done; target drift or cumulative budget exhaustion
-  prevents approval. Containers use `sh -c`; native execution routes to the
-  dedicated operation in `local-execution.md`.
-- `REQ-REL-465c51f3`, `REQ-REL-84f97f23`, `REQ-REL-63496e9f`, `REQ-FUNC-e969d30e`:
-  failed or authoritative timed-out commands count once through shared
-  stage_failures/history and atomically route to build. Successful fix builds
-  preserve the count; exhaustion stops as VERIFICATION_FAILED with last evidence.
-  Explicit Retry re-arms only that counter, retaining cumulative budgets/history.
-- `REQ-DATA-72e08277`, `REQ-REL-4deb6eed`, `REQ-FUNC-e5899386`: retain the latest
-  `verification_result={command, exit_code, seconds, timed_out, output}` with
-  status passed/failed/timed out. Output is sanitized before its last-200-line,
-  6000-character cut, stdout then stderr. Readback preserves valid leading
-  character-cut whitespace while checking sanitation, normalized lines and bounds;
-  malformed types/status/command or nonfinite/negative/float-unrepresentable
-  duration fail with typed integrity outcomes. Fresh fix/Retry prompts reconstruct
-  command, exit, status and output from this evidence; a pass replaces a failure.
-- `REQ-FUNC-91892175`: AEGIS ignores verify_command; strict commands, prompts and
-  successful-transition counter resets remain its own. Unconfigured direct runs
-  retain the explicit unverified path.
-
 - `REQ-FUNC-1f56bfac`, `REQ-FUNC-e8d63a5c`, `REQ-FUNC-14872c0d`: stage,
   recovery and review text comes from the eagerly checked shipped catalog.
   Python retains conditional selection, order, joins, description stripping,
@@ -161,7 +116,6 @@ installed instructions. One-stage, no-child, budgets and publication limits
 remain authoritative. Optional diagrams and review/proof order belong to AEGIS.
 Focused proof: test_stage_prompt_preserves_aegis_journal_authoring_contract.
 
-
 REQ-FUNC-ffb9ed29: Explicit native retry alone refreshes volatile environment and
 installed-executable identity after saved plan, stable configuration and ownership
 checks. It retains job/task/worktree/branch/resource/history and cumulative budgets,
@@ -170,8 +124,7 @@ RETRY_REVALIDATION_FAILED with its cause; automatic polls do not authorize it.
 The bool retry result means accepted; CLI inspects final lifecycle before success.
 Focused proof: tests/test_retry_revalidation.py, all agents and injected OS paths.
 
-
-Accepted AEGIS returns, including Design -> Specify, continue in fresh sessions
+Accepted AEGIS returns, including Design -> Specify, continue in the same job conversation through bounded RPC processes
 within cumulative budgets, clearing obsolete stage remediation context while
 retaining failure history. The conductor persists the observed stage and a
 stage-bearing transition event before Git checkpoint work; Jobs reads this saved
@@ -184,39 +137,9 @@ orphaned runs still fail as STALE_WORKING.
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
 
-
 Container profiles without recipes or enabled package permission retain the existing recovery/profile-update contract and empty execution record; immutable execution policy applies to recipe and package-enabled runs.
 
 - `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
-
-- `REQ-FUNC-ff7dad34` - candidate-bound approval when configured and policy-governed draft or ready publication.
-- `REQ-FUNC-9246f8cc` - the validate -> done advance triggers the strict check before presentation.
-- `REQ-FUNC-faab24b2` - a conduct step that starts at done without verification evidence
-  returns the task to validate first.
-- `REQ-FUNC-67469d47` - a failed independent check is routed back from done.
-- `REQ-FUNC-67bd56c8` - publication pushes and opens or adopts the MR/PR with no executor session or AEGIS command.
-- `REQ-FUNC-fbc3fca5` - prompts name `advance`, `log` and `pause`; continuations name `brief` and the State.
-- `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing.
-- `REQ-FUNC-d8d1b95b` - retry returns a published candidate to review, resumes an
-  fresh eligible unpublished one under the configured policy and conducts any other run from done.
-- `REQ-FUNC-40057219` - publication refuses a run outside stage done or publishing.
-- `REQ-FUNC-ab65704b` - recorded deviations lead the approval presentation.
-- `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
-- `REQ-FUNC-93bd3c8e` - NO_STAGE_PROGRESS evidence carries the gate's stderr tail
-  after its sentence: NUL and ANSI stripped (an open OSC/DCS string stops at its
-  line) and redacted on the whole stderr before the 20-line/2000-character cut, so
-  a cut never splits a key from its secret; the terminal `run.outcome` keeps the
-  sentence through `_head_and_tail` over `_sanitize(evidence, None)`, for every code.
-  The strip-redact-cut is the shared `util.output_tail`, also used by the web
-  worker's operation detail with its own redaction.
-- `REQ-FUNC-1ec4a21d` - durable notification outbox replay.
-- `REQ-FUNC-f9946b6b` - selected-ticket web start uses the normal conductor.
-- `REQ-FUNC-448cbde7` - usage events carry executor/model/review-round context
-  and explicit token/cost coverage for web analytics. Complete zero-token
-  reports remain known zero; partial records do not create numeric usage.
-- `REQ-REL-94e653aa` - configurable remote checkpoints and durable human handoff
-  preserve DCP recovery evidence and the fresh approval boundary.
-
 
 ## Files
 
@@ -225,7 +148,6 @@ Container profiles without recipes or enabled package permission retain the exis
 - `04_Software/tests/test_retry_revalidation.py`: explicit Retry and bound outcome proof.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
-
 
 - `04_Software/adore/orchestrator.py` - lifecycle and gate logic.
 - `04_Software/adore/prompts.py`, `adore/prompts/` - shared catalog and text resources.
@@ -302,8 +224,6 @@ The bound CLI additionally fences state writers and Git/forge/container command 
 Per-run lifecycle locks, short admission reservations and the human merge boundary remain authoritative. The parameterized
 claim-workflow tests assert callback durability/order without executing target tests.
 
-
-
 Actual conductor and publication scopes acquire a unique run-role owner for the
 immutable project/run, with child-process creation evidence and an independent child
 heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
@@ -312,7 +232,6 @@ run owners before effects; completed scopes relinquish only their own run role.
 Retry/Restart and automatic conduction/publication use the same run-scope hook.
 A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
 another process to steal the run. Invalid child transport cannot create a missing store.
-
 
 An attached command pins its immutable request fields once and selects the run proof
 by the canonical command run ID, including during nested Restart reconciliation.
@@ -357,7 +276,6 @@ proves absence of its exact local-control directory before removing the worktree
 Any unrecorded control entry blocks cleanup and preserves state; no process is
 assumed absent merely from missing saved resource identity.
 
-
 ## Concurrent resource ownership
 
 Each production conductor owns its configuration, backend, executor, secrets,
@@ -391,3 +309,24 @@ keeps its outbox without failing the job, blocking Pi stages or explicit Retry; 
 notification gates remain. Offline public conduction/restart tests include a forge
 outage and a successful post whose response is lost. See instructions.md for storage
 bounds and remote-ack/local-persistence crash limitations.
+
+## Job conversation continuity
+
+REQ-FUNC-de494e23 / REQ-FUNC-22de3595: _launch_stage validates the exact private
+Pi conversation before spending another launch, then passes the acknowledged
+context_key through the shared gate interface. Stage, partial-work and review
+corrections resume one job conversation. Initial or changed ticket content is
+sent until Pi acknowledges it; ordinary continuations omit full ticket and old
+Log replay. Clarification supplies new human answers. Existing checkpoints,
+limits, cancellation, resource recovery and per-attempt token renewal remain.
+Missing/corrupt required history is an ExecutionRecoveryError and cannot trigger
+a silent replacement. Independent reviewers keep separate contexts only under
+installed AEGIS policy. Existing prompt/partial-stage/native/RPC tests cover it.
+
+## Explicit new-job workflow
+
+Manual aegis/direct selection resolves before AEGIS admission probing and is pinned after worktree allocation. Direct skips payload observation and AEGIS entirely, including unusable installations. Explicit AEGIS refuses absence; auto retains detection. Retry/continuation/review retain saved workflow and Pi conversation.
+
+## Current contract
+
+Direct implementation, clarification resumes and corrections share the private Pi job conversation. Successful product progress records completion before conductor-owned validate/done settlement; no independent shell-verification command is configured. AEGIS follows the executor-authored current journal and candidate-bound approval. See REQ-FUNC-21ae8007 and REQ-FUNC-ff7dad34.

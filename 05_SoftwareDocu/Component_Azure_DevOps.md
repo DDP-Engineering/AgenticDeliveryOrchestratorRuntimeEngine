@@ -101,7 +101,8 @@ HTTPS and Azure v3 SSH, retaining organization/project for clone identity checks
 
 See [Azure DevOps Services](../01_Documentation/Azure_DevOps_Services.md) and
 `04_Software/config.azure-devops.example.toml`. Runtime packaging copies the guide
-and example and names external forge prerequisites in its manifest. Azure tools
+and example to the bundle root (separate from the three compact guides under
+`Documentation/`) and names external forge prerequisites in its manifest. Azure tools
 and credentials are intentionally not shipped to the executor.
 
 ## 9. Validation And Tests

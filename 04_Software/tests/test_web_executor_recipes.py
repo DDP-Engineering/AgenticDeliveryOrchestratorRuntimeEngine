@@ -26,6 +26,7 @@ from adore.web.app import create_app
 import pytest
 
 from tests.configuration_client import TestClient
+from tests.execution_records import execution_record
 
 
 # LOCAL HELPERS
@@ -83,6 +84,7 @@ def test_recipe_status_and_shared_attachment_preserve_project_state(recipe_proje
         stage="validate",
         iterations=8,
         checkpoint_remote_commit="a" * 40,
+        execution=execution_record(),
     )
     store.save(run)
     state = store.run_dir(run.run_id) / "state.json"

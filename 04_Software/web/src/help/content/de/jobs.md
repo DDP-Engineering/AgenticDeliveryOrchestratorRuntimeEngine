@@ -29,7 +29,7 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 | Umsetzung | Der Agent implementiert das Ticket und wählt passende Prüfungen gemäß den Repository-Anweisungen. |
 | Validierung | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |
 
-Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
+Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und setzt dasselbe Jobgespräch innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
 ## Direkte Jobs {#direct-evidence}
 
@@ -41,7 +41,7 @@ Direkte **Implementierung** nutzt `build` aus `workflow.stage_timeout_overrides`
 
 ## Klärung {#clarification}
 
-Braucht der Executor Informationen, postet ADORE einen Ticketkommentar, Klärung erforderlich für die Phase, der die Fragen auflistet, und setzt `agent-clarify`. Der Auftrag zeigt **Wartet auf Klärung**, und seine Details bieten **Im Ticket antworten**. Wählen Sie **Frage lesen**, um **Frage des Agenten** zu öffnen, dann **Im Ticket antworten**, wenn ein gespeicherter Ort vorliegt.
+Wenn der Executor Informationen benötigt, veröffentlicht ADORE einen Klärungskommentar mit den Fragen und setzt `agent-clarify`. Der Job wartet auf Klärung. **Frage lesen** öffnet die Frage in **Jobdetails**; die Antwortaktion führt zum gespeicherten Ort im Ticket.
 
 Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann `agent-answered`. Beides ist nötig; Kommentare von ADORE selbst zählen nicht. ADORE entfernt beide Labels und setzt die Arbeit fort. Fragen zählen nicht als Fehlversuche. **Maximale Rückfragerunden** (standardmäßig 3) begrenzt, wie oft ein Auftrag fragen darf, und **Wartezeit auf eine menschliche Antwort** (standardmäßig 72 Stunden) lässt den Auftrag bei Ablauf fehlschlagen.
 
@@ -73,9 +73,11 @@ Bei lokalen Aufträgen prüft **Wiederholen** den installierten Executor erneut 
 
 Überschreitet ein Container-Befehl sein Zeitlimit, stoppt ADORE den Container vor dem nächsten Befehl. Der nächste zulässige Versuch startet denselben Container mit installierten Abhängigkeiten und Dateien; der Netzwerkzugriff bleibt unverändert. Lässt sich sicheres Stoppen oder Starten nicht bestätigen, schlägt der Auftrag fehl und bewahrt Nachweise zur Prüfung vor **Wiederholen**. Eine fehlgeschlagene Vorbereitung benötigt weiterhin ihre ausdrückliche Wiederherstellung.
 
+Container-Jobs behalten das beim Start gewählte Image und die Ressource, auch ohne Vorbereitung. Wird die Ressource ersetzt, starten Sie einen neuen Job. Die Vorbereitung bleibt optional.
+
 ## Verwerfen und neu starten {#restart}
 
-Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.
+Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.
 
 Wiederholen behebt keine geänderte Ausführungsart oder feste Einstellungen; die Jobdetails erklären dies und bieten die bestätigte Aktion an. Stellen Sie gespeicherte Einstellungen wieder her, um Arbeit zu behalten. Wiederholen kann veränderliche native Umgebungswerte weiterhin neu prüfen, auch Prozessorvariablen nach einer VM-Größenänderung.
 
@@ -85,7 +87,7 @@ Hat ein früher gelöschter Auftrag einen Branch ohne gespeicherten Checkpoint h
 
 ## Aufträge verfolgen {#following-jobs}
 
-Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** eines Projekts und dann den Unterreiter **Aufträge**. Die Tabelle hat diese Spalten:
+**Jobs** in der Seitenleiste oder den separaten **Jobs**-Reiter des Projekts verwenden. Die Tabelle enthält diese Spalten:
 
 | Spalte | Inhalt |
 |---|---|
@@ -97,25 +99,31 @@ Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** ei
 
 Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.
 
-Die Details ersetzen ihre Ursprungsliste. Über dem Titel stehen **Aktivität**, **Agentensitzungen**, **Artefakte** und **Technische Informationen**, dann **Ticket anzeigen** und rechts **Schließen**. Gespeicherter Status, Phase und Workflow folgen unter dem Titel. Aktionen, Budgets, Verbrauch sowie Rückfrage-, Freigabe- und Prüfaktionen bleiben erreichbar. **Schließen** stellt Ansicht, Bereich, Suche, Filter und Seitenauswahl wieder her.
+Die Detailansicht ersetzt ihre Ursprungsliste. **Aktivität**, **Agentensitzungen** und **Jobdetails** stehen über dem Titel, **Ticket anzeigen** und **Schließen** rechts. Status, Phase und Workflow folgen dem Titel. Budgets und Verbrauch stehen rechts. Erforderliche Frage-, Freigabe- und Reviewaktionen bleiben sichtbar. **Schließen** stellt Ansicht, Umfang, Suche, Filter und Seitenauswahl wieder her.
+
+**Aktivität** ist eine paginierte Tabelle mit Zeit, Aktivität, Phase und Sitzung. 10, 25, 50 oder Alle Zeilen wählen und Zurück/Weiter verwenden. **Unterhaltung öffnen** führt zur genauen Sitzung, wenn Phase und Versuch einen aufgezeichneten Start eindeutig bestimmen; andere Ereignisse haben keinen Link. Die Rückkehr erhält die Seite. Budgets und Verbrauch stehen rechts, auf schmalen Bildschirmen darunter.
 
 ## Verlauf der Agentensitzungen {#agent-sessions}
 
-Unter **Agentensitzungen** wählen Sie einen abgeschlossenen Versuch, neueste zuerst. Quelle ist die archivierte Pi-Ausgabe dieses Auftrags: ADORE-Anweisung, Assistententext, Werkzeugaufrufe und Ergebnisse, Runden und Tokenverbrauch. Klappen Sie ein Werkzeug für den vollständigen Text auf. Lesbare Überlegungen sind eingeklappt; Systemnachrichten werden nie angezeigt. Deltas und doppelte Abschlusslisten entfallen. **Mehr laden** setzt die Aufzeichnung fort. Angezeigt wird der Archivierungsabschluss; eine fehlende Startzeit wird benannt.
+**Agentensitzungen** öffnet die aktuelle oder zuletzt abgeschlossene Sitzung. Die Unterhaltung zeigt die ursprüngliche Anweisung, Agentenantworten, Benutzernachrichten sowie ausklappbare Werkzeugaufrufe und Ergebnisse. Antworten verwenden lesbares Markdown. Nachrichten erscheinen direkt mit einer Autorenzeile; Überlegungen und Werkzeuge lassen sich aufklappen. Der Verbrauch bleibt rechts.
 
-Administratoren und zugewiesene Entwickler sehen den Text wie aufgezeichnet, einschließlich enthaltenen Geheimnissen. Strukturierte Kostenbeträge sehen nur Administratoren. Antworten werden nicht zwischengespeichert. **Letzte Executor-Ausgabe anzeigen** bleibt unter **Technische Informationen**. Texte sind auf 16 KiB begrenzt und sichtbar markiert; fehlerhafte oder ausgelassene Einträge werden Hinweise. Über 64 MiB erscheint ein Größenhinweis.
+Pi behält ein Implementierungsgespräch für den Job über Phasen, Fortsetzungen und Korrekturen hinweg. Prozesse können an Kontrollpunkten neu starten; das Gespräch wird mit Kontext und automatischer Komprimierung durch Pi fortgesetzt. Die Auswahl zeigt weiterhin gespeicherte Versuche mit jeweils neuer Aktivität und Nutzung. Unabhängige Prüfungen verwenden getrennte Kontexte, wenn die Prüfrichtlinie des Repositorys dies verlangt.
 
-Der aktuelle Versuch steht während der Agentenausführung zuerst als **Live**. Dieser Reiter aktualisiert abgeschlossene Nachrichten und Werkzeugaufrufe/-ergebnisse alle drei Sekunden, solange der Auftrag läuft und diese Ansicht und der Browserreiter sichtbar sind. **Agent arbeitet** nennt das unfertige Werkzeug oder Denken; Textfragmente werden nicht gestreamt. Eine unvollständige Zeile wartet auf ihren Abschluss. Nach einem Startende bleibt das endgültige Archiv verfügbar und die Ansicht folgt dem nächsten Live-Start. Ein gewähltes älteres Archiv bleibt bei Aktualisierungen und Reiterwechseln ausgewählt. Die Abfragen stoppen, wenn der Auftrag nicht mehr läuft oder die Ansicht oder der Browserreiter verborgen ist.
+Sitzung, Auswahl und Live-Aktivität stehen in einer Zeile direkt über der Unterhaltung und nutzen deren Breite. Die Unterhaltung nutzt die verfügbare Bildschirmhöhe und scrollt bei neuen Nachrichten intern. Die Sendeschaltflächen stehen auf breiten Bildschirmen rechts neben dem Textfeld, auf schmalen darunter.
+
+Der Verlauf lädt schrittweise, ohne gespeicherten Nachrichtentext zu kürzen. Neue Nachrichten werden nur am unteren Ende automatisch verfolgt; **Neue Nachrichten** führt dorthin zurück. Die Sitzungsauswahl erhält frühere Versuche, **Aktuelle Sitzung** führt zur laufenden Arbeit.
+
+Neue Starts speichern ausgehende Anweisungen und Nachrichtenzeiten ausdrücklich. Frühere Sitzungen zeigen nur vorhandene Aufzeichnungen. Zugriffsrechte für Administratoren und zugewiesene Entwickler bleiben unverändert; strukturierte Kosten bleiben Administratoren vorbehalten.
+
+**Maximieren** nutzt die ganze Seite für die Sitzung. **Wiederherstellen** oder Escape kehrt zur normalen Ansicht zurück. Gewählte Sitzung, Nachrichten und Entwurf bleiben erhalten.
 
 ### Anweisungen senden {#instructions}
 
-Geben Sie unter der Live-Ansicht in **Agentensitzungen** eine **Anweisung für den Agenten** ein und wählen Sie **Jetzt senden** oder **Nach Abschluss senden**. Administratoren und dem Projekt zugewiesene Entwickler können während der Bearbeitung Anweisungen einreihen, auch zwischen Sitzungen oder vor der ersten Sitzung. Verwenden Sie 1–4000 Zeichen ohne NUL; jeder Job behält höchstens 256 Anweisungen.
+Eine **Nachricht an den Agenten** unten in der aktuellen Unterhaltung eingeben. **Jetzt senden** übergibt sie an der nächsten sicheren Agentengrenze; **Nachricht einreihen** wartet auf den Abschluss der aktuellen Arbeit. Zwischen Sitzungen bleibt Einreihen während der Bearbeitung verfügbar. Historische Unterhaltungen sind schreibgeschützt.
 
-**Wartend** bedeutet, dass Pi den Empfang noch nicht bestätigt hat. **Übermittelt** bedeutet eine Empfangsbestätigung von Pi, keinen Abschluss der Arbeit. Der Text bleibt unverändert. Abgelehnte oder unbestätigte Anweisungen bleiben für die nächste Sitzung eingereiht, nach der menschlichen Diskussion in deren Eingabe. Fehlerhafte Anweisungen bleiben mit einem Ablehnungsnachweis ungesendet. Nach Ende der Bearbeitung ist das Senden nicht verfügbar.
+Die Nachricht erscheint mit **Wartend**, **Vom Agenten empfangen** oder einem Fehlerstatus. Empfangen bestätigt den Empfang, nicht die erledigte Arbeit. Eingabefehler werden beim Senden erklärt: 1–4000 Zeichen ohne NUL, höchstens 256 gespeicherte Anweisungen pro Job.
 
-Jede Übermittlung wird im Job aufgezeichnet und einmal als ADORE-Kommentar ins Ticket kopiert. Ein vorübergehend fehlgeschlagener Kommentar wird unabhängig wiederholt und macht die Übermittlung an Pi nicht rückgängig.
-
-> **Jetzt senden** wartet auf die laufenden Werkzeuge und unterbricht sie nicht. **Nach Abschluss senden** wartet, bis der Agent keine weitere Arbeit hat.
+Unbestätigte Anweisungen bleiben für eine spätere Sitzung eingereiht. Bestätigter Empfang wird im Job gespeichert und im Ticket veröffentlicht; vorübergehende Kommentarfehler werden unabhängig erneut versucht.
 
 ## Jobbudgets {#budgets}
 
@@ -127,27 +135,28 @@ Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein la
 
 Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.
 
-## Status und Executor-Nachweise {#operational-evidence}
+## Jobdetails und Diagnose {#operational-evidence}
 
-**In Arbeit** bedeutet, dass ADORE die gespeicherte Phase steuert; derzeit ist keine menschliche Aktion angefordert. **Klärung ausstehend** benötigt eine Antwort im Ticket. **Fehlgeschlagen** hält autonome Arbeit an und bewahrt Wiederherstellungsnachweise. Die Statuskarte zeigt Fehlversuche der aktuellen Phase auch bei laufendem Job.
+**Jobdetails** zeigt das gespeicherte Ergebnis einmal, den aufgezeichneten **Branch**, den **Letzten veröffentlichten Commit**, falls vorhanden, den MR/PR-Link und Reviewrunden getrennt. Ein fehlender Branch wird als **Nicht aufgezeichnet** angezeigt. Der veröffentlichte Commit ist der letzte verifizierte, gepushte Kontrollpunkt, kein Kandidatenfingerabdruck.
 
-Fragen erscheinen unter **Frage des Agenten** als Markdown mit Listen, Tabellen und Code. Führende HTML-Kommentare fehlen in der lesbaren Ansicht; **Originalfrage und Nachweise** bewahrt die genaue Quelle. Sonstiges HTML bleibt Text, unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Breite Tabellen und Code scrollen innerhalb der Frage.
+Bei Klärungsbedarf öffnet **Frage lesen** diesen Reiter. Die Frage verwendet lesbares Markdown; unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Antwort-, Freigabe- und Reviewaktionen bleiben bei Bedarf neben dem Status sichtbar. Die Originalfrage steht unter **Diagnose**.
 
-Zeitleistenphasen stammen aus der gespeicherten Phase, dem Phasenkontext oder dem Übergangsziel des Ereignisses; andere Ereignisse bleiben unbekannt. Jobzeiten enthalten Sekunden. Ein Ereignis ist ein gespeicherter Nachweis, kein Live-Fortschritt.
+**Diagnose** ist zunächst eingeklappt. Dort stehen interne Projekt-/Jobkennungen, **Fehlversuche in der aktuellen Phase**, direkte Versuche oder Vorbereitungsergebnisse sowie die letzte Executorausgabe. Reviewrunden bleiben von aktuellen Phasenfehlern getrennt.
 
-Unter **Technische Informationen** wählen Sie **Letzte Executor-Ausgabe anzeigen**. Operative Ausgaben des letzten abgeschlossenen Starts werden vom Host erfasst, einschließlich fehlender Module und Testsummen. Prompts, Gedankengänge, Skripte, Konfiguration, Pfade, Zugangsdaten und Finanzdaten bleiben verborgen. Unbekannte Ausgaben werden durch einen Hinweis oder eine Diagnosekategorie ersetzt. Höchstens die letzten 500 Diagnoseeinträge je Stream innerhalb von 64 KiB bleiben erhalten.
+**Nicht verfügbare Daten** nennt Ticket, Aktivitätsverlauf, Titel oder Aktivitätszeit nur bei fehlenden Quellen. Dies beschreibt verfügbare Nachweise, keinen Tokenverbrauch. Der Verbrauch bleibt rechts.
 
-Die Zusammenfassung zeigt Versuch, Aufzeichnungszeit, Ergebnis und Exitcode. Klappen Sie **stdout** oder **stderr** bei vorhandenen Einträgen auf. Einen laufenden Start zeigt die Ansicht zusammen mit der letzten abgeschlossenen Ausgabe. Ändert sich das Journal beim Lesen, wählen Sie **Wiederholen**. Der letzte geprüfte Stand ist als möglicherweise veraltet gekennzeichnet.
+Die letzte Executorausgabe zeigt normalisiertes operatives stdout/stderr mit Zeit, Versuch, Phase und Exitcode. Private Inhalte bleiben verborgen; höchstens 500 Einträge innerhalb 64 KiB je Stream werden behalten. Fehlende oder beschädigte Nachweise werden gemeldet; geänderte Nachweise bieten Erneut versuchen.
 
-Ein Start ohne belegte Erfassung oder mit gelöschtem Snapshot ist ausdrücklich nicht verfügbar; rohe Archive werden nie ersatzweise gelesen. Beschädigte Nachweise werden abgelehnt. Bestehende Jobs können bis zu einem späteren Start ohne Ausgabe bleiben; diese Ansicht startet nichts.
-
-Wenn **Verbrauch** nicht lädt, nutzen Sie **Verbrauch aktualisieren** neben dem Fehler. Jobnachweise und Wiederherstellung bleiben getrennt. Beschädigte Quellen erfordern weiterhin eine Untersuchung durch den Betreiber.
-
+**Aktivität** ist die einzige Ereignistabelle. Veröffentlichter Code ist über den MR/PR-Link erreichbar. Die Details verwenden gespeicherte Nachweise, erstellen keine Dateien und starten keinen Executor.
 
 ## Projektkapazität {#project-capacity}
 
-Die Projektübersicht zeigt nur **Limit paralleler Aufträge**, **Frei** und **Aufträge in Warteschlange** als kompakte Rechtecke neben den Betriebsangaben. Wählen Sie im Reiter **Aufträge** des Projekts den Unterreiter **Kapazität** neben **Tickets** und **Aufträge**. Eine Zeile je Projekt zeigt Limit, freie Plätze, Warteschlange, Überwachung und aktuelle Auftragszustände. Beendete Aufträge, Vorgangsverlauf und Logs sind ausgeschlossen. Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**.
+**Zusammenfassung** zeigt die Grenze paralleler Jobs, freie Plätze und wartende Jobs neben den Betriebsdaten. Jobs und Tickets sind separate Projektreiter ohne Kapazitätsunterreiter. Die globale Jobs-Seite behält ihre Kapazitätstabelle mit Projektgrenzen, freien Plätzen, Warteschlange, Überwachung und Seitennavigation.
 
 Die Warteschlange zählt eingereichte Anfragen und aufgenommene Aufträge vor ihrem Start, keine nicht angeforderten Tickets. Ein volles Projekt blockiert keine anderen. Einstellungen zeigt weiterhin **Ihre letzten Vorgänge** und gespeicherte Ergebnisse; Eingereiht und In Bearbeitung bedeuten nicht Bestätigt.
 
 Ein vorgemerktes kleineres Limit hält neue Starts und Wiederaufnahmen bereits zurück, bis die Belegung darunter liegt; bereits laufende Aufträge laufen weiter; eingereihte Reservierungen warten auf einen Ausführungsplatz. Es erhöht niemals die aktive Grenze. Die sichere Anwendung wartet weiterhin auf unfertige Arbeit; gespeicherter Wert und Kandidat bleiben bis Speichern oder Änderungen verwerfen sichtbar.
+
+## Workflow auswählen {#workflow-choice}
+
+Wählen Sie in **Jobaktionen** für einen neuen Job **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** und bestätigen Sie den kurzen Browserdialog zum Verwerfen bestehender Arbeit. Fehlendes AEGIS deaktiviert diese Aktion. Tickets behält die Auswahl **Workflow** vor **Starten**. Wiederholen, Fortsetzung und Review-Korrekturen behalten den gespeicherten Workflow und dieselbe Pi-Unterhaltung.

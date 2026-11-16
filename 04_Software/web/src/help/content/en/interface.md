@@ -36,7 +36,8 @@ Opening a project from Projects shows its name and repository path above these t
 |---|---|
 | Summary | Container type, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Repository access**. |
 | Settings | Effective settings, one Save for administrators, and configuration export with retained executor image definitions. Developers read settings without secrets. See [Project settings](/help/settings). |
-| Jobs | The Tickets and Jobs sub-tabs for this project, without a project selector. |
+| Jobs | Jobs for this project, with search, filters and pagination. |
+| Tickets | Open tickets for this project, read automatically with manual refresh available. |
 | Statistics | The same reporting period, tabs and exports as the Statistics page, for this project only. |
 | History | Recorded changes to the project and its finished jobs. |
 | Access | Administrators only: grant or remove a developer's access. |

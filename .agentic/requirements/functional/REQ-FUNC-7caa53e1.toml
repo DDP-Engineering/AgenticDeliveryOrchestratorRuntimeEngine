@@ -11,9 +11,9 @@ title = "Sum Pi usage over the turns of a launch"
 
 status = "active"
 
-requirement = """When a Pi RPC launch ends, ADORE shall report as the launch's token usage the sum over every assistant `message_end` of input plus cache-read plus cache-write tokens as input, output tokens as output, and cache-read and cache-write separately, shall report no billed cost, and shall mark token usage unavailable when an assistant `message_end` record could not be read."""
+requirement = """When a Pi RPC launch ends, ADORE shall report as the launch's token usage the sum over only the current process's assistant `message_end` of input plus cache-read plus cache-write tokens as input, output tokens as output, and cache-read and cache-write separately, shall report no billed cost, and shall mark token usage unavailable when an assistant `message_end` record could not be read."""
 
-verification = "Replaying the recorded four-turn run yields input 5275, output 141, cache-read 3456 and zero cost not reported; the orchestrator's journaled usage event passes unique_usage_events; a replay with an unreadable assistant record reports tokens unavailable."
+verification = "Replaying the recorded four-turn run yields input 5275, output 141, cache-read 3456 and zero cost not reported; the orchestrator's journaled usage event passes unique_usage_events; resumed cumulative statistics are compared against their pre-prompt baseline without re-counting history; a replay with an unreadable assistant record reports tokens unavailable."
 
 affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/orchestrator.py"]
 
@@ -26,4 +26,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-01
-updated = 2026-11-02
+updated = 2026-11-15

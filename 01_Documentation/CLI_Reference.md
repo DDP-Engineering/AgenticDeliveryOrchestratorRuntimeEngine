@@ -109,7 +109,7 @@ resolved configuration.
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
 | `adore [selector] cleanup` | Reclaim a provably stale local lock and remove the selected project's finished and orphaned run resources: the executor/proxy containers, egress networks and worktree directories of its done, cancelled, stale and state-less runs. Other projects' resources stay, even with a shared slug, egress network prefix or worktree root. Active, failed, human-owned and corrupt runs are protected; a live/unknown lock remains held and is reported. |
 
-Read [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) before using a
+Read [Operations_Guide.md](Operations_Guide.md#recovery) before using a
 destructive command.
 
 These intervention commands mutate ADORE-owned state only. None edits an AEGIS
@@ -177,7 +177,7 @@ Use `adore --profile <name> config plan` to review the effective image and exact
 
 ## Native local execution
 
-Run `adore pi install` and `adore pi verify` as the ADORE service account to manage the pinned Pi. See [Local execution](Local_Execution.md) for Node and Linux delegation.
+Offline delivery archives already contain the pinned Node/Pi runtime and search tools. `adore pi install` and `adore pi verify` check that bundled payload offline; they do not download packages. In online delivery and source installations, prepare host Node/npm, then run these commands as the service account to install/verify the managed Pi; installation needs registry access. See [Local execution](Local_Execution.md) for Node and Linux delegation.
 
 `config validate` checks local profiles; config plan reviews pinned native policy without project commands. Existing run/retry/cancel/handoff/cleanup commands keep verified conductor ownership.
 
@@ -203,7 +203,7 @@ reason; the web worker shows the saved job cause rather than raw process logs.
 
 ## Direct agent dependency installation
 
-`adore --profile <name> config set container.system_packages true` opts a container project into direct agent package-manager sudo. Use false to stop granting that permission for future jobs. Network remains independently configured through `container.egress`. Existing managed jobs retain pinned authority and reject policy drift. See [Agent dependency installation](Agent_Dependency_Installation.md).
+`adore --profile <name> config set container.system_packages true` opts a container project into direct agent package-manager sudo. Use false to stop granting that permission for future jobs. Network remains independently configured through `container.egress`. Existing managed jobs retain pinned authority and reject policy drift. See [Agent dependency installation](Security_And_Credentials.md#agent-package-installation-authority).
 
 ## Owned recovery deletion
 
@@ -225,3 +225,7 @@ A busy-owner marker prints `cancellation requested; awaiting confirmed stop`;
 exit zero then means the request was accepted, not that cleanup completed.
 An unavailable result is reported as unconfirmed with a nonzero exit.
 Admission-only performs no reconciliation of other jobs.
+
+## Choose the workflow for a new job
+
+Use `adore --profile NAME run --once --ticket IID --workflow aegis` or `--workflow direct`. Unknown values are refused; `--workflow` requires `--once --ticket` and cannot be combined with continuous polling. Omit it to use the project’s `workflow.mode` default. Fresh recovery accepts `adore --profile NAME restart RUN_ID --force --expected-revision SHA256 --workflow direct` (or `aegis`). Retry has no workflow override and retains the saved job workflow. Explicit AEGIS requires usable installation; Direct bypasses AEGIS procedures while preserving other repository rules.

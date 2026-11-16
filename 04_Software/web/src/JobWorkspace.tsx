@@ -10,10 +10,10 @@ import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
 import { jobCopy, directCopy, workflowStageLabel } from "./jobCopy";
 import { SessionView } from "./SessionView";
-import { InstructionComposer } from "./InstructionComposer";
 import { JobDetails } from "./JobDetails";
 import { commandAllowed, IncompleteJobs, readJobDetail, readJobPage, readExecutorOutput, type ExecutorOutput, type Job, type JobPage } from "./jobModel";
 import { recoveryCopy } from "./recoveryCopy";
+import type { Workflow } from "./WorkflowChoice";
 import { DataFeedback, StatusBadge } from "./Presentation";
 import { startVisiblePolling } from "./polling";
 import { outcomeText } from "./operationReason";
@@ -225,16 +225,19 @@ export function JobWorkspace(props: Props) {
     return () => { active = false; stop(); };
   }, [operation?.id, operation?.status]);
 
-  const command = async (action: "retry" | "cancel" | "restart", job: Job) => {
+  const command = async (action: "retry" | "cancel" | "restart", job: Job, selected?: Workflow) => {
     if (submitLock.current || busy || !projects.some(item=>item.id===job.project_id && !item.archived) || !commandAllowed(job, action)) return;
     if (action === "cancel" && !window.confirm(copy.cancelConfirm)) return;
-    if (action === "restart" && !window.confirm(recoveryCopy[locale].confirm.replace("{ticket}", String(job.ticket_iid)))) return;
+    if (action === "restart" && (!selected || !window.confirm(
+      recoveryCopy[locale].confirm.replace("{ticket}", String(job.ticket_iid)) + "\n" +
+      (selected === "aegis" ? recoveryCopy[locale].restartAegis : recoveryCopy[locale].restartDirect)
+    ))) return;
     submitLock.current = true; setSubmitting(true); setOperationError(null); setCommandStatusError(false);
     const generation = commandGeneration.current;
     try {
       const current = readOperation(await request(`/projects/${encodeURIComponent(job.project_id)}/operations/${action}`, "POST",
         { run_id: job.run_id, idempotency_key: crypto.randomUUID(),
-          ...(action === "restart" ? { confirmed: true, state_revision: job.state_revision } : action === "cancel" ? { confirmed: true } : {}) }, csrf));
+          ...(action === "restart" ? { confirmed: true, state_revision: job.state_revision, workflow: selected } : action === "cancel" ? { confirmed: true } : {}) }, csrf));
       if (mounted.current && generation === commandGeneration.current) setOperation(current);
     } catch (cause) { if (mounted.current && generation === commandGeneration.current) setOperationError(cause); }
     finally { if (mounted.current && generation === commandGeneration.current) { submitLock.current = false; setSubmitting(false); } }
@@ -274,14 +277,13 @@ export function JobWorkspace(props: Props) {
     {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}
     {run && state === "changed" && feedback("changed", failure)}
     {visibleDetail && <JobDetails key={detailKey} job={visibleDetail} locale={locale} t={t} admin={props.admin} busy={busy}
-      onClose={onClose} onCommand={(action, job) => void command(action, job)}
+      request={request} onClose={onClose} onCommand={(action, job, workflow) => void command(action, job, workflow)}
       stageLabel={workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)} stageName={stage => workflowStageLabel(stage, visibleDetail.workflow, t)}
       statusLabel={visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}
       directEvidence={visibleDetail.direct ? <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} /> : null}
-      sessions={active=><div key={detailKey}><SessionView project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} /><InstructionComposer project={visibleDetail.project_id} run={visibleDetail.run_id} locale={locale} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} /></div>}
+      sessions={(active,target,toolbarHost,maximized)=><SessionView key={detailKey} project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} target={target} toolbarHost={toolbarHost} maximized={maximized} />}
       consumption={consumptionView(visibleDetail, true)}
-      output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />}
-      timeline={<ObservedTimeline key={detailKey} events={visibleDetail.timeline ?? []} workflow={visibleDetail.workflow} date={date} t={t} unknown={copy.unknown} />} />}
+      output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />} />}
     {!run && <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}
@@ -306,19 +308,6 @@ function DirectEvidenceView({evidence, locale}: {evidence: NonNullable<Job["dire
     <p>{evidence.attempt === null ? copy.attemptUnavailable : `${copy.attempt}: ${evidence.attempt}`}</p>
   </section>;
 }
-
-/** Page actual events in reverse saved order without inferring progress. */
-function ObservedTimeline({ events, workflow, date, t, unknown }: { events: NonNullable<Job["timeline"]>; workflow: Job["workflow"]; date: (value: string | null) => string; t: Props["t"]; unknown: string }) {
-  const [size, setSize] = useState<number | "all">(10);
-  const [offset, setOffset] = useState(0);
-  const rows = events.slice().reverse();
-  const start = size === "all" ? 0 : Math.min(offset, Math.max(0, Math.ceil(rows.length / size) - 1) * size);
-  const shown = size === "all" ? rows : rows.slice(start, start + size);
-  return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map((event, index) => <tr key={start + index}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? workflowStageLabel(event.stage, workflow, t) : unknown}</td></tr>)}</tbody></table></div>
-    {rows.length > 10 && <div className="table-pagination timeline-pagination"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value)); setOffset(0); }}>{[10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}<option value="all">{t("all")}</option></select></label><span>{start + 1}–{start + shown.length} / {rows.length}</span><div className="button-row"><button className="ghost" disabled={!start || size === "all"} onClick={() => setOffset(start - Number(size))}>{t("previous")}</button><button className="ghost" disabled={size === "all" || start + shown.length >= rows.length} onClick={() => setOffset(start + Number(size))}>{t("next")}</button></div></div>}
-  </>;
-}
-
 
 /** Fetch on demand, discarding completions after the selected job is unmounted. */
 function ExecutorOutputView({job, locale, request, t}: {job:Job;locale:Locale;request:Request;t:Props["t"]}) {

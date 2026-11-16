@@ -45,8 +45,9 @@ from adore.web.ownership import OwnershipError, WebStoreError, WorkerOwner, proc
 
 # CONSTANTS
 _HASHER = PasswordHasher()
-# The only schema this build reads or writes; there are no migrations (AGENTS.md).
-_SCHEMA_VERSION = 18
+# Fixed at 1 throughout pre-release; change _SCHEMA in place, never add migrations.
+# Existing stores must match the current structure as well as this identifier.
+_SCHEMA_VERSION = 1
 _SCHEMA = """
 CREATE TABLE users (
     id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE,
@@ -68,6 +69,7 @@ CREATE TABLE operations (
     id INTEGER PRIMARY KEY, actor_id INTEGER NOT NULL, project TEXT NOT NULL,
     project_id TEXT NOT NULL,
     action TEXT NOT NULL, run_id TEXT NOT NULL DEFAULT '',
+    workflow TEXT CHECK(workflow IS NULL OR workflow IN ('aegis','direct')),
     status TEXT NOT NULL, result TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
     idempotency_key TEXT NOT NULL,
@@ -302,7 +304,7 @@ class WebStore:
                 for table, required in (
                     ("operations", {"domain", "owner_id", "owner_generation", "generation",
                                     "admitted_run_id", "resource_key", "run_owner_id",
-                                    "run_owner_generation"}),
+                                    "run_owner_generation", "workflow"}),
                     ("worker_owners", {"id", "generation", "role", "project_id", "run_id",
                                        "host", "status", "updated_at", "activity"}),
                     ("worker_processes", {"owner_id", "pid", "birth"}),
@@ -1417,6 +1419,9 @@ class WebStore:
         """@brief Validate persisted operation scope without filesystem work."""
         operation = dict(row)
         action, domain = operation["action"], operation["domain"]
+        if (operation["workflow"] not in (None, "aegis", "direct")
+                or operation["workflow"] is not None and action not in ("start", "restart")):
+            raise WebStoreError("operation workflow is corrupt")
         expected = ("execution" if action in ("start", "retry", "restart", "cancel") else
                     "configuration_project" if action in ("pause", "resume", "delete") else
                     domain if action == "configure" and domain in (
@@ -1459,7 +1464,8 @@ class WebStore:
         return operation
 
     def enqueue(
-        self, actor_id: int, project: str, action: str, run_id: str, key: str
+        self, actor_id: int, project: str, action: str, run_id: str, key: str, *,
+        workflow: str | None = None,
     ) -> dict[str, Any]:
         """@brief Persist an idempotent operation request."""
         if (
@@ -1469,6 +1475,9 @@ class WebStore:
             or len(key) > 128
         ):
             raise WebStoreError("invalid operation")
+        if (workflow not in (None, "aegis", "direct")
+                or workflow is not None and action not in ("start", "restart")):
+            raise WebStoreError("invalid operation workflow")
         identity = _profile_identity(self.path.parent, project)
         if identity is None:
             raise WebStoreError("project not found")
@@ -1479,10 +1488,11 @@ class WebStore:
             connection.execute("BEGIN IMMEDIATE")
             cursor = connection.execute(
                 "INSERT OR IGNORE INTO operations(actor_id,project,project_id,"
-                "action,run_id,status,created_at,updated_at,idempotency_key,domain,resource_key) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                "action,run_id,status,created_at,updated_at,idempotency_key,domain,"
+                "resource_key,workflow) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (actor_id, project, identity[0], action, run_id, "pending", stamp, stamp, key,
-                 domain, self._operation_resource(action, run_id)),
+                 domain, self._operation_resource(action, run_id), workflow),
             )
             row = connection.execute(
                 "SELECT * FROM operations WHERE actor_id=? AND idempotency_key=?",
@@ -1492,6 +1502,7 @@ class WebStore:
                 row["project_id"] != identity[0]
                 or row["action"] != action
                 or row["run_id"] != run_id
+                or row["workflow"] != workflow
             ):
                 raise WebStoreError("idempotency key belongs to another operation")
             if cursor.rowcount:
@@ -1615,6 +1626,7 @@ class WebStore:
                          for event in state.read_journal(run_id))
             if (run.ticket_iid != int(operation["run_id"]) or ticket.get("iid") != run.ticket_iid
                     or run.lifecycle != "working"
+                    or operation["workflow"] is not None and run.workflow != operation["workflow"]
                     or not picked):
                 raise WebStoreError("start admission evidence is invalid")
         except (StateError, ProfileError, OSError, ValueError) as exc:

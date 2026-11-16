@@ -97,3 +97,7 @@ Si les limites actuelles sont illisibles, le détail conserve la consommation, l
 Une limite réduite préparée retient déjà les nouveaux démarrages et reprises jusqu’à ce que l’occupation passe sous la limite ; les tâches déjà en cours continuent ; les réservations en file attendent une place d’exécution. Elle n’augmente jamais la limite active. L’application sûre attend les travaux inachevés ; la valeur enregistrée et le candidat restent visibles jusqu’à Enregistrer ou Abandonner les modifications.
 
 Les brouillons de connexion sont conservés uniquement s’ils sont valides. Corrigez une adresse invalide ou gardez-la en mémoire ; les identifiants ne sont jamais conservés dans le brouillon.
+
+## Choisir le workflow {#workflow-choice}
+
+**Workflow par défaut** dans **Implémentation** définit `workflow.mode` : `auto` détecte AEGIS et refuse une installation inutilisable ; `direct` ignore AEGIS pour les nouvelles tâches. Démarrer et Recommencer remplacent ce défaut par tâche. `workflow.default_kind` choisit uniquement le type de tâche AEGIS.

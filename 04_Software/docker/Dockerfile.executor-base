@@ -18,7 +18,7 @@
 
 FROM ubuntu:22.04
 
-# Pinned tool versions - bump deliberately, in one place. verify-runtime.sh
+# Pinned tool versions - bump deliberately, in one place. verify_container_runtime.sh
 # checks the Node, Pi and pi-web-access versions against the same values.
 # Node 22 LTS: Pi 1.x needs >= 22.19.0; the official tarball is checked against
 # its published SHA-256.
@@ -27,7 +27,7 @@ ARG NODE_SHA256=1805bcd35e6815559bd2eb97db438d3fdb0eb3a5e6a977b7c1badca76337e9ce
 ARG GLAB_VERSION=1.55.0
 # Pi, ADORE's only coding agent, runs as `pi --mode rpc`; pi-web-access is its
 # web search and page reading extension, installed in the same prefix.
-ARG PI_PACKAGE=@earendil-works/pi-coding-agent@1.4.0
+ARG PI_PACKAGE=@earendil-works/pi-coding-agent@1.5.2
 ARG PI_WEB_ACCESS_PACKAGE=pi-web-access@0.46.0
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -50,7 +50,7 @@ RUN curl -fsSL -o /tmp/node.tar.xz \
         "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
     && echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum -c - \
     && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
-        --exclude='*/CHANGELOG.md' --exclude='*/LICENSE' --exclude='*/README.md' \
+        --exclude='*/CHANGELOG.md' --exclude='*/README.md' \
     && rm -f /tmp/node.tar.xz \
     && node --version
 
@@ -83,6 +83,20 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 RUN npm install -g --prefix /opt/pi --ignore-scripts --no-fund --no-audit \
         "${PI_PACKAGE}" "${PI_WEB_ACCESS_PACKAGE}"
 ENV PATH=/opt/pi/bin:$PATH
+
+# Offline Pi search helpers: fetched only while building the delivery image.
+RUN curl -fsSL -o /tmp/fd.tar.gz https://github.com/sharkdp/fd/releases/download/v10.5.1/fd-v10.5.1-x86_64-unknown-linux-musl.tar.gz \
+    && echo "f6c95edb190c241df6fddc815a5bab4051444993ac5d92ddc6eec0e0dc2342c7  /tmp/fd.tar.gz" | sha256sum -c - \
+    && curl -fsSL -o /tmp/rg.tar.gz https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz \
+    && echo "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c  /tmp/rg.tar.gz" | sha256sum -c - \
+    && mkdir /tmp/adore-fd /tmp/adore-rg \
+    && tar -xzf /tmp/fd.tar.gz -C /tmp/adore-fd --strip-components=1 \
+    && tar -xzf /tmp/rg.tar.gz -C /tmp/adore-rg --strip-components=1 \
+    && install -m 0755 /tmp/adore-fd/fd /tmp/adore-rg/rg /usr/local/bin/ \
+    && mkdir -p /opt/adore/licenses/fd /opt/adore/licenses/rg \
+    && cp /tmp/adore-fd/LICENSE* /opt/adore/licenses/fd/ \
+    && cp /tmp/adore-rg/LICENSE* /opt/adore/licenses/rg/ \
+    && rm -rf /tmp/fd.tar.gz /tmp/rg.tar.gz /tmp/adore-fd /tmp/adore-rg
 # ADORE's guard extension, loaded with `-e` by every Pi run; root-owned, so the
 # agent cannot change it.
 COPY pi/adore-guard.ts /opt/adore/pi/adore-guard.ts

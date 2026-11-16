@@ -46,7 +46,7 @@ test("monitoring and responsive epic tickets in four languages", async ({ page, 
     if (await language.inputValue() !== locale) await Promise.all([page.waitForResponse(r => r.url().endsWith("/api/v1/me/preferences") && r.request().method() === "PATCH"), language.selectOption(locale)]);
     for (const width of [1366, 390]) {
       await page.setViewportSize({width, height: 900});
-      await page.goto(`/projects/${alpha}/jobs`);
+      await page.goto(`/projects/${alpha}/tickets`);
       await page.getByRole("button", {name: read, exact:true}).click();
       const row = page.locator(".ticket-row").first();
       await expect(row.locator("button").first()).toBeDisabled();
@@ -163,9 +163,10 @@ test("ticket operation shows queue wait and unreadable outcome", async ({page, c
   let release!: () => void; const held = new Promise<void>(resolve => {release = resolve;});
   await page.route("**/operations/4001", async route => {await held; await route.fulfill({json:{id:4002,status:"succeeded"}}).catch(() => {});});
   try {
-    await page.goto(`/projects/${alpha}/jobs`);
+    await page.goto(`/projects/${alpha}/tickets`);
     await page.getByRole("button", {name:"Read tickets",exact:true}).click();
     await page.locator(".ticket-row").filter({hasText:"#21"}).getByRole("button", {name:"Start",exact:true}).click();
+    await page.getByRole("button",{name:"Add labels and start",exact:true}).click();
     await expect(page.locator(".ticket-notice")).toContainText("Queued commands may wait");
     release(); await expect(page.locator(".ticket-notice")).toContainText("Command status could not be read; completion is unknown.");
   } finally {release();}

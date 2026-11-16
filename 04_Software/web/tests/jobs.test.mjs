@@ -14,7 +14,7 @@ const id = "a".repeat(32), snapshot = "b".repeat(64);
 const job = () => ({ project_id: id, project_name: "alpha", project_display_name: "Alpha",
   project_archived: false, run_id: "one", ticket_iid: 1, ticket_title: null,
   ticket_url: null, mr_url: null, workflow: "aegis", lifecycle: "working", stage: "build", status_group: "active",
-  outcome: "", stage_failures: 0, review_rounds: 0, created_at: null, updated_at: null, last_activity_at: null,
+  outcome: "", branch: null, published_commit: null, stage_failures: 0, review_rounds: 0, created_at: null, updated_at: null, last_activity_at: null,
   waiting: { availability: "unknown", reason: null, next_action: null, responsible_role: null,
     responsible_person: null, evidence_url: null, source: null },
   evidence_url: `/api/v1/jobs/${id}/one`, consumption: { availability: "unknown" },
@@ -37,7 +37,6 @@ test("a stage this build does not conduct fails closed", () => {
   assert.throws(() => readJobDetail({ job: { ...job(), stage: "deliver" }, complete: true, snapshot }, id, "one"));
   assert.throws(() => readJobDetail({ job: { ...job(),
     timeline: [{ ts: null, event: "stage-launch", stage: "deliver" }] }, complete: true, snapshot }, id, "one"));
-  for (const locale of ["en", "fr", "de", "ro"]) assert.equal(messages[locale].deliverStage, undefined, locale);
 });
 
 test("Overview accepts only authorized, unique unreadable project IDs with no returned jobs", () => {

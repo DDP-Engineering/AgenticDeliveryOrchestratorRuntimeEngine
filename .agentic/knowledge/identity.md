@@ -36,3 +36,7 @@ reinterpret an unchecked ticket value as a new resource.
 
 - `04_Software/adore/identity.py`
 - `04_Software/tests/test_identity.py`
+
+## Explicit new-job workflow
+
+Web database schema 1 is the only supported shape; another version names web.db and web.db.initialized for manual deletion. New-job workflow is a nullable closed-domain structured operation field, validated on write/read/claim and bound to idempotency.

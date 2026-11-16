@@ -123,8 +123,10 @@ def test_web_processes_serialize_shared_builds(tmp_path):
     assert engine.building.wait(5)
     b = second.start(config())
     engine.release.set()
-    assert finish(first.read, a)["status"] == "ready"
-    assert finish(second.read, b)["status"] == "ready"
+    first_result = finish(first.read, a)
+    assert first_result["status"] == "ready", first_result
+    second_result = finish(second.read, b)
+    assert second_result["status"] == "ready", second_result
     assert sum("build" in argv for argv, _ in engine.calls) == 2
 
 

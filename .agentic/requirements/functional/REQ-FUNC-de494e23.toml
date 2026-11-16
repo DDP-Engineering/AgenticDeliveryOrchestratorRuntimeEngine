@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-de494e23"
+
+title = "Resume one exact Pi implementation conversation per job"
+
+status = "active"
+
+requirement = """When a job starts or continues a Pi implementation attempt, ADORE shall use one explicitly selected job-owned persistent Pi conversation across bounded native or container RPC processes, stages, continuations and corrections."""
+
+verification = "Adapt existing offline launcher/native/conductor cases to restart processes at one explicit path and observe retained prior facts, distinct job paths and unchanged cancellation/token renewal."
+
+affected_paths = ["04_Software/adore/executor/conversation.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/executor/pi_rpc.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_executor_launches_an_isolated_rpc_process", "04_Software/tests/test_local_execution.py::test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-15
+updated = 2026-11-15

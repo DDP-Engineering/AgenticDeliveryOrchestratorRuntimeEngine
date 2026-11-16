@@ -55,7 +55,7 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 
 ## Importer la configuration brute {#import-project}
 
-Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 `config.toml` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.
+Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 `config.toml` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration. Seules les clés de configuration actuelles sont acceptées. Supprimez chaque clé non prise en charge indiquée par la validation ; ADORE ne modifie pas le fichier.
 
 Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).
 
@@ -95,3 +95,7 @@ La détection respecte `XDG_CONFIG_HOME`. Sous Windows, elle vérifie aussi Loca
 5. Contrôlez à nouveau les prérequis de l’hôte. Les identifiants Git clone/push sont configurés séparément.
 
 Sur un autre ordinateur, préparez sa propre connexion CLI ou utilisez ce formulaire. L’archive de livraison ne contient aucun jeton utilisateur.
+
+## Choisir le workflow {#workflow-choice}
+
+**Sans AEGIS** remplace uniquement les instructions du dépôt imposant les procédures AEGIS. Les autres règles de code, de licence et de vérification restent applicables. Les fichiers AEGIS installés restent intacts. Direct utilise Implémentation, Validation et Terminée ; les vérifications sont rapportées par l’agent. Les étapes AEGIS décrites ici concernent **Avec AEGIS**.

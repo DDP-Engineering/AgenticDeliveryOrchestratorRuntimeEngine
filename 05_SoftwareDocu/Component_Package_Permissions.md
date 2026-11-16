@@ -17,7 +17,7 @@ Authorize adaptive system-package installation by the job agent inside an opted-
 
 ## 3. Dependencies and contracts
 
-Trusted Linux image with root-owned `/usr/bin/python3` and `/usr/bin/id`, sudo, visudo, safe `/etc/sudoers.d` and an installed supported package manager. Supported paths are documented in Agent_Dependency_Installation.md. Package scripts have effective container-root authority; sudo is not an isolation boundary. Current normal user ownership is retained for ordinary code/library writes. The root bootstrap clears its subprocess environment and accepts only a measured numeric UID. Administrative process errors, timeouts, unsafe directories or missing exact acknowledgement raise IsolationError.
+Trusted Linux image with root-owned `/usr/bin/python3` and `/usr/bin/id`, sudo, visudo, safe `/etc/sudoers.d` and an installed supported package manager. Supported paths are documented in Security_And_Credentials.md. Package scripts have effective container-root authority; sudo is not an isolation boundary. Current normal user ownership is retained for ordinary code/library writes. The root bootstrap clears its subprocess environment and accepts only a measured numeric UID. Administrative process errors, timeouts, unsafe directories or missing exact acknowledgement raise IsolationError.
 
 ## 4. Workflow integration
 

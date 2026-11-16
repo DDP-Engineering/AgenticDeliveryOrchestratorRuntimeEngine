@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 
 from adore.profiles import adore_home
@@ -27,13 +28,15 @@ from adore.resource_lock import ResourceLockError, resource_lock
 from adore.util import run_command, strict_json_loads
 
 # CONSTANTS
-PI_VERSION = "1.4.0"
+PI_VERSION = "1.5.2"
 WEB_VERSION = "0.46.0"
 PI_PACKAGE = "@earendil-works/pi-coding-agent"
 WEB_PACKAGE = "pi-web-access"
 NODE_MINIMUM = (22, 23, 4)
 PI_ENV = {"PI_OFFLINE": "1", "PI_TELEMETRY": "0", "PI_SKIP_VERSION_CHECK": "1"}
 GUARD = Path(__file__).with_name("executor") / "adore-guard.ts"
+#: Delivery-owned payload; source installations keep the service-account prefix.
+BUNDLED_TOOLS = Path(__file__).with_name("_native_tools")
 
 
 class PiInstallationError(RuntimeError):
@@ -66,8 +69,22 @@ class ManagedPi:
 # LOCAL HELPERS
 
 
+def _bundled_installation() -> bool:
+    """@brief Recognize the delivery-owned runtime, including an incomplete payload."""
+    return (getattr(sys, "_adore_offline_delivery", False) is True
+            or BUNDLED_TOOLS.exists() or BUNDLED_TOOLS.is_symlink())
+
+
 def _node_path() -> Path:
     """@brief Resolve an absolute host Node without current-directory search."""
+    if _bundled_installation():
+        node = BUNDLED_TOOLS / "node" / ("node.exe" if os.name == "nt" else "bin/node")
+        if not _regular(BUNDLED_TOOLS, node) or not os.access(node, os.X_OK):
+            raise PiInstallationError(
+                "pi-missing", "Bundled Node is missing or unsafe. "
+                "Extract the complete ADORE archive again."
+            )
+        return node.resolve(strict=True)
     override = os.environ.get("ADORE_NODE")
     basename = "node.exe" if os.name == "nt" else "node"
     candidates = ([Path(override)] if override else [
@@ -183,9 +200,29 @@ def _npm_cli(node: Path) -> Path:
 # PUBLIC API
 
 
+def bundled_tool_path() -> str:
+    """@brief Return delivery-owned executable directories, or empty for source installs.
+    @return Node/npm and bundled search-tool PATH prefix.
+    @exception PiInstallationError An incomplete or linked delivery is refused.
+    """
+    if not _bundled_installation():
+        return ""
+    node = _node_path()
+    for name in ("fd", "rg"):
+        binary = BUNDLED_TOOLS / "bin" / (name + (".exe" if os.name == "nt" else ""))
+        if not _regular(BUNDLED_TOOLS, binary) or not os.access(binary, os.X_OK):
+            raise PiInstallationError(
+                "pi-missing", "Bundled search tools are missing or unsafe. "
+                "Extract the complete ADORE archive again."
+            )
+    return os.pathsep.join((str(node.parent), str(BUNDLED_TOOLS / "bin")))
+
+
 def managed_pi() -> ManagedPi:
     """@brief Inspect managed paths without running programs or writing files."""
-    pi = ManagedPi(_node_path(), adore_home().resolve() / "tools" / "pi" / PI_VERSION)
+    prefix = (BUNDLED_TOOLS / "pi" if _bundled_installation()
+              else adore_home().resolve() / "tools" / "pi" / PI_VERSION)
+    pi = ManagedPi(_node_path(), prefix)
     _check_packages(pi)
     return pi
 
@@ -197,8 +234,8 @@ def verify_pi(*, runner=None) -> ManagedPi:
     with tempfile.TemporaryDirectory(prefix="adore-pi-check-") as directory:
         cwd = Path(directory)
         _check_node(node, runner, cwd)
-        pi = ManagedPi(node, adore_home().resolve() / "tools" / "pi" / PI_VERSION)
-        _check_packages(pi)
+        pi = managed_pi()
+        bundled_tool_path()
         _check_cli(pi, runner, cwd)
         return pi
 
@@ -206,6 +243,10 @@ def verify_pi(*, runner=None) -> ManagedPi:
 def install_pi(*, progress: Callable[[str], None], runner=None) -> ManagedPi:
     """@brief Install one version using isolated npm and publish only after verification."""
     runner = runner or run_command
+    if _bundled_installation():
+        pi = verify_pi(runner=runner)
+        progress(f"Bundled Pi {PI_VERSION} is ready; no download is needed.")
+        return pi
     node = _node_path()
     root = adore_home().resolve() / "tools" / "pi"
     pi = ManagedPi(node, root / PI_VERSION)

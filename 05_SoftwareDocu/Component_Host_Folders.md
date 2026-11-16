@@ -70,7 +70,7 @@ requires exact review and existing clone/origin/AEGIS/branch checks.
 `tests/test_host_folders.py`, frontend `tests/hostFolders.test.mjs`, and Chromium
 `e2e/host-folders.spec.ts` exercise Windows/Linux names, administrator authority,
 malformed and inaccessible paths, bounds, links, no writes, cancellation, mobile
-and all four locales. `02_Tools/verify_package.py` verifies the packaged endpoint
+and all four locales. `02_Tools/package/verify_delivery_package.py` verifies the packaged endpoint
 on native Windows/Linux with inert fixtures and isolated data.
 
 ## 10. Limitations

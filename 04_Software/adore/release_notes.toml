@@ -4,7 +4,7 @@
 # See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
 # User-facing release notes shown in About > What's new. Rules: AGENTS.md
-# "Release notes rules"; check: python 02_Tools/internal/check_release_notes.py.
+# "Release notes rules"; check: python 02_Tools/package/release_checks/check_release_notes.py.
 # One [[release]] per release, "Unreleased" first, then released versions
 # newest first with the date of their CHANGELOG.md heading. Each entry has a
 # category (new | improved | fixed), a short topic and a text of at most 100
@@ -19,6 +19,100 @@ version = "Unreleased"
 category = "new"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "Connect Azure cloud projects with scoped Work Items and Pull Requests.", fr = "Connectez des projets Azure cloud avec des Work Items ciblés et des Pull Requests.", de = "Azure-Cloudprojekte mit eingegrenzten Work Items und Pull Requests verbinden.", ro = "Conectează proiecte Azure cloud cu Work Items delimitate și Pull Requests." }
+
+[[release]]
+version = "0.17.0"
+date = "2026-11-15"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Compact job actions offer separate restarts with or without AEGIS; Retry keeps its workflow.", fr = "Actions compactes : redémarrage avec ou sans AEGIS ; Réessayer conserve le workflow.", de = "Kompakte Aktionen: Neustart mit oder ohne AEGIS; Wiederholen behält den Workflow.", ro = "Acțiuni compacte: repornire cu sau fără AEGIS; Reîncearcă păstrează fluxul existent." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Generated characters and binary content no longer interrupt Git progress tracking.", fr = "Les caractères générés et données binaires ne bloquent plus le suivi de progression Git.", de = "Generierte Zeichen und Binärdaten unterbrechen die Git-Fortschrittserfassung nicht mehr.", ro = "Caracterele generate și conținutul binar nu mai întrerup urmărirea progresului Git." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
+text = { en = "Start controls share a compact row without repeated explanations.", fr = "Les commandes de démarrage partagent une ligne compacte sans explications répétées.", de = "Startoptionen stehen kompakt in einer Zeile ohne wiederholte Erklärungen.", ro = "Opțiunile de pornire sunt pe un rând compact, fără explicații repetate." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Administration", fr = "Administration", de = "Administration", ro = "Administrare" }
+text = { en = "This build needs a fresh web database; project settings and job records remain.", fr = "Cette version exige une base web neuve ; paramètres des projets et travaux conservés.", de = "Dieser Build benötigt eine neue Webdatenbank; Projekteinstellungen und Jobs bleiben erhalten.", ro = "Această versiune cere o bază web nouă; setările proiectelor și joburile se păstrează." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Choose With AEGIS or Without AEGIS before starting or restarting each job.", fr = "Choisissez Avec AEGIS ou Sans AEGIS avant de démarrer ou recommencer chaque tâche.", de = "Wählen Sie Mit AEGIS oder Ohne AEGIS vor jedem Start oder Neustart eines Jobs.", ro = "Alegeți Cu AEGIS sau Fără AEGIS înainte de pornirea sau repornirea fiecărui job." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Installation", fr = "Installation", de = "Installation", ro = "Instalare" }
+text = { en = "Choose offline packages with Node and Pi included, or smaller online packages.", fr = "Choisissez les paquets offline avec Node et Pi, ou les paquets online plus petits.", de = "Wählen Sie Offline-Pakete mit Node und Pi oder kleinere Online-Pakete.", ro = "Alegeți pachete offline cu Node și Pi incluse sau pachete online mai mici." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Installation", fr = "Installation", de = "Installation", ro = "Instalare" }
+text = { en = "Packaged start and stop skip full file scans; complete verification is available separately.", fr = "Démarrage et arrêt sans analyse complète ; la vérification reste disponible séparément.", de = "Paketstart und Stopp ohne vollständigen Dateiscan; die Gesamtprüfung ist separat verfügbar.", ro = "Pornirea și oprirea evită scanarea tuturor fișierelor; verificarea completă rămâne separată." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "Pi 1.5.2 refreshes the model catalog, including GPT-6.1 Terra.", fr = "Pi 1.5.2 actualise le catalogue de modèles, dont GPT-6.1 Terra.", de = "Pi 1.5.2 aktualisiert den Modellkatalog, einschließlich GPT-6.1 Terra.", ro = "Pi 1.5.2 actualizează catalogul de modele, inclusiv GPT-6.1 Terra." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Inactive settings are removed; internet access and clarification timeouts stay available.", fr = "Paramètres inactifs retirés ; accès Internet et délai de clarification restent disponibles.", de = "Inaktive Einstellungen entfernt; Internetzugriff und Rückfragefristen bleiben verfügbar.", ro = "Setările inactive sunt eliminate; accesul la internet și timeoutul clarificărilor rămân." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "New OpenAI projects default to gpt-6.1-terra; existing project models stay unchanged.", fr = "Les nouveaux projets OpenAI utilisent gpt-6.1-terra ; les modèles existants sont inchangés.", de = "Neue OpenAI-Projekte verwenden gpt-6.1-terra; bestehende Modellauswahlen bleiben unverändert.", ro = "Proiectele OpenAI noi folosesc implicit gpt-6.1-terra; modelele existente rămân neschimbate." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Pi keeps the same job conversation across stages, continuations and corrections.", fr = "Pi conserve la conversation du travail entre étapes, reprises et corrections.", de = "Pi behält das Jobgespräch über Phasen, Fortsetzungen und Korrekturen hinweg.", ro = "Pi păstrează conversația jobului între etape, continuări și corecții." }
+
+[[release]]
+version = "0.16.0"
+date = "2026-11-15"
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Unrecognized job containers are refused; remove them manually before a fresh start.", fr = "Les conteneurs de travail non reconnus sont refusés ; supprimez-les avant de recommencer.", de = "Nicht erkannte Jobcontainer werden abgewiesen; vor einem Neustart manuell entfernen.", ro = "Containerele nerecunoscute sunt refuzate; elimină-le manual înainte de un job nou." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Configuration", fr = "Configuration", de = "Konfiguration", ro = "Configurare" }
+text = { en = "Removed settings are rejected with a clear instruction to delete them.", fr = "Les paramètres supprimés sont refusés avec une indication claire pour les retirer.", de = "Entfernte Einstellungen werden mit einem klaren Hinweis zum Löschen abgewiesen.", ro = "Setările eliminate sunt respinse cu o indicație clară pentru ștergerea lor." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Concurrent jobs keep separate resources and statistics; changed environments need a fresh job.", fr = "Les travaux gardent ressources et statistiques séparées ; un milieu changé exige un nouveau travail.", de = "Jobs behalten getrennte Ressourcen und Statistiken; geänderte Umgebungen brauchen neue Jobs.", ro = "Joburile au resurse și statistici separate; schimbarea mediului cere un job nou." }
+
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
+text = { en = "Live appears once; chat fits the screen and recorded messages without timestamps remain readable.", fr = "En direct apparaît une fois ; le chat reste cadré et les messages sans heure sont lisibles.", de = "Live erscheint einmal; der Chat bleibt im Bild und Nachrichten ohne Zeitangabe lesbar.", ro = "În direct apare o dată; conversația încape pe ecran, iar mesajele fără oră rămân lizibile." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
+text = { en = "Sort ticket columns across loaded results, globally or inside a project.", fr = "Triez les colonnes des tickets chargés, globalement ou dans un projet.", de = "Ticketspalten über geladene Ergebnisse sortieren, global oder im Projekt.", ro = "Sortează coloanele tichetelor încărcate, global sau în interiorul unui proiect." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Separate Jobs/Tickets and three job tabs show results, branches and diagnostics clearly.", fr = "Travaux/Tickets séparés et trois onglets pour le résultat, la branche et le diagnostic.", de = "Separate Jobs/Tickets und drei Jobreiter zeigen Ergebnis, Branch und Diagnose übersichtlich.", ro = "Lucrări/Tichete separate și trei file pentru rezultat, branch și diagnostic." }
 
 [[release.entry]]
 category = "fixed"
@@ -43,7 +137,7 @@ text = { en = "Send instructions now or after current work, with queued and ackn
 [[release.entry]]
 category = "improved"
 topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
-text = { en = "Follow live agent activity and unfinished tools; earlier attempts stay available.", fr = "Suivez l’activité et les outils en cours ; les tentatives précédentes restent accessibles.", de = "Live-Agentenaktivität und laufende Werkzeuge verfolgen; frühere Versuche bleiben verfügbar.", ro = "Urmărește activitatea și instrumentele în curs; încercările anterioare rămân disponibile." }
+text = { en = "Read chat, send or queue messages, and maximize the conversation without losing your draft.", fr = "Lisez, envoyez ou mettez en attente ; agrandissez la conversation sans perdre le brouillon.", de = "Chat lesen, senden oder einreihen; die Unterhaltung ohne Entwurfsverlust maximieren.", ro = "Citește, trimite sau pune mesaje în așteptare și maximizează conversația păstrând mesajul netrimis." }
 
 [[release.entry]]
 category = "new"
@@ -53,7 +147,7 @@ text = { en = "Read recorded prompts, agent text, tools and usage from completed
 [[release.entry]]
 category = "improved"
 topic = { en = "Jobs and Tickets", fr = "Tâches et Tickets", de = "Aufträge und Tickets", ro = "Lucrări și Tichete" }
-text = { en = "Separate scoped pages, automatic ticket reads and four compact job-detail tabs.", fr = "Pages séparées par périmètre, lecture automatique des tickets et quatre onglets de tâche.", de = "Getrennte Bereichsseiten, automatisches Ticketlesen und vier kompakte Auftragsreiter.", ro = "Pagini separate cu domenii, citirea automată a tichetelor și patru file compacte ale lucrării." }
+text = { en = "Separate scoped pages, automatic ticket reads and three compact job-detail tabs.", fr = "Pages séparées par périmètre, lecture automatique des tickets et trois onglets de tâche.", de = "Getrennte Bereichsseiten, automatisches Ticketlesen und drei kompakte Auftragsreiter.", ro = "Pagini separate cu domenii, citirea automată a tichetelor și trei file compacte ale lucrării." }
 
 [[release.entry]]
 category = "fixed"
@@ -100,11 +194,6 @@ text = { en = "Start confirms job admission; Cancel confirms the actual stop. Li
 category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Concurrent jobs share project limits; waiting uses no active time and live jobs stay protected.", fr = "Les tâches partagent la limite du projet ; l’attente ne consomme pas de temps actif.", de = "Parallele Aufträge teilen die Projektgrenze; Wartezeit zählt nicht als aktive Arbeit.", ro = "Lucrările respectă limita proiectului; așteptarea nu consumă timp activ." }
-
-[[release.entry]]
-category = "fixed"
-topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Concurrent jobs keep separate resources; stopping one preserves the others and their statistics.", fr = "Les tâches simultanées gardent leurs ressources et statistiques lors de l’arrêt d’une autre tâche.", de = "Parallele Aufträge behalten eigene Ressourcen und Statistiken, wenn ein anderer gestoppt wird.", ro = "Lucrările simultane își păstrează resursele și statisticile când o altă lucrare este oprită." }
 
 [[release]]
 version = "0.15.0"

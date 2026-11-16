@@ -484,7 +484,7 @@ def validate_plan(plan: object) -> dict:
         or plan["source_sha256"]
         or plan["image_source"] != ("local" if plan["backend"] == "local" else "profile")
     ):
-        raise PreparationError("plan: legacy source mismatch")
+        raise PreparationError("plan: source without a preparation recipe")
     if plan["backend"] == "local":
         local = plan["policy"]["local"]
         if (plan["selection"] or plan["image"] or local["system"] not in {"Windows", "Linux"}

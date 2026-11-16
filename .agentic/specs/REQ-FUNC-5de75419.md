@@ -5,12 +5,44 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Scoped repository connection
+# Connect and verify a project repository account
 
-POST /api/v1/projects/{immutable-id}/repository-connection: {server: origin URL, token: 1..4096 visible ASCII characters, allow_http: boolean}. Admin+CSRF, valid nonarchived idle project and config lock. Return {project_id, provider, server, repository, account}; no credentials. Invalid input 422; active work or changed snapshot 409; verification failure 400; corrupt stored credentials/storage failure 503. No endpoint exposes tokens.
+This specification describes the current implemented contract.
 
-Origin URL accepts HTTPS; HTTP only with explicit allow_http=true; GitHub HTTPS only. URL credentials, paths other than root, queries/fragments, malformed ports reject. Fixed CLI commands verify account and exact repository JSON identity. Nonzero/timeout, missing/non-2xx tea HTTP status, malformed JSON or repository mismatch reject. No write/clone/push/full-job permission claim.
+## Behavior and boundaries
 
-repository-auth.json schema1: schema, project_id, provider, repository, login, server, token, account. Strict closed schema, bounded bytes, atomic 0600 file. profile.json immutable identity and current provider/repo/login must match; corrupt/stale record rejects without fallback. GH_TOKEN/GH_ENTERPRISE_TOKEN + GH_HOST; GITLAB_TOKEN + GITLAB_HOST; tea temporary isolated XDG_CONFIG_HOME with fixed JSON-as-YAML config. Other commands receive no injected credential; returned forge streams redact token. No shared config/process-global mutation. Engine and readiness share runner binding. Replacement requires idle conductor lock and invalidates old readiness.
+### [REQ-FUNC-5de75419](../requirements/functional/REQ-FUNC-5de75419.toml) — Connect and verify a project repository account
 
-Browser secret is memory-only, cleared immediately on submit/cancel/unmount. Pending results cannot appear on another project. Existing four locales. User creates a token on the forge. Form explains read verification, required issue/draft permissions and separate Git transport access. Server backups contain credentials and require service-account access restrictions.
+When an administrator submits a server and access token for a project in the GUI, ADORE shall verify the selected Gitea, GitHub or GitLab account and repository read access before saving project-scoped credentials, returning only secret-free identity evidence and retaining previous credentials on verification failure. The connection dialog offers one Cancel dismissal button beside Verify and connect; Cancel and Escape clear the draft token without submitting credentials.
+
+Verification scope: Offline API tests fake CLI responses for all three providers, failed authentication, malformed identities and wrong repository; browser form submits a memory-only token and displays the actual account result. Dialog dismissal uses a single Cancel button; Cancel and Escape clear the draft token without submitting. The four-locale keyboard journey waits for successful language and theme preference responses before full navigation.
+
+### [REQ-SEC-d5459298](../requirements/security/REQ-SEC-d5459298.toml) — Isolate repository credentials and reject corrupt evidence
+
+While project-scoped repository credentials are configured, ADORE shall restrict them to that immutable project and its selected forge CLI under administrator and CSRF protection, excluding secrets from argv, API responses, command output, audit and executors, and refusing corrupt or mismatched stored credentials without fallback.
+
+Verification scope: Offline API/runner tests assert role/CSRF rejection, scoped persistence and worker/probe binding, output redaction, stale/corrupt records, protected storage and failure preservation.
+
+## Implementation
+
+- `04_Software/adore/orchestrator.py`
+- `04_Software/adore/repository_auth.py`
+- `04_Software/adore/web/app.py`
+- `04_Software/adore/web/static/`
+- `04_Software/adore/web/static/index.html`
+- `04_Software/web/e2e/jobs.spec.ts`
+- `04_Software/web/src/App.tsx`
+- `04_Software/web/src/ReadinessEvidence.tsx`
+- `04_Software/web/src/RepositoryConnection.tsx`
+- `04_Software/web/src/styles.css`
+
+## Associated tests
+
+These links identify test definitions; they are not a claim that a test run passed.
+
+- `04_Software/tests/test_repository_connection.py::test_connect_verifies_then_saves_scoped_account`
+- `04_Software/tests/test_repository_connection.py::test_connection_requires_admin_csrf_and_idle_project`
+- `04_Software/tests/test_repository_connection.py::test_corrupt_scoped_credentials_never_fall_back`
+- `04_Software/tests/test_repository_connection.py::test_gitea_readiness_uses_supported_scoped_user_api`
+- `04_Software/tests/test_repository_connection.py::test_saved_auth_binds_worker_and_readiness_without_executor_leak`
+- `04_Software/web/e2e/jobs.spec.ts`

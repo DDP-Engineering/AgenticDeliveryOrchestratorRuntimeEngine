@@ -5,70 +5,45 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# ADORE Documentation
+# ADORE documentation
 
-Applies to **ADORE 0.15.0**.
+These guides describe the current implementation. Source code and the CLI's
+`--help` define exact runtime contracts; component details live in
+[05_SoftwareDocu](../05_SoftwareDocu/README.md).
 
-This is the operator and administrator documentation for **Agentic Delivery
-Orchestrator & Runtime Engine (ADORE)**. It describes the product generically:
-replace placeholders such as `<profile-name>` and `<runtime-project>` with your
-own names. No guide assumes a particular target repository.
+## Using the application
 
-## Start Here
+| Guide | Purpose |
+|---|---|
+| [User guide](User_Guide.md) | Start the packaged application and follow normal work. |
+| [Administrator guide](Administrator_Guide.md) | Prepare the application host, accounts and backups. |
+| [Troubleshooting](Troubleshooting.md) | Resolve startup, prerequisite and job problems. |
 
-For the packaged web application, start with the compact
-[user guide](User_Guide/README.md). Its three files are the documentation included
-in the self-contained Windows/Linux user distributions; the guides below retain
-the complete source and advanced administration references.
+These three source files sit beside the technical guides. Portable distributions
+copy only them into Documentation, with User_Guide.md named README.md in the
+package. The index and engineering references remain repository documentation.
 
-Follow these guides in order when introducing ADORE to a host or a project:
+## Technical and operator guides
 
-1. [Getting_Started.md](Getting_Started.md) - understand the operating model,
-   prepare a host, install the runtime, create a profile, and complete a safe
-   first poll.
-2. [Security_And_Credentials.md](Security_And_Credentials.md) - set up forge
-   access, executor credentials, secret handling, and the human merge boundary.
-3. [Integrating_A_Runtime_Project.md](Integrating_A_Runtime_Project.md) - add a
-   runtime project, its image, state, readiness rules, and ticket-label contract.
-4. [Operations_Guide.md](Operations_Guide.md) - run, monitor, steer, review,
-   and schedule normal ADORE work.
-5. [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) - diagnose,
-   retry, reset, cancel, delete, and clean up runs safely.
+| Guide | Purpose |
+|---|---|
+| [Getting started](Getting_Started.md) | Install from a package or source and enroll the first project. |
+| [Operations](Operations_Guide.md) | System overview, AEGIS/Direct workflows, approval, review, recovery and maintenance. |
+| [Web interface](Web_Interface.md) | Current navigation, scoped Jobs/Tickets, sessions, settings and administration. |
+| [CLI reference](CLI_Reference.md) | Commands, selectors, intervention flags and exit codes. |
+| [Configuration reference](Configuration_Reference.md) | Current settings, defaults, limits and save rules. |
+| [Security and credentials](Security_And_Credentials.md) | Authentication, secrets, isolation and agent package-installation authority. |
+| [Code style](Code_Style.md) | Implementation and source documentation conventions. |
 
-## Reference Guides
+## Specialized contracts
 
-- [AEGIS_Compatibility.md](AEGIS_Compatibility.md) - verified companion delivery,
-  workflow changes and compatibility evidence.
+| Guide | Purpose |
+|---|---|
+| [Container preparation](Container_Preparation.md) | Reviewed recipe grammar, pinned plans, step evidence and explicit reprepare. |
+| [Local execution](Local_Execution.md) | Managed Pi, Windows Jobs, Linux cgroups and native recovery. |
+| [Project executor images](Project_Executor_Images.md) | External builds, retained definitions, source ZIPs and image selection. |
+| [Portable project settings](Portable_Project_Settings.md) | Closed working-rule export and transfer format. |
 
-- [Configuration_Reference.md](Configuration_Reference.md) - every
-  `config.toml` setting, profile resolution, defaults, and validation rules.
-- [CLI_Reference.md](CLI_Reference.md) - the complete command-line interface,
-  command syntax, safety flags, and exit codes.
-- [Web_Interface.md](Web_Interface.md) - optional browser interface, accounts,
-  RBAC, metrics, offline installation, and worker operations.
-
-## Quick References
-
-[Operator_Cheat_Sheets/](Operator_Cheat_Sheets/README.md) contains concise,
-task-oriented reminders. The full guides above are authoritative when a cheat
-sheet and a reference need different levels of detail.
-
-## Maintainer Reference
-
-[Code_Style.md](Code_Style.md) is internal engineering guidance for people who
-implement ADORE. It is not part of the operator documentation path.
-
-- [Container preparation](Container_Preparation.md): recipe grammar, review, execution evidence and recovery.
-
-## Native local execution
-
-Native execution setup, security and recovery are documented in Local_Execution.md.
-
-See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
-authentication, process ownership and acceptance coverage.
-
-- [Project executor images](Project_Executor_Images.md): external image build and verification, image selection in ADORE, and pending-candidate recovery.
-
-## Adaptive container dependencies
-
-[Agent dependency installation](Agent_Dependency_Installation.md) describes direct agent system-package installation, opt-in rights, independent egress and recovery.
+[Operator quick reference](Operator_Quick_Reference.md) provides task-oriented
+reminders and the five current presentations. [Deployment tools](../02_Tools/setup/README.md)
+document service installation; source automation belongs under 02_Tools.

@@ -13,7 +13,7 @@ Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En 
 
 Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 
-Avant la prise en charge, ADORE ne vérifie AEGIS que si `.agentic/aegis.py` est présent. Un AEGIS défectueux ou non pris en charge est refusé. Sans ce fichier, l’agent implémente directement le ticket. L’agent choisit les contrôles du dépôt dans les deux workflows ; ADORE observe la progression et suit la politique d’approbation configurée. Voir [Workflows du dépôt](/help/projects#workflows).
+Avant la prise automatique, `workflow.mode = "auto"` vérifie AEGIS présent et le refuse s’il est inutilisable ; son absence sélectionne Direct. `workflow.mode = "direct"` ignore AEGIS. Démarrer choisit explicitement le workflow. L’agent réalise les vérifications du dépôt dans les deux cas ; ADORE conserve les contrôles d’approbation et de publication. Voir [Workflows du dépôt](/help/projects#workflows).
 
 ## Work Items Azure et labels PR {#azure-tags}
 
@@ -53,9 +53,11 @@ Des étiquettes facultatives orientent la tâche : `bug` ou `fix` donne une tâc
 
 ## Examiner et démarrer les tickets {#tickets-view}
 
-Utilisez **Tickets** dans la barre latérale pour la page globale séparée. Elle lit à l’ouverture et au changement de périmètre ; **Lire les tickets** actualise manuellement. Tickets et Tâches proposent tous les projets autorisés ou un seul. Une lecture échouée affiche une erreur. Le hub conserve ses sous-onglets Tickets, Tâches et Capacité ; son sous-onglet Tickets se lit sur demande.
+Utilisez **Tickets** dans la barre latérale pour tous les projets autorisés ou un seul, ou l’onglet **Tickets** distinct du projet. Les deux lisent automatiquement à l’ouverture ; la page globale relit après un changement de périmètre. **Lire les tickets** reste l’actualisation manuelle. Travaux conserve recherche, filtres et pagination.
 
-Dans le hub, appuyez sur **Lire les tickets**. La page globale Tickets lit à l’ouverture et au changement de périmètre ; **Lire les tickets** reste une actualisation manuelle. Cela charge jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :
+Cliquez sur Numéro, Projet, Titre, Étiquettes ou Statut pour trier par ordre croissant ; cliquez à nouveau sur la colonne active pour inverser l’ordre. Projet apparaît seulement avec plusieurs projets. Le tri porte sur tous les tickets chargés avant pagination, revient à la première page et reste choisi après Lire les tickets. Les mêmes commandes existent dans l’onglet Tickets du projet.
+
+La page lit jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :
 
 | État | Signification |
 |---|---|
@@ -90,3 +92,9 @@ Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens a
 5. Ajoutez `agent-ready` en dernier.
 6. Attendez la prochaine vérification, ou appuyez sur **Lire les tickets** puis **Démarrer**.
 7. Suivez la tâche dans [Cycle de vie d’une tâche](/help/jobs). Les termes sont dans le [Glossaire](/help/glossary).
+
+## Choisir le workflow {#workflow-choice}
+
+Dans **Actions du travail**, choisissez **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** pour un nouveau travail, puis acceptez la courte confirmation du navigateur qui supprime le travail existant. AEGIS absent désactive son action. Tickets conserve le sélecteur **Workflow** avant **Démarrer**. Réessayer, la continuation et les corrections de revue conservent le workflow enregistré et la même conversation Pi.
+
+Dans Tickets, Workflow, Priorité si nécessaire, Ajouter les étiquettes et démarrer et Annuler partagent une ligne compacte sur grand écran et passent à la ligne sur petit écran.

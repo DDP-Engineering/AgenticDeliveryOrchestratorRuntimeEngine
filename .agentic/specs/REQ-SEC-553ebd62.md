@@ -34,7 +34,7 @@ Earlier ADORE builds simply cut a long `S` to 50 (proxy) or 48 (network)
 characters. ADORE does not recognise such old cut names: provisioning never
 creates or reuses them, and neither reaping nor `adore cleanup` removes them.
 An operator removes leftovers of an earlier build by hand with the container
-runtime CLI (01_Documentation/Recovery_And_Maintenance.md).
+runtime CLI (01_Documentation/Operations_Guide.md).
 
 For each target executor `adore cleanup` may remove its per-run proxy and
 network names, except any name that a retained executor or any other existing

@@ -7,14 +7,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Project executor images
 
-Web enrollment and raw configuration import automatically prepare missing shared
-ADORE images before saving the project. The interface shows the current stage,
-waits for verification and allows retry after failure. Later imports reuse the
-images. Docker/Podman must already be installed and running, including when it is
-selected through WSL. The base executor and the network proxy use bundled ADORE
-recipes; no project files or credentials enter their build context. Native imports
-skip container preparation. Shared image builds need server internet access,
-independently of the agent's Internet access setting.
+Prepare the selected container runtime and required images on the execution
+server before enrollment or a settings change. Project image builds are external
+to ADORE; prerequisite and model checks do not build or install them.
 
 The server administrator prepares custom executor images outside ADORE: the Dockerfile
 and the build stay on the server. Choosing the image is done in ADORE: enrollment
@@ -182,7 +177,7 @@ configured separately.
 ## Build and verify on the execution server
 
 For the ADORE project itself, a synthetic recipe and export manifest are available
-under `02_Tools/containers/adore-executor/`. This reconstructs the DCP executor's
+under `02_Tools/build/executor_images/adore/`. This reconstructs the DCP executor's
 observed Pi, Node, Python and Playwright tooling from Ubuntu, without requiring
 the original local image. See its `README.md` for versions, build context,
 registration and verification. It reconstructs the toolchain; it is not an image
@@ -240,24 +235,15 @@ TOML enrollment.
 
 ## Environment changes and recovery
 
-ADORE retains reviewed source definitions but does not build images. The routes
-`/api/v1/projects/{name}/image-build`, `/image-build/export`,
-`/image-build/operations`, `/image-build/operations/{id}` and
-`/image-build/operations/{id}/cancel` answer HTTP 404, and the web worker runs
-no image builds. Environment setting edits and staging return HTTP 400
-`environment_managed_externally`, except `execution.backend`, `container.runtime`,
-`container.image` and the `local.*` account keys, which use the reviewed
-configuration flow.
-
-A pending candidate with an image-build binding, or for an operator-owned
-environment key, could only be staged by an earlier build. Viewing or applying it
-returns HTTP 503 `pending_config_corrupt`. An administrator removes it with
-**Discard change** in Settings, or through
-`DELETE /api/v1/projects/{name}/config/pending`.
+ADORE retains reviewed source definitions but does not build images. Install or
+build the required images externally, then use the reviewed settings flow to
+select the execution backend, container runtime/image or local account settings.
+Other runtime installation details remain operator-managed. Active jobs retain
+their pinned plan; a changed environment can require a fresh job.
 
 ## Images for adaptive agent installation
 
-Rebuild the current base image to include sudo before enabling `container.system_packages`. No existing image is rebuilt automatically. Compatible images supply root-owned OS Python, id, sudo/visudo and a supported package manager; the default user remains non-root. Agents may then install missing system packages directly, with egress configured separately. See [Agent dependency installation](Agent_Dependency_Installation.md).
+Rebuild the current base image to include sudo before enabling `container.system_packages`. No existing image is rebuilt automatically. Compatible images supply root-owned OS Python, id, sudo/visudo and a supported package manager; the default user remains non-root. Agents may then install missing system packages directly, with egress configured separately. See [Agent dependency installation](Security_And_Credentials.md#agent-package-installation-authority).
 
 Default-context `RUN --mount=type=bind` sources (`source` or `src`) must be
 included in the selected build files. Stage-backed mounts use their declared

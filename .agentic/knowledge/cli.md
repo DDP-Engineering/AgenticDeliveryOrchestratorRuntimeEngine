@@ -208,3 +208,7 @@ Profile-bound admission rechecks immutable identity and archive state after the
 barrier; a stale loaded CLI cannot admit into an archived/deleted project.
 Clone previews use saved namespaced worktree paths. Conduct diagnostics use a
 per-run process log. Tests: `test_shared_resources.py`.
+
+## Explicit new-job workflow
+
+Run accepts --workflow aegis|direct only with --once --ticket; Restart passes the same choice for its fresh job. Polling uses workflow.mode; Retry exposes no override.

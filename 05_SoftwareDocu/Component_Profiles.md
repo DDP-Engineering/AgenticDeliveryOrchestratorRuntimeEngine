@@ -15,7 +15,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > environment detection/guidance in Component_Doctor.md; the `adore profile`
 > commands + `--profile` resolution + per-profile statistics in Component_CLI.md;
 > the operator integration guide in
-> `01_Documentation/Integrating_A_Runtime_Project.md`.
+> `01_Documentation/Operations_Guide.md`.
 
 ## 1. Purpose
 
@@ -126,7 +126,7 @@ store.touch("<profile-name>")               # record a use (use_count, last_used
 - Minimum validation after a change:
   `uv run --group dev pytest tests/test_profiles.py` + `ruff check .`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
 - The wizard, `adore profile` CLI, `--profile` global flag, and per-profile
   statistics are implemented in their respective components.

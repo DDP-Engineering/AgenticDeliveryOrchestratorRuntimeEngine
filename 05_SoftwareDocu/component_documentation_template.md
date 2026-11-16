@@ -11,7 +11,12 @@ Use this template when creating a new ADORE component document under
 `05_SoftwareDocu/`.
 
 Keep sections that are relevant to the component. Remove empty sections rather
-than filling them with placeholder text.
+than filling them with placeholder text. Describe the implementation that exists
+in the checkout, with repository-relative source paths and links to related
+component contracts. Consolidate superseded passages rather than appending a
+second description. Keep operator procedures in `01_Documentation/` and detailed
+automation usage beside `02_Tools/`. Do not include old plans, acceptance receipts
+or speculative backlogs; `00_Planning/` is edited only when explicitly requested.
 
 ## 1. Purpose
 
@@ -62,9 +67,10 @@ than filling them with placeholder text.
 
 - Automated tests covering the component.
 - Manual checks if they are still needed.
-- Minimum validation expected after a change.
+- Existing coverage relevant to the component and its trust boundaries.
+- Do not prescribe a full suite for unrelated documentation or setup work.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
-- Known limitations.
-- Planned next steps or expected extension points.
+- Current limitations and explicit operational boundaries.
+- Unsupported inputs/formats and how refusal is surfaced, where relevant.

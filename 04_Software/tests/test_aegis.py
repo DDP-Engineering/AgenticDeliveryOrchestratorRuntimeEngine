@@ -242,18 +242,14 @@ def test_probe_accepts_authoritative_adoption_stages(stage: str) -> None:
     assert AegisClient(execute).probe().schema == 1
 
 
-def test_probe_accepts_a_listed_legacy_deliver_journal() -> None:
-    """
-    @brief   A journal another task left at deliver does not block the project.
-    @details AEGIS 0.15.0 still lists a legacy deliver journal in `status --all
-             --json`. ADORE conducts no deliver stage, but refusing the listing
-             would fail every probe, and so every run, of that repository.
-    """
+def test_probe_refuses_a_listed_retired_deliver_journal() -> None:
+    """@brief Retired journal stages fail closed rather than widening the contract."""
     execute = FakeExec(
         result(stdout="aegis 0.15.0"),
         result(status_list(stage="deliver")),
     )
-    assert AegisClient(execute).probe().schema == 1
+    with pytest.raises(AegisProtocolError, match="unknown stage"):
+        AegisClient(execute).probe()
 
 
 def test_status_probe_still_rejects_an_unknown_stage() -> None:
@@ -311,8 +307,7 @@ def test_task_journal_trust_boundary_fails_closed(mutation, error: str) -> None:
 def test_task_deviations_follow_the_aegis_marker_rule() -> None:
     """
     @brief   Only `DEVIATION <stage>:` or its ` - ` spelling is a deviation.
-    @details The stage is any stage AEGIS 0.15.0 itself knows, so a legacy
-             `DEVIATION deliver:` line is harvested exactly as AEGIS does.
+    @details Only current conducted and adoption stage names are harvested.
     """
     payload = task_payload(stage="done")
     payload["task"]["log"] = [
@@ -320,13 +315,11 @@ def test_task_deviations_follow_the_aegis_marker_rule() -> None:
         "2026-08-22 build: DEVIATION build - accepted two check warnings",
         "2026-08-22 build: the DEVIATION policy: one line, said aloud",
         "2026-08-23 validate: full suite green",
-        "2026-08-23 validate: DEVIATION deliver: legacy marker kept by AEGIS",
     ]
     task = AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
     assert task.deviations == (
         "frame: branch not created - opened ahead of work",
         "build - accepted two check warnings",
-        "deliver: legacy marker kept by AEGIS",
     )
 
 
@@ -346,16 +339,11 @@ def test_task_status_accepts_the_0_15_0_stages_and_step_files(
     assert task.done is (stage == "done")
 
 
-def test_task_status_refuses_a_task_at_the_removed_deliver_stage() -> None:
-    """
-    @brief   The pinned task is never conducted at deliver.
-    @details AEGIS 0.15.0 still reports a legacy deliver journal, pointing it at
-             the validate step file. ADORE conducts only the 0.15.0 paths, so
-             its own task at deliver fails closed as an unconducted stage.
-    """
-    payload = task_payload(stage="deliver")
-    assert payload["task"]["step_file"] == "5_validate.md"
-    with pytest.raises(AegisTaskError, match="invalid/disagreeing stage 'deliver'"):
+def test_task_status_refuses_an_unknown_stage() -> None:
+    """@brief A task outside the supported stage domain is refused without execution."""
+    payload = task_payload()
+    payload["task"]["stage"] = "unsupported_stage"
+    with pytest.raises(AegisTaskError, match="invalid/disagreeing stage 'unsupported_stage'"):
         AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
 
 

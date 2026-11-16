@@ -5,77 +5,79 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Guided enrollment contract
+# Exact revision-bound reviewed enrollment
 
-Status: active. The UX sequence is repository/identity,
-environment, eligibility/reviewers/limits, verification, review/create.
+This specification describes the current implemented contract.
 
-## Candidate boundary
+## Behavior and boundaries
 
-Guided setup publishes a stopped profile and returns offline findings. Draft operations
-use secret-free request/response data without durable draft storage. Exact import
-retains its separate established contract.
+### [REQ-DATA-e1eaf583](../requirements/data/REQ-DATA-e1eaf583.toml) — Exact revision-bound reviewed enrollment
 
-- ProjectInput accepts supported workflow labels, four run limits, credential
-  environment names and optional exact single-line verify_command text (empty by
-  default). Nontext or CR/LF/NUL returns field-identifying invalid_request before
-  canonical preview or creation. Enrollment saves the command but never executes it.
-- setup-preview returns a SHA-256 candidate revision binding exact config bytes,
-  identity and description, plus config revision and secret-free canonical review.
-- POST projects/setup-check accepts the full draft and required revision, prepares
-  it offline and rejects stale/invalid candidates before an explicit bounded probe.
-  Results remain response-only, with config revision, draft revision, UTC time,
-  typed checks, redacted model reason and honest status.
-- POST projects/setup-create accepts the frozen draft and required revision,
-  regenerates the candidate, compares revision and atomically publishes stopped.
-  Existing POST projects remains compatible. No durable draft/token store.
-- Unknown fields, literal secrets, malformed references, corrupt config and invalid
-  clone/runtime fail closed. All three setup routes require Admin and mutation CSRF.
-- Advisory ID availability never reserves an ID. Atomic publication owns race handling.
+When guided enrollment is confirmed, the system shall submit the frozen reviewed draft once and publish its exact revision with pickup stopped, rejecting a changed or duplicate candidate and exposing ambiguous failures without automatic resubmission.
 
-## Wizard state
+Verification scope: Preview then confirm and inspect exact configuration bytes; mutate identity/setup or omit/wrong revision on guarded route, race duplicate calls, double-click UI and delay responses; verify one profile or explicit conflict.
 
-Guided enrollment starts from a repository URL and clones only at creation, or
-reuses a matching-origin clone at the selected path. Repositories with or without
-AEGIS are eligible. Exact TOML import retains its separate Projects dialog.
-Draft state lives only in the mounted wizard. Any changed answer clears preview,
-verification and review; request generation rejects late results. Back retains values.
-Review Change links focus the matching step and retain all answers.
-No browser secrets are collected or local/session storage drafts written.
-Dirty navigation and beforeunload require a loss warning; sign-out clears the draft.
+### [REQ-FUNC-49e89542](../requirements/functional/REQ-FUNC-49e89542.toml) — Explicit pre-create environment verification
 
-Verification explains host CLI/auth checks and the disposable executor
-container check before the button. A separate informational Workflow observation
-uses aegis.py presence only, never a version or readiness gate; an unavailable
-clone stays not-inspected. The optional Verification command is a one-row textarea that retains and
-visibly refuses multiline paste before submit. The repository hint extension
-(REQ-UX-92197baa; TASK-51bf134b) prefills an untouched direct-clone draft from
-separate transient command/source evidence returned by setup-preview and shows
-localized provenance. Applying a default invalidates prior candidate/check/review
-evidence and needs a canonical preview of the resulting exact draft before use.
-Explicit edits and clearing remain authoritative through repeated previews.
-An inspected AEGIS draft substitutes its repository-test-command note without
-erasing the draft text and gets no suggestion. Not-inspected clones get none;
-preview never clones to find a hint. Settings never infers over saved values.
-Offline helper/API/wizard/browser tests cover source provenance, default application,
-explicit edits/clearing, invalid responses and canonical re-preview failures.
-No probe occurs on typing or preview.
-Failed/partial/unverified states remain textually explicit. Structural validity gates
-creation; incomplete readiness does not pretend to be success and does not invent a new
-mandatory readiness gate for stopped enrollment. Review includes verification status.
+When an authorized administrator explicitly checks a structurally valid reviewed draft revision, the backend shall return bounded redacted revision/time-bound prerequisite evidence without persisting a draft, rejecting stale revisions and invalid setup before probes.
 
-Final review is built from canonical server preview and the unchanged local draft.
-Creation freezes the exact reviewed draft/revision. An immediate ref lock prevents
-double submit before React rerenders. Failed creation remains explicit and requires a
-deliberate retry; unknown response is not silently treated as success.
-Completion remains in the wizard and explains stopped pickup and separate activation.
+Verification scope: Fake tool/container/model responses; verify calls only on explicit draft probe, current failed/partial/verified evidence, mismatched revisions and no profile creation or durable draft.
 
-## Verification and compatibility
+### [REQ-FUNC-702b0fce](../requirements/functional/REQ-FUNC-702b0fce.toml) — Complete offline enrollment candidate preview
 
-Offline API tests cover supported fields, revision mutation, stale probe, failed and
-unverified checks, no artifacts, Dev/CSRF and credential redaction. Browser tests use the
-real fixture API with injectable external runners plus delayed/corrupt response cases.
-All supported locales supply visible wizard copy; no fake image/provider inventory.
-Keyboard field/error/step focus, retained corrections, refresh/history/menu/cancel loss,
-double submit and 390px themes are observed. Screenshots establish layout evidence,
-not novice-user testing or full WCAG compliance.
+When an administrator previews a guided draft, the backend shall return structural findings or an exact candidate revision and complete secret-free review including identity, environment, eligibility/reviewers/limits and server paths without publishing profiles or probing external tools.
+
+Verification scope: Preview explicit fields with a runner that fails if called; inspect generated candidate fields, paths and digest; reject malformed references/limits/clone/runtime without profile artifacts.
+
+### [REQ-SEC-dc4bd0c3](../requirements/security/REQ-SEC-dc4bd0c3.toml) — Secret-reference-only administrator draft operations
+
+When guided draft preview, verification or guarded creation is requested, the backend shall require administrator CSRF authorization and accept credential reference names only, with redacted fail-closed rejection of invalid references or secret values.
+
+Verification scope: Admin happy calls and Dev/no-session/missing-CSRF failures for all draft routes; inject bad credential names and inspect redacted findings with no probes/artifacts.
+
+### [REQ-UX-002cbd25](../requirements/ux/REQ-UX-002cbd25.toml) — Corrective enrollment errors and focus
+
+If guided enrollment input or a setup operation is rejected, the frontend shall show accessible field and summary findings linked to corrective steps and move focus to the corrective context.
+
+Verification scope: Reject empty/malformed fields, ID collisions and invalid server clone/runtime; navigate error links by keyboard and observe focused field/heading and corrected retry.
+
+### [REQ-UX-072cf049](../requirements/ux/REQ-UX-072cf049.toml) — Five-step supported enrollment guidance
+
+When an administrator opens guided enrollment, the frontend shall present five ordered steps starting at repository and identity with visible mandatory-concept guidance, actual supported explicit choices, a repository URL that fills the repository details, a derived project ID instead of an ID field, optional reviewers, preserving existing routes, locales, themes and branding.
+
+Verification scope: Complete supported five-step enrollment; inspect essential instructions, absence of invented presets, keyboard operation and screenshots at 390px and desktop in both themes.
+
+### [REQ-UX-3609c9ed](../requirements/ux/REQ-UX-3609c9ed.toml) — Memory draft correction and navigation protection
+
+While an enrollment draft is edited, the frontend shall retain entries across Back and review correction in memory, invalidate dependent preview/verification/review on changes and warn before navigation or refresh discards them.
+
+Verification scope: Fill then go Back and Change, edit upstream fields during pending responses, cancel/accept navigation and refresh warnings, observe retained or discarded values and stale-response rejection.
+
+### [REQ-UX-7f8fde2c](../requirements/ux/REQ-UX-7f8fde2c.toml) — Honest stopped-pickup enrollment completion
+
+After guided enrollment succeeds, the frontend shall display the created stable identity and pickup-stopped outcome with a separate activation explanation, without promising a particular issue starts.
+
+Verification scope: Create offline profile; observe stopped server state and completion with identity, activation guidance, project link and no automatic resume/start request.
+
+## Implementation
+
+- `04_Software/adore/profiles.py`
+- `04_Software/adore/web/app.py`
+- `04_Software/adore/web/static/`
+- `04_Software/adore/web/static/index.html`
+- `04_Software/web/e2e/enrollment.spec.ts`
+- `04_Software/web/e2e/server.py`
+- `04_Software/web/e2e/shell.spec.ts`
+- `04_Software/web/src/App.tsx`
+- `04_Software/web/src/EnrollmentWizard.tsx`
+- `04_Software/web/src/enrollmentCopy.ts`
+- `04_Software/web/src/styles.css`
+
+## Associated tests
+
+These links identify test definitions; they are not a claim that a test run passed.
+
+- `04_Software/tests/test_web_enrollment.py`
+- `04_Software/tests/test_web_readiness.py`
+- `04_Software/web/e2e/enrollment.spec.ts`
+- `04_Software/web/e2e/shell.spec.ts`

@@ -96,7 +96,7 @@ function DefaultSettings({ defaults, locale, backend }: {
 /** Locale-neutral example values shown in empty fields. */
 const examples: Partial<Record<string, string>> = { clone_url: "https://github.com/owner/repository",
   organization: "https://dev.azure.com/contoso", project: "Payments", area_path: "Payments\\Backend",
-  login: "gitea-main", repo_path: "/home/adore/repos/payments", target_branch: "main", model: "gpt-5.5",
+  login: "gitea-main", repo_path: "/home/adore/repos/payments", target_branch: "main", model: "gpt-6.1-terra",
   endpoint_base_url: "http://192.168.1.20:1234/v1",
   reviewers: "alice, bob", env_keys: "OPENAI_API_KEY" };
 class SetupError extends ApiError {
@@ -104,7 +104,7 @@ class SetupError extends ApiError {
 }
 const initial: Draft = { organization: "", project: "", area_path: "", clone_url: "", name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
   execution_backend: "container", local_account: "current", local_path: "",
-  target_branch: "main", login: "", provider: "openai", model: "", thinking: "", endpoint_base_url: "", endpoint_api: "",
+  target_branch: "main", login: "", provider: "openai", model: "gpt-6.1-terra", thinking: "", endpoint_base_url: "", endpoint_api: "",
   runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
   max_iterations: "20", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };

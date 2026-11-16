@@ -50,8 +50,8 @@ def _stage_and_apply(client, headers, value):
     return pending
 
 
-def test_connection_is_one_reviewed_edit_and_no_agent_choice_exists(tmp_path):
-    """@brief Provider, model and endpoint rows share one atomic reviewed edit; no agent row."""
+def test_connection_is_one_reviewed_provider_model_endpoint_edit(tmp_path):
+    """@brief Provider, model and endpoint rows share one atomic reviewed edit."""
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     path = profiles.config_path("alpha")
@@ -61,9 +61,6 @@ def test_connection_is_one_reviewed_edit_and_no_agent_choice_exists(tmp_path):
         headers = {"X-CSRF-Token": login.json()["csrf"]}
         view = client.get("/api/v1/projects/alpha/config").json()
         metadata = {row["key"]: row for row in view["settings"]}
-        removed = ("executor.default", "executor.commands", "executor.selection",
-                   "executor.stage_host_auth", "labels.executor")
-        assert not any(key.startswith(removed) for key in metadata)
         for key in ("executor.provider", "executor.model", "executor.endpoint.base_url",
                     "executor.endpoint.api"):
             assert metadata[key]["edit_key"] == "executor.connection"
@@ -71,8 +68,6 @@ def test_connection_is_one_reviewed_edit_and_no_agent_choice_exists(tmp_path):
         assert "custom" in metadata["executor.provider"]["choices"]
         assert "chatgpt" in metadata["executor.provider"]["choices"]
         assert metadata["executor.endpoint.api"]["choices"][0] == "openai-completions"
-        assert metadata["executor.command"]["choices"] == [
-            "pi -p --mode json --model {model} {prompt}"]
         direct = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json={
             "key": "executor.model", "value": "gpt-5.4", "revision": view["revision"]})
         assert direct.status_code == 400
@@ -148,7 +143,7 @@ def test_connection_adds_and_removes_the_endpoint_table(tmp_path):
         assert tomllib.loads(path.read_text(encoding="utf-8")) == expected
         view = client.get("/api/v1/projects/alpha/config").json()
         assert view["config"]["executor"]["endpoint"]["base_url"] == "http://172.27.80.1:1234/v1"
-        _stage_and_apply(client, headers, _connection("openai", "gpt-5.5"))
+        _stage_and_apply(client, headers, _connection("openai", original["executor"]["model"]))
     original["executor"]["thinking"] = ""
     assert tomllib.loads(path.read_text(encoding="utf-8")) == original
 
@@ -208,11 +203,11 @@ def test_provider_catalog_is_served_to_signed_in_users_only(tmp_path):
         catalog = client.get("/api/v1/pi-providers").json()
     providers = {item["id"]: item for item in catalog["providers"]}
     assert providers["openai"]["variable"] == "OPENAI_API_KEY"
-    assert "gpt-5.5" in providers["openai"]["models"]
-    assert catalog["chatgpt"]["id"] == "chatgpt" and "gpt-5.6-luna" in catalog["chatgpt"]["models"]
+    assert "gpt-6.1-terra" in providers["openai"]["models"]
+    assert catalog["chatgpt"]["id"] == "chatgpt" and "gpt-6.1-terra" in catalog["chatgpt"]["models"]
     assert catalog["custom"]["variable"] == "ADORE_ENDPOINT_API_KEY"
     assert catalog["custom"]["apis"][0] == "openai-completions"
-    assert catalog["pi_version"] == "1.4.0"
+    assert catalog["pi_version"] == "1.5.2"
 
 
 @pytest.mark.parametrize("variables", [["OPENROUTER_API_KEY"], [],

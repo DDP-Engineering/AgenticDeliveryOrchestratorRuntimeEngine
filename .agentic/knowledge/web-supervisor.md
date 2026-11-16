@@ -68,4 +68,8 @@ real controlled Direct/AEGIS A execution overlaps B, B/global configuration
 finishes while A remains blocked, active A retains unsafe staging, and full-pool
 Cancel preserves its live peer and deduplicates requests. No target repository
 checks run. Exact command/oracle/platform evidence is recorded in
-01_Documentation/Worker_Acceptance.md.
+01_Documentation/Operations_Guide.md.
+
+## Explicit new-job workflow
+
+Web schema 1 stores the selected optional workflow on queued Start/Restart. Worker restart retains it; command construction passes fixed --workflow arguments under existing ownership/grant/revision fences. Start acknowledgement verifies explicit selection against saved workflow. WorkerContext binds workflow in immutable request identity and checks parsed CLI selection before effects.

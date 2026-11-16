@@ -22,12 +22,18 @@ The nonempty `labels.selection.type_epic` value names the ticket label excluded 
 `adore/config.py` loads typed TOML and rejects unsafe or ambiguous ADORE
 settings before a poll starts.
 
+Every declared key must belong to the current configuration contract. Removed
+keys, including `workflow.verify_command`, are reported by validation with the
+exact field to remove. Loading preserves the original input for that validation;
+it never drops old fields or rewrites the operator's file. The example contains
+operational settings and omits reserved fields that do not affect execution.
+
 
 `delivery.reviewers` is a list of forge account names (empty requests no review), each 1–255 characters without whitespace, controls or a leading option prefix. Configuration validation rejects malformed lists before forge CLI invocation. Review requests are independent of candidate publication approval and repository merge permissions.
 
-ReadinessConfig defaults acceptance checking to false and priority checking to true. ReviewConfig defaults maximum additional revision rounds to five; explicit valid overrides retain authority. The supported readiness model contains acceptance, priority and the reserved scope hint.
+ReadinessConfig defaults acceptance checking to false and priority checking to true. ReviewConfig defaults maximum additional revision rounds to five; explicit valid overrides retain authority. The readiness model contains acceptance and priority checks.
 
-`ClarificationConfig.answer_timeout` accepts a positive parsed duration independently of the reserved reminder. Both duration formats remain validated; zero and malformed answer durations fail before execution. The runtime still fails an expired clarification and bounds question rounds. Public validation proof: `test_validation_accepts_answer_timeout_independently_of_reserved_reminder` in `test_config.py`, with existing clarification conductor tests.
+`ClarificationConfig.answer_timeout` accepts a positive duration; invalid or zero durations fail before execution. Reminder settings are not supported. Expiry and maximum question rounds retain their conductor behavior.
 
 ## Branch naming contract
 
@@ -106,8 +112,7 @@ key is refused like any other unknown key.
 `internet` (strict boolean, default false: "Internet access for the agent"),
 `endpoint` (`ExecutorEndpointConfig`), `web` (`ExecutorWebConfig`,
 `[executor.web]`: `search` is `exa` (default, no key), `brave`, `tavily` or
-`none`, the `WEB_SEARCH_CHOICES` of `pi_providers.py`), `command`, `mode`
-(`thick` or `headless`), `questions_file` and `env_keys` (default empty:
+`none`, the `WEB_SEARCH_CHOICES` of `pi_providers.py`), `questions_file` and `env_keys` (default empty:
 additional secret names; the provider's key variable is always passed, and
 with internet on and `brave` or `tavily` search the `SEARCH_KEY_VARIABLES`
 entry `BRAVE_API_KEY` or `TAVILY_API_KEY`). The removed
@@ -118,8 +123,8 @@ table as an unknown `[labels]` key. Unknown keys inside `[executor]` and
 is no migration.
 
 `_provider_issues` checks the provider rules against the shipped Pi catalog
-(`adore/pi_providers.py`, `pi_catalog.json`): `provider` is a Pi API-key
-provider id from the catalog, `chatgpt` or `custom`; `model` matches
+(`adore/pi_providers.py`, `pi_catalog.json`), generated from Pi 1.5.2:
+`provider` is a Pi API-key provider id from the catalog, `chatgpt` or `custom`; `model` matches
 `MODEL_ID_RE` (`[A-Za-z0-9~][A-Za-z0-9._:/@+~-]{0,199}`: no whitespace,
 quotes or control characters, at most 200 characters). `[executor.endpoint]`
 (`base_url`, `api`, default `openai-completions`; also `openai-responses`,
@@ -144,11 +149,16 @@ file: internet on gives mode `open`; internet off gives mode `allowlist-proxy`
 whose allowlist is `pi_providers.provider_hosts(executor)` plus
 `[container.egress] allowlist`, deduplicated and sorted. `provider_hosts` is
 the catalog's `hosts` for an API-key provider (generated from every `baseUrl`
-of Pi's pi-ai provider data by `02_Tools/generate_pi_catalog.py`), the
+of Pi's pi-ai provider data by `02_Tools/build/generate_pi_model_catalog.py`), the
 `openai` hosts for `chatgpt`, and the `base_url` host (a name or an IP
 address) for `custom`. `EgressPolicy` still supports mode `none`, but no
 configuration selects it. The orchestrator, Test AI connection and the
 readiness probe use `egress_policy`; a local run is not restricted by it.
+
+The catalog generator discovers provider IDs from Pi's offline model listing,
+including the Qwen China variants that share credential variables. Display
+names distinguish regional choices; endpoint hosts and thinking levels come
+from that same installed Pi release.
 
 `_chatgpt_issues` refuses what a ChatGPT subscription (`provider = "chatgpt"`)
 cannot run, because ADORE mints a short-lived ChatGPT access token before every
@@ -164,7 +174,7 @@ checked against the catalog's `chatgpt_models`.
 ```toml
 [executor]
 provider = "openai"
-model = "gpt-5.5"
+model = "gpt-6.1-terra"
 ```
 
 A ChatGPT subscription (container or native run; the server signs in once in the
@@ -176,7 +186,7 @@ provider = "chatgpt"
 model = "<a model from chatgpt_models>"
 ```
 
-An OpenAI-compatible endpoint (container run only):
+An OpenAI-compatible endpoint (container or managed native execution):
 
 ```toml
 [executor]
@@ -188,11 +198,9 @@ base_url = "http://192.168.1.20:1234/v1"
 api = "openai-completions"
 ```
 
-`command` retains the container preset `branding.PI_NATIVE_COMMAND`
-(`pi -p --mode json --model {model} {prompt}`). A container run drives the
-image's pinned Pi over RPC. Native profiles omit this key and use managed
-Pi RPC. Configured templates require `{prompt}`, refuse `--auto` and permit
-only `{prompt}`, `{model}` and `{worktree}` placeholders.
+Both production backends use fixed Pi RPC. Command templates and execution-mode
+selectors are not configuration fields. Removed keys receive the same named
+unknown-key refusal as any other unsupported input; no file is rewritten.
 
 ## 5. Validation and Tests
 
@@ -200,8 +208,8 @@ only `{prompt}`, `{model}` and `{worktree}` placeholders.
 approval-label collisions, forge credential denial, container trust boundaries
 and existing cross-platform configuration rules. `tests/test_pi_providers.py`
 covers the shipped catalog (including `chatgpt_models`), provider/model/endpoint
-validation, endpoint model generation, the local-run and stage-limit
-refusals of `chatgpt`, `secret_names` and `models_json`. The internet switch
+validation, endpoint model generation, ChatGPT stage-limit refusals,
+`secret_names` and `models_json`. Native ChatGPT uses the managed server sign-in. The internet switch
 is covered by `test_internet_defaults_off_with_exa_search`,
 `test_internet_and_search_values_are_validated`,
 `test_container_egress_mode_is_refused_naming_the_switch`,
@@ -210,7 +218,7 @@ is covered by `test_internet_defaults_off_with_exa_search`,
 
 ## Reviewed preparation settings
 
-`ExecutionConfig` is a closed `[execution]` table: container backend, optional exact Git selection, step/total timeout and attempt cap. Image may be empty only with preparation. Grammar/source validation belongs to `preparation.py`. Missing keys take the documented defaults. See [Container preparation](../01_Documentation/Container_Preparation.md) and `tests/test_preparation.py`.
+`ExecutionConfig` is a closed `[execution]` table selecting container or local. Container preparation can name exact Git selection, step/total timeout and attempt cap; local plans have no recipe steps. Image may be empty only with preparation. Grammar/source validation belongs to `preparation.py`. Missing keys take the documented defaults. See [Container preparation](../01_Documentation/Container_Preparation.md) and `tests/test_preparation.py`.
 
 ## Native execution contract
 
@@ -255,3 +263,11 @@ Pi thinking is optional; explicit values are validated against the pinned provid
 `delivery.require_human_approval` is a strict boolean, default true. It selects
 whether human candidate approval precedes publication; it does not change
 validation, draft state, guarded publication, or the human merge boundary.
+
+## Preparation selection
+
+An empty execution.preparation disables preparation; it does not select an alternate execution-state model. Every job still pins its execution plan and provisioned resource.
+
+## New-job workflow contract
+
+`WorkflowConfig.mode` defaults to auto and validates only auto/direct. `requested_workflow(default, override)` is the shared closed-domain policy: optional manual aegis/direct takes precedence; invalid defaults/overrides raise ValueError. This selects workflow independently of AEGIS task kinds. Budgets and pinned execution policy are unchanged.

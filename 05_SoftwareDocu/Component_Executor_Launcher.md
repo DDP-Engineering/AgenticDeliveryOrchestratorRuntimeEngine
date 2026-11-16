@@ -2,450 +2,174 @@
 Copyright (c) 2026 DDP Engineering
 This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details.
-SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Executor Launcher (`adore/executor/`)
+# Component: Executor launcher
 
-> Component documentation per `component_documentation_template.md`.
-> Sources: `04_Software/adore/executor/base.py`,
-> `04_Software/adore/executor/launcher.py`,
-> `04_Software/adore/executor/pi_rpc.py`; Pi guard:
-> `04_Software/docker/pi/adore-guard.ts`.
-> Design context: `00_Planning/ADORE_System_Overview.md`;
-> Runtime-image and credential contracts: `04_Software/docker/README.md` and
-> `01_Documentation/Security_And_Credentials.md`.
+## Purpose and sources
 
-## 1. Purpose
+`04_Software/adore/executor/base.py` defines `Executor`, `ExecTarget` and
+`GateRun`. `launcher.py` implements Pi launch/archival; `pi_rpc.py` owns the
+bounded RPC client; `conversation.py` checks exact private Pi session bindings. Pi is the only executor implementation. The conductor chooses
+the stage and handles its result; the backend owns resource/process lifetime.
 
-Launch Pi (`@earendil-works/pi-coding-agent`), ADORE's only coding agent,
-headless for one gate per launch - over RPC inside the run's container, or
-from the managed installation for a local (native) run - and read
-every result back deterministically. All code reasoning lives in the
-executor; the launcher only composes commands and collects outcomes.
+## Launch contract
 
-## 2. Responsibilities
+`run_gate` receives the bound target, host worktree and IO paths, prompt, timeout,
+archive stem and optional cancellation/instruction/secret context. It returns a
+`GateRun` with authoritative exit/timeout, questions, operational output, token
+availability and archive references. Job gates resume one private Pi conversation
+through bounded processes. Durable workflow state remains stage authority.
+The optional `context_key` pins acknowledged ticket context; a changed ticket
+is supplied again until Pi acknowledges the corresponding prompt.
 
-- `Executor` (ABC in `base.py`) + `ExecTarget` protocol (the container exec
-  seam, bound by the orchestrator to the run's container) + `GateRun` (the
-  conductor's decision inputs: exit code, questions, raw output, immutable
-  artifact archive directories). There is deliberately no session id.
-- `FileProtocolExecutor` (`launcher.py`): the file-based gate protocol of a
-  native run (section 3), template substitution, questions-file detection,
-  and per-launch archiving. The subclass supplies only the usage parser.
-- Every launch is a FRESH executor session. The durable AEGIS journal is the
-  resume authority, so nothing is continued and no session id is tracked. The
-  `--session` continuation, the dead-session self-heal relaunch, and the
-  per-executor `_extract_session_id` hooks were removed: the orchestrator
-  always launched with an empty session and never stored one back, so none of
-  that machinery could ever run.
-- `PiExecutor`: the only implementation of the `Executor` interface. On a
-  container target (one with a `spawn` seam) every gate is one `pi --mode rpc`
-  process driven by `pi_rpc` (section "Pi RPC launch") using the image's
-  pinned Pi; the configured `[executor] command` is not used there. A native
-  target keeps the file protocol with the configured command, where
-  final `turn_end` events report input/output and cache read/write tokens.
-  Pi's embedded cost is an executor estimate, so ADORE leaves reported cost
-  unavailable on both paths.
-- `pi_rpc.run_pi_rpc(...)`: the Pi RPC client - prompt over stdin, bounded
-  event reading, completion on `agent_settled`, `abort` on the stage timeout
-  or a cancel, termination after a grace period, failure classification and
-  usage summed per turn; returns a `PiRpcResult`.
-- `build_executor(command_template, model, questions_file, *, provider,
-  models, internet, web_search, thinking, prompts)` - the config selection point; returns a
-  `PiExecutor`. `internet` is `[executor] internet` (default False) and
-  `web_search` is `[executor.web] search` (default `exa`).
-  `command_template` is the native `[executor] command` (default
-  `pi -p --mode json --model {model} {prompt}`, `branding.PI_NATIVE_COMMAND`);
-  `model` is the model ID within the provider; `provider` is the
-  `[executor] provider` value, turned into Pi's provider id by
-  `pi_providers.pi_provider` (`openai` for `chatgpt`, `adore-endpoint` for
-  `custom`, else the id); `models` is the endpoint `models.json` document
-  (`pi_providers.models_json`) for `custom`, else None.
+Both production backends use Pi RPC: container `BoundTarget.spawn` and native
+`LocalTarget.pi_session`. The latter uses verified managed Node/Pi and fresh
+run-owned settings. The container path uses the image's pinned Pi. Prompt text
+goes over stdin, never argv. Provider/model and explicit thinking level form
+validated argv; custom endpoints use generated non-secret model configuration.
 
-`PiExecutor` accepts a conductor-owned `PromptCatalog` through `build_executor`.
-Without injection it eagerly loads the complete catalog at construction. The
-internet-off and native-server notices live under `adore/prompts/system/`, not
-in Python literals. Bad resources fail closed with file-named `PromptError`.
-The native notice is always selected for native RPC; internet-on container RPC
-appends no notice. Selection, argv transport and notice bytes are unchanged.
-See [Prompts](Component_Prompts.md) for the fixed resource and template contract.
+`PiExecutor` directly implements `Executor`. A target must provide container
+spawn or a native pi_session; callable-only targets return a failed GateRun before
+file writes or command execution. There is no shell/template launch or second
+JSONL usage parser. The RPC client owns completion and token accounting.
 
-Explicitly not owned: *which* gate to run and what to do with the outcome
-(orchestrator, design 7a), container lifecycle (isolation), posting anything
-to the Git platform (forge; the executor never touches the remote).
+Before launch, stale output and questions are removed. A descriptive `gate.sh`
+records RPC argv without executing a shell or embedding prompt/secret values.
+Target paths come from `ExecutionPaths`; bound identity is checked before effects.
+See [Execution](Component_Execution.md) and
+[Local execution](Component_Local_Execution.md).
 
-## 3. Implementation Overview
+## Private conversation contract
 
-**The file-based gate protocol** (injected file-only targets) - every byte crosses
-process boundaries in files, never argv or live stdout, because of two
-verified findings: `wsl.exe` splits argv elements containing spaces, and a
-headless CLI may buffer stdout so live streaming looks hung.
+Canonical stage-attempt archive stems select `io/pi-conversation/session.jsonl`
+with `--session` and its explicit `--session-dir`. Non-job probes retain
+`--no-session`; no launch uses personal recent-session selection. The job-owned
+binding receipt pins schema 1, host IO, backend cwd, Pi session ID, required-history
+status and acknowledged ticket fingerprint. It contains no credentials.
 
-1. Delete a stale questions file from the worktree - its presence after the
-   gate must mean it was written by THIS gate.
-2. Render the command from the `[executor] command` template: `{prompt}` ->
-   shell-quoted prompt text, `{model}` -> quoted `<pi provider>/<model id>`, `{worktree}` ->
-   `/adore/work` (the container-side mount). No other placeholder is
-   supplied. Nothing is appended for continuation: each gate is a fresh session.
-3. Write `gate.sh` (LF endings; Windows CRLF would break `sh`) into the
-   run's io dir: `cd /adore/work`, then the command wrapped in a `{ ...; }`
-   group with stdout redirected to `output.jsonl` and stderr to `stderr.log`,
-   both in `/adore/io`. No `exec` prefix - templates may be compound commands,
-   and the group makes the redirection cover the WHOLE compound (e.g. `a && b`),
-   not just its last stage.
-4. Run the backend shell and native IO script path through the bound command
-   seam (container default `["sh", "/adore/io/gate.sh"]`). Paths remain single argv tokens;
-   script paths are quoted and support spaces. The script's exit status is the
-   executor's.
-5. Read back from the HOST filesystem: the event stream and stderr from the
-   io dir, questions from `<worktree>/<questions_file>`. Token usage is parsed
-   per executor. A missing output file is NOT an error - the exit code carries
-   the failure and the conductor decides.
-6. When the orchestrator supplies `archive_stem`, copy the just-finished
-   launch into `io/archive/<stem>-attempt1/` with `gate.sh`, `output.jsonl`,
-   `stderr.log`, and `meta.json`. One launch per gate, so the suffix is
-   constant; a reused stem is disambiguated with a numeric suffix.
+`PiConversation` validates regular files and ancestry, rejects hardlinks and
+reparse/symlink redirection, and streams strict current Pi schema-3 JSONL before
+resume. Compaction requires a summary, finite nonnegative prior token count and
+a kept-entry reference to an ancestor or to the compaction itself. It never
+repairs or imports histories. Missing binding for an already
+launched job, missing required history, foreign identity and corrupt records raise
+`ExecutionRecoveryError` with explicit inspect/delete-job guidance. POSIX storage is private;
+Windows inherits the existing account-owned job directory controls.
 
-Steps 1-5 live in `FileProtocolExecutor`; `PiExecutor` customizes only stream
-parsing. Pi reads the repo's
-`AGENTS.md` gate contract natively and gets its push/merge guardrails from
-the repo adapter plus container isolation - there are no remote credentials in
-the container, so the executor cannot push regardless.
-- The live exchange files (`gate.sh`, `output.jsonl`, `stderr.log`) remain in
-  `.adore/runs/<run-id>/io/` and are overwritten by the next launch. Immutable
-  per-launch archives persist under `io/archive/`; being outside the worktree,
-  the executor can never `git add` them.
-- **Safety:** `validate_config` refuses `--auto` in the native
-  `[executor] command` before any run starts - it would auto-approve the
-  push/pr/merge permissions that keep the executor off the remote (prereq
-  report section 6). The command must also contain `{prompt}`. This is a
-  safety belt, not the boundary (no forge credential in the run is).
+RPC checks `get_state` identity and a usage baseline before sending the prompt.
+Prompt acceptance makes history mandatory and saves the ticket fingerprint. Pi
+owns transcript persistence and compaction; temporary native settings remain
+separate and container/WSL targets use the existing IO bind mount.
 
-## 3a. Pi RPC launch (container targets)
+## RPC completion, cancellation and usage
 
-`PiExecutor.run_gate` on a target with `spawn` (the container `BoundTarget`,
-which verifies the pinned container identity, then calls
-`ContainerManager.spawn`: `<runtime> exec -i` with `exec`'s environment rules):
+`run_pi_rpc` owns one process and one serialized stdin queue. It sends the initial
+prompt, reads bounded complete events and completes on Pi's `agent_settled`.
+Timeout/cancel sends abort, allows a bounded grace and then terminates the owned
+process if necessary. The backend confirms process/container settlement before
+another command. Exit 124 without the authoritative timeout flag is not a timeout.
+Malformed protocol, invalid UTF-8, rejected commands or incomplete completion
+cannot be treated as success.
 
-1. Clear the stale questions file, `output.jsonl` and `stderr.log`. For an
-   OpenAI-compatible endpoint (`models` set), write the document to the io dir
-   as `pi-models.json` (`MODELS_FILE`) and run
-   `cp /adore/io/pi-models.json /home/adore/.adore-pi-agent/models.json`
-   through the exec seam, every gate, so a kept-warm container always has the
-   current file; a failed copy returns a failed `GateRun` (the copy's exit
-   code, or 1) with stderr `Pi models.json could not be placed in the agent
-   directory: ...` and Pi is not started. The document holds no key: `apiKey`
-   is `$ADORE_ENDPOINT_API_KEY` when that secret is set, else the literal
-   `adore-no-key`. With internet on and `[executor.web] search` not `none`,
-   the same way write `web_search_json(search)` =
-   `{"provider": <search>, "workflow": "none", "toolActivation": "eager"}` as
-   `pi-web-search.json` (`WEB_SEARCH_FILE`) and copy it to
-   `/home/adore/.adore-pi-agent/web-search.json`; a failed copy fails the gate
-   without starting Pi (`The web search configuration could not be placed in
-   Pi's agent directory: ...`). The file names the search provider only:
-   pi-web-access reads `BRAVE_API_KEY` / `TAVILY_API_KEY` from the environment.
-   Then write a descriptive `gate.sh` with the argv and environment (no shell
-   runs; the prompt never enters it).
-2. Start `node /opt/pi/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
-   --mode rpc --no-session --no-approve --no-skills --no-extensions
-   --no-prompt-templates --no-themes --no-mcp -e /opt/adore/pi/adore-guard.ts
-   [-e /opt/pi/lib/node_modules/pi-web-access]
-   [--append-system-prompt <offline notice>]
-   --provider <pi provider> --model <model id>` (`pi_rpc_argv(model,
-   provider, web=..., notice=...)`). Internet on with a search provider adds
-   `-e` pi-web-access (`branding.CONTAINER_PI_WEB_ACCESS`); internet off loads
-   no web tools and appends the loaded `system/internet-off.md`, which tells the agent that
-   only the model provider is reachable and that web search, page reading and
-   downloads (curl, npm install, pip install) are unavailable. No download tool
-   is added: with internet on, downloads use bash. The command runs with `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`,
-   `PI_OFFLINE=1`, `PI_TELEMETRY=0`, `PI_SKIP_VERSION_CHECK=1` (inline
-   `--env` values; the provider key keeps the bare-key rule). Nothing comes
-   from the personal `~/.pi`, `~/.agents/skills` or the project's `.pi`; the
-   project's `AGENTS.md` context file stays on.
-3. Send `{"type":"prompt"}` and keep stdin open. Reader threads split stdout
-   on LF, hold at most one record of 16 MiB, reduce it to small facts (usage,
-   stop reason, bounded error text, tool status, `agent_settled`) and persist
-   a bounded copy; the main loop polls every 0.2 s against the deadline and
-   the cancel check.
-4. Done = `agent_settled`. After a clean settle, `get_session_stats` is asked
-   once (5 s) to cross-check the per-turn usage; a mismatch is a note in the
-   evidence. Then stdin is closed (Pi's shutdown request); after 5 s the
-   process is terminated, after 5 more killed.
-5. Deadline or cancel: send `abort`, wait up to 10 s for `agent_settled`,
-   then step 4's shutdown.
-6. Archive as in the file protocol; `output.jsonl` is copied from the
-   bounded persisted file.
+Usage includes only new complete assistant turn reports from the current RPC
+process. The final cumulative statistics cross-check subtracts the pre-prompt
+baseline, so earlier stages are never re-counted. History is not requested or
+replayed into attempt recordings. Usage includes input, output and
+cache read/write tokens. Missing/partial evidence remains unavailable; an explicit
+complete zero report remains reported. Pi's embedded costs are estimates, not
+provider-reported billing, so `GateRun.cost_reported` remains false. The conductor
+journals telemetry availability separately from numeric measurements.
 
-**ChatGPT subscription stages.** For `provider = "chatgpt"` the orchestrator's
-`_launch_stage` first asks its `chatgpt_token` source (by default
-`chatgpt.bearer_token` with `helper_for` selecting the native helper or the
-project's `ContainerManager`, and the server's
-credential directory `<ADORE home>/chatgpt`) for an access token valid for the
-stage limit plus `chatgpt.TOKEN_MARGIN_SECONDS` (300 s). That runs ADORE's helper
-script `/opt/adore/pi/adore-chatgpt.mjs` in a one-off helper container
-(`ContainerManager.helper_command`: `<runtime> run --rm` with exactly one bind
-mount, the credential directory at `/adore/chatgpt`). Native projects use
-verified managed Node/Pi with the packaged helper instead. The run container never
-mounts it, so the refresh token never enters a run. The token then joins only
-this gate's target: `ContainerBackend.bind(name, {..., OPENAI_API_KEY: <access
-token>}, ..., secrets=(token,))`, and `BoundTarget.redact` replaces the token with
-`[REDACTED]` in Pi's persisted evidence (`pi_rpc` receives it as `redact`); the
-descriptive `gate.sh` lists only Pi's fixed RPC environment. Pi starts with `--provider openai`. When no token can be had, the stage
-attempt returns a failed `GateRun` (exit 1, stderr `ChatGPT sign-in: <sentence>`)
-without starting Pi, the conductor logs only the cause code, and the ordinary
-retry policy applies. See [ChatGPT sign-in](Component_ChatGPT_Sign_In.md).
+The optional instruction handoff shares the existing queue and cancellation tick.
+Live steer/follow_up is sent after initial prompt start. Matching command IDs and
+successful acknowledgements confirm delivery; captured fallback instructions need
+the matching prompt-start acknowledgement. Spawn, composition or outgoing
+recording alone cannot mark an instruction delivered. Abort/timeout wins over
+new delivery. See [Instructions](Component_Instructions.md).
 
-The guard extension blocks `git push` and `gh`/`glab`/`tea` in the `bash` and
-`powershell` tools (`tool_call` handler returning a block; Pi reports a
-failed tool result starting with "ADORE blocks") and answers `project_trust`
-with "no". It is loaded with `-e`, so it needs no project trust. It is defence
-in depth: the boundary stays that no forge credential is in the container.
+## Retained files and live ownership
 
-## 4. Dependencies
+Current exchange lives in the run IO directory. Immutable launches use
+`io/archive/<stage>-attempt-<n>-attempt1/`, with a collision suffix when needed.
+Each archive retains gate description, `output.jsonl`, `stderr.log` and physical
+launch metadata. Reused stems never overwrite accepted history.
 
-- Internal: `adore.isolation` (mount constants; `ContainerManager.exec` is
-  the usual `ExecTarget`, `ContainerManager.spawn` the Pi RPC seam),
-  `adore.execution.BoundTarget`, `adore.branding` (Pi paths in the image),
-  `adore.util.CommandResult`, `adore.prompts.PromptCatalog`; `[executor]` config.
-- Executor image: Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0 under
-  `/opt/pi`, the guard at `/opt/adore/pi/adore-guard.ts`, ADORE's ChatGPT
-  helper at `/opt/adore/pi/adore-chatgpt.mjs` and the agent
-  directory `/home/adore/.adore-pi-agent` (`docker/Dockerfile.executor-base`;
-  `docker/verify-runtime.sh` checks the versions and that the helper loads the
-  pinned Pi). `adore.chatgpt` supplies a ChatGPT stage's access token.
-  pi-web-access is loaded only for an internet-on stage with a search provider;
-  the network itself is the isolation component's `EgressPolicy`.
-- External: Pi inside the `adore-executor` image (container runs) or on the
-  host (native runs only); the target repo's `AGENTS.md` arrives with the
-  worktree (its `.pi` directory is not loaded by a container RPC run).
+For a valid stage-attempt stem, the launcher clears stale output, creates the
+output file and publishes current `io/live.json` with random launch ID, planned
+archive ID and start time. It holds the IO StateStore's agent-session kernel lock
+through RPC and archive completion. The marker is removed on normal/exceptional
+exit; a crash releases the lock. Marker presence, PID reuse or file mtime alone
+cannot establish a live session. Non-job model/package probes do not advertise
+job-session ownership.
 
-## 5. Inputs And Outputs
+Complete persisted records are flushed for live readers. Outgoing prompt,
+steer and follow_up commands are recorded as adore_prompt with UTC adore_at and
+instruction identity before dispatch. Pi's user echoes are omitted; other retained
+complete records receive capture timestamps. These timestamps record observation,
+not reconstructed earlier history.
 
-- Inputs: gate prompt, host worktree path, host io-dir path, timeout (run
-  budgets), and archive stem. No session id: every launch is a fresh session.
-- Outputs: a `GateRun`; live exchange files in the io dir; immutable archive
-  directories when requested; whatever the executor itself did to the
-  worktree (edits, local commits).
+Session stdout is literal bounded conversation evidence, including credentials
+printed by an agent. Text/reasoning/tools are retained within the 16 MiB record
+parse bound and 32 MiB total producer bound; deltas are omitted and oversized
+records become explicit stubs/notices. Authorized web readers exclude system
+messages and restrict structured costs by role. No missing earlier text is
+recreated. See [Web jobs](Component_Web_Jobs.md).
 
-## 6. Data Contracts
+Operational tails, stderr, questions, errors and normalized diagnostics have a
+separate sanitized path. Known binding/package credentials and recognizable key
+or Authorization values are masked there. Raw session records never become
+operational tail content. Package-job retention does not rewrite the raw transcript.
 
-- io-dir filenames: `gate.sh`, `output.jsonl`, `stderr.log`,
-  `pi-models.json` for an endpoint and `pi-web-search.json` for an internet-on
-  stage with a search provider; archive root: `archive/` (module constants
-  shared with tests).
-- Archive directory shape: `<stem>-attempt<N>` with a numeric suffix on rare
-  collisions so archives are never overwritten. Missing output/stderr becomes
-  an empty archive file with presence flags in `meta.json`.
-- Archive write failure is returned as a failed `GateRun`, not silently
-  ignored.
-- `GateRun.ok` = exit code 0; necessary but not sufficient to advance - the
-  conductor still checks `has_questions` and runs `invariants`.
-- `GateRun.timed_out` copies `CommandResult.timed_out` from the physical launch;
-  it is never inferred from exit code or stderr. Archive-error returns preserve
-  it and archive metadata records it.
-- The questions-file convention: executor writes
-  `ADORE_QUESTIONS.md` (configurable) in the worktree and stops; presence
-  after the gate = park.
-- Pi RPC `GateRun`: exit 0 completed (settled, not aborted, last assistant
-  stopReason not `error`, whatever the process exit code); 1 failed, with
-  `stderr` starting `Pi run failed (<class>): <message>` where the class is
-  subscription (`subscription_sharing_user_not_eligible`, matched first),
-  sign-in, model, credential, rate-limit, network or provider and masked key
-  hints are redacted; 124 + `timed_out` at the stage timeout; 130 on cancel;
-  the process code (or 1) for a protocol failure (exit before settling,
-  malformed stdout record, unreadable last assistant record, rejected command), 127/126 when Pi cannot start.
-  The orchestrator maps these to `EXECUTOR_TIMEOUT` / `EXECUTOR_EXIT`.
-- Pi RPC usage: `tokens_in` = input + cache-read + cache-write and
-  `tokens_out` = output, summed over every assistant `message_end`; cache
-  categories separate; `cost_usd` 0 and `cost_reported` False. A skipped or
-  invalid assistant record makes `tokens_reported` False. The orchestrator's
-  existing versioned `usage` event (one per launch) carries it.
-- Pi RPC evidence: streaming `message_update` deltas are never persisted,
-  records over 64 KiB are persisted as `{"type", "adore_omitted_bytes"}`
-  stubs, `output.jsonl` stops at 32 MiB and `stderr.log` at 1 MiB; `GateRun`
-  keeps 64 KiB tails.
+Archival streams the literal recording with source size and stable file-identity
+checks. Symlink/reparse/hardlinked files and unsafe archive parents are refused.
+A required recording that disappeared is an archive failure, not permission to
+substitute a sanitized tail as a conversation.
 
-## 7. Workflow Integration
+## Configuration, credentials and guard
 
-The conductor loop (phase 3) calls `run_gate` once per gate with the gate's
-prompt, then branches on the result: questions -> park; failure/budget
--> retry or escalate; clean -> verify invariants and advance.
+`build_executor` creates `PiExecutor` with the selected provider/model, endpoint,
+internet/search and thinking settings and the shared `PromptCatalog`. The native
+server notice is always selected for native RPC. The offline notice applies to
+internet-off container RPC; internet-on container RPC needs neither notice.
+The fixed catalog is validated eagerly. See [Prompts](Component_Prompts.md).
 
-Cancellation: `Executor.cancel_grace_seconds(execute)` is None by default and
-the conductor stops the container when the cancel marker appears. `PiExecutor`
-on a container target returns its abort-and-exit grace (25 s); the conductor
-then passes a `cancel` check to `run_gate` and stops the container only if the
-gate is still running that long after the marker was seen.
+Provider credentials enter only the explicitly bound launch environment.
+ChatGPT subscription obtains a temporary access token through the trusted
+server helper; refresh credentials never reach the executor's agent directory.
+Token failure starts no Pi process and follows bounded conductor recovery.
+Forge credentials are not injected. See [ChatGPT sign-in](Component_ChatGPT_Sign_In.md).
 
-## 8. Usage
+The native and image guard sources have identical policy text. The Pi extension
+blocks publication commands in bash/PowerShell tools and refuses project trust.
+This is defense in depth; native processes still have the service account's host
+permissions. Container networking belongs to isolation, not the prompt or guard.
 
-```python
-from functools import partial
-from adore.executor.launcher import build_executor
+## Dependencies and validation coverage
 
-executor = build_executor("pi -p --mode json --model {model} {prompt}",
-                          "gpt-5.5", provider="openai")
-# A container target is the orchestrator's BoundTarget (it has `spawn`, so
-# the gate runs over Pi RPC); a native target uses the command above.
-run = executor.run_gate(target, worktree_path, io_path, intake_prompt,
-                        timeout=3600, archive_stem="001-intake")
-if run.has_questions:
-    park(run.questions)
-elif run.ok:
-    advance()
-```
+Offline delivery includes the exact Node/Pi/web dependencies and search tools.
+Online delivery omits this payload and uses the managed native installation after
+separate host Node/npm setup and `pi install` with registry access.
+Native jobs use the verified application-owned payload and bundled executable
+directories. Container delivery images include fd/ripgrep in PATH, so an
+internet-off Pi does not need a first-use tool download.
 
-## 9. Validation And Tests
+Pi 1.5.2, Node and web-extension pins are owned by `pi_installation.py` and the runtime
+image assets under `04_Software/docker/`. The image verifier is
+`02_Tools/build/verify_container_runtime.sh`. The launcher itself uses the shared
+runner, execution target, state lock, prompt and instruction contracts.
 
-- `tests/test_executor.py` (offline, fake exec seam): WSL-safe script
-  protocol (two-token argv, LF-only script, quoted prompt, redirections),
-  questions detection, stale-questions clearing, failure/timeout as data,
-  normal/missing-output/nonzero archive behavior, archive-write failure as
-  data, Pi `turn_end` usage parsing, and factory wiring (`build_executor`
-  returns a `PiExecutor`).
-- `tests/test_config.py`: `--auto` in the native command and a command
-  without `{prompt}` are flagged by `validate_config`; removed `[executor]`
-  keys and `[executor.<name>]` tables are refused as unknown keys.
-- **Live verification done 2026-07-03** (real container, Docker in WSL2,
-  8/8 steps): a hostile prompt (quotes, `$`,
-  backticks, `%`, newline) round-trips byte-exact through the WSL boundary;
-  questions detection, stale clearing, exit-code passthrough, artifact
-  persistence.
-- `tests/test_pi_rpc.py` (offline): a fake Pi (`tests/fake_pi_rpc.py`)
-  replays the PI-01 spike recordings in `tests/fixtures/pi_rpc/` over real
-  pipes - tool-call run and per-turn usage, exit code after settling, timeout
-  abort and kill, cancel abort, six provider failure classes with key-hint
-  redaction, crash before settling, malformed record, start failure, large
-  output and an over-limit record, the guard run, the isolation argv and
-  environment, the usage event through `_journal_usage`, the conductor's
-  cancel grace, `--provider`/`--model` on RPC and `<pi provider>/<model id>`
-  in the native template, and the endpoint `models.json` placed before Pi
-  starts (a failed copy fails the stage), and the internet switch
-  (`test_pi_executor_loads_web_tools_when_internet_is_on`,
-  `test_pi_executor_fails_the_stage_when_web_search_json_cannot_be_placed`,
-  `test_pi_executor_tells_the_agent_when_internet_is_off`). `tests/test_isolation.py` covers
-  `ContainerManager.spawn`; `tests/test_pi_providers.py` covers the provider
-  rules and `models_json`.
-- `tests/test_chatgpt_stage.py` (offline): a ChatGPT stage's token reaches only
-  that gate as `OPENAI_API_KEY` and is redacted, a stage override sets the
-  requested token life, a missing token fails the attempt without starting Pi,
-  and an API-key project gets no token.
-- Live check 2026-11-02 (image built from this Dockerfile in WSL Docker, a
-  fake chat-completions endpoint in the container, no key): see the TASK-41fd0159
-  journal for the recorded guard and isolation result.
-- `tests/test_prompts.py`: original notice-byte oracles through native/container
-  launch branches, complete fragment loading and shared catalog ownership.
-- Minimum validation after a change: `uv run --group dev pytest tests/test_executor.py tests/test_pi_rpc.py tests/test_pi_providers.py tests/test_prompts.py`.
+Existing `04_Software/tests/test_executor.py`, `test_pi_rpc.py`,
+`test_pi_installation.py`, `test_native_chatgpt.py`, `test_web_executor_session.py`
+and `test_shared_resources.py` cover injected launch/transport failures, bounded
+usage, cancellation, credentials, literal archive safety and ownership. Current
+captured RPC fixtures live in `04_Software/tests/fixtures/pi_rpc/` and are shared
+with session/browser fixture consumers. They do not depend on planning documents.
 
-## 10. Limitations And Future Work
+## Limitations
 
-- Pi final-turn usage records cache-read and cache-write token counts on
-  `GateRun`. `tokens_in` includes these categories, so reports expose them as
-  subsets rather than adding them to input again.
-
-- `GateRun.cost_reported` distinguishes an explicitly emitted cost (including
-  zero) from the default zero used when the executor has no cost telemetry.
-  `GateRun.tokens_reported` similarly distinguishes a complete zero-token
-  report from absent or partial usage. File-protocol launchers set this flag
-  from valid final executor events; older injected results may leave it unset.
-  Pi has no billed-cost telemetry, so `cost_reported` stays False. The
-  orchestrator journals this coverage along with executor, model and
-  review-round identifiers.
-
-- Pi RPC runs in both production backends; injected file-only targets keep the file
-  protocol and the configured command. Killing the `docker exec` client closes
-  Pi's stdin but sends no signal inside the container; on cancel the
-  conductor's container stop remains the backstop.
-
-- No mid-gate progress visibility for a native run: results are read at exit. If gates prove
-  too long to run blind, add tailing of `output.jsonl` (it grows during the
-  run) without changing the protocol.
-
-## Backend-native gate paths
-
-Bound targets supply worktree, IO and shell paths through `ExecutionPaths`. The existing container defaults preserve legacy injected callables. Preparation and all later gates use the same bound resource/environment; launcher parsing/approval remains unchanged.
-
-## Native execution contract
-
-LocalTarget lends owned binary pipes from the exact native Node and Pi installation. PiExecutor shares its RPC client, stage timeout, questions, archives, redaction and token accounting across native and container targets. Windows selects the PowerShell tool. AEGIS commands retain their independent strict file exchange.
-
-## Agent-controlled system packages
-
-run_gate accepts optional package_secrets for opted-in container jobs. Operational tails, stderr and questions remain sanitized and bounded at 64 KiB. RPC stdout is a separate literal session recording with its standard record/total bounds, copied unchanged into the archive. The non-RPC file protocol retains its sanitized 64 KiB stdout/stderr policy. Complete usage remains independent of retention. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
-
-The non-RPC file protocol encodes sanitized retained stdout/stderr directly as UTF-8 bytes without host newline expansion. RPC session archives copy the literal bounded stdout recording; sanitized stderr and returned tails retain their limits. Complete original usage remains independent of text retention.
-
-Package-enabled Pi RPC gates combine cancellation with `package_secrets`: complete turn usage is kept; returned operational tails, stderr and questions stay sanitized and bounded. Live/archive stdout preserves literal bounded events, including known credentials, without a post-gate rewrite. Native RPC shares this policy. A timed-out gate settles the bound container before another command; unconfirmed interruption raises `ExecutionRecoveryError`. The non-RPC file protocol retains its existing sanitized retention.
-
-RPC clarification questions apply the binding credential redactor before publication. Package-enabled questions also use the shared regular-file/identity checks, known-secret redaction and 64 KiB UTF-8 retention cap; linked question files fail closed.
-
-## Host-side operational diagnostic capture
-
-Pi RPC normalizes diagnostics while consuming the process streams. Only protocol error fields and failed tool-result text feed stdout diagnostics; assistant content, reasoning, tool arguments and prompts are excluded. The binding's existing credential redactor runs before normalization. Stderr is normalized through the same closed grammar. Concrete missing Python module exceptions and pytest numeric result totals survive; other recognized failures become categories and arbitrary prose becomes a withheld notice.
-
-PiRpcResult and GateRun carry optional diagnostics without altering stage success, usage or timeout decisions. Each stream keeps at most 500 short records within 64 KiB. `executor/diagnostics.py` owns normalization, strict canonical validation and host-owned snapshot persistence; it uses no runtime dependencies. Offline fake-Pi tests verify useful diagnostics and private-content suppression through real pipes.
-
-Recognized token-shaped module identifiers are withheld even when they satisfy Python identifier syntax. Diagnostic ring mutation and result snapshots share the evidence lock, including readers that outlive a bounded join.
-
-Executor publication guards always leave Git publication to ADORE, whether the
-project requires a human approval or permits automatic validated publication.
-
-## Live launch ownership
-
-PiExecutor RPC launches with a valid stage-attempt archive stem publish `io/live.json`
-(schema 1: random live id, planned archive id, start timestamp) after stale output is
-cleared. A StateStore rooted at the IO directory holds `run_lock("agent-session")`
-through RPC and archive completion. The web reader uses its crash-released kernel
-ownership as a liveness probe; marker presence alone never proves a running launch.
-ExitStack removes the marker on success and exceptional returns; a host crash releases
-the lock even when cleanup did not run. No PID reuse or file mtime establishes launch
-identity. The collision suffix matches the normal archive allocator. Package/model
-probes without a stage-attempt stem do not advertise a job session. Each persisted complete RPC record is flushed immediately so a short record reaches
-live readers before launch completion. Offline marker lifetime/fault and producer
-visibility checks live in `tests/test_pi_rpc.py`.
-
-
-## Literal session persistence boundary
-
-REQ-SEC-97e45ffb: completed RPC stdout records are persisted literally within the
-existing per-record and 32 MiB total bounds; deltas remain omitted and oversized
-records remain stubs. _Evidence keeps separate sanitized operational tail bytes.
-Known binding/package credentials, key-hint and Bearer masking apply only to these
-operational tails, stderr, questions, error messages and normalized diagnostics.
-Package jobs never rewrite the raw session file before archiving. The shared authenticated
-reader excludes system messages and restricts structured costs. Public fake-producer
-live/archive tests prove literal secret-shaped samples and continued operational
-masking; no old recordings are rewritten.
-
-Literal archive copies stream at most the producer total bound plus its truncation
-notice, refusing symlink/reparse/hardlinked files, unsafe parents and changed identities.
-
-A supplied raw recording is mandatory: missing files fail the archive operation and
-never become sanitized operational tails presented as transcripts. Archive destination
-parents reject symlinks and Windows reparse points before any write. Raw files use
-exclusive creation inside the new guarded archive directory. Public fixtures prove
-missing output and real Windows junction/Linux symlink refusal.
-
-## Acknowledged instructions
-
-Executor.run_gate accepts an optional InstructionDelivery handoff; PiExecutor forwards
-it to the existing run_pi_rpc loop for native/container targets. File-protocol doubles
-leave it unacknowledged. The existing single stdin queue sends steer/follow_up beside
-the cancel tick, only after the initial prompt starts; abort/timeout takes precedence.
-Exact command/id success acknowledges live records; matching started prompt success
-acknowledges only its captured fallback. Failed spawn, rejected/missing acknowledgement
-and early exit preserve Queued across session end/restart. Late responses during the
-existing stats grace are matched too. No second writer or agent loop is added.
-Launch-owned live.json, kernel liveness, bounded literal stdout/archive and sanitized
-operational tails, stderr, questions and diagnostics keep their existing policies.
-See Component_Instructions.md; targeted fake-Pi proof is in test_pi_rpc.py.
-
-## Shared guard policy text
-
-The packaged native and executor-image guard sources are byte-identical, including
-the publication explanation: ADORE manages publication under the project policy.
-The blocked git/forge command patterns and refusal of project trust are unchanged.
-`test_pi_installation.py::test_managed_pi_ships_the_reviewed_guard` enforces source
-parity; the existing fake-RPC guard fixture verifies blocked and allowed commands.
+Retained evidence is bounded; truncation is explicit. Sessions are not resumed
+across stages, and raw conversations may contain sensitive agent output. RPC
+acknowledgement proves instruction receipt, not completed implementation. Lifecycle,
+publication authority and operator cleanup remain conductor responsibilities.

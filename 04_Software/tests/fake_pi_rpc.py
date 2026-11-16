@@ -30,10 +30,23 @@ from pathlib import Path
 import re
 import sys
 import time
+from uuid import uuid4
 
 # CONSTANTS
 #: Placeholder -> value, filled from the prompt the client sent.
 NONCES: dict[str, str] = {}
+SESSION: list[dict] = []
+
+
+def _append(options, message: dict) -> None:
+    """@brief Simulate Pi-owned append-only session persistence without a model."""
+    if options.session_file is None:
+        return
+    SESSION.append({"type": "message", "id": uuid4().hex,
+                    "parentId": SESSION[-1].get("id") if len(SESSION) > 1 else None,
+                    "message": message})
+    options.session_file.write_text(
+        "".join(json.dumps(row) + "\n" for row in SESSION), encoding="utf-8")
 
 # HELPER FUNCTIONS
 
@@ -93,6 +106,9 @@ def _emit(envelopes: list[dict], command: dict, options: argparse.Namespace,
                  else assistant_ends[0] if assistant_ends else -1)
     for index, envelope in enumerate(envelopes):
         record = envelope["record"]
+        if (isinstance(record, dict) and record.get("type") == "message_end"
+                and isinstance(record.get("message"), dict)):
+            _append(options, record["message"])
         if envelope["dir"] == "stderr":
             sys.stderr.write(str(record) + "\n")
             sys.stderr.flush()
@@ -150,7 +166,18 @@ def main() -> int:
     parser.add_argument("--deep", type=int, default=0)
     parser.add_argument("--key-hint", default="")
     parser.add_argument("--exit", type=int)
+    parser.add_argument("--session-file", type=Path)
+    parser.add_argument("--session-path")
+    parser.add_argument("--session-cwd")
+    parser.add_argument("--bad-session-state", choices=("path", "id", "tokens"))
     options = parser.parse_args()
+    if options.session_file is not None:
+        if options.session_file.exists():
+            SESSION.extend(json.loads(line) for line in options.session_file.read_text(
+                encoding="utf-8").splitlines())
+        else:
+            SESSION.append({"type": "session", "version": 3, "id": uuid4().hex,
+                            "cwd": options.session_cwd})
     leading, segments, exit_code = _segments(options.fixture)
     for envelope in leading:
         if envelope["dir"] == "stderr":
@@ -162,7 +189,25 @@ def main() -> int:
                 handle.write(raw)
         command = json.loads(raw)
         kind = command.get("type")
+        if options.session_file is not None and kind == "get_state":
+            _write({"id": command.get("id"), "type": "response", "command": kind,
+                    "success": True, "data": {
+                    "sessionId": "foreign-job" if options.bad_session_state == "id"
+                    else SESSION[0]["id"],
+                    "sessionFile": "/foreign/session.jsonl" if options.bad_session_state == "path"
+                    else options.session_path}}, "")
+            continue
+        if options.session_file is not None and kind == "get_session_stats":
+            totals = {key: 0 for key in ("input", "output", "cacheRead", "cacheWrite")}
+            for row in SESSION:
+                for key in totals:
+                    totals[key] += row.get("message", {}).get("usage", {}).get(key, 0)
+            _write({"id": command.get("id"), "type": "response", "command": kind,
+                    "success": True, "data": {
+                    "tokens": {} if options.bad_session_state == "tokens" else totals}}, "")
+            continue
         if kind == "prompt":
+            _append(options, {"role": "user", "content": command.get("message", "")})
             message = str(command.get("message", ""))
             for placeholder, pattern in (("<NONCE>", r"ADORE_OK_[0-9a-f]+"),
                                          ("<TOOL_NONCE>", r"ADORE_TOOL_[0-9a-f]+")):

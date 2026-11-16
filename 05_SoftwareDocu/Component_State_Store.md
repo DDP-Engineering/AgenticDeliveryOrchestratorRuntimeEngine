@@ -64,8 +64,8 @@ it. Direct runs have no task bindings; reset rejects AEGIS-only direct stages
 before mutation.
 
 Direct `validation_evidence` carries sanitized bounded `summary`, conductor-owned
-`implementation = completed`, then `verification = not configured` and an observed
-`changed_files` count. Summary text is saved before file removal; the transient
+`implementation = completed` and an observed `changed_files` count. There is no
+independent verification-result field in the current completion evidence. Summary text is saved before file removal; the transient
 isolation receipt is never serialized. The completion marker permits checkpoint
 recovery at validate without replaying successful implementation. Missing
 completion returns recovery to build; summary alone does not authorize approval.
@@ -116,11 +116,11 @@ listings do not retry, repair state or treat missing files as corrupt runs.
 
 ## Preparation evidence
 
-Schema 1 carries a closed `execution` record. An empty record (the no-recipe mode) claims no recipe success. Plan/policy fingerprints, actual IDs, sequential outcomes, bounded attempt/history records and complete success are validated on load. State JSON rejects duplicate/non-finite fields. Corruption raises `StateError`. Plan and step artifacts are immutable and checked by the conductor on reuse. See `tests/test_state.py` and `tests/test_preparation_lifecycle.py`.
+Schema 1 carries a closed `execution` record. An empty record is refused; disabled preparation is represented by a complete plan and not-required status. Plan/policy fingerprints, actual IDs, sequential outcomes, bounded attempt/history records and complete success are validated on load. State JSON rejects duplicate/non-finite fields. Corruption raises `StateError`. Plan and step artifacts are immutable and checked by the conductor on reuse. See `tests/test_state.py` and `tests/test_preparation_lifecycle.py`.
 
 ## Native execution contract
 
-Schema-1 execution state accepts the closed native resource with not-required status, zero attempts and empty preparation evidence. PIDs/scopes remain separate authoritative control records. Corrupt/unknown native fields fail closed; container records and the empty no-recipe record keep their own validation.
+Schema-1 execution state accepts the closed native resource with not-required status, zero attempts and empty preparation evidence. PIDs/scopes remain separate authoritative control records. Corrupt/unknown native fields fail closed; container records keep their own resource validation.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
@@ -128,7 +128,7 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 
 ## Agent-controlled system packages
 
-A container execution record with not-required recipe status may bind exact container/image IDs when its plan explicitly carries system_packages=true. It records authority and resource identity, not installed-package success; malformed identities and unauthorized resource fields fail closed. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+A container execution record with not-required recipe status may bind exact container/image IDs independently of system-package permission. It records authority and resource identity, not installed-package success; malformed identities and unauthorized resource fields fail closed. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
 
 ## Cumulative active-work contract
 
@@ -229,3 +229,7 @@ list_runs/invalid_runs propagate storage unavailability instead of omitting a
 reserved job as corrupt. Public proof also includes
 test_state_listing_propagates_exhausted_sharing_denial and the admission
 regression test_admission_refuses_storage_loss_between_capacity_scans.
+
+## Required execution record
+
+Persisted and newly saved runs require the closed execution record, including its validated pinned plan. The empty mapping is refused with explicit affected-run removal guidance. Not-required preparation has zero attempts and empty steps/history, with reprepare false; a container resource can be pinned independently of system-package permission. Local resource validation remains backend-specific. No stored record is completed or rewritten by the application.

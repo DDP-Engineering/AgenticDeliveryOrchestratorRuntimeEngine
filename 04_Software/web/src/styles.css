@@ -255,9 +255,6 @@ td.strong { font-weight: 800; }
 .two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
 .two-column .panel { margin-bottom: 0; }
 .wide-panel { grid-column: 1 / -1; }
-.portable-settings { min-width: 0; }
-.portable-settings .project-verification-evidence { overflow-wrap: anywhere; }
-.portable-settings .inline-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .user-list { margin-top: 20px; }
 .user-row { display: flex; align-items: center; flex-wrap: wrap; gap: 11px; padding: 12px 0; border-top: 1px solid var(--border); }
 .user-row div { flex: 1; min-width: 0; }
@@ -505,9 +502,9 @@ td.strong { font-weight: 800; }
 .job-actions { margin-left: auto; position: relative; color: var(--text); }
 .job-actions summary { cursor: pointer; border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; background: var(--surface); font-weight: 650; }
 .job-actions summary:focus-visible, .job-resources summary:focus-visible, .job-original summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.job-action-menu { position: absolute; right: 0; z-index: 4; width: min(350px, 75vw); padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
-.job-action-menu > div + div { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 10px; }
-.job-action-menu button { width: 100%; }
+.job-action-menu { position: absolute; right: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: max-content; max-width: min(720px, calc(100vw - 48px)); padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
+.job-action-menu .job-restart-actions { display: contents; }
+.job-action-menu button { width: auto; max-width: 100%; }
 .job-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; align-items: start; }
 .job-details .job-state { border: 1px solid var(--border); border-top: 4px solid var(--accent); background: var(--surface); border-radius: 12px; padding: 24px; margin: 0; min-width: 0; }
 .job-details .job-state-parked-clarification, .job-details .job-state-awaiting-approval { border-top-color: var(--warning); }
@@ -928,6 +925,18 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .ticket-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ticket-comments { display: grid; gap: 12px; margin: 0; padding-left: 1.2rem; }
 .ticket-start-confirm, .ticket-stop-confirm { margin: 0 0 8px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); }
+.ticket-start-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.ticket-start-confirm .workflow-choice { flex: 1 1 260px; min-width: 0; }
+.ticket-start-confirm label { flex-direction: row; align-items: center; white-space: nowrap; min-width: 0; }
+.ticket-start-confirm > label { flex: 0 1 180px; }
+.ticket-start-confirm select { flex: 1; min-width: 0; width: auto; }
+.ticket-start-confirm .button-row { flex-wrap: nowrap; }
+.ticket-start-confirm button { white-space: nowrap; }
+@media (max-width: 600px) {
+  .ticket-start-confirm .workflow-choice, .ticket-start-confirm > label { flex: 1 1 100%; }
+  .ticket-start-confirm .button-row { flex-wrap: wrap; }
+  .ticket-start-confirm button { white-space: normal; }
+}
 .ticket-confirm-row > td { padding-top: 0; }
 .operation-detail { margin: 6px 0 0; padding: 8px 10px; max-height: 16rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); }
 .executor-output { min-width: 0; margin-top: 12px; }
@@ -1025,8 +1034,9 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .job-detail-commands .job-detail-tabs { margin-top: 0; flex: 0 1 auto; min-width: 0; gap: 18px; }
 .job-detail-close { margin-left: auto; flex: none; }
 .job-detail-commands > a { white-space: nowrap; font-size: .88rem; }
-.job-detail-grid { display: block; }
-.job-resources { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin-top: 16px; }
+.job-detail-grid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 24px; align-items: start; }
+.job-detail-main { min-width: 0; }
+.job-resources { display: block; margin-top: 0; position: sticky; top: 84px; }
 .job-human-actions:empty { display: none; }
 .agent-sessions > label { display: grid; gap: 6px; max-width: 100%; }
 .agent-sessions select { max-width: 100%; }
@@ -1043,3 +1053,92 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .instruction-list { display: grid; gap: 12px; padding-left: 22px; min-width: 0; }
 .instruction-list li { min-width: 0; overflow-wrap: anywhere; }
 .instruction-list pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; font: .875rem/1.5 var(--font-mono,monospace); }
+
+/* Conversation and project detail layout. */
+.job-detail-links { display:flex; align-items:center; gap:16px; margin-left:auto; }
+.job-detail-links .job-detail-close { margin-left:0; }
+.job-detail-links a { white-space:nowrap; font-size:.88rem; }
+.job-activity-table td:first-child { white-space:nowrap; }
+.job-activity-table td { vertical-align:middle; }
+.job-activity-table .text-button { text-align:left; }
+.session-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
+.session-toolbar label { display:grid; gap:6px; min-width:0; flex:1; }
+.session-toolbar select { width:100%; min-width:0; }
+.session-live { font-size:.82rem; color:var(--accent-deep); }
+.session-chat-window { height:clamp(20rem,62vh,48rem); overflow:auto; overscroll-behavior:contain; border:1px solid var(--border); border-radius:10px; padding:16px; background:var(--surface); }
+.session-timeline { margin:0; gap:16px; }
+.session-timeline .session-message { padding:16px; }
+.session-timeline .session-prompt { margin-left:5%; background:var(--surface-alt); }
+.session-timeline .session-assistant { margin-right:3%; }
+.session-message-meta { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; font-size:.8rem; color:var(--muted); }
+.session-message-meta strong { color:var(--text); }
+.session-message-meta time { margin-left:auto; }
+.session-delivery { font-size:.75rem; }
+.session-timeline .session-message > pre { font:inherit; max-height:none; margin:0; }
+.session-timeline .forge-markdown { font-size:.93rem; line-height:1.6; }
+.session-timeline .session-tool, .session-timeline .session-reasoning { padding:9px 12px; background:var(--surface-alt); font-size:.85rem; }
+.session-initial > summary { font-weight:650; }
+.session-new-messages { display:block; margin:8px auto; }
+.instruction-composer { position:sticky; bottom:0; background:var(--surface); margin-top:10px; padding:12px 0 0; z-index:1; }
+.instruction-composer[hidden] { display:none; }
+.instruction-composer label { font-weight:650; font-size:.9rem; }
+.instruction-composer p { margin:0; }
+@media (max-width:1100px) {
+ .job-detail-grid { grid-template-columns:minmax(0,1fr); }
+ .job-resources { position:static; }
+}
+@media (max-width:640px) {
+ .job-detail-links { width:100%; justify-content:flex-end; }
+ .session-chat-window { padding:8px; height:58vh; }
+ .session-timeline .session-message { margin-left:0; margin-right:0; padding:12px; }
+ .session-message-meta time { margin-left:0; }
+}
+
+/* One result/metadata view, with diagnostics opened only on demand. */
+.job-summary { margin:18px 0; }
+.job-summary > div { display:grid; grid-template-columns:minmax(120px,30%) minmax(0,1fr); gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+.job-summary dt { font-weight:650; }
+.job-summary dd { margin:0; min-width:0; overflow-wrap:anywhere; }
+.job-summary code { white-space:pre-wrap; overflow-wrap:anywhere; }
+.job-result h3 { margin-top:0; }
+.job-diagnostics { margin-top:24px; padding-top:16px; border-top:1px solid var(--border); }
+.job-diagnostics > summary { font-weight:650; cursor:pointer; }
+.job-diagnostics > summary:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+@media(max-width:640px) { .job-summary > div { grid-template-columns:minmax(0,1fr); gap:6px; } }
+
+/* Fit the conversation to the viewport, independent of transcript length. */
+.job-detail-header { margin-bottom:12px; }
+.job-session-controls { display:flex; align-items:center; gap:10px; min-width:0; margin-bottom:10px; }
+.job-session-toolbar-slot { flex:1; min-width:0; }
+.job-session-controls[hidden] { display:none; }
+.job-session-controls .session-toolbar { margin:0; gap:10px; color:var(--muted); }
+.session-toolbar label { display:flex; flex-direction:row; align-items:center; gap:10px; font-weight:650; white-space:nowrap; }
+.session-toolbar select { flex:1; width:auto; min-width:0; }
+.session-live { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.session-maximize { flex:none; white-space:nowrap; }
+.job-details.session-maximized { position:fixed; inset:8px; z-index:1100; margin:0; padding:12px 18px; overflow:auto; background:var(--surface); }
+.session-maximized .job-detail-title, .session-maximized .job-detail-meta, .session-maximized .job-resources { display:none; }
+.session-maximized .job-detail-grid { grid-template-columns:minmax(0,1fr); }
+.session-maximized .job-detail-header { margin-bottom:8px; }
+.job-detail-content[id$="-sessions"] { padding-top:0; }
+.agent-sessions { min-height:0; position:relative; }
+.session-chat-window { box-sizing:border-box; height:55vh; min-height:0; max-height:calc(100dvh - 24px); flex:none; overflow-y:auto; overflow-anchor:none; contain:layout size; border:0; border-radius:0; padding:0 8px 0 0; }
+.session-timeline { gap:0; }
+.session-timeline li, .session-timeline .session-message, .session-timeline .session-tool, .session-timeline .session-reasoning { border:0; border-bottom:1px solid var(--border); border-radius:0; padding:10px 0; margin:0; background:transparent; }
+.session-message-meta { margin-bottom:6px; }
+.session-compose-area { display:flow-root; }
+.instruction-composer { position:static; grid-template-columns:minmax(0,1fr) max-content; align-items:center; column-gap:12px; row-gap:6px; margin-top:8px; padding-top:8px; }
+.instruction-input { grid-column:1; display:grid; gap:6px; min-width:0; }
+.instruction-composer textarea { min-height:56px; }
+.instruction-composer > p { grid-column:1 / -1; }
+.instruction-actions { grid-column:2; grid-row:auto; align-self:end; display:flex; gap:8px; align-items:center; }
+.session-new-messages { position:absolute; right:12px; bottom:calc(var(--session-footer-height, 0px) + 12px); z-index:2; margin:0; background:var(--surface); box-shadow:0 2px 8px #0002; }
+@media(max-width:640px) {
+ .job-session-controls { flex-wrap:wrap; }
+ .job-session-toolbar-slot { flex-basis:calc(100% - 135px); }
+ .job-details.session-maximized { inset:0; padding:8px; border-radius:0; }
+ .instruction-composer { grid-template-columns:minmax(0,1fr); }
+ .instruction-actions { grid-column:1; grid-row:auto; justify-content:flex-end; flex-wrap:wrap; }
+}
+
+.session-timeline pre { max-height:none; overflow-x:auto; overflow-y:visible; }

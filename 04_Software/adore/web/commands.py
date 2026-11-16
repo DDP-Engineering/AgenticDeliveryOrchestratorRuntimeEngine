@@ -251,6 +251,8 @@ class CommandWorker:
         else:
             finish(operation["id"], "failed", "invalid operation")
             return 1
+        if operation["workflow"] is not None:
+            argv.extend(["--workflow", operation["workflow"]])
         try:
             self.web.authorize_effect(operation["id"], owner=owner,
                                       generation=operation["generation"])

@@ -101,17 +101,14 @@ test("flow visibility omits inactive and external fields and keeps technical row
  assert.equal(settingVisible("metrics.db_path"), true);
  assert.equal(settingRows({}, [meta("metrics.db_path", "project", true)])[0].input, "none");
  for (const key of ["polling.poll_interval_seconds", "polling.poll_jitter_seconds", "polling.poll_backoff"]) assert.equal(settingVisible(key), true, key);
- for (const key of ["review.trigger", "review.review_reminder_after", "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource", "labels.selection.type_feature", "reconcile.on_ticket_closed", "executor.mode", "container.uv_cache_volume", "execution.preparation", "worktree.future_field"]) assert.equal(settingVisible(key), false, key);
+ for (const key of ["review.trigger", "clarification.timeout_state", "labels.selection.type_feature", "reconcile.on_ticket_closed", "container.uv_cache_volume", "execution.preparation", "worktree.future_field"]) assert.equal(settingVisible(key), false, key);
  // The chosen environment keys follow the backend: container rows or local-account rows.
  for (const key of ["execution.backend", "container.runtime", "container.image"]) assert.equal(settingVisible(key, true), true, key);
  assert.equal(settingVisible("local.account", true), false);
  assert.equal(settingVisible("local.account", true, "local"), false);
  assert.equal(settingVisible("local.path", true, "local"), true);
- assert.equal(settingVisible("executor.command", true, "local"), false);
  assert.equal(settingVisible("container.image", true, "local"), false);
  for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "state.store_root", "agent.slug"]) assert.equal(settingVisible(key), true, key);
- assert.equal(settingVisible("executor.command"), true);
- assert.equal(settingVisible("executor.command", true), true);
  assert.equal(settingVisible("platform.repo", true), false);
  const technical = settingRows({}, ["worktree.repo_path", "worktree.root", "agent.slug", "state.store_root", "workflow.aegis_python", "future.new_key"].map(key => meta(key, "project", true)));
  for (const row of technical) assert.equal(row.input, "none", row.key);
@@ -153,7 +150,7 @@ test("reviewer list alone is editable and pending arrays have exact authority", 
 
 const config = {
   platform: { kind: "gitlab", repo: "group/project" },
-  executor: { command: "pi -p {prompt}", model: "openai/gpt" },
+  executor: { model: "openai/gpt" },
   budgets: { max_iterations: 20, max_cost_usd: 5.5 },
   delivery: { reviewers: ["dan"], draft: true },
   container: { egress: { allowlist: [] } },
@@ -161,14 +158,13 @@ const config = {
 const meta = (key, source, editable, restart = false, edit_key = key) =>
   ({ key, edit_key, source, editable, restart, default: key === "budgets.max_iterations" ? 20 : null,
     type: key === "budgets.max_iterations" ? "integer" : key === "budgets.max_cost_usd" ? "number" : key === "delivery.draft" ? "boolean" : "text",
-    choices: key === "platform.kind" ? ["gitlab", "github", "gitea"] : key === "executor.command" ? ["pi -p {prompt}"] : [], minimum: null, maximum: null });
+    choices: key === "platform.kind" ? ["gitlab", "github", "gitea"] : [], minimum: null, maximum: null });
 const settings = [
   meta("budgets.max_cost_usd", "default", true),
   meta("budgets.max_iterations", "project", true),
   meta("container.egress.allowlist", "default", false, true),
   meta("delivery.draft", "default", true),
   meta("delivery.reviewers", "project", false),
-  meta("executor.command", "project", false, true),
   meta("executor.model", "project", true, true),
   meta("platform.kind", "project", true, true),
   meta("platform.repo", "project", true, true),
@@ -185,14 +181,13 @@ test("rows carry value, source, edit key, restart and an input kind", () => {
   assert.equal(rows.get("delivery.draft").input, "boolean");
   assert.equal(rows.get("platform.kind").input, "choice");
   assert.deepEqual(rows.get("platform.kind").choices, ["gitlab", "github", "gitea"]);
-  assert.deepEqual(rows.get("executor.command").choices, ["pi -p {prompt}"]);
   assert.equal(rows.get("budgets.max_iterations").input, "number");
   assert.equal(rows.get("budgets.max_iterations").step, "1");  // whole number, at least 1
   assert.equal(rows.get("budgets.max_iterations").defaultValue, 20);
   assert.equal(rows.get("budgets.max_cost_usd").defaultValue, null);
   assert.equal(rows.get("budgets.max_cost_usd").step, "any");
   assert.equal(rows.get("executor.model").step, undefined);
-  for (const key of ["delivery.reviewers", "executor.command", "container.egress.allowlist"]) {
+  for (const key of ["delivery.reviewers", "container.egress.allowlist"]) {
     assert.equal(rows.get(key).input, "none", key);
   }
 });
@@ -211,7 +206,7 @@ test("the project-set filter keeps project rows and drops empty groups", () => {
     ["repository", ["platform.repo", "platform.kind"]],
     ["implementation", ["budgets.max_iterations"]],
     ["reviews", ["delivery.reviewers"]],
-    ["executor", ["executor.command", "executor.model"]],
+    ["executor", ["executor.model"]],
   ]);
 });
 
@@ -297,7 +292,6 @@ test("Implementation typed controls keep narrow collection review authority", ()
 test("executor labels, help and credential names retain exact authority in four locales", async () => {
  const {agentSettingsCopy,executorSettingHelp,executorSettingLabel,validCredentialNames}=await import("../src/executorSettings.ts");
  for (const locale of ["en","ro","fr","de"]) {
-  assert.equal(executorSettingLabel("executor.command",locale),agentSettingsCopy[locale].command);
   assert.equal(executorSettingLabel("executor.model",locale),agentSettingsCopy[locale].model);
   assert.equal(executorSettingLabel("executor.env_keys",locale),agentSettingsCopy[locale].variables);
   assert.equal(executorSettingHelp("executor.model",locale),agentSettingsCopy[locale].modelHelp);

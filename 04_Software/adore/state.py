@@ -185,7 +185,7 @@ class RunState:
     approval_comment_id: int | None = None
     approval_label_removed: bool = False
     validation_evidence: dict[str, Any] = field(default_factory=dict)
-    #: Optional closed execution/preparation record. Empty means legacy mode.
+    #: Closed execution/preparation record, populated before the first persisted admission.
     execution: dict[str, Any] = field(default_factory=dict)
     outcome: str = ""
     checkpoint_remote_commit: str = ""
@@ -321,14 +321,16 @@ class RunState:
 
 def validate_execution_record(record: object) -> None:
     """
-    @brief Validate an additive closed execution identity/recovery record.
-    @param[in] record Persisted untrusted execution mapping or legacy empty mapping.
+    @brief Validate the one current execution identity/recovery record.
+    @param[in] record Persisted untrusted execution mapping with its pinned plan.
     @exception StateError For corrupt identity, plan, status or preparation evidence.
     """
     if not isinstance(record, dict):
         raise StateError("run-state execution must be an object")
     if not record:
-        return
+        raise StateError(
+            "unsupported empty execution record; delete the affected "
+            "runs/<run-id> directory to start fresh")
     keys = {"plan", "resource", "status", "attempts", "steps", "history", "reprepare"}
     try:
         if set(record) != keys:
@@ -430,9 +432,9 @@ def validate_execution_record(record: object) -> None:
             raise ValueError("success without complete evidence")
         if record["status"] == "not-required" and (
             record["plan"]["selection"] or record["attempts"] or record["steps"]
-            or resource and not record["plan"]["policy"]["container"].get("system_packages")
+            or record["history"] or record["reprepare"]
         ):
-            raise ValueError("legacy preparation mismatch")
+            raise ValueError("preparation evidence without a recipe")
         last_attempt = 0
         for history in record["history"]:
             if not isinstance(history, dict) or set(history) != {
@@ -669,6 +671,7 @@ class StateStore:
         @param[in]  state The RunState to write (updated_at is refreshed;
                           created_at is set on first save).
         """
+        validate_execution_record(state.execution)
         now = utc_now_iso()
         path = self.run_dir(state.run_id) / STATE_FILE
         if path.exists():

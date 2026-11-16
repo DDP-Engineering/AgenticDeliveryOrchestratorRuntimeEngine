@@ -4,5 +4,4 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
-The preceding session made candidate progress and appended work evidence, but this stage remains unfinished. Run `python .agentic/aegis.py brief $task_id`, read the full task journal and its State; complete the remaining stage work and legally advance it. Do not repeat completed work or fabricate a stage transition. Recent work evidence:
-$evidence
+The preceding attempt made candidate progress and appended work evidence, but this stage remains unfinished. Continue the same job conversation. Run `python .agentic/aegis.py brief $task_id`, consult its current State and read only the journal sections needed for remaining work. Complete the stage and legally advance it. Do not repeat completed work or fabricate a stage transition.

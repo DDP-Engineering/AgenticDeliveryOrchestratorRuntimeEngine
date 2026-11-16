@@ -78,10 +78,10 @@ links/reparse points, malformed metadata, duplicate keys and receipt matching.
 `test_web_jobs.py` covers API grants, CSRF, literal payloads and non-working refusal.
 `web/tests/instructions.test.mjs` and LA-03 browser journeys cover identity, copy and UI.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
 Pi acceptance and local persistence cannot form one transaction. A process crash after
 remote acceptance but before its local receipt can cause a queued retry; no successful
 acknowledgement is invented. Ticket comments are sent/replayed after the RPC session,
 independently of the live receipt. Real Pi/forge/runtime and Linux link acceptance are
-operator-owned; this task uses isolated offline fakes and targeted checks.
+operator-owned; existing contract tests use isolated offline fakes.

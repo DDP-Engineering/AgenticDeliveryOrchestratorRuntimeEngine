@@ -5,6 +5,12 @@ Ein Executor ist das, was ADORE für jeden Auftrag startet: der Coding-Agent Pi 
 
 **Denkaufwand** bietet die vom gewählten Modell im mitgelieferten Pi-Katalog unterstützten Stufen. Der Pi-Standard überlässt Pi die Wahl. Nicht gelistete Modelle und eigene Endpunkte können keine unbelegten Stufen wählen. Die Auswahl gilt für Aufträge und den KI-Verbindungstest.
 
+Neue OpenAI-Projekte beginnen mit dem Modell `gpt-6.1-terra`. Die Modellauswahl bestehender Projekte bleibt unverändert.
+
+Der mitgelieferte Modellkatalog stammt aus Pi 1.5.2 und enthält GPT-6.1 Terra.
+
+Die Windows/Linux-Lieferung bietet Offline- und Online-Archive. Offline enthält Node, Pi, seine Web-Erweiterung und Suchwerkzeuge. Online enthält Python und Anwendungsabhängigkeiten; native Ausführung erfordert separat eingerichtetes Node.js 22.23.4+ (22.x) mit npm, danach `pi install` mit Internetzugriff; Node wird nicht automatisch heruntergeladen. Container-Images werden als separate Archive mit Docker oder Podman importiert; am Ziel sind kein Build und kein Registry-Zugriff nötig. Quellinstallationen benötigen weiterhin die dokumentierte Werkzeugvorbereitung. Externe KI-Anbieter und Repositories benötigen Netzwerkzugriff.
+
 ## Was ein Executor ist {#what}
 
 Für jeden Auftrag startet ADORE Pi, seinen einzigen Coding-Agenten, in einer isolierten Arbeitskopie, und Pi arbeitet die AEGIS-Phasen des Repositorys mit dem konfigurierten Anbieter und Modell ab. ADORE verwendet das Pi im Image für Containeraufträge und seine verwaltete Pi-Installation für Serveraufträge.
@@ -14,7 +20,7 @@ Für jeden Auftrag startet ADORE Pi, seinen einzigen Coding-Agenten, in einer is
 Öffnen Sie **Einstellungen → Agent und Modell**. Bearbeiten Sie **Anbieter**, **Modell** und bei einem Endpunkt **Endpunkt-Basis-URL** und **Endpunkt-API-Typ** gemeinsam in einer geprüften Änderung.
 
 - **Anbieter**: ein Pi-Anbieter mit API-Schlüssel (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral und weitere), **ChatGPT-Abonnement** oder **OpenAI-kompatibler Endpunkt**.
-- **Modell**: aus der Pi-Liste für diesen Anbieter wählen oder eine vom Anbieter akzeptierte Modell-ID eingeben, z. B. `gpt-5.4`. Die Liste gehört zur von ADORE ausgelieferten Pi-Version und wird ohne Internetzugang gelesen. Es gibt kein universelles Standardmodell.
+- **Modell**: aus der Pi-Liste für diesen Anbieter wählen oder eine vom Anbieter akzeptierte Modell-ID eingeben, z. B. `gpt-6.1-terra`. Die Liste gehört zur von ADORE ausgelieferten Pi-Version und wird ohne Internetzugang gelesen. Es gibt kein universelles Standardmodell.
 - **ChatGPT-Abonnement**: Pi nutzt das ChatGPT-Plus- oder -Pro-Konto, bei dem dieser ADORE-Server angemeldet ist, siehe [Mit ChatGPT anmelden](#chatgpt). Die Liste enthält die Modelle, die ein ChatGPT-Abonnement bedient, zum Beispiel `gpt-5.6-luna`.
 
 **Speichern** sichert die bearbeiteten Einstellungen gemeinsam nach Bestätigung wichtiger Auswirkungen; zum Pausieren siehe [Projekteinstellungen](/help/settings#editing). ADORE startet je Phase einen neuen Pi-Prozess und beendet ihn bei Zeitüberschreitung oder Abbruch.

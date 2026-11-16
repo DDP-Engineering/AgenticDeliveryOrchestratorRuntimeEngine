@@ -34,6 +34,7 @@ from adore.web.store import WebStore
 from adore.web.supervisor import ProjectWorker, Supervisor
 import pytest
 
+from tests.execution_records import execution_record
 from tests.supervisor_helper import offline_engine
 
 
@@ -545,7 +546,7 @@ def test_lost_ancestor_fences_conductor_state_write(tmp_path, monkeypatch):
     WorkerContext(web, owner, 0, 0).bind_engine(engine)
     monkeypatch.setenv("ADORE_WORKER_ANCESTRY", '[{"pid":1,"birth":"previous-incarnation"}]')
     with pytest.raises(OwnershipError, match="ancestor"):
-        engine.store.save(RunState("fenced", 7))
+        engine.store.save(RunState("fenced", 7, execution=execution_record()))
     assert not engine.store.exists("fenced")
 
 
@@ -618,7 +619,8 @@ def test_transient_command_drains_cancel_or_recovers_after_death(tmp_path, crash
     profiles = ProfileStore(tmp_path / "home")
     alpha = project(profiles, "alpha")
     state = StateStore(alpha.store_root)
-    state.save(RunState("job-42", 42, lifecycle="failed", outcome="test failure"))
+    state.save(RunState("job-42", 42, lifecycle="failed", outcome="test failure",
+        execution=execution_record()))
     web = WebStore(profiles.home / "web.db")
     project_owner = web.register_worker("project", project_id=alpha.project_id)
     admin = web.authenticate("admin", "admin")

@@ -37,6 +37,7 @@ from collections import deque
 from collections.abc import Callable, Iterator
 import contextlib
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 import queue
@@ -46,6 +47,7 @@ import threading
 import time
 from typing import IO, Any
 
+from adore.executor.conversation import PiConversation
 from adore.executor.diagnostics import normalize_diagnostics, protocol_diagnostics
 from adore.instructions import InstructionDelivery
 
@@ -58,7 +60,7 @@ STATS_GRACE_SECONDS = 5.0
 POLL_SECONDS = 0.2
 
 MAX_RECORD_BYTES = 16 * 1024 * 1024
-PERSIST_RECORD_BYTES = 64 * 1024
+PERSIST_RECORD_BYTES = MAX_RECORD_BYTES
 PERSIST_TOTAL_BYTES = 32 * 1024 * 1024
 STDERR_FILE_BYTES = 1024 * 1024
 TAIL_BYTES = 64 * 1024
@@ -78,6 +80,8 @@ _UNREADABLE = "adore-unreadable"
 _PROMPT_ID = "adore-prompt"
 _ABORT_ID = "adore-abort"
 _STATS_ID = "adore-stats"
+_STATE_ID = "adore-session-state"
+_BASELINE_ID = "adore-session-baseline"
 _TOKEN_LIMIT = 1_000_000_000
 
 _KEY_HINT_RE = re.compile(r"\b[A-Za-z]{2,8}-[A-Za-z0-9_-]*\*{3,}[A-Za-z0-9_-]*")
@@ -260,6 +264,7 @@ def _facts(record: dict) -> dict | None:
         return {"kind": "response", "id": record.get("id"), "command": record.get("command"),
                 "success": record.get("success") is True, "error": _text(record.get("error")),
                 "disposition": data.get("disposition"),
+                "session_id": data.get("sessionId"), "session_file": data.get("sessionFile"),
                 "tokens": tokens if isinstance(tokens, dict) else None}
     if kind == "message_end":
         message = record.get("message")
@@ -333,6 +338,19 @@ class _Evidence:
         @param[in]  data Sanitized tail line encoded with its LF.
         @param[in]  persisted Bounded literal record bytes for the session file.
         """
+        self._persist(persisted)
+        self.tail.append(line)
+        self.tail_bytes += len(data)
+        while self.tail_bytes > self.tail_limit and self.tail:
+            self.tail_bytes -= len(self.tail.popleft().encode("utf-8")) + 1
+
+    def record(self, record: str) -> None:
+        """@brief Persist a literal outgoing message without altering operational output."""
+        with self.lock:
+            self._persist(record.encode("utf-8") + b"\n")
+
+    def _persist(self, persisted: bytes) -> None:
+        """@brief Write one bounded session record while holding the evidence lock."""
         if self.handle is not None and not self.truncated:
             if self.written + len(persisted) > self.limit:
                 self.truncated = True
@@ -343,10 +361,6 @@ class _Evidence:
             # The web live reader must see each completed record before the
             # RPC launch closes, even when the Python buffer is still small.
             self.handle.flush()
-        self.tail.append(line)
-        self.tail_bytes += len(data)
-        while self.tail_bytes > self.tail_limit and self.tail:
-            self.tail_bytes -= len(self.tail.popleft().encode("utf-8")) + 1
 
     def close(self) -> None:
         """@brief Close the persisted file."""
@@ -404,9 +418,14 @@ def _read_stdout(stream: IO[bytes], sink: queue.Queue, evidence: _Evidence, limi
                 continue
             evidence.add_diagnostics(protocol_diagnostics(record, evidence.clean))
             kind = record.get("type")
-            if kind != "message_update":
+            # Outbound user messages are recorded by the stdin owner, including
+            # the initial prompt. Pi's echo must not duplicate them in the chat.
+            user_echo = (kind == "message_end" and isinstance(record.get("message"), dict)
+                         and record["message"].get("role") == "user")
+            if kind != "message_update" and not user_echo:
+                record["adore_at"] = datetime.now(UTC).isoformat()
                 recorded = (_stub(str(kind), size) if size > evidence.record_limit
-                            else line.decode("utf-8"))
+                            else json.dumps(record, ensure_ascii=False))
                 evidence.add(evidence.clean(recorded), recorded=recorded)
             facts = _facts(record)
             if facts is not None:
@@ -478,6 +497,12 @@ class _Launch:
 
     def send(self, command: dict) -> None:
         """@brief Queue one command as an LF-terminated JSON line."""
+        if command.get("type") in {"prompt", "steer", "follow_up"}:
+            record = json.dumps({"type": "adore_prompt", "text": command["message"],
+                                 "adore_at": datetime.now(UTC).isoformat(),
+                                 "instruction_id": command.get("id", "").removeprefix(
+                                     "adore-instruction-")}, ensure_ascii=False)
+            self.output.record(record)
         self.outbox.put(json.dumps(command, ensure_ascii=False).encode("utf-8") + b"\n")
 
     def next(self, wait: float) -> dict | None:
@@ -558,6 +583,7 @@ def run_pi_rpc(
     timeout: float | None = None,
     cancelled: Callable[[], bool] | None = None,
     instructions: InstructionDelivery | None = None,
+    conversation: PiConversation | None = None,
     output_path: Path | None = None,
     stderr_path: Path | None = None,
     redact: Callable[[str], str] | None = None,
@@ -575,6 +601,7 @@ def run_pi_rpc(
     @param[in]  prompt Stage prompt; sent over stdin, never through argv.
     @param[in]  timeout Stage wall-clock bound; None means no deadline.
     @param[in]  instructions Optional durable inbox handoff; this loop alone sends commands.
+    @param[in]  conversation Optional job binding checked before the prompt is sent.
     @param[in]  cancelled Polled check; True requests a cancel (abort).
     @param[in]  output_path Bounded evidence copy of Pi's records.
     @param[in]  stderr_path Bounded copy of Pi's diagnostics.
@@ -601,7 +628,7 @@ def run_pi_rpc(
     try:
         stdout = _Evidence(output_path, PERSIST_TOTAL_BYTES, clean,
                            tail_limit=stdout_tail_bytes,
-                           record_limit=stdout_tail_bytes)
+                           record_limit=PERSIST_RECORD_BYTES)
         stderr = _Evidence(stderr_path, STDERR_FILE_BYTES, clean)
         launch = _Launch(process, stdout, stderr, max_record_bytes)
     except BaseException:
@@ -620,9 +647,51 @@ def run_pi_rpc(
     prompt_accepted = False
     last = {"stop": None, "error": ""}
     abort_deadline = 0.0
+    baseline = None
     try:
-        launch.send({"id": _PROMPT_ID, "type": "prompt", "message": prompt})
-        while settled is None:
+        if conversation is not None:
+            # No model work occurs during identity/statistics inspection. Include
+            # startup in the same deadline and cancellation boundary as the turn.
+            for request_id, command in ((_STATE_ID, "get_state"),
+                                        (_BASELINE_ID, "get_session_stats")):
+                launch.send({"id": request_id, "type": command})
+                until = min(time.monotonic() + stats_grace,
+                            deadline if deadline is not None else float("inf"))
+                answer = None
+                while time.monotonic() < until:
+                    if cancelled is not None and cancelled():
+                        stop = "cancel"
+                        break
+                    facts = launch.next(min(POLL_SECONDS, until - time.monotonic()))
+                    if facts is not None and facts["kind"] == "response" and (
+                            facts["id"] == request_id and facts["command"] == command):
+                        answer = facts
+                        break
+                    if launch.eof or facts is not None and facts["kind"] == "malformed":
+                        break
+                if stop:
+                    break
+                if deadline is not None and time.monotonic() >= deadline:
+                    stop = "timeout"
+                    break
+                if answer is None or not answer["success"]:
+                    protocol = "Pi job conversation startup inspection failed"
+                    break
+                if command == "get_state":
+                    conversation.bind(answer["session_id"], answer["session_file"])
+                else:
+                    baseline = _usage(answer["tokens"])
+                    if baseline is None:
+                        protocol = "Pi job conversation usage baseline is corrupt"
+                        break
+        if stop:
+            abort_deadline = time.monotonic() + abort_grace
+            launch.send({"id": _ABORT_ID, "type": "abort"})
+        elif not protocol:
+            launch.send({"id": _PROMPT_ID, "type": "prompt", "message": prompt})
+        else:
+            stop = "protocol"
+        while settled is None and stop != "protocol":
             now = time.monotonic()
             if not stop:
                 reason = ("timeout" if deadline is not None and now >= deadline
@@ -666,6 +735,8 @@ def run_pi_rpc(
                     break
                 if facts["command"] == "prompt" and not prompt_accepted:
                     prompt_accepted = True
+                    if conversation is not None:
+                        conversation.accepted()
                     if instructions is not None:
                         instructions.prompt_accepted()
             elif kind == "response" and facts["command"] == "parse":
@@ -690,7 +761,7 @@ def run_pi_rpc(
             elif kind == "settled":
                 settled = facts["aborted"]
         if settled is False and not stop:
-            _cross_check(launch, usage, result, stats_grace, instructions)
+            _cross_check(launch, usage, result, stats_grace, instructions, baseline)
     finally:
         result.process_exit = launch.shutdown(exit_grace)
         launch.join()
@@ -704,7 +775,8 @@ def run_pi_rpc(
 
 
 def _cross_check(launch: _Launch, usage: PiUsage, result: PiRpcResult, grace: float,
-                 instructions: InstructionDelivery | None = None) -> None:
+                 instructions: InstructionDelivery | None = None,
+                 baseline: tuple[int, int, int, int] | None = None) -> None:
     """
     @brief      Compare the per-turn sums with Pi's session totals once.
     @details    A mismatch is noted in the evidence; the per-turn sum stays the
@@ -714,6 +786,7 @@ def _cross_check(launch: _Launch, usage: PiUsage, result: PiRpcResult, grace: fl
     @param[in,out] result Receives a note on mismatch.
     @param[in]  grace Seconds allowed for the answer.
     @param[in]  instructions Accept any late matching instruction acknowledgement.
+    @param[in]  baseline Cumulative pre-prompt totals of a resumed job conversation.
     """
     launch.send({"id": _STATS_ID, "type": "get_session_stats"})
     until = time.monotonic() + grace
@@ -734,8 +807,10 @@ def _cross_check(launch: _Launch, usage: PiUsage, result: PiRpcResult, grace: fl
         tokens = facts["tokens"]
         if facts["success"] and tokens is not None:
             expected = (usage.input, usage.output, usage.cache_read, usage.cache_write)
-            reported = (tokens.get("input"), tokens.get("output"),
-                        tokens.get("cacheRead", 0), tokens.get("cacheWrite", 0))
+            reported = _usage(tokens)
+            if reported is not None and baseline is not None:
+                reported = tuple(value - previous for value, previous in zip(
+                    reported, baseline, strict=True))
             if reported != expected:
                 result.notes.append(
                     f"Pi usage cross-check: per-turn totals {expected} differ from the "

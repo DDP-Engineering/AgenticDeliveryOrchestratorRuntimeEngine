@@ -5,14 +5,15 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type {Locale} from "./i18n";
+import { workflowCopy } from "./workflowCopy.ts";
 import {connectionCopy, thinkingCopy} from "./agentConnection.ts";
 
 /** Pi is ADORE's only coding agent; these settings configure how it runs. */
 export const agentSettingsCopy = {
- en:{command:"Executor launch command",model:"Model",variables:"Additional credential variables",authentication:"Authentication",connection:"AI connection",variableHelp:"Extra secret variables Pi receives besides the provider's own key variable. These are names, not values; most projects need none.",modelHelp:"The model within the provider, such as gpt-5.5 for OpenAI. There is no universal model default.",commandHelp:"Container projects run the Pi pinned in the executor image and use the preset. Local projects run the installed Pi with this argv."},
- ro:{command:"Comanda de lansare a executorului",model:"Model",variables:"Variabile de autentificare suplimentare",authentication:"Autentificare",connection:"Conexiune AI",variableHelp:"Variabile secrete suplimentare primite de Pi pe lângă variabila cheii furnizorului. Sunt nume, nu valori; majoritatea proiectelor nu au nevoie de ele.",modelHelp:"Modelul furnizorului, de exemplu gpt-5.5 pentru OpenAI. Nu există un model implicit universal.",commandHelp:"Proiectele în container rulează Pi fixat în imaginea executorului și folosesc presetarea. Proiectele locale rulează Pi instalat cu aceste argumente."},
- fr:{command:"Commande de lancement de l’exécuteur",model:"Modèle",variables:"Variables d’identification supplémentaires",authentication:"Authentification",connection:"Connexion IA",variableHelp:"Variables secrètes supplémentaires reçues par Pi en plus de la variable de clé du fournisseur. Ce sont des noms, pas des valeurs ; la plupart des projets n’en ont pas besoin.",modelHelp:"Le modèle du fournisseur, par exemple gpt-5.5 pour OpenAI. Aucun modèle universel par défaut.",commandHelp:"Les projets en conteneur exécutent le Pi épinglé dans l’image et utilisent le préréglage. Les projets locaux exécutent le Pi installé avec ces arguments."},
- de:{command:"Executor-Startbefehl",model:"Modell",variables:"Zusätzliche Zugangsdaten-Variablen",authentication:"Authentifizierung",connection:"KI-Verbindung",variableHelp:"Zusätzliche geheime Variablen, die Pi neben der Schlüsselvariable des Anbieters erhält. Dies sind Namen, keine Werte; die meisten Projekte brauchen keine.",modelHelp:"Das Modell des Anbieters, z. B. gpt-5.5 für OpenAI. Es gibt kein universelles Standardmodell.",commandHelp:"Container-Projekte führen das im Executor-Image fixierte Pi mit der Vorgabe aus. Lokale Projekte führen das installierte Pi mit diesen Argumenten aus."},
+ en:{model:"Model",variables:"Additional credential variables",authentication:"Authentication",connection:"AI connection",variableHelp:"Extra secret variables Pi receives besides the provider's own key variable. These are names, not values; most projects need none.",modelHelp:"The model within the provider, such as gpt-6.1-terra for OpenAI. There is no universal model default.",},
+ ro:{model:"Model",variables:"Variabile de autentificare suplimentare",authentication:"Autentificare",connection:"Conexiune AI",variableHelp:"Variabile secrete suplimentare primite de Pi pe lângă variabila cheii furnizorului. Sunt nume, nu valori; majoritatea proiectelor nu au nevoie de ele.",modelHelp:"Modelul furnizorului, de exemplu gpt-6.1-terra pentru OpenAI. Nu există un model implicit universal.",},
+ fr:{model:"Modèle",variables:"Variables d’identification supplémentaires",authentication:"Authentification",connection:"Connexion IA",variableHelp:"Variables secrètes supplémentaires reçues par Pi en plus de la variable de clé du fournisseur. Ce sont des noms, pas des valeurs ; la plupart des projets n’en ont pas besoin.",modelHelp:"Le modèle du fournisseur, par exemple gpt-6.1-terra pour OpenAI. Aucun modèle universel par défaut.",},
+ de:{model:"Modell",variables:"Zusätzliche Zugangsdaten-Variablen",authentication:"Authentifizierung",connection:"KI-Verbindung",variableHelp:"Zusätzliche geheime Variablen, die Pi neben der Schlüsselvariable des Anbieters erhält. Dies sind Namen, keine Werte; die meisten Projekte brauchen keine.",modelHelp:"Das Modell des Anbieters, z. B. gpt-6.1-terra für OpenAI. Es gibt kein universelles Standardmodell.",},
 };
 
 /** Internet access for the agent and its web search, in four locales. */
@@ -28,6 +29,7 @@ export const WEB_SEARCH_CHOICES = ["exa", "brave", "tavily", "none"] as const;
 
 /** The displayed value of the internet switch or the web search, else null. */
 export function agentValue(key:string,value:unknown,locale:Locale):string|null {
+ if (key === "workflow.mode") return value === "auto" ? workflowCopy[locale].auto : value === "direct" ? workflowCopy[locale].direct : null;
  const c=internetCopy[locale];
  if (key==="executor.internet") return value===true || value==="true" ? c.on : value===false || value==="false" ? c.off : null;
  if (key==="executor.web.search" && (WEB_SEARCH_CHOICES as readonly unknown[]).includes(value)) return c[value as typeof WEB_SEARCH_CHOICES[number]];
@@ -54,7 +56,6 @@ export function executorSettingLabel(key:string,locale:Locale):string|null {
  if (key==="container.system_packages") return systemPackageCopy[locale].label;
  const c=agentSettingsCopy[locale], connection=connectionCopy[locale];
  if (key==="executor.env_keys") return c.variables;
- if (key==="executor.command") return c.command;
  if (key==="executor.model") return c.model;
  if (key==="executor.thinking") return thinkingCopy[locale].label;
  if (key==="executor.provider") return connection.provider;
@@ -71,7 +72,6 @@ export function executorSettingHelp(key:string,locale:Locale):string|null {
  if (key==="container.system_packages") return systemPackageCopy[locale].help;
  const c=agentSettingsCopy[locale], connection=connectionCopy[locale];
  if (key==="executor.env_keys") return c.variableHelp;
- if (key==="executor.command") return c.commandHelp;
  if (key==="executor.model") return c.modelHelp;
  if (key==="executor.provider" || key==="executor.connection") return connection.providerHelp;
  if (key==="executor.endpoint.base_url") return connection.baseUrlHelp;

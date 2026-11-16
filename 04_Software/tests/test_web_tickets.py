@@ -21,6 +21,8 @@ import json
 from pathlib import Path
 import sqlite3
 
+from adore.config import default_config
+from adore.preparation import resolve_plan
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore, derive_run_id
 from adore.util import CommandResult
@@ -28,6 +30,8 @@ from adore.web.app import create_app
 from adore.web.store import WebStore
 from fastapi.testclient import TestClient
 import pytest
+
+from tests.execution_records import execution_record
 
 # CONSTANTS
 
@@ -145,7 +149,9 @@ def _run(tmp_path: Path, iid: int, lifecycle: str) -> str:
     """
     run_id = derive_run_id("gitlab", REPO, iid)
     StateStore(str(tmp_path / "state")).save(
-        RunState(run_id=run_id, ticket_iid=iid, lifecycle=lifecycle)
+        RunState(run_id=run_id, ticket_iid=iid, lifecycle=lifecycle, execution={
+            "plan": resolve_plan(default_config()), "resource": {}, "status": "not-required",
+            "attempts": 0, "steps": [], "history": [], "reprepare": False})
     )
     return run_id
 
@@ -451,7 +457,8 @@ def test_corrupt_run_state_is_reported_as_local_state_not_forge(tmp_path: Path) 
     profiles = _project(tmp_path)
     run_id = derive_run_id("gitlab", REPO, 12)
     store = StateStore(str(tmp_path / "state"))
-    store.save(RunState(run_id=run_id, ticket_iid=12, lifecycle="working"))
+    store.save(RunState(run_id=run_id, ticket_iid=12, lifecycle="working",
+        execution=execution_record()))
     for path in (tmp_path / "state").rglob("*.json"):
         if run_id in str(path):
             path.write_text("{not json", encoding="utf-8")
@@ -818,9 +825,18 @@ def test_start_replay_with_same_key_returns_original_operation(tmp_path: Path) -
         create_app(profiles.home, probe_runner=Forge([_issue(12, "agent-ready", "P2")]))
     ) as client:
         csrf = _admin(client)
-        first = _start(client, csrf, 12, key="start-ticket-replay")
+        url = "/api/v1/projects/alpha/tickets/12/start"
+        headers = {"X-CSRF-Token": csrf}
+        body = {"idempotency_key": "start-ticket-replay", "workflow": "direct"}
+        assert client.get("/api/v1/projects/alpha/workflow-selection").json() == {
+            "default": "direct", "aegis_available": False}
+        invalid = client.post(url, headers=headers, json={**body, "workflow": "auto"})
+        assert invalid.status_code == 422
+        first = client.post(url, headers=headers, json=body)
         _run(tmp_path, 12, "working")
-        replay = _start(client, csrf, 12, key="start-ticket-replay")
+        replay = client.post(url, headers=headers, json=body)
+        conflict = client.post(url, headers=headers, json={**body, "workflow": "aegis"})
+        assert conflict.status_code == 409
     assert replay.status_code == 200, replay.text
     assert replay.json()["operation_id"] == first.json()["operation_id"]
     assert len(_starts(profiles)) == 1
@@ -907,8 +923,8 @@ def test_custom_epic_label_refuses_start_without_forge_write(tmp_path: Path) -> 
     """@brief Configured epic labels prevent both listed and direct manual admission."""
     profiles = _project(tmp_path)
     path = profiles.config_path("alpha")
-    path.write_text(path.read_text(encoding="utf-8").replace('type_epic       = "epic"',
-        'type_epic       = "initiative"'), encoding="utf-8")
+    path.write_text(path.read_text(encoding="utf-8").replace('type_epic = "epic"',
+        'type_epic = "initiative"'), encoding="utf-8")
     forge = Forge([_issue(12, "initiative", "P2"), _issue(13, "P2")])
     with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
         csrf = _admin(client)

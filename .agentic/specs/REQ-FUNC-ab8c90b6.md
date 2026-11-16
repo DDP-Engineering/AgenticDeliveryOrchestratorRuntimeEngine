@@ -5,26 +5,27 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# REQ-FUNC-ab8c90b6 — Local prerequisite evidence
+# Report local executor prerequisite failure causes
 
-## Data and behavior
+This specification describes the current implemented contract.
 
-Schema-1 readiness optionally includes executor_probe with exactly ready (boolean),
-reason (closed string) and exit_code (null or integer -2147483648..4294967295).
-It is valid only in executor-local context. ready equals checks.executor_cli and
-is true exactly for reason ready. ready, version-invalid and credential-missing
-carry exit code 0; executor-exit requires a nonzero integer. Legacy absence remains
-readable and never fabricates a cause. Unknown fields/reasons, duplicate JSON,
-boolean/fractional exit codes and contradictory status fail closed as readiness_corrupt.
+## Behavior and boundaries
 
-Reasons: ready, executable-missing, credential-missing, credential-invalid,
-executor-exit, version-invalid, timeout, account-mismatch, permission-denied,
-scope-error, cleanup-failed, runtime-error. They represent measured native phases;
-no arbitrary external text enters the result. Failed cleanup prevents success.
+### [REQ-FUNC-ab8c90b6](../requirements/functional/REQ-FUNC-ab8c90b6.toml) — Report local executor prerequisite failure causes
 
-## Acceptance
+When a native prerequisite check fails, ADORE shall persist a bounded closed diagnostic cause and optional exit code for managed Node/Pi, credentials, process launch or cleanup. Diagnostic reads shall refuse malformed or contradictory current-format evidence instead of inferring readiness.
 
-Offline native runners prove version on stdout/stderr, finite command timeout,
-missing executable/auth, corrupt auth, nonzero exit, account, permission and
-cleanup failure. API roundtrip and strict corrupt/legacy records are tested.
-The frontend mirrors this contract and renders a localized cause/exit code.
+Verification scope: Offline local/API tests cover stdout/stderr version success, missing executable/auth, corrupt auth, timeout/nonzero status, account/permission/cleanup failure, roundtrip and corrupt/contradictory persisted evidence.
+
+## Implementation
+
+- `04_Software/adore/local_execution.py`
+- `04_Software/adore/web/app.py`
+- `04_Software/web/src/readiness.ts`
+
+## Associated tests
+
+These links identify test definitions; they are not a claim that a test run passed.
+
+- `04_Software/tests/test_local_execution.py::test_readiness_reports_managed_pi_prerequisite`
+- `04_Software/tests/test_web_readiness.py::test_readiness_persistence_is_closed`

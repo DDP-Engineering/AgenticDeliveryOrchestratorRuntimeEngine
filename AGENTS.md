@@ -14,6 +14,13 @@ These instructions apply to the repository rooted at:
 
 A deeper `AGENTS.md` overrides this file for its subtree.
 
+## Shared instruction entry point
+
+This `AGENTS.md` is the common source of repository instructions for all agents.
+Root `claude.md` and `QWEN.md` contain only their legal header, title and a link
+to this file. Keep shared rules and managed workflow guidance here; do not
+duplicate them or add separate rules in those entry-point files.
+
 ## AEGIS applicability (repository rule)
 
 AEGIS applies exclusively to software implementation: creating or changing
@@ -31,6 +38,14 @@ Documentation required by a software implementation change is updated in the
 same change, as required below; it does not start a separate AEGIS workflow.
 For mixed requests, apply AEGIS only to the software implementation portion.
 
+The active requirement/specification registry describes implemented product
+behavior and its current software tests. Do not register standalone manuals,
+repository environment/setup/deployment/packaging scripts, removed capabilities
+or tests whose only purpose is to prove a removed feature stays absent. Keep
+negative tests for actual current input, authorization, ownership and persistence
+boundaries. Keep task journals as history; current specs do not retain old
+candidate inventories, review receipts, screenshots or validation logs.
+
 This project-owned scope rule takes precedence over broader applicability
 wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
 
@@ -43,9 +58,14 @@ wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
 - Keep folder ownership explicit:
   - `00_Planning/` holds planning, strategy, design-history, and TODO
     material. AI agents update it only when the user explicitly asks.
-  - `01_Documentation/` holds project/user documentation such as manuals,
-    setup guides, configuration references, presentations, and operational
-    guidance. AI agents update it when software interfaces, user-visible
+  - `01_Documentation/` holds current project/user manuals, setup guides,
+    configuration references, presentations, and operational guidance. Keep
+    implemented facts here; do not retain superseded plans, ticket-publication
+    bundles or historical acceptance handoffs as current documentation.
+    Consolidate duplicated guidance while retaining useful specialized guides.
+    The three compact user guides live directly beside the technical manuals;
+    the packager explicitly selects and names their exported files.
+    AI agents update documentation when software interfaces, user-visible
     behavior, or implementation-facing guidance changes.
   - `02_Tools/` is the required source location for all environment setup,
     installation, packaging, deployment, service setup, launch, and related
@@ -89,6 +109,10 @@ overrides any requirement, spec, document or habit that asks for more:
   other data ADORE stores.
 - Each build supports exactly one current schema per stored format. Change a
   format in place; a fresh store gets the current schema.
+- The web database schema identifier stays fixed at `1` throughout pre-release.
+  Change the current table definitions in place, retain current-structure
+  validation, and refuse a mismatched store. Do not increment the identifier
+  or add version-dispatch, compatibility readers, migrations or automatic resets.
 - A store in any other schema version is refused with a clear message that
   names what the operator deletes to start fresh. Never delete, rewrite or
   recreate it automatically.
@@ -175,7 +199,7 @@ documentation conventions. Use the referenced
   1. roll `## [Unreleased]` into a dated `## [x.y.z] - YYYY-MM-DD` section in
      the root `CHANGELOG.md`;
   2. bump every release-version declaration to the same `x.y.z`;
-  3. keep generated package names in `02_Tools/create_package.py`
+  3. keep generated package names in `02_Tools/package/create_delivery_package.py`
      derived from that version rather than hardcoding a separate one.
 - Use Semantic Versioning: MAJOR for breaking CLI/config/state/executor
   contracts, MINOR for backward-compatible capabilities, and PATCH for fixes
@@ -199,7 +223,7 @@ need to remember them.
   entries per category in a release; merge or rewrite related notes instead.
 - Record the decision as one task journal Log line at build:
   `release-notes: added | updated | none (<reason>)`.
-- Before validate, run `python 02_Tools/internal/check_release_notes.py --since <task
+- Before validate, run `python 02_Tools/package/release_checks/check_release_notes.py --since <task
   base>`. It fails on contract errors and warns when `CHANGELOG.md` changed
   without the release notes; resolve the warning or justify it in the journal.
 - When cutting a release, rename `Unreleased` to the new version with the date
@@ -241,16 +265,18 @@ list are in `04_Software/web/src/help/README.md`. Agents keep it current.
 ## Status
 
 ADORE conducts a team's opt-in forge tickets and persists its own run state as
-schema 1. For a repository with AEGIS installed it is the companion
+schema 1, with a required pinned execution plan for every admitted job. For a
+repository with AEGIS installed it is the companion
 orchestrator: it invokes `python .agentic/aegis.py` and accepts AEGIS JSON
 schema 1. The supported AEGIS range is declared once in
 `04_Software/adore/aegis.py`, never in prose. Executors advance the durable AEGIS
 task journals; ADORE independently owns ticket selection, worktree/container
 isolation, bounded recovery, validation, candidate-bound human approval, Git
 publication, forge comments, and configured draft or ready MR/PR creation. ADORE never
-merges, and migrates no earlier run state. Repositories without AEGIS get the
-direct workflow planned in
-`00_Planning/2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md`.
+merges, and migrates no earlier run state. New jobs use the auto/direct project
+default or an explicit manual AEGIS/Direct choice; Direct bypasses AEGIS procedures
+even when installed, while Retry retains the saved workflow. The Direct workflow is described in
+`01_Documentation/Operations_Guide.md`.
 
 The runnable implementation under `04_Software/` supports GitLab, GitHub and
 Gitea adapters; Docker, Podman and WSL-wrapped runtimes; open/none/allowlisted

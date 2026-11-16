@@ -97,3 +97,7 @@ If current limits cannot be read, the detail keeps saved consumption, evidence a
 A staged lower limit already stops new starts and resumptions until occupancy falls below it; already-running jobs continue; queued reservations wait for a current execution place. It never raises the active limit. Safe application still waits for unfinished work; the saved value and staged candidate remain visible until Save or Discard changes.
 
 Connection drafts are retained only when valid. Correct an invalid endpoint or keep it in memory; credentials never enter retained drafts.
+
+## Choose the workflow {#workflow-choice}
+
+**Default workflow** in **Implementation** sets `workflow.mode`: `auto` detects AEGIS and refuses an unusable installed payload; `direct` skips AEGIS for new jobs. Manual Start and Restart override this per job. `workflow.default_kind` only selects the AEGIS task type.

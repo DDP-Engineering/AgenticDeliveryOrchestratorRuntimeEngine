@@ -5,6 +5,12 @@ An executor is what ADORE launches for every job: the Pi coding agent and the AI
 
 **Reasoning effort** offers levels supported by the selected model in the bundled Pi catalog. Pi default leaves its choice unchanged. Unlisted models and custom endpoints cannot claim unsupported levels. The selection applies to jobs and Test AI connection.
 
+New OpenAI projects start with model `gpt-6.1-terra`. Existing project model selections stay unchanged.
+
+The bundled model catalog comes from Pi 1.5.2 and includes GPT-6.1 Terra.
+
+Windows/Linux delivery offers offline and online archives. Offline includes Node, Pi, its web extension and search tools. Online includes Python and application dependencies, but native execution needs separately prepared Node.js 22.23.4+ (22.x) with npm, then `pi install` with Internet access; Node is not downloaded automatically. Container images are separate archives imported with Docker or Podman; no image build or registry access is needed on the target. Source installations still require the documented tool setup. Remote AI providers and repositories require network access.
+
 ## What an executor is {#what}
 
 For each job ADORE starts Pi, its only coding agent, in an isolated working copy, and Pi works through the repository's AEGIS stages with the configured provider and model. ADORE uses the Pi built into the image for container jobs and its managed Pi installation for server jobs.
@@ -14,7 +20,7 @@ For each job ADORE starts Pi, its only coding agent, in an isolated working copy
 Open **Settings → Agent and model**. Edit **Provider**, **Model**, and, for an endpoint, **Endpoint base URL** and **Endpoint API type** together as one reviewed change.
 
 - **Provider**: one of Pi's API-key providers (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral and others), **ChatGPT subscription** or **OpenAI-compatible endpoint**.
-- **Model**: choose from Pi's list for that provider or type any model ID the provider accepts, for example `gpt-5.4`. The list comes with the Pi version ADORE ships and is read without internet access. There is no universal default.
+- **Model**: choose from Pi's list for that provider or type any model ID the provider accepts, for example `gpt-6.1-terra`. The list comes with the Pi version ADORE ships and is read without internet access. There is no universal default.
 - **ChatGPT subscription**: Pi uses the ChatGPT Plus or Pro account this ADORE server is signed in to, see [Sign in with ChatGPT](#chatgpt). The model list holds the models a ChatGPT subscription serves, for example `gpt-5.6-luna`.
 
 **Save** saves the edited settings together after confirmation of important effects; see [Project settings](/help/settings#editing) for pausing monitoring. ADORE starts a fresh Pi process for each stage and stops it on timeout or cancellation.

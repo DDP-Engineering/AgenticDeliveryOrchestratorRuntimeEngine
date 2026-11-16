@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/adore/metrics.py`.
-> Design context: `00_Planning/ADORE_System_Overview.md`.
+> System overview: [Operations guide](../01_Documentation/Operations_Guide.md#system-overview).
 
 ## 1. Purpose
 
@@ -43,7 +43,7 @@ optional self-contained static HTML file.
 
 Explicitly not owned: when to record (orchestrator, at terminal
 transitions), token extraction (executor launcher), resource probing
-(`capture_resource` is config intent, pending).
+CPU, memory and disk probing is not implemented.
 
 ## 3. Implementation Overview
 
@@ -153,7 +153,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 - `_connect` never alters the table: a `run_summaries` table whose columns
   differ from the current `RunSummary` is refused with `metrics database <path>
   was written by another ADORE build; delete it to start fresh`. The
-  `governance_outcome` value comes only from schema-1 `strict-verification`
+  `governance_outcome` value comes only from current `validation-accepted`
   journal events and is `ok` or `failed`. Without a strict verdict it stays
   empty: direct `verification = not configured` state evidence is not a pass.
 - Journal `usage` event shape: `{event: "usage", event_id: "<run>:<attempt>",
@@ -200,12 +200,11 @@ invented day.
   `enabled=false` records nothing.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_metrics.py`.
 
-## 10. Limitations And Future Work
+## 10. Limitations
 
-- `capture_resource` (docker stats / disk probes) is config intent, pending.
-- Code-size lines (+/-) not captured yet (files-changed count only).
-- Time-per-gate breakdown exists in the journal but is not yet a summary
-  column; add when the dashboard needs it.
+- CPU, memory and disk measurements are not captured.
+- Summaries retain changed-file counts, not added/deleted line counts.
+- Stage timing remains journal evidence rather than a summary column.
 
 ## Explicit deleted-job summary cleanup
 
@@ -223,3 +222,7 @@ committed SQLite rows remain authoritative. Concurrent terminal summaries cannot
 overwrite one another's snapshot. The database cannot also be its JSONL mirror.
 
 Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
+
+The sole validation event is `validation-accepted`, shared by summary rebuilding
+and web quality analytics. Retired strict-verification events are not counted
+as current validation evidence.

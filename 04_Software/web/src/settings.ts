@@ -123,11 +123,9 @@ export function validBranchPreview(value: unknown): value is BranchPreview {
 
 /** CLI-only and technical keys retained by configuration but omitted from operator controls. */
 export const HIDDEN_SETTING_KEYS = new Set([
-  "readiness.max_scope_hint",
-  "labels.selection.type_feature", "review.trigger", "review.review_reminder_after",
-  "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource",
+  "labels.selection.type_feature", "review.trigger", "clarification.timeout_state",
   "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
-  "executor.mode", "polling.mode", "metrics.export_jsonl", "metrics.html_out",
+  "polling.mode", "metrics.export_jsonl", "metrics.html_out",
 ]);
 
 /** Ticket state names share one optional disclosure; ready is the pickup action. */
@@ -140,7 +138,7 @@ export const STATUS_LABEL_KEYS = new Set([
 /** Purpose ownership of catalog settings, including dynamic entries. */
 export function settingPurpose(key: string): string {
   if (["agent.name", "agent.email", "delivery.target_branch", "worktree.branch_template", "worktree.branch_rule"].includes(key) || key.startsWith("platform.")) return "repository";
-  if (["polling.max_concurrent_runs", "delivery.publish_checkpoints", "workflow.quick_label"].includes(key) || key.startsWith("workflow.stage_timeout_overrides") || ["budgets", "recovery", "clarification"].includes(key.split(".")[0])) return "implementation";
+  if (["polling.max_concurrent_runs", "delivery.publish_checkpoints", "workflow.quick_label", "workflow.mode"].includes(key) || key.startsWith("workflow.stage_timeout_overrides") || ["budgets", "recovery", "clarification"].includes(key.split(".")[0])) return "implementation";
   if (["labels", "polling", "readiness"].includes(key.split(".")[0]) || key === "workflow.default_kind" || key.startsWith("workflow.kind_labels")) return "tickets";
   if (key.startsWith("delivery.") || key.startsWith("review.")) return "reviews";
   if (key.startsWith("metrics.")) return "statistics";
@@ -157,7 +155,7 @@ export const CHOSEN_ENVIRONMENT_KEYS = new Set(["execution.backend", "container.
 /** Only known informational worktree fields accompany the external environment. */
 export function settingVisible(key: string, executorOnly = false, backend = "container"): boolean {
   if (key === "container.build_definition") return false; // Managed from the export dialog.
-  if (HIDDEN_SETTING_KEYS.has(key) || backend === "local" && key === "executor.command") return false;
+  if (HIDDEN_SETTING_KEYS.has(key)) return false;
   // Container rows for container projects, local-account rows for local ones.
   if (CHOSEN_ENVIRONMENT_KEYS.has(key)) return key === "execution.backend" || key.startsWith("local.") === (backend === "local");
   if (["container.", "execution.", "local."].some(prefix => key.startsWith(prefix))) return false;

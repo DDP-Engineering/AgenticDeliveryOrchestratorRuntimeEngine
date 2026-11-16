@@ -24,13 +24,14 @@ export type Job = {
   preparation?: PreparationEvidence | null;
   project_id: string; project_name: string; project_display_name: string; project_archived: boolean;
   run_id: string; ticket_iid: number; ticket_title: string | null; ticket_url: string | null; mr_url: string | null;
+  branch: string | null; published_commit: string | null;
   lifecycle: Lifecycle; stage: string; status_group: string; outcome: string;
   stage_failures: number; review_rounds: number; created_at: string | null; updated_at: string | null; last_activity_at: string | null;
   waiting: { availability: "observed" | "unknown"; reason: string | null; next_action: string | null;
     responsible_role: string | null; responsible_person: string | null; evidence_url: string | null; source: string | null };
   evidence_url: string; consumption: { availability: "unknown" };
   coverage: { ticket: string; journal: string; title: string; last_activity: string };
-  timeline?: Array<{ ts: string | null; event: string; stage: string | null }>;
+  timeline?: Array<{ ts: string | null; event: string; stage: string | null; attempt?: number | null }>;
 };
 export type JobPage = { items: Job[]; total: number; counts: Record<string, number>; groups: Record<string, number>;
   limit: number; offset: number; complete: true; snapshot: string; snapshot_semantics: "optimistic-source-revision";
@@ -72,6 +73,8 @@ export function readJob(value: unknown, authorized: string[]): Job {
       && !(row.stage === "publishing" && row.lifecycle === "failed") ||
     !lifecycles.includes(row.lifecycle as Lifecycle) || !stages.includes(row.stage as typeof stages[number]) ||
     row.status_group !== lifecycleGroup(String(row.lifecycle)) || !string(row.outcome) ||
+    !optionalText(row.branch) || typeof row.branch === "string" && (row.branch.length > 4096 || /[\x00-\x20\x7f]/.test(row.branch)) ||
+    !(row.published_commit === null || typeof row.published_commit === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(row.published_commit)) ||
     !count(row.stage_failures) || !count(row.review_rounds) ||
     ![row.created_at, row.updated_at, row.last_activity_at].every(stamp) ||
     row.evidence_url !== `/api/v1/jobs/${row.project_id}/${row.run_id}` ||
@@ -153,6 +156,7 @@ export function readJobDetail(value: unknown, project: string, run: string): Job
   if (job.workflow === "direct") readDirectEvidence(job.direct);
   else if ("direct" in job) invalid();
   for (const event of job.timeline!) if (!event || !stamp(event.ts) || !string(event.event) || !event.event ||
+    (event.attempt !== undefined && event.attempt !== null && (!count(event.attempt) || event.attempt < 1)) ||
     event.stage !== null && (!stages.includes(event.stage as typeof stages[number]) ||
       job.workflow === "direct" && !["build", "validate", "done"].includes(event.stage)
         && !(event.stage === "publishing" && event.event === "reset"))) invalid();

@@ -13,7 +13,7 @@ Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În
 
 Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 
-Înaintea preluării, ADORE verifică AEGIS numai dacă există `.agentic/aegis.py`. Un AEGIS defect sau nesuportat este refuzat. Fără acest fișier, agentul implementează direct tichetul. Agentul alege verificările repository-ului în ambele fluxuri; ADORE monitorizează progresul și urmează politica de aprobare configurată. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
+Înainte de preluarea automată, `workflow.mode = "auto"` verifică AEGIS prezent și îl refuză dacă este inutilizabil; lipsa lui selectează Direct. `workflow.mode = "direct"` ocolește AEGIS. Pornirea manuală alege explicit fluxul. Agentul efectuează verificările repository-ului în ambele fluxuri; ADORE păstrează aprobarea și publicarea configurate. Consultați [Fluxurile repository-ului](/help/projects#workflows).
 
 ## Work Items Azure și labels PR {#azure-tags}
 
@@ -53,9 +53,11 @@ Etichetele opționale modelează lucrarea: `bug` sau `fix` produce o sarcină de
 
 ## Revizuirea și pornirea tichetelor {#tickets-view}
 
-Folosiți **Tichete** din bara laterală pentru pagina globală separată. Citește automat la deschidere și la schimbarea domeniului; **Citește tichetele** reîmprospătează manual. Tichete și Lucrări oferă toate proiectele autorizate sau unul singur. O citire eșuată afișează o eroare. Pagina proiectului păstrează sub-filele Tichete, Lucrări și Capacitate; Tichete se citește în continuare la cerere.
+Folosește **Tichete** din meniul lateral pentru toate proiectele autorizate sau unul singur, ori fila separată **Tichete** a proiectului. Ambele citesc automat la deschidere; pagina globală recitește și la schimbarea selecției. **Citește tichetele** rămâne actualizarea manuală. Lucrări păstrează căutarea, filtrele și paginarea.
 
-În pagina proiectului apăsați **Citește tichetele**. Pagina globală Tichete citește automat la deschidere și la schimbarea domeniului; **Citește tichetele** păstrează reîmprospătarea manuală. Încarcă până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:
+Apasă pe Număr, Proiect, Titlu, Etichete sau Stare pentru sortare crescătoare; apasă din nou pe coloana activă pentru a inversa ordinea. Proiect apare numai când sunt afișate mai multe proiecte. Sortarea se aplică tuturor tichetelor încărcate înainte de paginare, revine la prima pagină și se păstrează după Citește tichetele. Aceleași controale există în fila Tichete a proiectului.
+
+Pagina citește până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:
 
 | Stare | Semnificație |
 |---|---|
@@ -90,3 +92,9 @@ HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute 
 5. Adăugați `agent-ready` ultima.
 6. Așteptați următoarea verificare sau apăsați **Citește tichetele** și **Pornește**.
 7. Urmăriți lucrarea în [Ciclul de viață al lucrării](/help/jobs). Termenii sunt în [Glosar](/help/glossary).
+
+## Alegerea fluxului de lucru {#workflow-choice}
+
+În **Acțiuni job**, alegeți **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** pentru un job nou, apoi acceptați confirmarea scurtă a browserului privind ștergerea lucrului existent. Lipsa AEGIS dezactivează acea acțiune. Tichetele păstrează selectorul **Flux de lucru** înainte de **Pornește**. Reîncercarea, continuarea și corecțiile de review păstrează fluxul salvat și aceeași conversație Pi.
+
+În Tichete, Flux de lucru, Prioritate dacă este necesară, Adaugă etichetele și pornește și Renunță sunt pe un singur rând compact pe ecrane late și trec pe rânduri separate pe ecrane mici.

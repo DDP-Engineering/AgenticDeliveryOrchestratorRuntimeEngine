@@ -11,7 +11,7 @@
 @file pi_providers.py
 @brief Pi providers, models, key variables and the endpoint models.json.
 @details The provider catalog (`pi_catalog.json`) is generated from the pinned
-         Pi by `02_Tools/generate_pi_catalog.py` (`pi --list-models`, offline):
+         Pi by `02_Tools/build/generate_pi_model_catalog.py` (`pi --list-models`, offline):
          Pi's single-variable API-key providers, each with the environment
          variable Pi reads its key from and the models Pi knows. Two ADORE
          choices sit beside them: `chatgpt` (Pi provider `openai` signed in

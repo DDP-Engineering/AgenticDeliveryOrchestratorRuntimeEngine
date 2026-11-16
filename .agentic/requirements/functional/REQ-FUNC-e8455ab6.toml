@@ -27,7 +27,7 @@ linked_tests = [
     "04_Software/tests/test_web_jobs.py::test_page_revision_rejects_source_changes",
     "04_Software/tests/test_web_jobs.py::test_invalid_job_queries_fail_closed",
     "04_Software/tests/test_web_jobs.py::test_source_mutation_during_read_is_rejected",
-    "04_Software/tests/test_web_jobs.py::test_empty_legacy_project_and_absent_default_state_root",
+    "04_Software/tests/test_web_jobs.py::test_empty_project_and_absent_default_state_root",
 ]
 
 
@@ -37,4 +37,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-05
-updated = 2026-10-05
+updated = 2026-11-15

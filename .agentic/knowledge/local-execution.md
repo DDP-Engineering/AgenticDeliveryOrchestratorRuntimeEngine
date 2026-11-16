@@ -40,7 +40,7 @@ only the exact nonempty configured single-line NUL-free workflow command;
   Linux delegation comes from the service. The policy pins the effective
   environment, Node and managed CLI file identity.
 - The native release barrier records scope ownership before project code runs.
-  A fresh agent directory outside the worktree disables personal and untrusted
+  A fresh settings directory outside the worktree disables personal and untrusted
   project resources. Approved provider credentials are injected and redacted.
 - An owned process scope must drain before reuse; unknown or foreign scope
   evidence is refused. A worktree is not a host sandbox. Verification shell
@@ -62,26 +62,6 @@ only the exact nonempty configured single-line NUL-free workflow command;
 | Explicit Retry identity refresh | `LocalBackend` retry revalidation | `test_retry_revalidation.py` |
 
 ## Key behaviors
-
-- `REQ-PLAT-a39ffa22`, `REQ-SEC-d94baaf1`, `REQ-SEC-c81de547`: direct-only
-  verification validates command and pinned identity before the owned release
-  barrier, then uses worktree cwd and bound environment with caller timeout.
-  Windows alone marks the trusted non-RPC envelope, validates its cmd transport
-  and pins the executable while passing raw `/d /s /c` text inside one extra
-  outer quote pair; ordinary argv/RPC retain list serialization. Invalid requests,
-  unavailable shell, identity drift or malformed transport cannot launch work.
-- `REQ-DATA-72e08277`, `REQ-REL-50474528`: verification opts into strict UTF-8
-  rolling tails, at most 64 KiB per stream, with ANSI/NUL removal and known-value
-  span-union/token/header redaction before eviction. Offset/self-overlapping
-  known values retain raw lookahead and mask coverage across safe-prefix cuts,
-  preventing suffix disclosure even over long overlap chains. Public
-  `test_native_verification_capture_masks_overlapping_secrets` covers exact
-  stdout/stderr tails at short-read, chunk and eviction boundaries. Default
-  prefix capture is unchanged. Success, failure and timeout confirm owned
-  descendant drain; invalid UTF-8 or unconfirmed cleanup is a typed
-  LocalExecutionError.
-- `REQ-SEC-a751eb18`: operator/component guidance describes service-account
-  permissions without host/container sandboxing and keeps ordinary shell refusal.
 
 Native ChatGPT uses `chatgpt.helper_for` and managed Node/Pi, without Docker.
 One ADORE-owned sign-in supplies temporary tokens to explicitly bound stage
@@ -112,7 +92,6 @@ LocalBackend.for_cleanup avoids current executable/environment resolution and gr
 
 Native Pi argv forwards the selected thinking level for stages and connection checks.
 
-
 ## Concurrent resource ownership
 
 Managed Pi installation uses a dedicated bounded tools lock (330-second maximum
@@ -124,3 +103,17 @@ checks continue to fence interruption and cleanup; no process-global environment
 is modified for project settings.
 
 Focused proof: `04_Software/tests/test_shared_resources.py`. Shared primitive and inventory: `05_SoftwareDocu/Component_Resource_Locks.md`.
+
+## Persistent Pi context
+
+Job RPC argv selects an explicit session under private job IO, separate from the
+temporary agent/settings directory. Windows and Linux process restarts remove
+settings but preserve Pi-owned history and compaction. Per-attempt ChatGPT tokens
+are still acquired through the existing helper, with no refresh credential in the
+job. Job cancellation/Retry/delete retain their existing owned-process boundaries.
+Non-job model probes remain ephemeral. Focused proof: the existing native gate
+test restarts two processes with distinct settings paths and one history path.
+
+## Current contract
+
+Native commands and Pi RPC use verified run-owned machine/account/process-scope identity. Current output capture, cancellation and owned cleanup fail closed on corrupt identity or unconfirmed descendant drainage. REQ-REL-50474528 and REQ-FUNC-5e2fe079 describe the active boundary.

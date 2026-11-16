@@ -10,11 +10,11 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 Offline web control proof uses isolated temporary homes and fake external runners. Worker activity evidence is advisory and requires a current heartbeat.
 
-Portable user delivery is built natively with `python 02_Tools/create_package.py`
+Portable user delivery is built natively with `python 02_Tools/package/create_delivery_package.py`
 with automatic frontend compilation/licensing. It includes managed CPython and locked
 web dependencies; uv and network access are needed only on the build host.
 Windows ZIP/Linux TAR.GZ output goes to repository-relative `07_Delivery/`.
-Run `python 02_Tools/verify_package.py <archive>` on each matching host; it uses
+Run `python 02_Tools/package/verify_delivery_package.py <archive>` on each matching host; it uses
 an isolated home and empty host PATH, and removes temporary data on exit; results go to the console only.
 User startup uses Start-ADORE.cmd/start-adore.sh with no host Python setup.
 
@@ -25,7 +25,7 @@ library. Verification uses pytest and Ruff from the `dev` dependency group in
 `04_Software/pyproject.toml`. Git is required. Live operation additionally
 needs Docker or rootless Podman, natively or as Docker Engine inside WSL2 on
 Windows, and an authenticated `glab`, `gh` or `tea`. Node.js runs Pi in container images
-(the base image pins Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0) or an
+(the base image pins Node 22.23.4, Pi 1.5.2 and pi-web-access 0.46.0) or an
 installed Pi under the native local service account.
 The optional web extra uses FastAPI, Uvicorn and Argon2id. Node.js/npm are
 also needed on the web **build** machine for `04_Software/web/npm run build`;
@@ -38,11 +38,11 @@ of ambient Python flags or the Windows account code page. Native evidence
 decoding remains strict. Explicit Retry revalidates the effective environment
 fingerprint and existing process ownership.
 
-Run `python 02_Tools/setup_environment.py` to prepare the source environment
+Run `python 02_Tools/setup/setup_development_environment.py` to prepare the source environment
 without tests or service installation. From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
 the `dev` group and installs the `adore` command in editable mode. Operator
 installation on a host follows `01_Documentation/Getting_Started.md`;
-unattended installation follows `02_Tools/deploy/README.md`.
+unattended installation follows `02_Tools/setup/README.md`.
 Frontend calculation tests use Node.js 22.18 or later for native TypeScript loading.
 For web development use `uv sync --extra web --group dev` from `04_Software`,
 then `npm ci` and `npx playwright install chromium` in `04_Software/web`.
@@ -130,7 +130,7 @@ deadlines. Jobs and Tickets share context-before-page route detachment and bound
 English/light restoration after the body; active handler errors still fail.
 The final proof for a governed task is
 `python .agentic/aegis.py check --task TASK-<id> --strict --run`. A release
-additionally passes `python 02_Tools/internal/check_release_consistency.py
+additionally passes `python 02_Tools/package/release_checks/check_release_consistency.py
 --require-artifacts`. Outcomes belong in task evidence, not here.
 
 ## Platform details
@@ -151,7 +151,7 @@ runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
   first poll.
 - `01_Documentation/Security_And_Credentials.md` - where every credential
   lives.
-- `02_Tools/deploy/README.md` - systemd and Task Scheduler installation.
+- `02_Tools/setup/README.md` - systemd and Task Scheduler installation.
 - `04_Software/docker/README.md` - executor and proxy image build commands.
 - `02_Tools/README.md` - release check and packaging scripts.
 - `01_Documentation/Web_Interface.md` - optional web setup and offline media.
@@ -255,7 +255,7 @@ existing parent capture pipes; no global terminal/Git/Pi settings are needed.
 
 ## Agent package image readiness
 
-Opted-in container.system_packages jobs require a rebuilt compatible Linux image with root-owned OS Python/id, sudo/visudo and a supported package manager. ADORE configures sudo permission but installs no bootstrap tools on job start. Native execution rejects the permission. Agent package downloads obey container.egress. See 01_Documentation/Agent_Dependency_Installation.md; live package acceptance is separate from offline injected tests.
+Opted-in container.system_packages jobs require a rebuilt compatible Linux image with root-owned OS Python/id, sudo/visudo and a supported package manager. ADORE configures sudo permission but installs no bootstrap tools on job start. Native execution rejects the permission. Agent package downloads obey container.egress. See 01_Documentation/Security_And_Credentials.md; live package acceptance is separate from offline injected tests.
 
 
 ## Container Git context
@@ -313,7 +313,7 @@ Focused History and CLI deletion verification uses temporary home/profile stores
 Factory administrator proof uses isolated temporary identity stores and the serial offline browser fixture on port 18765. Production web source or help changes require a rebuilt and verified committed static bundle.
 
 
-Worker ownership proof uses isolated web schema-18 stores with injectable process births,
+Worker ownership proof uses isolated web schema-1 stores with injectable process births,
 independent SQLite connections and deterministic barriers/events. It never starts DCP,
 contacts a forge/model or executes a target repository check. Linux /proc and Windows
 process creation evidence distinguish PID reuse; unavailable probes retain ownership.
@@ -368,7 +368,7 @@ failed/unrun selection completed (128 pass,12 fail), followed by focused12-case
 1 baseline enrollment-help discrepancy,0 unrun; this is not a single all-green
 suite. That help test and rendering are unchanged at the baseline; its assertions
 and active guidance requirements remain explicit. See
-01_Documentation/Worker_Acceptance.md for final counts and limitations.
+01_Documentation/Operations_Guide.md for final counts and limitations.
 
 
 Archived-session proof uses recorded Pi stdout fixtures, temporary current run/profile
@@ -416,3 +416,18 @@ CRT errnoEACCES without winerror is exercised directly; persistent denial, unrel
 I/O, corruption, duplicates, missing/deleted IDs and authorization remain explicit.
 Unchanged Settings branch/API-only recovery journeys run in the offline18765 home.
 Full native Linux Python and Windows frontend integration remain parent-owned.
+
+Pi job conversation proof uses offline fake RPC restarts, private-path corruption
+and identity cases, native Windows/Linux scopes, instruction acknowledgements and
+per-attempt usage. No live model call is needed. Canonical stage-attempt archives
+remain individual segments; io/pi-conversation contains Pi-owned persistent history.
+
+## Explicit workflow offline verification
+
+Per-job workflow proof uses current temporary profile/web/run stores, injected AEGIS/
+forge/executor boundaries and the isolated browser fixture on 18765. Existing cases
+cover explicit/default selection, no-AEGIS Direct conduction, queue restart/replay,
+corrupt overrides and immutable worker identity. Only selected Python/helper/browser
+cases and static web builds run; full suites, new tests, external model reviewers,
+live model/forge acceptance and delivery archive verification are excluded by user.
+Windows symlink cases skip when the account lacks link-creation privilege.

@@ -28,6 +28,7 @@ from adore.web.store import WebStoreError
 import pytest
 
 from tests.configuration_client import TestClient
+from tests.execution_records import execution_record
 from tests.test_web_enrollment import _body, _login, _no_probe, offline_wizard  # noqa: F401
 
 
@@ -117,7 +118,8 @@ def test_transfer_roundtrip_independent_stopped_and_replay(tmp_path, method):
         (source_path.parent / ".env").write_text("fixture-secret-file")
         (source_path.parent / "pending-config.json").write_text("fixture-pending-record")
         source_state = StateStore(load_config(source_path).state.store_root)
-        source_state.save(RunState(run_id="source-history", ticket_iid=1, lifecycle="done"))
+        source_state.save(RunState(run_id="source-history", ticket_iid=1, lifecycle="done",
+            execution=execution_record()))
         dev = app.state.web_store.create_user("assigned", "test-password", "developer")
         app.state.web_store.set_membership(dev["id"], "alpha", True)
         before = {

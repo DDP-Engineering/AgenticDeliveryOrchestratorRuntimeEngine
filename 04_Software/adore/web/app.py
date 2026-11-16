@@ -61,6 +61,7 @@ from adore.config import (
     default_config,
     egress_policy,
     load_config,
+    requested_workflow,
     valid_reviewers,
     validate_config,
 )
@@ -123,7 +124,6 @@ from adore.web.environment import EnvironmentError, EnvironmentPreparation
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
     CONNECTION_KEYS,
-    LAUNCH_PRESETS,
     connection_value,
     set_connection,
     valid_connection,
@@ -189,8 +189,6 @@ _EDITABLE_SECTIONS = frozenset({
 })
 # Optional readiness checks that follow the internet switch.
 _INTERNET_CHECKS = frozenset({"egress_proxy", "web_search_key"})
-# Container presets; local profiles accept validated installed native argv.
-_LAUNCH_PRESETS = LAUNCH_PRESETS
 
 _STATIC = Path(__file__).with_name("static")
 _COOKIE = "adore_session"
@@ -551,6 +549,7 @@ class TicketStartInput(BaseModel):
 
     idempotency_key: str = Field(min_length=8, max_length=128)
     priority: str = Field(default="", max_length=128)
+    workflow: Literal["aegis", "direct"] | None = None
 
 
 class TicketStopInput(BaseModel):
@@ -567,6 +566,7 @@ class OperationInput(BaseModel):
     run_id: str = ""
     confirmed: bool = Field(default=False, strict=True)
     state_revision: str = ""
+    workflow: Literal["aegis", "direct"] | None = None
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
@@ -792,9 +792,11 @@ def _workflow_observation(config) -> str:
     """@brief Describe file presence without running or modifying repository code.
 
     @param[in] config Configuration containing the selected clone path.
-    @return AEGIS, Direct or explicitly not-inspected for an unavailable clone.
+    @return Direct for an explicit Direct default; otherwise presence or not-inspected.
     @exception HTTPException File inspection failed rather than proving absence.
     """
+    if config.workflow.mode == "direct":
+        return "direct"
     try:
         clone = Path(config.worktree.repo_path)
         if not clone.is_dir():
@@ -1892,8 +1894,6 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
         return valid_reviewers(proposed)
     if key in {"container.image", "container.runtime"}:
         return _valid_environment_value(key, proposed)
-    if key.endswith(".command"):
-        return backend != "local" and proposed in _LAUNCH_PRESETS.get(key, ())
     expected = _value_at(default_config().to_dict(), key)
     if key == "executor.model":
         return isinstance(proposed, str) and MODEL_ID_RE.fullmatch(proposed) is not None
@@ -1982,12 +1982,6 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
         if not secrets.compare_digest(sha256(raw).hexdigest(), body.revision):
             raise _error(409, "stale_config_revision")
         current = raw.decode("utf-8")
-        if body.key.endswith(".command") and (
-            not _valid_candidate_scalar(body.key, body.value,
-                    tomllib.loads(current).get("execution", {}).get("backend", "container"))
-            or not isinstance(_value_at(tomllib.loads(current), body.key), str | None)
-        ):
-            raise _error(400, "invalid_config")
         changed = _set_candidate_value(current, body.key, body.value)
         parsed_change = tomllib.loads(changed)
         if not _valid_candidate_scalar(
@@ -2194,11 +2188,12 @@ def _editable_setting_key(key: str) -> bool:
         return True
     if key in CONNECTION_KEYS:
         return False
+    if _value_at(default_config().to_dict(), key) is None:
+        return False
     return not (
         _is_secret_key(key)
         or not _SETTING_KEY_RE.fullmatch(key)
         or key.split(".")[0] not in _EDITABLE_SECTIONS
-        or key.endswith(".command") and key not in _LAUNCH_PRESETS
     )
 
 
@@ -2256,7 +2251,6 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
     choices = {
         "platform.kind": ["gitlab", "github", "gitea", "azure_devops"],
         "polling.mode": ["loop", "once"],
-        "executor.mode": ["thick", "headless"],
         "executor.provider": list(provider_ids()),
         "executor.endpoint.api": list(ENDPOINT_APIS),
         "executor.env_keys": sorted(
@@ -2270,14 +2264,11 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "review.trigger": ["label"],
         "review.on_pipeline_failure": ["revise", "notify", "ignore"],
         "workflow.default_kind": list(RUN_KINDS),
+        "workflow.mode": ["auto", "direct"],
         "reconcile.on_ticket_deleted": ["abort-cleanup", "ignore"],
         "reconcile.on_ticket_closed": ["cancel", "ignore"],
         "reconcile.on_trigger_removed": ["pause", "abort", "ignore"],
     }.get(key, [])
-    if key in _LAUNCH_PRESETS:
-        choices = list(_LAUNCH_PRESETS[key])
-    if key.endswith(".command") and config.get("execution", {}).get("backend") == "local":
-        choices = []
     if key.startswith("workflow.kind_labels."):
         choices = list(RUN_KINDS)
     positive = {
@@ -2337,8 +2328,6 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
             else "default",
             "editable": (not _external_environment_key(edit_key)
                          and _editable_setting_key(edit_key)
-                         and not (edit_key == "executor.command"
-                                  and config.get("execution", {}).get("backend") == "local")
                          and (isinstance(value, str | int | float)
                               or edit_key == "delivery.reviewers" and valid_reviewers(value)
                               or edit_key in COLLECTION_KEYS
@@ -4866,15 +4855,6 @@ def create_app(home: str | Path | None = None,
             candidate: Path | None = None
             try:
                 current = raw.decode("utf-8")
-                if (body.key.endswith(".command")
-                        and tomllib.loads(current).get("execution", {}).get("backend") == "local"):
-                    raise _error(409, "pending_config_required")
-                if body.key.endswith(".command") and (
-                    not _valid_candidate_scalar(body.key, body.value,
-                    tomllib.loads(current).get("execution", {}).get("backend", "container"))
-                    or not isinstance(_value_at(tomllib.loads(current), body.key), str | None)
-                ):
-                    raise _error(400, "invalid_config")
                 changed = _set_candidate_value(current, body.key, body.value)
                 descriptor, candidate_name = tempfile.mkstemp(
                     prefix="config.web-", suffix=".toml", dir=path.parent
@@ -5735,6 +5715,8 @@ def create_app(home: str | Path | None = None,
             raise _error(409, "project_archived")
         if action not in ("start", "retry", "cancel", "restart", "pause", "resume"):
             raise _error(404, "operation_not_found")
+        if body.workflow is not None and action not in ("start", "restart"):
+            raise _error(400, "invalid_operation")
         if action in ("pause", "resume") and user["role"] != "admin":
             raise _error(403, "admin_required")
         if action == "cancel" and not body.confirmed:
@@ -5754,7 +5736,8 @@ def create_app(home: str | Path | None = None,
                 target = f"{body.run_id}.{body.state_revision}"
                 if replayed:
                     if (replayed["project_id"] != item.project_id
-                            or replayed["action"] != "restart" or replayed["run_id"] != target):
+                            or replayed["action"] != "restart" or replayed["run_id"] != target
+                            or replayed["workflow"] != body.workflow):
                         raise _error(409, "idempotency_conflict")
                     return {"id": replayed["id"], "status": replayed["status"]}
             state = _store_for(profiles, item)
@@ -5780,7 +5763,7 @@ def create_app(home: str | Path | None = None,
             target = ""
         try:
             operation = web.enqueue(user["id"], item.name, action,
-                                    target, body.idempotency_key)
+                                    target, body.idempotency_key, workflow=body.workflow)
         except WebStoreError as exc:
             raise _store_error(409, exc) from exc
         return {"id": operation["id"], "status": operation["status"]}
@@ -5821,6 +5804,19 @@ def create_app(home: str | Path | None = None,
         except (ForgeError, TimeoutError, OSError) as exc:
             raise _error(503, "forge_read_failed") from exc
 
+    @app.get("/api/v1/projects/{name}/workflow-selection")
+    def workflow_selection(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Offer a new-job default and payload presence; admission probes usability."""
+        item = project(name, user)
+        config = ticket_config(item)
+        mode = requested_workflow(config.workflow.mode)
+        try:
+            present = (Path(config.worktree.repo_path) / ".agentic" / "aegis.py").is_file()
+        except OSError:
+            present = False
+        return {"default": "aegis" if mode == "auto" and present else "direct",
+                "aegis_available": present}
+
     @app.get("/api/v1/projects/{name}/tickets")
     def project_tickets(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
         """@brief Read a project's open forge tickets with pickup eligibility on request."""
@@ -5857,7 +5853,8 @@ def create_app(home: str | Path | None = None,
         replayed = web.operation_for_key(user["id"], body.idempotency_key)
         if replayed is not None:
             binding = (replayed["action"], replayed["run_id"], replayed["project"])
-            if binding != ("start", str(iid), item.name):
+            if (binding != ("start", str(iid), item.name)
+                    or replayed["workflow"] != body.workflow):
                 raise _error(409, "idempotency_conflict")
             return {"operation_id": replayed["id"], "status": replayed["status"],
                     "labels_added": []}
@@ -5892,7 +5889,8 @@ def create_app(home: str | Path | None = None,
                 uncertain()
                 raise _error(503, "forge_write_failed") from exc
         try:
-            operation = web.enqueue(user["id"], item.name, "start", str(iid), body.idempotency_key)
+            operation = web.enqueue(user["id"], item.name, "start", str(iid), body.idempotency_key,
+                                    workflow=body.workflow)
         except WebStoreError as exc:
             if added:
                 uncertain()

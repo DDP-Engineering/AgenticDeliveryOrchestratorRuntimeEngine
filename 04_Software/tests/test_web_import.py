@@ -27,6 +27,7 @@ from adore.web.store import WebStore
 import pytest
 
 from tests.configuration_client import TestClient
+from tests.execution_records import execution_record
 
 
 # LOCAL HELPERS
@@ -176,7 +177,8 @@ def test_exact_import_rejects_state_and_ownership_boundaries(tmp_path, condition
         state.run_dir("bad").mkdir(parents=True)
         (state.run_dir("bad") / "state.json").write_text("{broken", encoding="utf-8")
     elif condition == "active":
-        state.save(RunState(run_id="working", ticket_iid=1, lifecycle="working"))
+        state.save(RunState(run_id="working", ticket_iid=1, lifecycle="working",
+            execution=execution_record()))
     elif condition == "lock":
         state.root.mkdir()
         state.lock_path.write_text("{}", encoding="utf-8")
@@ -222,7 +224,8 @@ def test_exact_confirmation_reinspects_mutations_at_publication_lock(
             if mutation == "owner":
                 profiles.create("concurrent", store_root=str(state.root / "child"))
             elif mutation == "run":
-                state.save(RunState(run_id="late", ticket_iid=1, lifecycle="working"))
+                state.save(RunState(run_id="late", ticket_iid=1, lifecycle="working",
+                    execution=execution_record()))
         return acquire(state)
 
     with TestClient(create_app(profiles.home)) as client:
@@ -361,7 +364,8 @@ def test_admin_previews_then_imports_exact_config_paused(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     document = _document(tmp_path)
     existing_state = StateStore(tmp_path / "state")
-    existing_state.save(RunState(run_id="old-run", ticket_iid=42, lifecycle="done"))
+    existing_state.save(RunState(run_id="old-run", ticket_iid=42, lifecycle="done",
+        execution=execution_record()))
     body = {"name": "alpha", "description": "Imported", "config_text": document}
     with TestClient(create_app(profiles.home)) as client:
         csrf = _csrf(client)
@@ -400,7 +404,7 @@ def test_import_reviews_all_locations_and_binds_declared_identity(tmp_path):
         assert review["resolved_paths"]["state.store_root"] == str((tmp_path / "state").resolve())
         assert review["config_path"] == str(profiles.config_path("alpha").resolve())
         assert "agent" in review and "executor" in review and "container" in review
-        assert review["executor"] == {"provider": "openai", "model": "gpt-5.5",
+        assert review["executor"] == {"provider": "openai", "model": "gpt-6.1-terra",
                                       "endpoint_base_url": "", "env_keys": []}
         for mutation in ({"display_name": "Changed"}, {"description": "Changed"},
                          {"name": "beta"}, {"config_text": document + "# changed\n"}):
@@ -535,11 +539,13 @@ def test_import_rejects_active_state_and_conductor_lock(tmp_path):
         headers = {"X-CSRF-Token": _csrf(client)}
         revision = client.post("/api/v1/projects/import-preview", json=body,
                                headers=headers).json()["revision"]
-        state.save(RunState(run_id="running", ticket_iid=42, lifecycle="working"))
+        state.save(RunState(run_id="running", ticket_iid=42, lifecycle="working",
+            execution=execution_record()))
         assert client.post("/api/v1/projects/import", json={
             **body, "revision": revision}, headers=headers).status_code == 409
         assert not profiles.exists("alpha")
-        state.save(RunState(run_id="running", ticket_iid=42, lifecycle="done"))
+        state.save(RunState(run_id="running", ticket_iid=42, lifecycle="done",
+            execution=execution_record()))
         assert state.acquire_lock()
         try:
             assert client.post("/api/v1/projects/import", json={

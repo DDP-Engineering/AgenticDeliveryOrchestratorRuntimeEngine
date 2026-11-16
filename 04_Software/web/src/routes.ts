@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { isHelpTopic, type HelpTopic } from "./help/topics.ts";
 
 export type JobsView = "tickets" | "jobs" | "capacity";
-export type ProjectTab = "overview" | "configuration" | "executor" | "prices" | "access" | "jobs" | "statistics" | "history";
+export type ProjectTab = "overview" | "configuration" | "access" | "jobs" | "tickets" | "statistics" | "history";
 export type MetricsTabRoute = "summary" | "usage" | "quality" | "trends" | "projects";
 type PlainView = "projects" | "createProject" | "administration" | "adminUsers" | "adminAudit" | "settings";
 export type ReportingRoute = { from: string; through: string; timezone: string; granularity: string };
@@ -27,13 +27,9 @@ const PLAIN: Record<string, PlainView> = {
 };
 const PLAIN_PATHS = Object.fromEntries(Object.entries(PLAIN).map(([path, view]) => [view, path])) as Record<PlainView, string>;
 const ADMIN_ONLY = new Set<string>(["createProject", "administration", "adminUsers", "adminAudit"]);
-const PROJECT_TABS: ProjectTab[] = ["overview", "configuration", "executor", "prices", "access", "jobs", "statistics", "history"];
+const PROJECT_TABS: ProjectTab[] = ["overview", "configuration", "access", "jobs", "tickets", "statistics", "history"];
 const ADMIN_PROJECT_TABS = new Set<ProjectTab>(["access"]);
-/** Retired tab paths whose content now lives in Settings; links to them open Settings. */
-const SETTINGS_ALIASES = new Set<ProjectTab>(["executor", "prices"]);
-const METRICS_TABS: MetricsTabRoute[] = ["summary", "usage", "quality", "trends", "projects"];
-/** The cross-project comparison belongs to the global Statistics page only. */
-const PROJECT_METRICS_TABS: MetricsTabRoute[] = METRICS_TABS.filter(tab => tab !== "projects");
+const METRICS_TABS: MetricsTabRoute[] = ["summary", "usage", "quality", "trends"];
 const IDENTIFIER = /^[A-Za-z0-9._-]{1,160}$/;
 
 const identifier = (value: string | null): string | undefined =>
@@ -52,7 +48,6 @@ export function parseRoute(pathname: string, search = ""): Route | null {
     try { new Intl.DateTimeFormat("en", { timeZone: reporting.timezone }); } catch { return null; }
   }
   if (path === "/" || path === "") return project ? { view: "overview", project } : { view: "overview" };
-  if (path === "/projects/import" || path === "/projects/clone") return { view: "projects" };
   if (path in PLAIN) return { view: PLAIN[path] };
   if (path === "/help") return { view: "help" };
   const help = /^\/help\/([^/]+)$/.exec(path);
@@ -64,6 +59,7 @@ export function parseRoute(pathname: string, search = ""): Route | null {
   }
   if (path === "/metrics") {
     const tab = query.get("tab") as MetricsTabRoute | null;
+    if (tab && !METRICS_TABS.includes(tab)) return null;
     return { view: "metrics", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(tab && METRICS_TABS.includes(tab) ? { tab } : {}) };
   }
   const match = /^\/projects\/([^/]+)(?:\/([^/]+))?$/.exec(path);
@@ -74,13 +70,14 @@ export function parseRoute(pathname: string, search = ""): Route | null {
     if (!IDENTIFIER.test(id) || !PROJECT_TABS.includes(tab) || match[2] === "overview") return null;
     // Only the Jobs tab carries a selected run, and only Statistics carries its sub-tab and reporting period.
     if (tab === "jobs") {
-      // A selected run always shows the Jobs sub-tab; otherwise `view=jobs` selects it over Tickets.
+      // A selected run opens job details; an optional current view selects the list.
       const run = identifier(query.get("run"));
       return { view: "projectDetails", project: id, tab, ...(run ? { run } : ["jobs","capacity"].includes(query.get("view") || "") ? { jobsView: query.get("view") as Exclude<JobsView,"tickets"> } : {}) };
     }
     if (tab === "statistics") {
       const metricsTab = query.get("tab") as MetricsTabRoute | null;
-      return { view: "projectDetails", project: id, tab, ...(reporting ? { reporting } : {}), ...(metricsTab && PROJECT_METRICS_TABS.includes(metricsTab) ? { metricsTab } : {}) };
+      if (metricsTab && !METRICS_TABS.includes(metricsTab)) return null;
+      return { view: "projectDetails", project: id, tab, ...(reporting ? { reporting } : {}), ...(metricsTab && METRICS_TABS.includes(metricsTab) ? { metricsTab } : {}) };
     }
     return { view: "projectDetails", project: id, tab };
   }
@@ -119,9 +116,6 @@ export function formatRoute(route: Route): string {
 /** Apply role rules; `replaced` means the browser entry must be replaced, not added. */
 export function normalizeRoute(route: Route | null, context: { isAdmin: boolean }): { route: Route; replaced: boolean } {
   if (route === null) return { route: { view: "overview" }, replaced: true };
-  if (route.view === "projectDetails" && SETTINGS_ALIASES.has(route.tab)) return { route: { ...route, tab: "configuration" }, replaced: true };
-  // The global Projects tab is gone; old links land on Summary for every role.
-  if (route.view === "metrics" && route.tab === "projects") return { route: { ...route, tab: "summary" }, replaced: true };
   if (context.isAdmin) return { route, replaced: false };
   if (ADMIN_ONLY.has(route.view)) return { route: { view: "overview" }, replaced: true };
   if (route.view === "projectDetails" && ADMIN_PROJECT_TABS.has(route.tab)) return { route: { ...route, tab: "overview" }, replaced: true };

@@ -25,7 +25,7 @@ test("delivery glossary and feedback are complete in every supported locale", ()
 });
 
 test("production branding is the exact approved transparent PNG", () => {
-  const reference = new URL("../../../00_Planning/2026-10-05_Web_UX_Redesign/Gitea_Issues/asset-manifest.json", import.meta.url);
+  const reference = new URL("./fixtures/branding.json", import.meta.url);
   const manifest = JSON.parse(readFileSync(reference, "utf8"));
   const bytes = readFileSync(new URL("../src/assets/DDP_Engineering_logo_dark.png", import.meta.url));
   assert.equal(createHash("sha256").update(bytes).digest("hex"), manifest.files["DDP_Engineering_logo_dark.png"]);

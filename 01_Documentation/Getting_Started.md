@@ -16,8 +16,14 @@ For the complete portable web application, extract the matching Windows ZIP
 or Linux TAR.GZ from `07_Delivery/`. Start `Start-ADORE.cmd` (Windows) or
 `./start-adore.sh` (Linux). The included Python starts the API and worker and
 opens the browser when ready. No system Python, uv or Node.js setup is needed
-for this package. Read its README for first sign-in, stop controls, data and
+to open either package. Choose the **offline** archive for included Node, Pi,
+its web extension, fd and ripgrep. The smaller **online** archive needs host
+Node.js 22.23.4+ in the 22.x line with npm, then `pi install` with Internet access
+for native execution; it does not download Node automatically. Container images are delivered separately as loadable archives. Read its README for first sign-in, stop controls, data and
 logs. Prepare Git/forge/executor/container tools when configuring projects.
+Normal start and stop do not hash the installation. Use `Start-ADORE.cmd --verify`
+or `./start-adore.sh --verify` separately for complete integrity/dependency
+verification after extraction or when diagnosing damaged media.
 The following sections describe source/CLI setup.
 
 ADORE selects eligible GitHub, GitLab or Gitea tickets, conducts either the
@@ -39,14 +45,11 @@ MR/PRs after fresh human approval. It never merges.
 
 No AEGIS means the direct workflow, with an explicitly unverified candidate
 for human approval. An unsupported or broken installed payload is refused,
-never treated as absence. Web enrollment still requires AEGIS; use the
-CLI/configuration path for repositories without it in this build.
+never treated as absence. Both web enrollment and CLI setup accept Direct projects.
 
-ADORE reads only its current schema-1 run shape and migrates nothing. Delete
-run-state directories under the configured `store_root/runs/` before starting
-this build if they lack `workflow`. The metrics summary shape also changed:
-delete the configured statistics database if its column contract is refused.
-Neither store is reset automatically.
+ADORE reads only its current stored formats. Unsupported data is refused with
+explicit cleanup guidance; it is never converted or recreated automatically.
+Every admitted job has a pinned execution plan, including jobs without preparation.
 
 ## Install and Configure
 
@@ -81,7 +84,7 @@ image = "my-project-adore:latest"
 
 [executor]
 provider = "openai"   # Pi API-key provider, "chatgpt" or "custom" (an endpoint)
-model = "gpt-5.5"     # model ID within the provider
+model = "your-model-id" # choose an available model for the provider
 # The key goes in .env beside config.toml as OPENAI_API_KEY (never here),
 # or in Settings -> Agent and model.
 
@@ -215,3 +218,26 @@ Prepare project tools and forge login for the service account on the ADORE machi
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+## Start the web application from source
+
+A checkout includes the committed frontend bundle. From `04_Software`, install
+its web dependencies and run the API and supervisor in separate terminals with
+the same absolute home path:
+
+```text
+uv sync --extra web --group dev
+uv run --extra web adore-web --home <ADORE_HOME>
+uv run --extra web adore-web-worker --home <ADORE_HOME>
+```
+
+Open the default `http://127.0.0.1:8765`. Only a fresh identity store gets the
+initial admin/admin account; change its password in My account. Serve remote
+access over HTTPS and protect the home with the service account's permissions.
+Do not add a standalone CLI loop over web-managed profiles. See
+[Web interface](Web_Interface.md) and [deployment tools](../02_Tools/setup/README.md).
+
+For container projects, prepare the runtime and images externally; see
+[Project executor images](Project_Executor_Images.md). For server execution,
+follow [Local execution](Local_Execution.md). Optional per-job setup is described
+in [Container preparation](Container_Preparation.md).

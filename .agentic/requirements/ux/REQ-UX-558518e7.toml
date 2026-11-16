@@ -11,9 +11,7 @@ title = "Explain direct stage limits in localized guidance"
 
 status = "active"
 
-requirement = """
-When a user reads Jobs help, Settings help or inline stage-limit guidance in English, French, German or Romanian, the interface shall explain that direct implementation uses the Implementation build limit and independent verification uses the Validation validate limit, each falling back to the general attempt limit when no override is set.
-"""
+requirement = "Localized Jobs and Settings guidance shall explain that Direct implementation uses the build attempt limit, that configured stage overrides take precedence over the general attempt limit, and that the executor owns repository checks while ADORE owns completion settlement and publication."
 
 verification = "Load both help topics and stage-limit setting guidance in all four locales using offline content/model tests and help browser navigation; assert build/Implementation and validate/Validation mappings and general-limit fallback, with no direct use of Framing/Specification/Design limits and existing Markdown structure/link parity negatives retained."
 
@@ -21,11 +19,12 @@ affected_paths = ["04_Software/web/src/settingHelp.ts", "04_Software/web/src/i18
 
 linked_tests = ["04_Software/web/tests/settingHelp.test.mjs", "04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/help.spec.ts"]
 
-
 spec = ""
 
-priority = "normal"   # low | normal | high
-rationale = ""        # why this behavior exists, if not obvious
+priority = "normal"
+
+rationale = ""
 
 created = 2026-11-12
-updated = 2026-11-12
+
+updated = 2026-11-15

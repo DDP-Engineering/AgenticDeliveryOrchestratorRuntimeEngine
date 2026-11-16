@@ -97,3 +97,7 @@ Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, 
 O limită redusă pregătită oprește deja pornirile și reluările noi până când ocuparea scade sub ea; joburile deja pornite continuă; rezervările în coadă așteaptă un loc de execuție. Nu mărește niciodată limita activă. Aplicarea sigură așteaptă în continuare lucrul neterminat; valoarea salvată și candidatul rămân vizibile până la Salvează sau Renunță la modificări.
 
 Drafturile conexiunii sunt păstrate numai când sunt valide. Corectează un endpoint invalid sau păstrează-l în memorie; credențialele nu intră în drafturile păstrate.
+
+## Alegerea fluxului de lucru {#workflow-choice}
+
+**Flux de lucru implicit** din **Implementare** setează `workflow.mode`: `auto` detectează AEGIS și refuză o instalare inutilizabilă; `direct` ocolește AEGIS pentru joburi noi. Pornirea și repornirea suprascriu această setare per job. `workflow.default_kind` alege numai tipul sarcinii AEGIS.

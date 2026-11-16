@@ -1,0 +1,7 @@
+{
+  "license": "<!--\nCopyright (c) 2026 DDP Engineering\nThis software is licensed under the PolyForm Noncommercial License 1.0.0.\nCommercial use requires a separate commercial license.\nSee the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n-->",
+  "purpose": "Integrity of the production DDP Engineering branding asset.",
+  "files": {
+    "DDP_Engineering_logo_dark.png": "4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481"
+  }
+}

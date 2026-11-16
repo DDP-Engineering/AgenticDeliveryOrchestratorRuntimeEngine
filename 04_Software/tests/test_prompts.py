@@ -70,7 +70,8 @@ def resources(tmp_path, monkeypatch, prompts):
 # PUBLIC API
 @pytest.mark.parametrize("case", BASELINE["cases"], ids=lambda c: (
     f"{c['stage']}-{c['quick']}-{c['packages']}-{c['mode']}-{c['extra']}"))
-def test_stage_bytes(tmp_path, case):
+@pytest.mark.parametrize("continuing", [False, True])
+def test_stage_bytes(tmp_path, case, continuing):
     """@brief Preserve historical captures; mode here is requested, not effective.
 
     @note All historical container captures used internet=False, hence the
@@ -81,13 +82,24 @@ def test_stage_bytes(tmp_path, case):
     forge.ticket.title = values["title"]
     forge.ticket.description = " \n" + values["description"] + "\n "
     forge.ticket.labels = ["agent-quick"] if case["quick"] else []
+    run = make_run(engine)
     engine.config.execution.backend = "local" if case["mode"] == "native" else "container"
     engine.config.container.system_packages = case["packages"]
     engine.config.container.egress.mode = "open" if case["mode"] == "native" else case["mode"]
-    actual = engine._stage_prompt(make_run(engine), forge.ticket, task(case["stage"]),
+    actual = engine._stage_prompt(run, forge.ticket, task(case["stage"]),
                                  values["context"] if case["extra"] else "",
-                                 values["thread"] if case["extra"] else "")
-    assert actual.encode("utf-8") == case["expected"].encode("utf-8")
+                                 values["thread"] if case["extra"] else "",
+                                 continuing=continuing)
+    if not continuing:
+        assert actual.encode("utf-8") == case["expected"].encode("utf-8")
+    else:
+        assert values["title"] not in actual and values["description"] not in actual
+        assert "Continue this job's existing implementation conversation" in actual
+        assert f"current stage: {case['stage']}" in actual
+        assert "Required independent" not in actual  # Policy lives in the stage boundary.
+        assert "reviewers keep separate contexts" in actual
+        if case["extra"]:
+            assert values["context"] in actual and values["thread"] in actual
 
 
 def test_network_oracle_covers_effective_policies():
@@ -122,6 +134,7 @@ def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
     forge.ticket.title = values["title"]
     forge.ticket.description = " \n" + values["description"] + "\n "
     forge.ticket.labels = ["agent-quick"]
+    run = make_run(engine)
     native = case["requested_mode"] == "native"
     engine.config.execution.backend = "local" if native else "container"
     engine.config.container.system_packages = case["packages"]
@@ -136,7 +149,7 @@ def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
         monkeypatch.setattr(orchestrator_module, "egress_policy", lambda config: replace(
             egress_policy(config), mode="none"))
         assert orchestrator_module.egress_policy(engine.config).mode == case["effective_mode"]
-    actual = engine._stage_prompt(make_run(engine), forge.ticket, task("frame"),
+    actual = engine._stage_prompt(run, forge.ticket, task("frame"),
                                  values["context"], values["thread"])
     assert actual.encode("utf-8") == case["expected"].encode("utf-8")
 
@@ -147,7 +160,7 @@ def test_all_shipped_fragments_match_original_bytes(prompts):
     inventory = {p.relative_to(prompts.PROMPT_ROOT).as_posix()
                  for p in prompts.PROMPT_ROOT.rglob("*.md")}
     assert inventory == set(BASELINE["fragments"]) | {
-        "direct/implementation.md", "live/instruction.md",
+        "direct/implementation.md", "live/instruction.md", "stage/resume.md",
     }
     assert inventory == set(prompts.FRAGMENTS)
     assert catalog.render("live/instruction.md", user="Author $user", text="  $text\n🙂") == (
@@ -180,6 +193,7 @@ def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
 ):
     """@brief Direct composition reuses the exact shared notice without AEGIS procedure."""
     engine, forge, *_ = make_engine(tmp_path)
+    run = make_run(engine)
     native = case["requested_mode"] == "native"
     engine.config.execution.backend = "local" if native else "container"
     engine.config.container.system_packages = case["packages"]
@@ -188,7 +202,6 @@ def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
     if case["injected_none"]:
         monkeypatch.setattr(orchestrator_module, "egress_policy", lambda config: replace(
             egress_policy(config), mode="none"))
-    run = make_run(engine)
     prompt = engine._direct_prompt(run, forge.ticket, "recover ${x}", "reply {x} $ £")
     if native:
         assert "Network policy is independently configured as" not in prompt
@@ -199,7 +212,10 @@ def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
         network = engine.prompts.render("stage/network.md", mode=case["effective_mode"])
         assert permission + network in prompt
     assert "recover ${x}" in prompt and "reply {x} $ £" in prompt
-    assert "TASK-" not in prompt and "AEGIS" not in prompt
+    assert "TASK-" not in prompt
+    assert "overrides only the obligation to use AEGIS procedures" in prompt
+    assert "Preserve all other repository rules" in prompt
+    assert "budget" not in prompt.lower() and "deadline" not in prompt.lower()
 
 
 def test_template_semantics_and_literal_data(resources, prompts):
@@ -371,7 +387,7 @@ def test_notice_bytes_reach_pi(tmp_path, native, internet):
             return ""
 
     target = NativeTarget() if native else SpawnTarget(fake)
-    result = PiExecutor("pi", "m", internet=internet, web_search="none").run_gate(
+    result = PiExecutor("m", internet=internet, web_search="none").run_gate(
         target, worktree, tmp_path / "io", "fixture prompt", timeout=10)
     assert result.ok and fake.all_exited()
     if not native and internet:

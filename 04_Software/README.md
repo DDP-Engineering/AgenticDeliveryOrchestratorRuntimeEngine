@@ -20,31 +20,41 @@ Key components:
   MR/PR operations, deliberately without merge;
 - `adore/isolation.py` - worktrees, local checkpoints, fingerprints,
   Docker/Podman lifecycle and executor command seam;
-- `adore/executor/` - the Pi launcher (RPC in a container, native file protocol locally);
+- `adore/executor/` - the Pi RPC launcher for container and managed native execution;
 - `adore/config.py`, `doctor.py`, `wizard.py`, `cli.py` - validated setup and
   operator surfaces;
 - `tests/` - fully offline unit/contract suite.
 
-Run locally:
+Prepare the source environment from the repository root:
 
 ```text
-python -m pip install -e ".[dev]"
-python -m pytest -q
-python -m ruff check adore tests
+python 02_Tools/setup/setup_development_environment.py
+python 02_Tools/build/build_web_assets.py
 ```
 
-Target repositories must carry unchanged `.agentic/aegis.py` from AEGIS 0.15.0
-or later within major 0 (an older release or a major bump is refused at probe) and return schema 1
-from `status --all --json`. Executors own journal
-transitions but never Git/forge publication. ADORE owns local commits, push and
-draft MR/PR creation after fresh fingerprint-bound human approval. Neither the
-executor nor ADORE merges.
+The setup command installs the locked Python web/development dependency groups
+and frontend dependencies. Development dependencies are a dependency group,
+not a `dev` package extra. See the [tools guide](../02_Tools/README.md) for
+package creation and optional source-checkout services.
 
-See the [runtime integration guide](../01_Documentation/Integrating_A_Runtime_Project.md)
+`config.example.toml` is the source template. A local `config.toml` and `.env`
+are ignored by Git. Keep user data, worktrees and credentials out of commits.
+The application sources, prompts, Pi helpers, container recipe assets and
+compiled `adore/web/static/` bundle are required package inputs. Python/frontend
+caches and browser-test reports can be regenerated.
+
+Repositories with AEGIS use its installed companion and schema-1 contract;
+`adore/aegis.py` defines the supported version range. Repositories without AEGIS
+use the Direct build/validate/done workflow. An invalid installed companion is
+refused. Pi owns agent work and AEGIS journal transitions. ADORE owns local
+commits, push and draft or ready MR/PR creation under the configured approval
+policy. Neither Pi nor ADORE merges.
+
+See the [runtime integration guide](../01_Documentation/Operations_Guide.md#runtime-project-contract)
 for the target-repository contract and onboarding sequence.
 
 ## Native local executor
 
-Explicit local profiles run an installed authenticated CLI under the ADORE machine
+Explicit local profiles run ADORE-managed Pi under the ADORE machine
 and service account with dedicated worktrees and verified Windows Job/Linux cgroup
 process ownership. Project tools remain user-owned. See [Local execution](../01_Documentation/Local_Execution.md).

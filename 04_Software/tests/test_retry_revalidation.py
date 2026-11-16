@@ -24,6 +24,7 @@ from adore.state import RunState, StateStore
 from adore.util import CommandResult
 import pytest
 
+from tests.execution_records import execution_record
 from tests.test_local_execution import local_fixture
 from tests.test_orchestrator import FakeAegis, FakeExecutor, make_engine, make_run, task
 
@@ -64,6 +65,10 @@ def retry_fixture(tmp_path, monkeypatch, system="Windows", agent="pi", iid=7):
     run.iterations = 3
     io = engine.store.run_dir(run.run_id) / "io"
     engine.backend.provision(run.container, work, work, io, {})
+    from adore.executor.conversation import PiConversation
+
+    PiConversation(io, work, engine.backend.bind(run.container, {}).paths,
+                   context_key=run.content_hash)
     plan = resolve_plan(config)
     run.execution = {
         "plan": plan,
@@ -117,7 +122,7 @@ def test_explicit_retry_refreshes_native_tools_without_losing_job(
     assert engine.store.is_paused()
 
     saved = engine.store.load(run.run_id)
-    assert saved.lifecycle == "parked-clarification"
+    assert saved.lifecycle == "parked-clarification", saved.outcome
     assert saved.stage == "specify"
     assert saved.active_task_id == run.active_task_id
     assert saved.branch == run.branch and saved.worktree == str(work)
@@ -209,7 +214,8 @@ def test_retry_cli_returns_failure_when_rearming_immediately_fails(tmp_path, mon
 
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
-    store.save(RunState(run_id="job-9", ticket_iid=9, lifecycle="failed", outcome="old failure"))
+    store.save(RunState(run_id="job-9", ticket_iid=9, lifecycle="failed", outcome="old failure",
+        execution=execution_record()))
 
     class Engine:
         """@brief Simulate a newly persisted measured provisioning failure."""
@@ -264,6 +270,7 @@ def test_retry_worker_reports_bound_outcome(tmp_path, change):
                 ticket_iid=9,
                 lifecycle="failed",
                 outcome="INFRASTRUCTURE_EXHAUSTED: version-invalid",
+                execution=execution_record(),
             )
         )
     code = 0 if change == "retried" else 124 if change == "timeout" else 1

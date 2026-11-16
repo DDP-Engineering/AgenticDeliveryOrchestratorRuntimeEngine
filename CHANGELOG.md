@@ -18,6 +18,45 @@ This project follows Keep a Changelog and Semantic Versioning.
   Azure CLI, with CLI/GUI configuration, process mappings, separate tag/PR-label
   signaling, replay-safe comments, advisory CI, onboarding and operator acceptance guidance.
 
+## [0.17.0] - 2026-11-15
+
+### Added
+
+- Choose With AEGIS or Without AEGIS for each manual Start/Restart, including CLI and durable web operations; new-job project defaults support automatic detection or Direct. Direct bypasses installed AEGIS procedures while preserving other repository rules, persistent Pi conversation and existing orchestration controls.
+
+- Windows/Linux delivery offers explicitly named offline and online archives. Offline includes Node, Pi, its web extension, fd and ripgrep without installation downloads; online includes Python/application dependencies and installs Pi later using host Node/npm.
+- A separate compressed executor-base image archive can be built/exported for offline Docker/Podman import on Linux or Docker/WSL on Windows; project-specific and proxy images are outside standard delivery.
+
+### Changed
+
+- Compact failed-job actions into Retry and explicit AEGIS/Direct abandon-and-restart buttons, with short browser confirmation and no extra page panel or helper paragraphs.
+
+- Keep ticket Start workflow, required priority and confirmation actions on one compact row, without repeated helper paragraphs.
+
+- Keep the pre-release web schema identifier fixed at 1; delete `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` before starting this build with a refused web store (web accounts, grants and command history reset).
+
+- Keep one private Pi implementation conversation per job across stage, continuation and correction processes, with incremental prompts and per-attempt usage; retain existing checkpoints, cancellation, token renewal and independent-review policy.
+- Delete unfinished `runs/<run-id>` directories from builds with ephemeral Pi histories before starting new jobs.
+
+- Start packaged ADORE using lightweight metadata checks and stop through instance ownership without scanning installed files; complete integrity/dependency verification remains available separately with `--verify`.
+- Pin native and container executors to Pi 1.5.2 and regenerate the offline provider/model catalog, including GPT-6.1 Terra.
+- Pi stages now use only the current RPC transport; archive and conversation retention remain available.
+- Remove `executor.command`, `executor.mode`, `readiness.max_scope_hint`, `clarification.reminder_after`, `review.review_reminder_after` and `metrics.capture_resource` from TOML, and delete affected `runs/<run-id>` directories before starting fresh jobs.
+- New OpenAI projects default to `gpt-6.1-terra`; explicitly configured project models are preserved.
+- Remove the lazy `LocalBackend` reexport; import the adapter from `adore.local_execution`.
+
+### Fixed
+
+- Fingerprint Git progress from exact stdout bytes so literal replacement characters, non-UTF-8 file data and large generated diffs do not terminate jobs; retain Git command and path validation.
+
+### Removed
+
+- Remove obsolete AEGIS requirements, detached historical specification evidence and product tests dedicated to retired features or repository release scripts; align current contracts and test links with the implemented product.
+
+## [0.16.0] - 2026-11-15
+
+### Added
+
 - Queue job instructions from Agent sessions for immediate or after-work delivery through Pi acknowledgements, with durable ticket-comment replay.
 
 - Live agent sessions show completed activity every three seconds, unfinished tools/thinking and safe archive handoff.
@@ -25,6 +64,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Browse completed agent sessions with literal recorded prompts, tool calls/results, reasoning and usage through authorized no-store reads.
 
 ### Fixed
+
+- Keep valid session records readable when their optional message timestamp is absent.
 
 - Restore concise four-locale repository URL and project-identity guidance in enrollment with accessible field associations.
 
@@ -39,7 +80,32 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
-- Separate global Jobs and Tickets with retained scopes and list controls; automatically read global tickets and compact job details into four tabs above the saved status.
+- Delete retained repository containers without the current `io.ddp.adore.git-binding=pointer-v1` label before starting fresh jobs.
+- Remove `workflow.verify_command` from `config.toml` before starting this build.
+- Remove unused frontend sources and generated local remnants, keep source-checkout configuration local, and move live runtime verification into `02_Tools/build/`.
+- Simplify the configuration example and refresh setup, credentials and container documentation.
+
+- Consolidate current operator guidance into one quick reference and update all five presentations for ADORE 0.16.0.
+- Group repository tools by setup, build and package responsibilities; name delivery commands and launcher templates explicitly and keep final package output in `07_Delivery/`.
+- Remove superseded planning material and duplicate manuals; keep current user and technical guides together.
+
+- Delete affected `runs/<run-id>/` directories with an empty `execution` record before starting this build.
+- Every job pins one execution plan and resource identity, including containers without preparation.
+
+- Maximize and restore Agent sessions without losing the conversation or draft; align session controls above the chat.
+
+- Compact session controls and message actions; flatten the conversation and keep its viewport height bounded.
+
+- Merge job evidence into Activity, Agent sessions and Job details, with branch/review metadata and collapsed diagnostic.
+
+- Remove the budget explanation and Details disclosure from job budget cards.
+
+- Sort global and project Tickets by number, project, title, labels or status before pagination.
+
+- Separate project Jobs and Tickets, keep budgets beside job content, and page Activity.
+- Present recorded agent conversations with full retained prompts, inline messages and send/queue controls.
+
+- Separate global Jobs and Tickets with retained scopes and list controls; automatically read global tickets and show Activity, Agent sessions and Job details above the saved status.
 
 - Compact Summary capacity into operational tiles and move cross-project capacity/current job states into a paginated Capacity tab.
 
@@ -66,6 +132,11 @@ This project follows Keep a Changelog and Semantic Versioning.
   recover only demonstrably dead owners and fence stale results and publication.
 - Confirm Start at durable job admission and Cancel only from the actual saved cancellation result.
 - Delete `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` before starting this build.
+
+### Removed
+
+- Retired validation evidence, event names, route aliases, AEGIS listing stages and session truncation variants.
+- The completed one-off DCP record conversion tool.
 
 ## [0.15.0] - 2026-11-12
 
