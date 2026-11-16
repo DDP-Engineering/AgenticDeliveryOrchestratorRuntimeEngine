@@ -10,12 +10,16 @@ Une vérification actuelle est transmise au projet créé. Les prérequis non co
 
 Une connexion CLI externe réussie reste partielle car elle peut changer hors d’ADORE sans modification observable. Connectez l’accès au dépôt et vérifiez à nouveau pour lier les identifiants du projet.
 
+## Azure DevOps Services {#azure-devops}
+
+Choisissez Azure DevOps Services pour Azure Repos et Boards dans le cloud ; Server n’est pas pris en charge. Lisez l’URL du dépôt, confirmez **URL de l’organisation**, **Projet Azure**, nom du dépôt et branche cible, puis indiquez le **Chemin de zone des Work Items** exact réservé au dépôt, par exemple `Payments\Backend`. Les sous-zones sont exclues. L’administrateur installe Azure CLI et son extension officielle et gère la connexion sans interaction du compte de service ADORE en externe ; ne saisissez jamais de jeton dans les paramètres. L’accès Git est séparé. Les imports utilisent le même périmètre. Révisez, vérifiez les prérequis et créez le projet arrêté avant d’activer la prise en charge.
+
 ## Avant de commencer {#before-you-start}
 
 Préparez ces éléments :
 
 - L’adresse du dépôt (https ou ssh) que le compte du serveur ADORE peut lire. ADORE le clone dans son propre dossier à la création du projet.
-- Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.
+- Un compte GitLab, GitHub, Gitea ou Azure DevOps Services qui peut lire et mettre à jour les tickets et créer des revues en brouillon.
 - Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).
 - L’identifiant du modèle Pi et, pour les conteneurs, un service Docker ou Podman actif. L’image commune par défaut est préparée automatiquement à l’import ; les images personnalisées doivent déjà exister dans ce service. Voir [Exécuteurs et modèles](/help/executors).
 

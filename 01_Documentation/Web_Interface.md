@@ -42,6 +42,14 @@ scope. Capacity is shown in Summary rather than a separate project tab.
 
 ## Enrollment
 
+Azure DevOps Services enrollment recognizes Azure Repos cloud URLs and exposes
+organization, project and exact repository-owned Work Item Area Path. Repository
+settings include allowed Work Item types and terminal states as reviewed lists.
+The usual Admin/Developer, pause/idle, preview/apply and worker polling rules
+remain unchanged. Azure sign-in is external to normal GUI forms; no token is
+stored in browser settings. Label helpers verify attachment readiness rather
+than creating a repository label catalog. See [Azure DevOps Services](Azure_DevOps_Services.md).
+
 Start from Projects. Supply the repository address and use Read repository to
 resolve the forge, target branch and project identity. Review the server clone
 location, selected execution environment, provider/model and credential references.

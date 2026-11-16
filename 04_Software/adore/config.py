@@ -90,6 +90,7 @@ _SHELL_CONTROL_CHARS = frozenset("|&;<>")
 #: only one. A variable with one of these prefixes is refused, not ignored.
 REMOVED_AGENT_ENV_PREFIXES = ("OPENCODE_", "CODEX_", "QWEN_")
 _FORGE_CREDENTIAL_ENV = frozenset({
+    "AZURE_DEVOPS_EXT_PAT", "AZURE_DEVOPS_EXT_PAT_VAR", "AZURE_CONFIG_DIR",
     "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "GLAB_TOKEN", "GITEA_TOKEN",
     "TEA_TOKEN",
 })
@@ -170,6 +171,12 @@ class PlatformConfig:
     kind: str = "gitlab"
     repo: str = ""
     login: str = ""
+    organization: str = ""
+    project: str = ""
+    area_path: str = ""
+    work_item_types: list[str] = field(default_factory=lambda: [
+        "Bug", "Task", "Issue", "User Story", "Product Backlog Item", "Requirement"])
+    closed_states: list[str] = field(default_factory=lambda: ["Closed", "Done", "Removed"])
 
 
 @dataclass
@@ -1130,8 +1137,8 @@ def validate_config(config: Config) -> list[str]:
     )
 
     check(
-        config.platform.kind in ("gitlab", "github", "gitea"),
-        f'[platform] kind must be "gitlab", "github" or "gitea": '
+        config.platform.kind in ("gitlab", "github", "gitea", "azure_devops"),
+        f'[platform] kind must be "gitlab", "github", "gitea" or "azure_devops": '
         f"{config.platform.kind!r}",
     )
     check(bool(config.platform.repo.strip()), "[platform] repo is required")
@@ -1148,6 +1155,29 @@ def validate_config(config: Config) -> list[str]:
             f"[platform] login is only supported for gitea, not "
             f"{config.platform.kind!r}",
         )
+
+    if config.platform.kind == "azure_devops":
+        from adore.forge.azure_devops import validate_azure_scope
+
+        try:
+            validate_azure_scope(config.platform.organization, config.platform.project,
+                                 config.platform.repo, config.platform.area_path,
+                                 config.platform.work_item_types, config.platform.closed_states)
+        except ValueError as exc:
+            issues.append(f"[platform] {exc}")
+        for spec in (config.labels.lifecycle, config.labels.selection, config.labels.control):
+            for name, value in vars(spec).items():
+                check(";" not in value, f"[labels] {name} cannot contain semicolons on Azure")
+        for value in (config.delivery.approval_label, config.review.revise_label,
+                      config.workflow.quick_label, *config.workflow.kind_labels):
+            check(";" not in value, "[labels] Azure tag names cannot contain semicolons")
+        for reviewer in config.delivery.reviewers:
+            check(bool(re.fullmatch(
+                r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", reviewer)),
+                  "[delivery] reviewers must be Azure identity GUIDs for azure_devops")
+    else:
+        for key in ("organization", "project", "area_path"):
+            check(not getattr(config.platform, key), f"[platform] {key} is Azure-only")
 
     check(
         config.polling.mode in ("loop", "once"),

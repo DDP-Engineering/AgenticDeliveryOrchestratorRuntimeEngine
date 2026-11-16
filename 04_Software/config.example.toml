@@ -16,10 +16,12 @@ name = "ADORE"
 slug = "adore"
 email = "adore-bot@example.com"
 
-# The matching gh/glab/tea CLI must be authenticated on the host.
+# The matching gh/glab/tea CLI, or az with its official azure-devops extension,
+# must be authenticated on the host. Azure DevOps Services (cloud) only:
+# use config.azure-devops.example.toml for its mandatory explicit scope.
 # Git clone/push authentication is separate from forge CLI authentication.
 [platform]
-kind = "gitlab"                      # gitlab | github | gitea
+kind = "gitlab"                      # gitlab | github | gitea | azure_devops
 repo = "group/subgroup/project"      # Gitea/GitHub: owner/repo
 # login = "home"                     # Gitea only
 

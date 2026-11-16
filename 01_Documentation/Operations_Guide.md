@@ -9,7 +9,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## System overview
 
-ADORE coordinates eligible GitHub, GitLab and Gitea tickets through isolated
+ADORE coordinates eligible GitHub, GitLab, Gitea and Azure DevOps Services tickets through isolated
 implementation, candidate publication and human review. Pi is the only coding
 agent. Projects select container execution or managed Pi on the ADORE server.
 Each job has its own Git branch, worktree, recorded workflow, execution plan and
@@ -26,6 +26,15 @@ ADORE does not run an independent repository test command and never merges.
 The CLI and web interface share profiles and durable run state. The web API and
 one supervisor use independent configuration, project and run processes;
 projects progress independently up to their configured limits.
+
+## Azure DevOps Services
+
+Azure cloud operations use the common conductor. Work Item tags carry pickup,
+status, clarification and candidate approval; a PR **label** carries revision.
+Active/completed/abandoned PRs map to opened/merged/closed. Advisory CI uses the
+current PR iteration's statuses and never infers success from missing information.
+See [Azure DevOps Services](Azure_DevOps_Services.md) for exact area/process scope,
+permission troubleshooting, missing-resource limitations and bounded live acceptance.
 
 ## Workflows
 

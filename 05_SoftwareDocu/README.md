@@ -49,7 +49,9 @@ must document their actual refusal/recovery boundaries.
 |---|---|
 | [Orchestrator](Component_Orchestrator.md) | Admission, Direct/AEGIS conduction, approval and publication |
 | [Polling](Component_Polling.md) | Bounded adaptive polling cadence |
-| [Forge Adapters](Component_Forge_Adapters.md) | GitLab/GitHub/Gitea command adapters and strict output validation |
+| [Forge Adapters](Component_Forge_Adapters.md) | GitLab/GitHub/Gitea/Azure command adapters and strict output validation |
+| [Azure DevOps Services](Component_Azure_DevOps.md) | Scoped Boards, Repos and review signaling |
+| [Azure CLI bridge](Component_Azure_CLI.md) | Deterministic resource locations and shell-free host runtime launch |
 | [AEGIS Client](Component_Aegis_Client.md) | Companion CLI protocol, task evidence and typed refusals |
 | [Prompts](Component_Prompts.md) | Fixed licensed resource catalog and literal rendering |
 | [Preparation](Component_Preparation.md) | Closed execution plans and reviewed recipe resolution |

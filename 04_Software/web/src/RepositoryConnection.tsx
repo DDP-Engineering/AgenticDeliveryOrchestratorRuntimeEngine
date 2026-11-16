@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { azureCopy } from "./azureDevops";
 import { messages, type Locale } from "./i18n";
 import { ApiError } from "./errors";
 
@@ -65,6 +66,7 @@ export function RepositoryConnection({ project, provider, repository, locale, co
       if (mounted.current) { pending.current = false; setBusy(false); }
     }
   };
+  if (provider === "azure_devops") return <p className="repository-connection muted">{azureCopy[locale].auth}</p>;
   return <div className="repository-connection">
     <button type="button" className="ghost" aria-expanded={open} onClick={() => { setOpen(!open); setToken(""); setError(""); }}>{({ en: "Repository access", fr: "Accès au dépôt", de: "Repository-Zugang", ro: "Acces la repository" })[locale]}</button>
     <dialog ref={dialog} className="repository-connect-dialog" aria-label={text.title} onCancel={close} onClose={close}>

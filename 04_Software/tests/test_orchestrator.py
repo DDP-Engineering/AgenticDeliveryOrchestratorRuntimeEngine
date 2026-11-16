@@ -142,6 +142,11 @@ class FakeForge:
         if self.mr:
             self.mr.labels = [item for item in self.mr.labels if item not in labels]
 
+    def link_ticket(self, mr_iid: int, ticket_iid: int) -> None:
+        """@brief Acknowledge provider-native association at publication."""
+        assert self.mr and mr_iid == self.mr.iid
+        assert self.ticket and ticket_iid == self.ticket.iid
+
     def update_merge_request_body(self, mr_iid: int, body: str) -> None:
         """@brief Replace the review description without changing any other review field."""
         assert self.mr and mr_iid == self.mr.iid

@@ -117,6 +117,9 @@ def open_forge(config: Config, runner: CommandRunner) -> Forge:
             config.platform.repo,
             _bounded(runner),
             login=config.platform.login,
+            organization=config.platform.organization, project=config.platform.project,
+            area_path=config.platform.area_path, work_item_types=config.platform.work_item_types,
+            closed_states=config.platform.closed_states,
         )
     except ValueError as exc:
         raise ForgeError(str(exc)) from exc

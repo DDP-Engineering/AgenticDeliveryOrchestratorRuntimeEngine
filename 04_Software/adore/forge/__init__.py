@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 # IMPORTS
+from adore.forge.azure_devops import AzureDevOpsForge
 from adore.forge.base import Comment, Forge, ForgeError, ForgeResponseError, MergeRequest, Ticket
 from adore.forge.gitea import GiteaForge
 from adore.forge.github import GitHubForge
@@ -26,6 +27,7 @@ from adore.util import CommandRunner, run_command
 # PUBLIC API
 
 __all__ = [
+    "AzureDevOpsForge",
     "Comment",
     "Forge",
     "ForgeError",
@@ -40,7 +42,9 @@ __all__ = [
 
 
 def build_forge(
-    kind: str, repo: str, runner: CommandRunner = run_command, *, login: str = ""
+    kind: str, repo: str, runner: CommandRunner = run_command, *, login: str = "",
+    organization: str = "", project: str = "", area_path: str = "",
+    work_item_types: list[str] | None = None, closed_states: list[str] | None = None,
 ) -> Forge:
     """
     @brief      Construct the configured Git-platform adapter.
@@ -54,6 +58,10 @@ def build_forge(
     """
     if login and kind != "gitea":
         raise ValueError(f"platform login is only supported for gitea, not {kind!r}")
+    if kind == "azure_devops":
+        return AzureDevOpsForge(repo, runner, organization=organization, project=project,
+                                area_path=area_path, work_item_types=work_item_types,
+                                closed_states=closed_states)
     if kind == "gitlab":
         return GitLabForge(repo, runner)
     if kind == "github":

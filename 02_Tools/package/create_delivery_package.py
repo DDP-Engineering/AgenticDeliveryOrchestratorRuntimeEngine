@@ -194,12 +194,23 @@ def main(argv: list[str] | None = None) -> int:
                     (bundle / source.name).chmod(0o755)
         shutil.copy2(REPO / "LICENSE.txt", bundle / "LICENSE.txt")
         copy_user_documentation(bundle / "Documentation")
+        azure_guide = (REPO / "01_Documentation/Azure_DevOps_Services.md").read_text(
+            encoding="utf-8")
+        (bundle / "Azure_DevOps_Services.md").write_text(
+            azure_guide.replace("../04_Software/config.azure-devops.example.toml",
+                                "config.azure-devops.example.toml"), encoding="utf-8")
+        shutil.copy2(software / "config.azure-devops.example.toml",
+                     bundle / "config.azure-devops.example.toml")
         files = sorted(path for path in bundle.rglob("*") if path.is_file())
         if len(files) > MAX_FILES or sum(path.stat().st_size for path in files) > MAX_BYTES:
             raise RuntimeError(f"portable distribution exceeds the 60000-file / 1 GiB build limit "
                                f"({len(files)} files, {sum(path.stat().st_size for path in files)} bytes)")
         manifest = {
             "schema": 1, "version": version, "system": system, "architecture": "x64",
+            "external_forge_tools": {
+                "github": ["gh"], "gitlab": ["glab"], "gitea": ["tea"],
+                "azure_devops": ["az", "azure-devops (official az extension; Services only)"],
+            },
             "python_version": PYTHON_VERSION,
             "runtime_delivery": options.runtime_mode,
             "native_tools": native_tools,

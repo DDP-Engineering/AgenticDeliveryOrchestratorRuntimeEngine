@@ -12,8 +12,18 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Azure DevOps Services adapter for scoped Boards Work Items and Repos PRs through
+  Azure CLI, with CLI/GUI configuration, process mappings, separate tag/PR-label
+  signaling, replay-safe comments, advisory CI, onboarding and operator acceptance guidance.
+
 ### Fixed
 
+- Address Azure REST operations by exact Microsoft location IDs rather than ambiguous
+  resource names, retaining the official extension's host authentication.
+- Launch the standard Windows Azure CLI through its bundled Python without shell
+  expansion, including prerequisite checks and PR label/Work Item association commands.
 - Use the configured bot identity for host-side target merge commits; only proven file conflicts relaunch the executor, while Git configuration and infrastructure failures preserve the job as a Git integration error.
 
 ## [0.17.0] - 2026-11-15

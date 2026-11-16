@@ -1,0 +1,191 @@
+[
+  {
+    "id": "75cf11c5-979f-4038-a76e-058a06adf2bf",
+    "area": "git",
+    "resourceName": "pullRequestIterationStatuses",
+    "routeTemplate": "{project}/_apis/{area}/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses/{statusId}",
+    "minVersion": "3.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "01a46dea-7d46-4d40-bc84-319e7c260d99",
+    "area": "git",
+    "resourceName": "pullRequests",
+    "routeTemplate": "{project}/_apis/{area}/{resource}/{pullRequestId}",
+    "minVersion": "3.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "a92ec66c-5851-41a4-a96b-4a0860958844",
+    "area": "git",
+    "resourceName": "pullRequestWorkItems",
+    "routeTemplate": "_apis/{area}/{projectId}/repositories/{repositoryId}/pullRequests/{pullRequestId}/workitems",
+    "minVersion": "1.0",
+    "maxVersion": "1.0",
+    "releasedVersion": "1.0"
+  },
+  {
+    "id": "5318bf6c-115f-4828-ba3e-73eca825c276",
+    "area": "git",
+    "resourceName": "pullRequests",
+    "routeTemplate": "_apis/{area}/{projectId}/repositories/{repositoryId}/{resource}/{pullRequestId}",
+    "minVersion": "1.0",
+    "maxVersion": "1.0",
+    "releasedVersion": "1.0"
+  },
+  {
+    "id": "965a3ec7-5ed8-455a-bdcb-835a5ea7fe7b",
+    "area": "git",
+    "resourceName": "pullRequestThreadComments",
+    "routeTemplate": "{project}/_apis/{area}/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}/comments/{commentId}",
+    "minVersion": "3.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "d43911ee-6958-46b0-a42b-8445b8a0d004",
+    "area": "git",
+    "resourceName": "pullRequestIterations",
+    "routeTemplate": "{project}/_apis/{area}/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}",
+    "minVersion": "3.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "a5d28130-9cd2-40fa-9f08-902e7daa9efb",
+    "area": "git",
+    "resourceName": "pullRequests",
+    "routeTemplate": "{project}/_apis/{area}/{resource}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "0a637fcc-5370-4ce8-b0e8-98091f5f9482",
+    "area": "git",
+    "resourceName": "pullRequestWorkItems",
+    "routeTemplate": "{project}/_apis/{area}/repositories/{repositoryId}/pullRequests/{pullRequestId}/workitems",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "ab6e2e5d-a0b7-4153-b64a-a4efe0d49449",
+    "area": "git",
+    "resourceName": "pullRequestThreads",
+    "routeTemplate": "{project}/_apis/{area}/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}",
+    "minVersion": "3.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "225f7195-f9c7-4d14-ab28-a83f7ff77e1f",
+    "area": "git",
+    "resourceName": "repositories",
+    "routeTemplate": "{project}/_apis/{area}/{resource}/{repositoryId}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "88aea7e8-9501-45dd-ac58-b069aa73b926",
+    "area": "git",
+    "resourceName": "repositories",
+    "routeTemplate": "_apis/{area}/{projectId}/{resource}/{repositoryId}",
+    "minVersion": "1.0",
+    "maxVersion": "1.0",
+    "releasedVersion": "1.0"
+  },
+  {
+    "id": "9946fd70-0d40-406e-b686-b4744cbbcc37",
+    "area": "git",
+    "resourceName": "pullRequests",
+    "routeTemplate": "{project}/_apis/{area}/repositories/{repositoryId}/{resource}/{pullRequestId}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "f22387e3-984e-4c52-9c6d-fbb8f14c812d",
+    "area": "git",
+    "resourceName": "pullRequestLabels",
+    "routeTemplate": "{project}/_apis/{area}/repositories/{repositoryId}/pullRequests/{pullRequestId}/labels/{labelIdOrName}",
+    "minVersion": "4.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "19335ae7-22f7-4308-93d8-261f9384b7cf",
+    "area": "wit",
+    "resourceName": "comments",
+    "routeTemplate": "{project}/_apis/{area}/workItems/{id}/comments/{revision}",
+    "minVersion": "3.0",
+    "maxVersion": "5.0",
+    "releasedVersion": "0.0"
+  },
+  {
+    "id": "5a172953-1b41-49d3-840a-33f79c3ce89f",
+    "area": "wit",
+    "resourceName": "classificationNodes",
+    "routeTemplate": "{project}/_apis/{area}/{resource}/{structureGroup}/{*path}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "1a9c53f7-f243-4447-b110-35ef023636e4",
+    "area": "wit",
+    "resourceName": "wiql",
+    "routeTemplate": "{project}/{team}/_apis/{area}/{resource}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "a02355f5-5f8a-4671-8e32-369d23aac83d",
+    "area": "wit",
+    "resourceName": "wiql",
+    "routeTemplate": "{project}/{team}/_apis/{area}/{resource}/{id}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "62d3d110-0047-428c-ad3c-4fe872c91c74",
+    "area": "wit",
+    "resourceName": "workItems",
+    "routeTemplate": "{project}/_apis/{area}/{resource}/${type}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "a70579d1-f53a-48ee-a5be-7be8659023b9",
+    "area": "wit",
+    "resourceName": "classificationNodes",
+    "routeTemplate": "{project}/_apis/{area}/{resource}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "72c7ddf8-2cdc-4f60-90cd-ab71c14a399b",
+    "area": "wit",
+    "resourceName": "workItems",
+    "routeTemplate": "{project}/_apis/{area}/{resource}/{id}",
+    "minVersion": "1.0",
+    "maxVersion": "7.2",
+    "releasedVersion": "7.1"
+  },
+  {
+    "id": "608aac0a-32e1-4493-a863-b9cf4566d257",
+    "area": "wit",
+    "resourceName": "comments",
+    "routeTemplate": "{project}/_apis/wit/workItems/{workItemId}/comments/{commentId}",
+    "minVersion": "5.1",
+    "maxVersion": "7.2",
+    "releasedVersion": "0.0"
+  }
+]

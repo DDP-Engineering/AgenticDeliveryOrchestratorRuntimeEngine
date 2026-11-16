@@ -2,6 +2,10 @@
 
 L’onglet Paramètres d’un projet liste les règles de fonctionnement qu’ADORE lui applique : quels tickets il prend en charge, ses limites, la façon dont il publie et l’agent qu’il utilise. Les administrateurs modifient plusieurs paramètres et les enregistrent ensemble ; les développeurs les lisent.
 
+## Périmètre Azure du dépôt et des tickets {#azure-settings}
+
+Azure DevOps Services ajoute **URL de l’organisation**, **Projet Azure**, **Chemin de zone des Work Items**, **Types de Work Items autorisés** et **États terminaux des Work Items** dans Dépôt. Utilisez les noms natifs exacts, un par ligne. Réservez une sous-zone exacte et distincte au dépôt. La priorité native ne remplace pas les tags. Les réviseurs sont des GUID d’identité Azure. La révision utilise les labels PR ; prise en charge et approbation utilisent les tags des Work Items. Les administrateurs prévisualisent et appliquent selon les mêmes règles de pause et d’inactivité ; les développeurs ne modifient pas. La configuration de l’exécuteur reste séparée. Une CI illisible reste inconnue, jamais réussie.
+
 ## Où trouver les Paramètres {#where}
 
 Ouvrez [Projets](/projects), choisissez un projet et sélectionnez l’onglet **Paramètres**. Les onglets sont Résumé, Paramètres, Tâches, Statistiques, Historique et, pour les administrateurs, Accès.

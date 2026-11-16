@@ -40,6 +40,16 @@ See [Web identity](Component_Web_Identity.md) and
 
 ## Project enrollment and configuration
 
+Azure Services extends guided project input and repository-source detection with
+organization/project/Area Path, all validated through the shared wizard and
+factory. Repository identity comparisons retain organization and project.
+`platform.work_item_types` and `platform.closed_states` are bounded, complete
+reviewed collections using existing revision, role, pause and idle-job fences.
+Azure auth checks are scope-bound; public origin/token credential connection is
+not supported for this provider. The label helper returns
+`mode=azure_on_attachment`, verified names and empty provisioning lists. See
+[Azure DevOps component](Component_Azure_DevOps.md) and `test_web_azure_devops.py`.
+
 Guided setup and raw TOML/source-bundle import use staged preview/check/create
 flows. Candidates bind exact source bytes, project identity, configuration and
 observed prerequisites. Source reads and previews do not authorize unrelated

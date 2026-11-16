@@ -1,6 +1,6 @@
 # Tickets et prise en charge automatique
 
-ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab ou Gitea) lorsqu’ils portent les bonnes étiquettes, et vous pouvez aussi en démarrer un à la main. Cet article couvre les étiquettes, l’éligibilité et la vue Tickets.
+ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab, Gitea ou Azure DevOps Services) lorsqu’ils portent les bonnes étiquettes, et vous pouvez aussi en démarrer un à la main. Cet article couvre les étiquettes, l’éligibilité et la vue Tickets.
 
 
 Les tickets portant le label de type épopée configuré ne sont ni sélectionnés ni démarrés. Démarrer reste disponible pour les tickets éligibles quand la surveillance est en pause.
@@ -14,6 +14,10 @@ Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En 
 Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 
 Avant la prise automatique, `workflow.mode = "auto"` vérifie AEGIS présent et le refuse s’il est inutilisable ; son absence sélectionne Direct. `workflow.mode = "direct"` ignore AEGIS. Démarrer choisit explicitement le workflow. L’agent réalise les vérifications du dépôt dans les deux cas ; ADORE conserve les contrôles d’approbation et de publication. Voir [Workflows du dépôt](/help/projects#workflows).
+
+## Work Items Azure et labels PR {#azure-tags}
+
+Pour Azure DevOps Services, seuls le projet exact et le chemin de zone réservé au dépôt sont éligibles. Types autorisés et états terminaux suivent les paramètres du processus ; les sous-zones sont exclues. Description HTML et critères d’acceptation deviennent du texte lisible. La priorité native est informative : les tags configurés commandent classement et préparation. Prêt, attente/exclusion, état, réponse et approbation du candidat sont des tags de Work Item. La révision est un label PR distinct, à poser sur la Pull Request, pas sur le Work Item. L’assistant des labels vérifie l’accès et les noms disponibles à l’attachement, pas un catalogue de dépôt. Il ne crée aucun Work Item ou PR fictif et préserve les tags humains sans rapport.
 
 ## Créer d’abord les étiquettes {#labels}
 

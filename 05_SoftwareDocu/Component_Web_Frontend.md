@@ -16,6 +16,17 @@ The API remains authoritative for authorization, configuration and job actions.
 See [Web API](Component_Web_API.md) for server boundaries and
 [Web interface](../01_Documentation/Web_Interface.md) for operating instructions.
 
+## Azure DevOps Services
+
+Azure Services uses localized enrollment organization/project/Area Path fields,
+repository settings and complete process-name list editors (`azure-names`).
+`azureDevops.ts` centralizes four-locale scope/auth/tag terminology and list
+validation. Azure Repository access renders external-auth guidance instead of a
+token form. Label helper results distinguish verified on-attachment names from
+created catalog labels. PR and ticket URL/status models remain provider-neutral.
+See [Azure DevOps component](Component_Azure_DevOps.md), Node settings contracts
+and focused enrollment browser coverage.
+
 ## Navigation and scope
 
 The sidebar exposes Overview, Projects, Jobs, Tickets, Statistics, Administration

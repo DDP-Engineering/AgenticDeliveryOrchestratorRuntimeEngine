@@ -441,9 +441,9 @@ def run_wizard(
 
     # -- Phase C (platform & repository) ------------------------------------------
     kind = ask(FieldSpec(
-        "kind", "Is the project on GitLab, GitHub or Gitea?",
+        "kind", "Repository service (GitLab, GitHub, Gitea or Azure DevOps Services)?",
         "selects the platform adapter", "gitlab",
-        default="gitlab", choices=("gitlab", "github", "gitea"),
+        default="gitlab", choices=("gitlab", "github", "gitea", "azure_devops"),
     ), asker, out)
 
     # Phase A guidance is informational and platform-aware; print it now.
@@ -460,12 +460,23 @@ def run_wizard(
             "home", default="",
         ), asker, out).strip()
     repo = ask(FieldSpec(
-        "repo", "Repository path (group/subgroup/project, NOT a URL):"
+        "repo", "Azure repository name (not a URL):" if kind == "azure_devops" else
+        "Repository path (group/subgroup/project, NOT a URL):"
         if kind != "gitea" else "Repository path (owner/repo, NOT a URL):",
         "the project's path on the platform",
         "group/subgroup/project" if kind != "gitea" else "owner/repo",
         validate=_require,
     ), asker, out)
+
+    azure = {}
+    if kind == "azure_devops":
+        for key, label, example in (
+            ("organization", "Organization URL (Services only)", "https://dev.azure.com/contoso"),
+            ("project", "Azure project name", "Payments"),
+            ("area_path", "Exact repository-owned Work Item Area Path", "Payments\\Backend"),
+        ):
+            azure[key] = ask(FieldSpec(key, label + ":", "Explicit scope; no az global defaults",
+                                       example, validate=_require), asker, out)
 
     # -- Phase D (local clone & worktree) -----------------------------------------
     repo_path = ask(FieldSpec(
@@ -708,6 +719,10 @@ def run_wizard(
         ready_label=ready_label, fix_label=fix_label, change_label=change_label,
         quick_label=quick_label,
     )
+    if azure:
+        for section, values in sections:
+            if section == "platform":
+                values.update(azure)
     if execution_backend == "local":
         sections = [(name, values) for name, values in sections if name != "container"]
         sections.extend([("execution", {"backend": "local"}), ("local", local_settings)])

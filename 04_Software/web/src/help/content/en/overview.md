@@ -6,7 +6,7 @@ ADORE turns a prepared ticket on your code forge into a draft merge request or p
 
 ## What ADORE does {#what-adore-does}
 
-ADORE watches the projects an administrator has enrolled. When a ticket on the forge (GitHub, GitLab or Gitea) is prepared for pickup, ADORE starts a **job** for it:
+ADORE watches the projects an administrator has enrolled. When a ticket on the forge (GitHub, GitLab, Gitea or Azure DevOps Services) is prepared for pickup, ADORE starts a **job** for it:
 
 - It runs a coding agent (the executor) in an isolated environment: a dedicated branch, working folder and container.
 - The agent follows the repository's AEGIS workflow one stage at a time: Frame, Specify, Design, Build and Validate. A small change may take a quick path without Specify and Design.

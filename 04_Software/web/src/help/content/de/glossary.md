@@ -23,6 +23,6 @@ Diese Begriffe werden in der ADORE-Weboberfläche und in diesen Hilfethemen verw
 | Entwurf MR/PR | Der Merge- oder Pull-Request nach Validierung und gegebenenfalls Freigabe. Menschen prüfen ihn. |
 | Menschliche Prüfung | Ein MR/PR steht zur menschlichen Prüfung bereit. Das Zusammenführen bleibt eine menschliche Entscheidung. |
 | Überarbeitungsrunde | Ein weiterer Agentendurchgang nach Änderungswunsch oder CI-Fehler. Jede Runde wiederholt die Validierung und folgt der Freigaberegel. |
-| Forge | Die Hosting-Plattform, auf der Tickets, Labels, Freigaben und MR/PRs liegen: GitHub, GitLab oder Gitea. |
+| Forge | Die Hosting-Plattform, auf der Tickets, Labels, Freigaben und MR/PRs liegen: GitHub, GitLab, Gitea oder Azure DevOps Services. |
 
 > ADORE hat keine Merge-Operation. Das Zusammenführen ist immer die Entscheidung eines Menschen in der Forge.

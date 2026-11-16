@@ -23,6 +23,6 @@ Aceștia sunt termenii folosiți în interfața web ADORE și în aceste subiect
 | MR/PR ciornă | Cererea MR/PR deschisă după validare și aprobarea necesară. Oamenii o revizuiesc. |
 | Revizie umană | Un MR/PR este disponibil pentru revizie umană. Integrarea rămâne o decizie umană. |
 | Rundă de revizie | O nouă trecere a agentului după modificări cerute sau erori CI. Fiecare rundă repetă validarea și respectă politica de aprobare. |
-| Forge | Platforma de găzduire unde se află tichetele, etichetele, aprobările și MR/PR-urile: GitHub, GitLab sau Gitea. |
+| Forge | Platforma de găzduire unde se află tichetele, etichetele, aprobările și MR/PR-urile: GitHub, GitLab, Gitea sau Azure DevOps Services. |
 
 > ADORE nu are nicio operație de integrare. Integrarea este întotdeauna decizia unei persoane, pe forge.

@@ -26,9 +26,14 @@ validate` after an edit. Secrets do not belong in TOML.
 | `agent.name` | Visible comment identity. | `ADORE` |
 | `agent.slug` | Branch/container/state marker prefix. | derived |
 | `agent.email` | Author for ADORE-owned local checkpoint commits. | derived |
-| `platform.kind` | `github`, `gitlab`, or `gitea`. | `gitlab` |
+| `platform.kind` | `github`, `gitlab`, `gitea`, or `azure_devops` (Services only). | `gitlab` |
 | `platform.repo` | Forge repository identity. | required |
 | `platform.login` | Named `tea` login; Gitea only. | empty |
+| `platform.organization` | Azure canonical `https://dev.azure.com/ORG`; mandatory for Azure. | empty |
+| `platform.project` | Exact Azure project name; mandatory for Azure. | empty |
+| `platform.area_path` | Exact repository-owned child Area Path; mandatory for Azure, excludes subareas. | empty |
+| `platform.work_item_types` | Azure allowed native process types, editable as a full list. | Bug, Task, Issue, User Story, Product Backlog Item, Requirement |
+| `platform.closed_states` | Azure native terminal states, editable as a full list. | Closed, Done, Removed |
 | `state.store_root` | Durable local run-state root; visible read-only in web Settings. | `.<slug>` |
 
 Every run-state change is mirrored on the ticket by one status comment, edited
@@ -40,6 +45,14 @@ value is rejected with an actionable message and never reinterpreted or
 migrated. A `state.json` with unknown or missing keys, or a stage outside
 `frame`, `specify`, `design`, `build`, `validate`, `done` and `publishing`, is
 refused the same way, and the message names the run directory to delete.
+
+For Azure, `platform.repo` is the repository name, not a URL or `owner/repo`.
+Organization/project/area are Azure-only and must be empty for other providers.
+Azure native Priority does not replace the configured priority tags; native type
+and terminal-state names must match your process. PR revision labels are separate
+from Work Item tags. Reviewers use Azure identity GUIDs. See
+[Azure DevOps Services](Azure_DevOps_Services.md) and the complete
+[Azure example](../04_Software/config.azure-devops.example.toml).
 
 ## Branch naming
 

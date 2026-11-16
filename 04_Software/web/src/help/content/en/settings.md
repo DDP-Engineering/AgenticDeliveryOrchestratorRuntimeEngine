@@ -2,6 +2,10 @@
 
 A project's Settings tab lists the working rules ADORE applies to it: which tickets it picks up, its limits, how it publishes and which agent it uses. Administrators edit several settings and save them together; developers read them.
 
+## Azure repository and ticket scope {#azure-settings}
+
+Azure DevOps Services adds **Organization URL**, **Azure project**, **Work Item Area Path**, **Allowed Work Item types** and **Terminal Work Item states** in Repository. Use exact native process names, one per line. Reserve a distinct exact child area for the repository. Native priority does not replace priority tags. Reviewers are Azure identity GUIDs. PR revision uses PR labels; pickup and approval use Work Item tags. Administrators preview and apply scoped changes using the same pause and idle-job rules; developers cannot edit. Executor Configuration stays separate. Unreadable CI remains unknown, never a successful pipeline.
+
 ## Where to find Settings {#where}
 
 Open [Projects](/projects), choose a project and select the **Settings** tab. The tabs are Summary, Settings, Jobs, Statistics, History and, for administrators, Access.

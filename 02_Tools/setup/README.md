@@ -23,7 +23,11 @@ They do not install the web application's API and worker pair.
 
 Before installation, prepare `04_Software/config.toml`, authenticate the host
 forge CLI and Git, and supply the required provider credentials outside source
-control. Prepare the project's selected execution environment. See
+control. Azure DevOps Services also requires Azure CLI with the official
+`azure-devops` extension and explicit organization/project/repository/Area Path
+configuration; see [Azure DevOps Services](../../01_Documentation/Azure_DevOps_Services.md).
+The installers check these host tools but do not provision credentials or pass
+them to executors. Prepare the project's selected execution environment. See
 [Configuration](../../01_Documentation/Configuration_Reference.md),
 [Security](../../01_Documentation/Security_And_Credentials.md) and
 [executor images](../../04_Software/docker/README.md).

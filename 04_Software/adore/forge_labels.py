@@ -101,6 +101,12 @@ def ensure_labels(forge: Forge, specs: list[LabelSpec]) -> dict:
     @return     {"created": [...], "existing": [...], "failed": [{"name", "reason"}]}.
     @exception  ForgeError When the existing labels cannot be read (nothing is created).
     """
+    from adore.forge.azure_devops import AzureDevOpsForge
+
+    if isinstance(forge, AzureDevOpsForge):
+        forge.verify_access()
+        return {"created": [], "existing": [], "failed": [],
+                "mode": "azure_on_attachment", "verified": [s.name for s in specs]}
     present = {name.casefold() for name in forge.list_labels()}
     report: dict = {"created": [], "existing": [], "failed": []}
     for spec in specs:

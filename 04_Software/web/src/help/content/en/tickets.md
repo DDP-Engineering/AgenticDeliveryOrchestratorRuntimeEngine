@@ -1,6 +1,6 @@
 # Tickets for automatic pickup
 
-ADORE picks up tickets from your forge repository (GitHub, GitLab or Gitea) when they carry the right labels, and you can also start one by hand. This article covers labels, eligibility and the Tickets view.
+ADORE picks up tickets from your forge repository (GitHub, GitLab, Gitea or Azure DevOps Services) when they carry the right labels, and you can also start one by hand. This article covers labels, eligibility and the Tickets view.
 
 
 Tickets with the configured epic type label are not picked up or started. Manual Start remains available for eligible tickets while Monitoring is Paused.
@@ -14,6 +14,10 @@ Each project has a **Monitoring** state, shown as **Active** or **Paused** in th
 An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 
 Before automatic pickup, `workflow.mode = "auto"` probes a present AEGIS payload and refuses it if unusable; an absent payload selects Direct. `workflow.mode = "direct"` skips AEGIS. Manual Start chooses its workflow explicitly. The agent owns repository checks in both workflows; ADORE retains approval and publication controls. See [Repository workflows](/help/projects#workflows).
+
+## Azure Work Items and PR labels {#azure-tags}
+
+For Azure DevOps Services, only the configured exact project and repository-owned Area Path are eligible. Allowed Work Item types and terminal states follow the project's process settings; child areas are not included. HTML Description and Acceptance Criteria become readable text. Native priority is informational: configured priority tags still control ranking and readiness. Ready, hold/exclude, status, answered and candidate approval are Work Item tags. Revision is a separate PR label; put it on the Pull Request, not the Work Item. The label helper verifies access and names available on attachment, not a repository label catalog. It creates no dummy Work Item or PR and preserves unrelated human tags.
 
 ## Create the labels first {#labels}
 

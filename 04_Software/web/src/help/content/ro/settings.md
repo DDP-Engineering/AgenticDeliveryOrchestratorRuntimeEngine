@@ -2,6 +2,10 @@
 
 Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică: ce tichete preia, limitele, cum publică și ce agent folosește. Administratorii modifică mai multe setări și le salvează împreună; dezvoltatorii le citesc.
 
+## Repository Azure și scope tichete {#azure-settings}
+
+Azure DevOps Services adaugă **URL organizație**, **Proiect Azure**, **Area Path pentru Work Items**, **Tipuri Work Item permise** și **Stări terminale Work Item** în Repository. Folosește nume native exacte ale procesului, unul pe linie. Rezervă repository-ului o subarie exactă, distinctă. Prioritatea nativă nu înlocuiește tags de prioritate. Reviewerii sunt GUID-uri de identitate Azure. Revizia folosește labels pe PR; preluarea și aprobarea folosesc tags pe Work Items. Administratorii previzualizează și aplică folosind aceleași reguli de pauză și lipsă a joburilor active; dezvoltatorii nu editează. Executor Configuration rămâne separat. CI ilizibil rămâne necunoscut, niciodată succes.
+
 ## Unde găsiți Setările {#where}
 
 Deschideți [Proiecte](/projects), alegeți un proiect și selectați fila **Setări**. Filele sunt Rezumat, Setări, Lucrări, Statistici, Istoric și, pentru administratori, Acces.

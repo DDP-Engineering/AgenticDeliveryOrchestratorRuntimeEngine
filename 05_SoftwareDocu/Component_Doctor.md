@@ -7,6 +7,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Doctor Component
 
+Azure Services probes `az --version` plus the named official `azure-devops`
+extension. `auth_status(..., platform=...)` verifies the configured repository,
+exact Area Path node and a scoped Boards query through an injected runner.
+Without explicit scope it reports unauthenticated rather than using global
+Azure defaults. Results expose actionable value-free guidance, not CLI streams.
+Checks establish read/query access, not write permissions. See
+[Azure DevOps component](Component_Azure_DevOps.md).
+
 ## 1. Purpose
 
 `adore/doctor.py` provides offline-testable environment and target-payload

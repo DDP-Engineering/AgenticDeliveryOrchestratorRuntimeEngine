@@ -74,8 +74,9 @@ AEGIS_SUPPORTED_TEXT = (
 )
 
 # Platform-CLI + auth mapping by platform kind.
-_CLI_FOR_KIND = {"gitlab": GLAB, "github": GH, "gitea": TEA}
-_AUTH_COMPONENT_FOR_KIND = {"gitlab": GLAB_AUTH, "github": GH_AUTH, "gitea": TEA_AUTH}
+_CLI_FOR_KIND = {"gitlab": GLAB, "github": GH, "gitea": TEA, "azure_devops": "az"}
+_AUTH_COMPONENT_FOR_KIND = {"gitlab": GLAB_AUTH, "github": GH_AUTH, "gitea": TEA_AUTH,
+                            "azure_devops": "az-auth"}
 # Auth probe argv by kind. Kind-specific on purpose: tea has no `auth status`
 # subcommand - and tea exits 0 for UNKNOWN subcommands ("No help topic"), so a
 # generic `<cli> auth status` would falsely report Gitea as authenticated.
@@ -89,6 +90,12 @@ _AUTH_PROBE_FOR_KIND = {
 # OS-specific (and a "*" generic) install/setup text. Kept as data so the
 # wizard and `adore doctor` render identical instructions.
 GUIDANCE: dict[str, dict[str, str]] = {
+    "az": {"*": "Install Microsoft Azure CLI, then `az extension add --name azure-devops`. "
+                   "Azure DevOps Services only; Server is not supported."},
+    "az-auth": {"*": "Provide AZURE_DEVOPS_EXT_PAT to the ADORE service account or use "
+                        "`az devops login --organization https://dev.azure.com/ORG` on the host. "
+                        "Grant Code and Work Items read/write; configure project, repository and "
+                        "a repository-owned Area Path. Never give the executor the PAT."},
     GIT: {
         "windows": "Install Git for Windows: `winget install Git.Git` "
                    "(or https://git-scm.com/download/win).",
@@ -455,19 +462,30 @@ def discover_container_commands(runner: CommandRunner = run_command) -> list[str
 def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolStatus:
     """
     @brief      Whether the platform CLI for this kind is present.
-    @param[in]  kind "gitlab" (glab), "github" (gh) or "gitea" (tea).
+    @param[in]  kind gitlab (glab), github (gh), gitea (tea) or azure_devops (az).
     @param[in]  runner Injectable command runner.
-    @return     The ToolStatus for glab/gh/tea.
-    @exception  ValueError When kind is not gitlab/github/gitea.
+    @return     The ToolStatus for the host CLI and Azure extension when required.
+    @exception  ValueError When kind is unsupported.
     """
     cli = _CLI_FOR_KIND.get(kind)
     if cli is None:
         raise ValueError(f"unknown platform kind: {kind!r}")
-    return _probe(runner, cli, [cli, "--version"])
+    status = _probe(runner, cli, [cli, "--version"])
+    if kind == "azure_devops" and status.present:
+        try:
+            result = runner(["az", "extension", "show", "--name", "azure-devops",
+                             "--output", "json", "--only-show-errors"], timeout=8)
+            data = strict_json_loads(result.stdout) if result.ok and not result.timed_out else {}
+            if not isinstance(data, dict) or data.get("name") != "azure-devops":
+                raise ValueError
+        except (OSError, TimeoutError, ValueError, TypeError):
+            return ToolStatus(cli, True, "", "Install the official azure-devops extension")
+    return status
 
 
 def auth_status(
     kind: str, runner: CommandRunner = run_command, *, external_auth: bool = True,
+    platform=None,
 ) -> AuthStatus:
     """
     @brief      Verify platform authentication using its account probe.
@@ -479,6 +497,21 @@ def auth_status(
     @return     Presence and verified authentication, with value-free Gitea guidance.
     @exception  ValueError When kind is unsupported.
     """
+    if kind == "azure_devops":
+        from adore.forge.azure_devops import AzureDevOpsForge
+        from adore.forge.base import ForgeError
+
+        try:
+            if platform is None:
+                raise ValueError("Configure Azure scope before verifying access")
+            forge = AzureDevOpsForge(platform.repo, runner, organization=platform.organization,
+                                     project=platform.project, area_path=platform.area_path,
+                                     work_item_types=platform.work_item_types,
+                                     closed_states=platform.closed_states)
+            forge.verify_access()
+            return AuthStatus(kind, "az", True, True, "")
+        except (ForgeError, ValueError):
+            return AuthStatus(kind, "az", True, False, GUIDANCE["az-auth"]["*"])
     probe = _AUTH_PROBE_FOR_KIND.get(kind)
     if probe is None:
         raise ValueError(f"unknown platform kind: {kind!r}")

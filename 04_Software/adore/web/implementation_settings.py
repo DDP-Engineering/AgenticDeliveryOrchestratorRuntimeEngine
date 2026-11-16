@@ -24,7 +24,8 @@ from adore.util import strict_json_loads
 from adore.web.executor_settings import PROVIDER_KEYS
 
 # CONSTANTS
-COLLECTION_KEYS = frozenset({"recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides",
+COLLECTION_KEYS = frozenset({"platform.work_item_types", "platform.closed_states",
+                             "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides",
                              "executor.env_keys"})
 #: The stages whose executor launch a timeout override bounds, matching
 #: `adore.config.AEGIS_STAGES`; AEGIS 0.15.0 has no deliver stage.
@@ -45,6 +46,11 @@ def valid_collection(key: str, value: object) -> bool:
         """@brief Reject booleans, fractions and integers beyond browser precision."""
         return type(item) is int and minimum <= item <= MAX_SAFE_INTEGER
 
+    if key in {"platform.work_item_types", "platform.closed_states"}:
+        return (isinstance(value, list) and 1 <= len(value) <= 32
+                and all(isinstance(v, str) and 0 < len(v) <= 128 and v == v.strip()
+                        and not any(ord(c) < 32 for c in v) for v in value)
+                and len(set(value)) == len(value))
     if key == "recovery.retry_backoff_seconds":
         return (isinstance(value, list) and 0 < len(value) <= 1000
                 and all(integer(item, 0) for item in value))

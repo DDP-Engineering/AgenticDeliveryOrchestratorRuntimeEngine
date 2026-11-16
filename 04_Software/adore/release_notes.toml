@@ -16,6 +16,16 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "new"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Connect Azure cloud projects with scoped Work Items and Pull Requests.", fr = "Connectez des projets Azure cloud avec des Work Items ciblés et des Pull Requests.", de = "Azure-Cloudprojekte mit eingegrenzten Work Items und Pull Requests verbinden.", ro = "Conectează proiecte Azure cloud cu Work Items delimitate și Pull Requests." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Azure connections use exact endpoints and launch correctly on Windows.", fr = "Les connexions Azure utilisent les bonnes routes et fonctionnent sous Windows.", de = "Azure-Verbindungen nutzen eindeutige Ziele und starten unter Windows korrekt.", ro = "Conexiunile Azure folosesc rute exacte și pornesc corect pe Windows." }
+
+[[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
 text = { en = "Target integration uses the bot identity; Git setup errors no longer relaunch the agent.", fr = "L’intégration utilise l’identité du bot ; les erreurs Git ne relancent plus l’agent inutilement.", de = "Zielintegration nutzt die Bot-Identität; Git-Konfigurationsfehler starten den Agenten nicht neu.", ro = "Integrarea folosește identitatea botului; erorile de configurare Git nu mai relansează agentul." }

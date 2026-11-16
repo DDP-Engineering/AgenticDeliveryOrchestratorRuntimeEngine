@@ -98,7 +98,9 @@ need_cmd uv   "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
 need_cmd git  "Install: sudo apt-get install -y git"
 if ! command -v glab >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1 \
     && ! command -v tea >/dev/null 2>&1; then
-    fail "none of 'glab', 'gh' or 'tea' found; ADORE drives the platform through one of them (setup doc section 3)"
+    need_cmd az "Install Microsoft Azure CLI (Azure DevOps Services only)"
+    az extension show --name azure-devops --output none --only-show-errors >/dev/null 2>&1 \
+        || fail "Install the official extension: az extension add --name azure-devops"
 fi
 
 # 2. Python environment (locked, reproducible)

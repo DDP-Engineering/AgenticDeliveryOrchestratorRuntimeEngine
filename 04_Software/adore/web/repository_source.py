@@ -28,7 +28,7 @@ import json
 import os
 from pathlib import Path
 import re
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from adore.util import CommandResult, CommandRunner
 
@@ -46,7 +46,8 @@ _USER = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
 _SCP = re.compile(r"(?P<user>[^@\s]+)@(?P<host>[^:\s]+):(?P<path>[^\s]+)")
 _HEAD = re.compile(r"^ref: refs/heads/([^\t\r\n]+)\tHEAD\r?$", re.M)
 _ORIGIN = re.compile(r'^\[remote "origin"\]\s*$(.*?)(?=^\[|\Z)', re.M | re.S)
-_PUBLIC = {"github.com": "github", "gitlab.com": "gitlab"}
+_PUBLIC = {"github.com": "github", "gitlab.com": "gitlab",
+           "dev.azure.com": "azure_devops", "ssh.dev.azure.com": "azure_devops"}
 
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -64,6 +65,8 @@ class RepositoryUrl:
     host: str
     repo: str
     name: str
+    organization: str = ""
+    project: str = ""
 
 
 # LOCAL HELPERS
@@ -123,6 +126,29 @@ def parse_repository_url(url: object) -> RepositoryUrl:
     path = path.strip("/")
     path = path[:-4] if path.endswith(".git") else path
     segments = path.split("/")
+    if host.lower() in {"dev.azure.com", "ssh.dev.azure.com"}:
+        if (host.lower() == "dev.azure.com" and len(segments) == 4 and segments[2] == "_git"
+                and not scp and parts.scheme == "https" and not parts.port):
+            org, project, repo = segments[0], unquote(segments[1]), unquote(segments[3])
+        elif (host.lower() == "ssh.dev.azure.com" and len(segments) == 4 and segments[0] == "v3"
+              and (scp or parts.scheme == "ssh") and user is not None
+              and _USER.fullmatch(user)):
+            org, project, repo = segments[1], unquote(segments[2]), unquote(segments[3])
+        else:
+            raise RepositorySourceError("repository_url_invalid")
+        from adore.forge.azure_devops import (
+            DEFAULT_CLOSED_STATES,
+            DEFAULT_TYPES,
+            validate_azure_scope,
+        )
+
+        organization = f"https://dev.azure.com/{org}"
+        try:
+            validate_azure_scope(organization, project, repo, project + "\\repository",
+                                 list(DEFAULT_TYPES), list(DEFAULT_CLOSED_STATES))
+        except ValueError as exc:
+            raise RepositorySourceError("repository_url_invalid") from exc
+        return RepositoryUrl(value, host.lower(), repo, repo, organization, project)
     if (
         not _HOST.fullmatch(host)
         or user is not None
@@ -281,7 +307,9 @@ def origin_matches(first: str, second: str) -> bool:
         a, b = parse_repository_url(first), parse_repository_url(second)
     except RepositorySourceError:
         return False
-    return a.host == b.host and a.repo.casefold() == b.repo.casefold()
+    return (a.host == b.host and a.repo.casefold() == b.repo.casefold()
+            and a.organization.casefold() == b.organization.casefold()
+            and a.project.casefold() == b.project.casefold())
 
 
 def read_origin(clone: Path) -> str | None:

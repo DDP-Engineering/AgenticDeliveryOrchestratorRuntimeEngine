@@ -10,12 +10,16 @@ Eine aktuelle Umgebungsprüfung wird an das erstellte Projekt übertragen. Ungep
 
 Eine erfolgreiche externe CLI-Anmeldung bleibt teilweise geprüft, da sie sich außerhalb von ADORE unbemerkt ändern kann. Verbinden Sie den Repository-Zugang und prüfen Sie erneut, um die Projekt-Zugangsdaten zu binden.
 
+## Azure DevOps Services {#azure-devops}
+
+Wählen Sie Azure DevOps Services für Azure Repos und Boards in der Cloud; Server wird nicht unterstützt. Repository-URL lesen, **Organisations-URL**, **Azure-Projekt**, Repository-Name und Zielbranch bestätigen, dann den exakten eigenen **Bereichspfad der Work Items** angeben, etwa `Payments\Backend`. Unterbereiche sind ausgeschlossen. Der Administrator installiert Azure CLI mit offizieller Erweiterung und verwaltet die unbeaufsichtigte Anmeldung des ADORE-Dienstkontos extern; niemals Tokens in Projekteinstellungen eingeben. Git-Zugriff ist separat. Importe verwenden denselben Bereich. Prüfen Sie den Entwurf und die Voraussetzungen und erstellen Sie das Projekt gestoppt, bevor Sie die Aufnahme aktivieren.
+
 ## Bevor Sie beginnen {#before-you-start}
 
 Halten Sie Folgendes bereit:
 
 - Die Repository-Adresse (https oder ssh), die das Konto des ADORE-Servers lesen kann. ADORE klont das Repository beim Erstellen des Projekts in einen eigenen Ordner.
-- Ein GitLab-, GitHub- oder Gitea-Konto, das Tickets lesen und aktualisieren und Review-Entwürfe erstellen darf.
+- Ein GitLab-, GitHub-, Gitea- oder Azure-DevOps-Services-Konto, das Tickets lesen und aktualisieren und Review-Entwürfe erstellen darf.
 - Die Namen des Bereitschafts- und des Freigabelabels. Ein Mensch setzt das Bereitschaftslabel, damit ein Ticket aufgenommen werden kann; siehe [Tickets für die automatische Aufnahme](/help/tickets#labels).
 - Die Modell-ID für Pi und bei Containern einen laufenden Docker- oder Podman-Dienst. Das gemeinsame Standardimage wird beim Import automatisch vorbereitet; eigene Images müssen bereits in diesem Dienst vorhanden sein. Siehe [Executor und Modelle](/help/executors).
 

@@ -61,8 +61,12 @@ always performs the complete check before publishing an archive.
 
 The default address is <http://127.0.0.1:8765/>. A new installation creates the
 account **admin**, password **admin**; change it when signing in.
+Azure cloud operators can follow the included [Azure DevOps Services guide](Azure_DevOps_Services.md)
+and `config.azure-devops.example.toml`; these supplement the three compact guides
+under `Documentation/`.
 Add and check your projects in the interface. Git, an authenticated forge CLI
-(`tea`, `gh` or `glab`), project-specific build tools and Docker/Podman when selected are
+(`tea`, `gh`, `glab`, or `az` with the official `azure-devops` extension for
+Azure cloud Services), project-specific build tools and Docker/Podman when selected are
 project prerequisites. They are checked when configuring a project and are
 not required merely to open the interface. Do not start an additional
 `adore run --loop` scheduler for projects managed by the web worker.

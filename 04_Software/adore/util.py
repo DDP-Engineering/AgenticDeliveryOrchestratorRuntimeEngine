@@ -174,6 +174,8 @@ def run_command(
                 Raw stdout is retained for byte-exact consumers. Display output
                 is decoded as UTF-8 with replacement to survive Windows console
                 encodings; it must not be used to fingerprint file content.
+                Windows Azure CLI launchers use their installation's Python,
+                never cmd.exe; all human arguments remain literal argv entries.
 
                 `timed_out=True` is set ONLY on the wrapper-timeout path
                 below (`subprocess.TimeoutExpired`); the normal-completion
@@ -189,12 +191,16 @@ def run_command(
     """
     argv_list = [str(part) for part in argv]
     try:
+        from adore.azure_cli import windows_azure_argv
+
+        child_env = automatic_environment(env)
+        spawn_argv = windows_azure_argv(argv_list, child_env)
         completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
-            argv_list,
+            spawn_argv,
             capture_output=True,
             cwd=str(cwd) if cwd is not None else None,
             timeout=timeout,
-            env=automatic_environment(env),
+            env=child_env,
             stdin=subprocess.DEVNULL,
             check=False,
             **background_process_options(),

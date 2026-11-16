@@ -7,6 +7,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Component: Repository environment, build and packaging tools
 
+Portable bundles copy the supplemental Azure Services operator guide and complete
+Azure TOML example to the bundle root, preserving the three compact guides under
+`Documentation/`. The manifest's `external_forge_tools` names `az` plus the official
+`azure-devops` extension. These host tools/credentials are not embedded in the
+runtime or executor. No Python dependency change is required. Azure Server is
+not supported. See [Azure DevOps component](Component_Azure_DevOps.md).
+
 ## 1. Purpose
 
 Separate development preparation, production web builds and complete user
@@ -100,7 +107,11 @@ optional periodic once mode. Preparation-only and explicit uninstall are support
 Uninstall retains run state, worktrees, containers and other operator data.
 
 Installers validate the source layout/configuration and provision the web Python
-extra. Linux can prepare missing shared runtime images; Windows verifies prepared
+extra. Forge preflight also accepts Azure CLI when the official `azure-devops`
+extension is installed; otherwise it prints the installation command. Azure
+Services requires externally provisioned host authentication and explicit
+organization/project/repository/Area Path scope. No credentials are installed
+or forwarded to executors. Linux can prepare missing shared runtime images; Windows verifies prepared
 images. Explicit skip options retain operator responsibility. Unattended open
 egress requires its explicit opt-in. Service identity and absolute config paths
 belong to the operator; source startup uses the frozen Python environment.

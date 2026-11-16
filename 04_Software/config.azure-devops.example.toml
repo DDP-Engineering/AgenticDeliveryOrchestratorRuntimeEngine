@@ -1,0 +1,90 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# Azure DevOps Services example. Replace resource names and paths, then run:
+# adore -c config.azure-devops.example.toml config validate
+# Host dependencies: git, az + official azure-devops extension, container runtime.
+# Authenticate the ADORE service account externally. Never store a PAT here.
+
+[agent]
+name = "ADORE"
+
+[platform]
+kind = "azure_devops"
+organization = "https://dev.azure.com/contoso"
+project = "Payments"
+repo = "backend"
+# Exact Area Path reserved for THIS repository. Subareas are NOT included.
+area_path = 'Payments\Backend'
+# Adapt these literal names to your Boards process before enabling pickup.
+work_item_types = ["Bug", "Task", "User Story", "Product Backlog Item", "Issue", "Requirement"]
+closed_states = ["Closed", "Done", "Removed"]
+
+[state]
+store_root = ".adore-azure"
+
+[worktree]
+repo_path = "../backend"
+root = "worktrees"
+branch_template = "{slug}/{run_id}"
+
+[executor]
+provider = "openai"
+model = "gpt-5.5"
+env_keys = ["OPENAI_API_KEY"]
+
+[container]
+runtime = "docker"
+image = "adore-executor-base:1.0.0"
+
+[polling]
+mode = "loop"
+poll_interval_seconds = 60
+poll_jitter_seconds = 5
+poll_backoff = true
+max_concurrent_runs = 1
+
+[readiness]
+require_priority_label = true
+require_acceptance_criteria = true
+
+[labels.lifecycle]
+ready = "agent-ready"
+working = "agent-working"
+clarify = "agent-clarify"
+answered = "agent-answered"
+review = "agent-mr"
+failed = "agent-failed"
+done = "agent-done"
+
+[labels.selection]
+priority_high = "P1"
+priority_medium = "P2"
+priority_low = "P3"
+type_bug = "bug"
+type_epic = "epic"
+
+[labels.control]
+hold = "agent-hold"
+exclude = "no-agent"
+
+[delivery]
+target_branch = "main"
+draft = true
+require_human_approval = true
+approval_label = "agent-approved"
+# Optional Azure identity GUIDs, not display names. Empty requests no reviewers.
+reviewers = []
+remove_source_branch = true
+
+[review]
+revise_label = "agent-revise"
+max_review_rounds = 5
+
+[budgets]
+max_iterations = 20
+max_wall_clock_seconds = 5400
+max_cost_usd = 5.0
+max_files_touched = 120

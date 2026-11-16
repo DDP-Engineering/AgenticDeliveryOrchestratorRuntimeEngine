@@ -308,7 +308,11 @@ class Orchestrator:
             config=config,
             forge=build_forge(
                 config.platform.kind, config.platform.repo,
-                runner=project_runner(Path(env_file).parent, config), login=config.platform.login
+                runner=project_runner(Path(env_file).parent, config), login=config.platform.login,
+                organization=config.platform.organization, project=config.platform.project,
+                area_path=config.platform.area_path,
+                work_item_types=config.platform.work_item_types,
+                closed_states=config.platform.closed_states,
             ),
             store=StateStore(config.state.store_root, config.agent.slug),
             worktrees=WorktreeManager(
@@ -2506,6 +2510,7 @@ class Orchestrator:
                 self.store.journal(
                     run.run_id, mr_event, url=run.mr_url, iid=run.mr_iid
                 )
+            self.forge.link_ticket(run.mr_iid, ticket.iid)
             if run.workflow == "direct" and existing_review:
                 # Adoption, revision and interrupted publication all need the
                 # current approved evidence, not the branch's previous summary.

@@ -29,7 +29,7 @@ export function sameSettingValue(left: unknown, right: unknown): boolean {
 /** Visible editor input for a saved value or a recovered candidate member. */
 export function settingDraftValue(row: SettingRow, config: Record<string,unknown>, value: unknown = row.value): string {
   if (row.input==="connection") return JSON.stringify(value===row.value ? connectionOf(config) : value);
-  if (["reviewers","retry-delays"].includes(row.input) && Array.isArray(value)) return value.join("\n");
+  if (["reviewers","azure-names","retry-delays"].includes(row.input) && Array.isArray(value)) return value.join("\n");
   return editValue(value);
 }
 
@@ -45,9 +45,9 @@ export function normalizeSettingDraft(row: SettingRow, raw: string): string | nu
       return validCredentialNames(parsed) ? JSON.stringify(parsed) : null;
     } catch { return null; }
   }
-  if (row.input==="reviewers") {
+  if (["reviewers", "azure-names"].includes(row.input)) {
     const names=raw.split(/\r?\n/).map(value=>value.trim()).filter(Boolean);
-    return validBatchValues({"delivery.reviewers":names}) ? JSON.stringify(names) : null;
+    return validBatchValues({[row.key]:names}) ? JSON.stringify(names) : null;
   }
   if (["duration","retry-delays","stage-timeouts"].includes(row.input)) return implementationDraft(row.input,raw);
   if (row.input==="boolean") return ["true","false"].includes(raw) ? raw : null;
@@ -63,7 +63,7 @@ export function normalizeSettingDraft(row: SettingRow, raw: string): string | nu
 }
 
 function typedDraft(row: SettingRow, wire: string): unknown {
-  if (["connection","credential-names","reviewers","retry-delays","stage-timeouts"].includes(row.input)) return JSON.parse(wire);
+  if (["connection","credential-names","reviewers","azure-names","retry-delays","stage-timeouts"].includes(row.input)) return JSON.parse(wire);
   if (row.input==="number") return Number(wire);
   if (row.input==="boolean" || typeof row.value==="boolean") return wire==="true";
   return wire;

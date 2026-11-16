@@ -48,6 +48,15 @@ ordinary Retry cannot silently change a plan or repeat partial setup.
 See [Preparation](Component_Preparation.md) and
 [Execution](Component_Execution.md).
 
+## Azure DevOps Services
+
+Azure Services uses this same conductor, passing explicit platform scope to the
+forge factory. Before entering review, creation/adoption/retry invokes the
+idempotent `Forge.link_ticket` hook; failure preserves publication retry rather
+than reporting in-review without the source association. Other adapters keep
+the default no-op. Approval, polling, replay, review rounds and human-merge Git
+cleanup are unchanged. See [Azure DevOps component](Component_Azure_DevOps.md).
+
 ## Admission and concurrency
 
 Shared selection requires an open eligible ticket, ready labels, no hold/exclude,
