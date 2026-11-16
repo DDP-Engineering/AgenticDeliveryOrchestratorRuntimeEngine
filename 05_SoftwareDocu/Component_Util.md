@@ -21,7 +21,10 @@ forge, Git, runtime, worker and native executor launches.
 ## 2. Responsibilities
 
 - Run external commands without a shell, capturing all output
-  (`run_command`).
+  (`run_command`). Windows `az`/`az.cmd`/`az.bat` uses its selected installation's
+  Python and `-IBm azure.cli`, bypassing cmd expansion. Original arguments and
+  `CommandResult.argv` stay intact; missing or unsupported layouts fail closed.
+  See [Azure CLI bridge](Component_Azure_CLI.md).
 - Define the injectable `CommandRunner` protocol so every consumer can be
   unit-tested offline with a fake runner.
 - Parse duration strings ("90s", "30m", "24h", "7d", bare seconds) to
@@ -62,7 +65,7 @@ JSON/URLs) and retry/backoff policy (the orchestrator's concern).
 
 ## 4. Dependencies
 
-- Internal: none (lowest layer).
+- Internal: `azure_cli.windows_azure_argv` (stdlib-only host launcher resolution).
 - External: Python standard library only (`subprocess`, `re`, `datetime`,
   `shutil`, `os`, `sys`, and `ctypes` on Windows for `process_alive`).
 

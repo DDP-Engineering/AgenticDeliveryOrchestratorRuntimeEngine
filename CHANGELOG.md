@@ -18,6 +18,13 @@ This project follows Keep a Changelog and Semantic Versioning.
   Azure CLI, with CLI/GUI configuration, process mappings, separate tag/PR-label
   signaling, replay-safe comments, advisory CI, onboarding and operator acceptance guidance.
 
+### Fixed
+
+- Address Azure REST operations by exact Microsoft location IDs rather than ambiguous
+  resource names, retaining the official extension's host authentication.
+- Launch the standard Windows Azure CLI through its bundled Python without shell
+  expansion, including prerequisite checks and PR label/Work Item association commands.
+
 ## [0.17.0] - 2026-11-15
 
 ### Added

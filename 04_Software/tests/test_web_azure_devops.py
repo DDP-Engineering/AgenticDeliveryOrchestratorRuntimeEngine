@@ -15,6 +15,7 @@
 
 # IMPORTS
 import json
+from pathlib import Path
 
 from adore.config import load_config, validate_config
 from adore.profiles import ProfileStore
@@ -141,10 +142,11 @@ def test_azure_repository_source_and_auth_checks_are_scoped_and_redacted(tmp_pat
             return CommandResult(argv=argv, exit_code=0, stdout="azure-cli 2.80.0")
         if argv[:3] == ["az", "extension", "show"]:
             data = {"name": "azure-devops", "version": "1.0.2"}
-        if "--resource" in argv:
-            resource = argv[argv.index("--resource") + 1]
-            assert "project=Payments" in argv
-            assert argv[argv.index("--organization") + 1] == "https://dev.azure.com/contoso"
+        if argv[-2] == "request":
+            spec = json.loads(Path(argv[-1]).read_text(encoding="utf-8"))
+            resource = spec["resource"]
+            assert spec["route"]["project"] == "Payments"
+            assert spec["organization"] == "https://dev.azure.com/contoso"
             data = ({"name": "backend", "project": {"name": "Payments"}}
                     if resource == "repositories" else
                     {"id": 3, "path": "\\Payments\\Area\\Backend", "structureType": "area"}

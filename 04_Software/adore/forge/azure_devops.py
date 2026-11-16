@@ -22,9 +22,11 @@ from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
+import sys
 import tempfile
 from urllib.parse import quote
 
+from adore import azure_cli
 from adore.forge.base import Comment, Forge, ForgeError, ForgeResponseError, MergeRequest, Ticket
 from adore.util import CommandRunner, run_command, strict_json_loads
 
@@ -152,7 +154,7 @@ class AzureDevOpsForge(Forge):
     def _api(self, area: str, resource: str, *, method: str = "GET", route: dict | None = None,
              query: dict | None = None, body: object = None, version: str = "7.1",
              patch: bool = False, allow_continuation: bool = False) -> dict:
-        """@brief Invoke a named REST resource with bounded, strict JSON validation.
+        """@brief Invoke an exact REST location with bounded, strict JSON validation.
         @details Payload files are private and ephemeral. Errors deliberately omit
                  CLI streams/argv, which may echo credentials or human content.
         @exception ForgeError On command, authentication, permission or API failure.
@@ -160,21 +162,20 @@ class AzureDevOpsForge(Forge):
         routes = {"project": self.project, **(route or {})}
         if area == "git":
             routes["repositoryId"] = self.repo
-        argv = ["az", "devops", "invoke", "--organization", self.organization,
-                "--area", area, "--resource", resource, "--api-version", version,
-                "--http-method", method, "--route-parameters",
-                *[f"{k}={v}" for k, v in routes.items()],
-                "--output", "json", "--only-show-errors"]
-        if query:
-            argv += ["--query-parameters", *[f"{k}={v}" for k, v in query.items()]]
+        # az devops invoke cannot select a location ID, and its name resolver
+        # ignores route parameters. Use the extension SDK in Azure CLI's own
+        # runtime, with fixed Microsoft IDs, preserving its authentication path.
+        spec = {"organization": self.organization, "area": area, "resource": resource,
+                "route": routes, "query": query or {}, "body": body, "method": method,
+                "version": version,
+                "media_type": "application/json-patch+json" if patch else "application/json"}
         try:
             with tempfile.TemporaryDirectory(prefix="adore-azure-") as temp:
-                if body is not None:
-                    path = Path(temp) / "body.json"
-                    path.write_text(json.dumps(body), encoding="utf-8")
-                    path.chmod(0o600)
-                    argv += ["--in-file", str(path), "--media-type",
-                             "application/json-patch+json" if patch else "application/json"]
+                path = Path(temp) / "request.json"
+                path.write_text(json.dumps(spec), encoding="utf-8")
+                path.chmod(0o600)
+                argv = [sys.executable, "-I", "-B", str(Path(azure_cli.__file__).absolute()),
+                        "request", str(path)]
                 result = self.runner(argv, timeout=60)
             if not result.ok or result.timed_out:
                 raise ForgeError("Azure request failed; check az + azure-devops, service-account "
@@ -190,7 +191,7 @@ class AzureDevOpsForge(Forge):
         data = _dict(data)
         if "error" in data or "errorCode" in data or "typeKey" in data:
             raise ForgeError("Azure API refused the request; check resource scope and permissions")
-        # az devops invoke adds the response-header token under this snake-case key.
+        # The bridge preserves the response-header token under this snake-case key.
         # Never accept a truncated resource that does not expose a paging contract.
         token = data.get("continuation_token")
         if token not in (None, "") and not allow_continuation:
@@ -320,7 +321,7 @@ class AzureDevOpsForge(Forge):
             if token is not None:
                 query["continuationToken"] = token
             data = self._api("wit", "comments", route={"workItemId": iid}, query=query,
-                             version="7.1-preview", allow_continuation=True)
+                             version="7.1-preview.4", allow_continuation=True)
             comments.extend(self._comment(item) for item in _items(data, "comments"))
             body_token, header_token = data.get("continuationToken"), data.get("continuation_token")
             if (body_token not in (None, "") and header_token not in (None, "")
@@ -345,7 +346,8 @@ class AzureDevOpsForge(Forge):
         """
         self._wi(iid)
         data = self._api("wit", "comments", method="POST", route={"workItemId": iid},
-                         query={"format": "markdown"}, body={"text": body}, version="7.1-preview")
+                         query={"format": "markdown"}, body={"text": body},
+                         version="7.1-preview.4")
         return _id(data.get("id"))
 
     def edit_comment(self, iid: int, comment_id: int, body: str) -> None:
@@ -358,7 +360,7 @@ class AzureDevOpsForge(Forge):
         self._wi(iid)
         data = self._api("wit", "comments", method="PATCH",
                          route={"workItemId": iid, "commentId": _id(comment_id)},
-                         body={"text": body}, version="7.1-preview")
+                         body={"text": body}, version="7.1-preview.4")
         if _id(data.get("id")) != comment_id:
             raise ForgeResponseError("Azure updated a different comment")
 

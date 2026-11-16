@@ -66,16 +66,21 @@ class Runner:
     def __init__(self, *responses):
         self.responses = list(responses)
         self.calls = []
+        self.requests = []
 
     def __call__(self, argv, **kwargs):
         body = None
-        if "--in-file" in argv:
-            path = Path(argv[argv.index("--in-file") + 1])
+        if argv[-2] == "request":
+            path = Path(argv[-1])
             assert path.stat().st_mode & 0o077 == 0
-            body = json.loads(path.read_text(encoding="utf-8"))
+            request = json.loads(path.read_text(encoding="utf-8"))
+            self.requests.append(request)
+            body = request["body"]
+            assert argv[1:3] == ["-I", "-B"] and argv[3].endswith("azure_cli.py")
+        else:
+            assert argv[0] == "az"
         self.calls.append((argv, body))
         assert kwargs.get("timeout") in (None, 8, 60)
-        assert argv[0] == "az"
         response = self.responses.pop(0)
         if isinstance(response, Exception):
             raise response
@@ -107,9 +112,9 @@ def test_scoped_pickup_normalizes_html_acceptance_and_preserves_native_priority(
     wiql = runner.calls[0][1]["query"]
     assert "[System.AreaPath] = 'Payments\\Backend'" in wiql
     assert "[System.TeamProject] = 'Payments'" in wiql
-    for argv, _ in runner.calls:
-        assert argv[argv.index("--organization") + 1] == SCOPE["organization"]
-        assert "project=Payments" in argv
+    for request in runner.requests:
+        assert request["organization"] == SCOPE["organization"]
+        assert request["route"]["project"] == "Payments"
 
 
 @pytest.mark.parametrize("field,value", [
@@ -181,11 +186,11 @@ def test_status_comments_paginate_keep_markers_and_edit_existing_id():
                     {"comments": [comment(2)]}, work_item(), {"id": 3}, work_item(), {"id": 3})
     adapter = forge(runner)
     assert [c.id for c in adapter.list_comments(25)] == [1, 2]
-    assert "continuationToken=next" in runner.calls[2][0]
+    assert runner.requests[2]["query"]["continuationToken"] == "next"
     assert adapter.post_comment(25, "<!--marker-->status") == 3
     # A fresh adapter is the restart boundary: no transient comment-id map.
     forge(runner).edit_comment(25, 3, "<!--marker-->new status")
-    assert "commentId=3" in runner.calls[-1][0]
+    assert runner.requests[-1]["route"]["commentId"] == 3
     assert runner.calls[-1][1] == {"text": "<!--marker-->new status"}
 
 
@@ -265,7 +270,8 @@ def test_pr_threads_composite_comment_ids_survive_restart_and_inline_review():
     comment_id = adapter.post_mr_comment(7, "<!--status-->fix this")
     assert comment_id == comments[0].id == (9 << 32) | 2
     forge(runner).edit_mr_comment(7, comment_id, "updated")
-    assert "threadId=9" in runner.calls[-1][0] and "commentId=2" in runner.calls[-1][0]
+    assert runner.requests[-1]["route"]["threadId"] == 9
+    assert runner.requests[-1]["route"]["commentId"] == 2
 
 
 def test_pr_review_label_removal_uses_pr_resource_only():
@@ -293,7 +299,7 @@ def test_ci_is_advisory_and_never_invents_success(state, expected):
                                 "updatedDate": STAMP, "state": state}]})
     assert forge(runner).pipeline_status(7) == expected
     assert forge(Runner({"value": [{"id": 2}]}, {"value": []})).pipeline_status(7) == "none"
-    assert "iterationId=2" in runner.calls[-1][0]
+    assert runner.requests[-1]["route"]["iterationId"] == 2
     assert forge(Runner({})).pipeline_status(7) == "unknown"
     assert forge(Runner(CommandResult(argv=["az"], exit_code=1))).pipeline_status(7) == "unknown"
 
@@ -321,8 +327,7 @@ def test_dependency_access_and_label_helper_verify_scope_without_provisioning():
     report = ensure_labels(forge(runner), project_labels(config))
     assert report["mode"] == "azure_on_attachment" and report["created"] == []
     assert "agent-ready" in report["verified"]
-    assert all("--http-method" not in argv or argv[argv.index("--http-method") + 1]
-               in {"GET", "POST"} for argv, _ in runner.calls)
+    assert all(request["method"] in {"GET", "POST"} for request in runner.requests)
     config.platform.kind, config.platform.repo = "azure_devops", "backend"
     for key, value in SCOPE.items():
         setattr(config.platform, key, value)
@@ -367,14 +372,12 @@ def test_browse_and_pr_branch_lookup_are_bounded_and_postfiltered():
 
 
 def test_comment_continuation_headers_and_cli_preview_version_are_supported():
-    """@brief az invoke's header token is not confused with the REST body token.
-    @note The extension accepts numeric-preview, not numeric-preview.revision.
-    """
+    """@brief The SDK retains header tokens and the exact Boards preview revision."""
     runner = Runner(work_item(), {"comments": [comment()], "continuation_token": "next"},
                     {"comments": [comment(2)], "continuation_token": None})
     assert len(forge(runner).list_comments(25)) == 2
-    assert runner.calls[1][0][runner.calls[1][0].index("--api-version") + 1] == "7.1-preview"
-    assert "continuationToken=next" in runner.calls[2][0]
+    assert runner.requests[1]["version"] == "7.1-preview.4"
+    assert runner.requests[2]["query"]["continuationToken"] == "next"
     with pytest.raises(ForgeError, match="disagree"):
         forge(Runner(work_item(), {"comments": [], "continuationToken": "a",
                                   "continuation_token": "b"})).list_comments(25)

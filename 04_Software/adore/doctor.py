@@ -462,10 +462,10 @@ def discover_container_commands(runner: CommandRunner = run_command) -> list[str
 def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolStatus:
     """
     @brief      Whether the platform CLI for this kind is present.
-    @param[in]  kind "gitlab" (glab), "github" (gh) or "gitea" (tea).
+    @param[in]  kind gitlab (glab), github (gh), gitea (tea) or azure_devops (az).
     @param[in]  runner Injectable command runner.
-    @return     The ToolStatus for glab/gh/tea.
-    @exception  ValueError When kind is not gitlab/github/gitea.
+    @return     The ToolStatus for the host CLI and Azure extension when required.
+    @exception  ValueError When kind is unsupported.
     """
     cli = _CLI_FOR_KIND.get(kind)
     if cli is None:

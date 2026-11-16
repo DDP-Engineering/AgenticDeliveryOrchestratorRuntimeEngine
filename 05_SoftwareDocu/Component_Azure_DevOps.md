@@ -24,11 +24,15 @@ There is no completion, auto-complete, policy bypass or merge method.
 
 ## 3. Implementation Overview
 
-All REST requests use `az devops invoke`, an injected runner, a 60-second timeout
-and strict duplicate-rejecting JSON parsing. Organization/project route arguments
-are explicit; Git requests add repositoryId. Temporary JSON request files are
-mode 0600 inside automatically cleaned private directories, including JSON Patch
-payloads. Exceptions omit raw CLI streams, arguments and human content.
+REST requests use immutable Microsoft resource-location GUIDs through the official
+extension SDK in the host Azure CLI runtime, not `az devops invoke`'s ambiguous
+area/resource-name resolver. The injected runner launches `adore/azure_cli.py`
+with a private request-file path; the bridge owns a 55-second SDK child bound
+inside the runner's 60-second bound. Organization/project route values remain
+explicit; Git requests add repositoryId. Temporary JSON request files are mode
+0600 inside automatically cleaned private directories, including JSON Patch
+payloads. Exceptions omit raw CLI streams, arguments and human content. See
+[Azure CLI bridge](Component_Azure_CLI.md) for interpreter discovery and SDK dispatch.
 Dedicated `az repos pr work-item add` and `pr label remove` bind organization and
 disable Git auto-detection; their preceding repository-scoped reads establish PR
 identity. Mutating responses must acknowledge the expected IDs/settings.
@@ -41,7 +45,7 @@ partial result; nonadvancing/duplicate results are refused.
 ## 4. Dependencies
 
 - `Forge`, `Ticket`, `Comment`, `MergeRequest` and typed forge errors.
-- `CommandRunner`, `CommandResult`, strict JSON, standard-library HTMLParser.
+- `CommandRunner`, `CommandResult`, `azure_cli` bridge, strict JSON, standard-library HTMLParser.
 - External host `az`, official `azure-devops` extension and service-account auth.
 - Host Git remains responsible for local and publication Git operations.
 
@@ -110,7 +114,10 @@ and credentials are intentionally not shipped to the executor.
 `tests/test_azure_devops.py` covers public adapter operations, bad JSON, CLI/API
 failure, scope confusion, paging, tag revision conflicts, HTML normalization,
 PR state, review threads, comment restart identity, Work Item association replay,
-CI uncertainty and the never-merge payload boundary. `test_web_azure_devops.py`
+CI uncertainty and the never-merge payload boundary. `test_azure_cli.py` exercises
+the bridge against Microsoft's recorded metadata with competing same-name routes,
+reversed metadata order, Work Item GET/PATCH and repository-scoped PR POST.
+`test_web_azure_devops.py`
 covers CLI wizard answers, GUI enrollment/config metadata and scoped host checks.
 `web/tests/azureDevops.test.mjs` covers four-locale terminology and settings domain
 validation. Existing forge, orchestrator, selection, polling, RBAC, config and

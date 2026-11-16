@@ -25,6 +25,15 @@ az extension show --name azure-devops --output json
 ```
 
 On Windows Azure CLI is available through `winget install Microsoft.AzureCLI`.
+ADORE resolves the standard MSI/ZIP `az.cmd` launcher to its bundled Python and
+runs it directly, without cmd.exe or shell expansion of labels, paths or text.
+A missing embedded interpreter requires repairing the Azure CLI installation.
+On Linux, the installed `az` must expose its Python entry script (the official
+package and ordinary pip installations do); arbitrary shell wrappers are refused.
+REST requests address exact Microsoft resource-location IDs through the official
+extension's SDK in that same runtime, avoiding ambiguous resource-name lookup.
+No Azure Python libraries need to be installed in ADORE's environment, and sign-in
+continues to use the extension's host-account authentication.
 On Linux use Microsoft's distribution-specific installation instructions. ADORE
 neither installs these tools nor signs in on your behalf. Portable archives
 include the adapter, this guide and the configuration example, **not Azure CLI,
