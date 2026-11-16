@@ -67,6 +67,56 @@ for (const scope of ["global", "project"]) test(`${scope} Statistics keeps all t
   } finally { hold = false; releaseMetrics(); releaseUsage(); }
 });
 
+for (const scope of ["global", "project"] as const) for (const heldSource of ["usage", "metrics"] as const) {
+  test(`${scope} manual Refresh coalesces after one source completes while ${heldSource} is pending`, async ({ page }) => {
+    const time = new Date("2026-11-16T12:00:00Z");
+    await page.clock.install({ time }); await page.clock.pauseAt(new Date(time.getTime() + 1000));
+    await signIn(page);
+    const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
+    const reads = { metrics: 0, usage: 0 };
+    let hold = false, release = () => {};
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    await page.route(reporting, async route => {
+      const source = new URL(route.request().url()).pathname.endsWith("/metrics") ? "metrics" : "usage";
+      reads[source]++;
+      const response = await route.fetch();
+      if (hold && source === heldSource) await gate;
+      await route.fulfill({ response });
+    });
+    try {
+      await page.goto(scope === "global" ? "/metrics" : `/projects/${alpha}/statistics`);
+      const refresh = page.locator(".refresh-status button");
+      await expect(refresh).toHaveAttribute("aria-disabled", "false");
+      expect(reads).toEqual({ metrics: 1, usage: 1 });
+      const panel = page.locator("#metrics-tab-panel"), original = await panel.innerText();
+      const completedSource = heldSource === "usage" ? "metrics" : "usage";
+      const completed = page.waitForResponse(response => new URL(response.url()).pathname.endsWith(`/${completedSource}`));
+      hold = true; await refresh.click(); await (await completed).finished();
+      await page.clock.runFor(100);
+      await expect.poll(() => reads).toEqual({ metrics: 2, usage: 2 });
+      await expect(refresh).toHaveAttribute("aria-disabled", "true");
+      // Real pointer clicks bypass Playwright's aria-disabled actionability guard.
+      const box = (await refresh.boundingBox())!;
+      for (let click = 0; click < 3; click++) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await page.clock.runFor(100);
+      expect(reads).toEqual({ metrics: 2, usage: 2 });
+      await expect(panel).toHaveText(original, { useInnerText: true }); await expect(refresh).toBeFocused();
+      hold = false; release();
+      await expect(refresh).toHaveAttribute("aria-disabled", "false");
+      expect(reads).toEqual({ metrics: 2, usage: 2 });
+      await expect(panel).toHaveText(original, { useInnerText: true }); await expect(refresh).toBeFocused();
+      await refresh.click(); await expect.poll(() => reads).toEqual({ metrics: 3, usage: 3 });
+      await expect(refresh).toHaveAttribute("aria-disabled", "false");
+      // Independent automatic cadences still work after the manual cohort settles.
+      await page.clock.fastForward(15000);
+      await expect.poll(() => reads).toEqual({ metrics: scope === "project" ? 4 : 3, usage: 3 });
+      await page.clock.fastForward(15000);
+      await expect.poll(() => reads).toEqual({ metrics: scope === "project" ? 5 : 4, usage: 4 });
+      await expect(refresh).toHaveAttribute("aria-disabled", "false");
+    } finally { hold = false; release(); }
+  });
+}
+
 test("new metrics wait for validated usage from the same cohort; rejected authority discards the snapshot", async ({ page }) => {
   await page.clock.install(); await signIn(page);
   const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;

@@ -168,6 +168,9 @@ cadence; global metrics and usage retain 30 seconds. Faster metrics results stag
 until usage has also completed; publication waits for both in-flight sources and
 matching canonical scopes. Neither new source is combined with a source from the
 previous displayed cohort. A failed source invalidates the entire pending cohort.
+Manual Refresh/Retry refuses to start another pair while either source is in
+flight, including after its counterpart has finished. Automatic source timers
+remain independent and keep their existing per-source single-flight guards.
 Project Statistics requests only that project's sources, including for admins.
 Context keys include principal/session, role, authorized project identity, scope,
 period, time zone and grouping. Context changes immediately hide old data/exports.

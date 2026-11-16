@@ -5,6 +5,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Coalesce manual Statistics refreshes until both reporting sources finish, even
+  when one completes earlier, without changing independent automatic polling.
+
 ## [0.18.0] - 2026-11-16
 
 ### Added

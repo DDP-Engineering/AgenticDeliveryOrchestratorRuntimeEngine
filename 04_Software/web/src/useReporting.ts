@@ -63,7 +63,11 @@ export function useReporting(key: string | null,
       }
       finally { window.clearTimeout(deadline); }
     };
-    const refresh = () => { void load("metrics"); void load("usage"); };
+    const refresh = () => {
+      // Manual refresh joins the whole active read, not just each source's slot.
+      if (flights.metrics || flights.usage) return;
+      void load("metrics"); void load("usage");
+    };
     retry.current = refresh;
     refresh();
     const stopMetrics = startVisiblePolling(() => void load("metrics"), metricsInterval);

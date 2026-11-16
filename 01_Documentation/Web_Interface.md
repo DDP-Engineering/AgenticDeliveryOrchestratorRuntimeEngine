@@ -214,7 +214,9 @@ before the displayed reporting snapshot is replaced. Project Statistics does not
 wait for unrelated all-project reads. Jobs and project job History keep rows,
 paging, open details and consumption during same-context refreshes. Refresh is
 available on these informational views and on both change-history views; Users
-keeps its manual header Refresh. Repeated clicks join a pending read.
+keeps its manual header Refresh. Repeated clicks join a pending read. In
+Statistics this applies until both reports finish, even if one is already done;
+automatic source cadences remain independent.
 
 Refresh/Retry shows the last successful update time. An informational transport
 failure may leave the last validated snapshot visible with an explicit warning

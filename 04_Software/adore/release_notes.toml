@@ -9,6 +9,14 @@
 schema = 1
 
 [[release]]
+version = "Unreleased"
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
+text = { en = "Repeated Statistics refreshes wait for both reports without sending extra requests.", fr = "Actualiser à répétition attend les deux rapports sans lancer de requêtes supplémentaires.", de = "Wiederholtes Aktualisieren wartet auf beide Berichte, ohne zusätzliche Anfragen zu senden.", ro = "Reîmprospătările repetate așteaptă ambele rapoarte, fără cereri suplimentare." }
+
+[[release]]
 version = "0.18.0"
 date = "2026-11-16"
 
