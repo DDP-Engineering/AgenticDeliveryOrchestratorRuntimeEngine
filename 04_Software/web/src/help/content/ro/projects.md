@@ -10,12 +10,16 @@ O verificare actuală a mediului se transferă proiectului creat. Cerințele nev
 
 O autentificare CLI externă reușită rămâne parțială deoarece se poate schimba în afara ADORE fără o modificare observabilă. Conectați accesul la repository și verificați din nou pentru a lega credențialele proiectului.
 
+## Azure DevOps Services {#azure-devops}
+
+Alege Azure DevOps Services pentru Azure Repos și Boards în cloud; Server nu este suportat. Citește URL-ul repository-ului, confirmă **URL organizație**, **Proiect Azure**, numele repository-ului și ramura țintă, apoi introdu **Area Path pentru Work Items** exact, rezervat repository-ului, de exemplu `Payments\Backend`. Subariile sunt excluse. Administratorul instalează Azure CLI cu extensia oficială și gestionează extern autentificarea nesupravegheată a contului de serviciu ADORE; nu introduce niciodată tokenuri în setări. Accesul Git este separat. Importurile folosesc același scope. Revizuiește, verifică cerințele și creează proiectul oprit înainte de activarea preluării.
+
 ## Înainte de a începe {#before-you-start}
 
 Pregătiți următoarele:
 
 - Adresa repository-ului (https sau ssh) pe care contul serverului ADORE o poate citi. ADORE îl clonează în propriul dosar când creați proiectul.
-- Un cont GitLab, GitHub sau Gitea care poate citi și actualiza tichetele și poate crea cereri de revizuire ciornă.
+- Un cont GitLab, GitHub, Gitea sau Azure DevOps Services care poate citi și actualiza tichetele și poate crea cereri de revizuire ciornă.
 - Numele etichetelor ready și de aprobare. O persoană adaugă eticheta ready pentru ca un tichet să devină eligibil; vezi [Tichete pentru preluare automată](/help/tickets#labels).
 - ID-ul modelului pentru Pi și, pentru containere, un serviciu Docker sau Podman pornit. Imaginea comună implicită se pregătește automat la import; imaginile personalizate trebuie să existe deja în acel serviciu. Vezi [Executori și modele](/help/executors).
 

@@ -23,7 +23,7 @@ const copy = {
     webSearchKey: ["Web search key", "Internet access for the agent is on and web search uses Brave or Tavily, which needs its key.", "Save the search key in Settings → Agent and model."],
     rows: [
       ["Git", "Creates isolated working copies and records code changes.", "Install Git on the ADORE server and check that the service can run it."],
-      ["Repository command tool", "Lets ADORE read issues and publish draft reviews on Gitea, GitHub or GitLab.", "Install the command tool for the configured repository service on the ADORE server."],
+      ["Repository command tool", "Lets ADORE read issues and publish draft reviews on Gitea, GitHub, GitLab or Azure DevOps Services.", "Install the command tool for the configured repository service on the ADORE server."],
       ["Repository sign-in", "Confirms that the configured repository account can authenticate through its command tool.", "Sign in on the ADORE server using the configured account and verify its repository access."],
       ["Container engine", "Starts the isolated environment where the coding agent works.", "Check the configured container engine and the ADORE service account's permissions."],
       ["Coding agent in image", "Checks that Pi exists in the local container image.", "Check that the configured image is installed locally and contains Pi."],
@@ -41,7 +41,7 @@ const copy = {
     webSearchKey: ["Cheia de căutare web", "Accesul la internet al agentului este activat, iar căutarea web folosește Brave sau Tavily, care are nevoie de cheia sa.", "Salvează cheia de căutare în Setări → Agent și model."],
     rows: [
       ["Git", "Creează copii de lucru izolate și înregistrează modificările de cod.", "Instalează Git pe serverul ADORE și verifică dacă serviciul îl poate executa."],
-      ["Instrumentul pentru repository", "Permite ADORE să citească tichete și să publice propuneri de review pe Gitea, GitHub sau GitLab.", "Instalează pe serverul ADORE instrumentul pentru serviciul repository configurat."],
+      ["Instrumentul pentru repository", "Permite ADORE să citească tichete și să publice propuneri de review pe Gitea, GitHub, GitLab sau Azure DevOps Services.", "Instalează pe serverul ADORE instrumentul pentru serviciul repository configurat."],
       ["Autentificare la repository", "Confirmă că acel cont configurat se poate autentifica prin instrumentul serviciului repository.", "Autentifică-te pe serverul ADORE cu acel cont configurat și verifică accesul la repository."],
       ["Motorul de containere", "Pornește mediul izolat în care lucrează agentul de programare.", "Verifică motorul de containere configurat și permisiunile contului serviciului ADORE."],
       ["Agentul din imagine", "Verifică dacă Pi există în imaginea locală de container.", "Verifică dacă imaginea configurată este instalată local și conține Pi."],
@@ -59,7 +59,7 @@ const copy = {
     webSearchKey: ["Clé de recherche web", "L’accès Internet de l’agent est activé et la recherche web utilise Brave ou Tavily, qui demande sa clé.", "Enregistrez la clé de recherche dans Paramètres → Agent et modèle."],
     rows: [
       ["Git", "Crée des copies de travail isolées et enregistre les modifications du code.", "Installez Git sur le serveur ADORE et vérifiez son accès par le service."],
-      ["Outil du dépôt", "Permet de lire les tickets et de publier des demandes de revue en brouillon sur Gitea, GitHub ou GitLab.", "Installez l’outil du service de dépôt configuré sur le serveur ADORE."],
+      ["Outil du dépôt", "Permet de lire les tickets et de publier des demandes de revue en brouillon sur Gitea, GitHub, GitLab ou Azure DevOps Services.", "Installez l’outil du service de dépôt configuré sur le serveur ADORE."],
       ["Connexion au dépôt", "Confirme l’authentification du compte configuré via l’outil du dépôt.", "Connectez-vous sur le serveur ADORE avec le compte configuré et vérifiez son accès au dépôt."],
       ["Moteur de conteneurs", "Démarre l’environnement isolé de l’agent de programmation.", "Vérifiez le moteur configuré et les permissions du compte du service ADORE."],
       ["Agent dans l’image", "Vérifie la présence de Pi dans l’image locale du conteneur.", "Vérifiez que l’image configurée est installée localement et contient Pi."],
@@ -77,7 +77,7 @@ const copy = {
     webSearchKey: ["Websuche-Schlüssel", "Der Internetzugang des Agenten ist an und die Websuche nutzt Brave oder Tavily, das seinen Schlüssel braucht.", "Speichern Sie den Suchschlüssel unter Einstellungen → Agent und Modell."],
     rows: [
       ["Git", "Erstellt isolierte Arbeitskopien und speichert Codeänderungen.", "Installieren Sie Git auf dem ADORE-Server und prüfen Sie den Zugriff des Dienstes."],
-      ["Repository-Werkzeug", "Liest Tickets und veröffentlicht Review-Entwürfe auf Gitea, GitHub oder GitLab.", "Installieren Sie das Werkzeug des konfigurierten Repository-Dienstes auf dem ADORE-Server."],
+      ["Repository-Werkzeug", "Liest Tickets und veröffentlicht Review-Entwürfe auf Gitea, GitHub, GitLab oder Azure DevOps Services.", "Installieren Sie das Werkzeug des konfigurierten Repository-Dienstes auf dem ADORE-Server."],
       ["Repository-Anmeldung", "Bestätigt die Anmeldung des konfigurierten Kontos über das Repository-Werkzeug.", "Melden Sie sich auf dem ADORE-Server mit dem konfigurierten Konto an und prüfen Sie den Repository-Zugriff."],
       ["Container-Engine", "Startet die isolierte Arbeitsumgebung des Programmieragenten.", "Prüfen Sie die konfigurierte Engine und die Rechte des ADORE-Dienstkontos."],
       ["Agent im Image", "Prüft, ob Pi im lokalen Container-Image vorhanden ist.", "Prüfen Sie, ob das konfigurierte Image lokal installiert ist und Pi enthält."],

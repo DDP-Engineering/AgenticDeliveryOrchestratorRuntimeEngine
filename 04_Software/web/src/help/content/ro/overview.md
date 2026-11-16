@@ -6,7 +6,7 @@ ADORE transformă un tichet pregătit de pe forge-ul de cod într-un MR/PR ciorn
 
 ## Ce face ADORE {#what-adore-does}
 
-ADORE urmărește proiectele înrolate de un administrator. Când un tichet de pe forge (GitHub, GitLab sau Gitea) este pregătit pentru preluare, ADORE pornește pentru el o **lucrare**:
+ADORE urmărește proiectele înrolate de un administrator. Când un tichet de pe forge (GitHub, GitLab, Gitea sau Azure DevOps Services) este pregătit pentru preluare, ADORE pornește pentru el o **lucrare**:
 
 - Rulează un agent de programare (executorul) într-un mediu izolat: o ramură dedicată, un folder de lucru și un container.
 - Agentul urmează fluxul AEGIS al repository-ului, o etapă pe rând: Încadrare, Specificare, Proiectare, Construire și Validare. O modificare mică poate urma o cale rapidă, fără Specificare și Proiectare.

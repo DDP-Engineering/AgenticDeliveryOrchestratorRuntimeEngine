@@ -9,11 +9,18 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## 1. Purpose
 
-`adore/forge` hides GitHub, GitLab and Gitea CLI/API differences behind one
+`adore/forge` hides GitHub, GitLab, Gitea and Azure DevOps Services CLI/API differences behind one
 ticket, comment, label and draft or ready MR/PR contract.
 
 
 The conductor performs leased post-merge branch cleanup through host Git on all three forges. GitLab additionally receives its native removal hint at MR creation; GitHub/Gitea creation delegates cleanup to the conductor. Gitea accepts only a boolean `merged` field when supplied; malformed merge evidence raises `ForgeError` before destructive cleanup can be authorized.
+
+Azure's exact project/Area Path boundary, tag/PR-label distinction, composite
+thread/comment IDs and current-iteration CI are documented in
+[Azure DevOps component](Component_Azure_DevOps.md). `build_forge` accepts the full
+explicit Azure scope; `link_ticket` is an idempotent native-association hook,
+called before entering review on creation/adoption/retry and a no-op by default
+for other providers. No completion or merge operation is exposed.
 
 ## 2. Responsibilities
 

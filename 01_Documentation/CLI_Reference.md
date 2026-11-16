@@ -7,6 +7,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE CLI Reference
 
+`adore init` supports `kind = "azure_devops"` with explicit `organization`,
+`project`, repository name (`repo`) and repository-owned `area_path` answers.
+The same keys work in `--answers` TOML. Configuration validation refuses Server
+URLs, missing scope and non-GUID Azure reviewers. Host checks require `az` plus
+its official `azure-devops` extension. See [Azure DevOps Services](Azure_DevOps_Services.md)
+for the complete example, authentication, process mappings and safe first poll.
+
 The ADORE command-line interface is available as `adore` after installation or
 as `python -m adore` in a Python environment that contains the package.
 

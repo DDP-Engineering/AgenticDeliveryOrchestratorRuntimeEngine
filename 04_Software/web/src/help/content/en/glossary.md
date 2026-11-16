@@ -23,6 +23,6 @@ These are the terms used across the ADORE web interface and in these help topics
 | Draft MR/PR | The merge or pull request ADORE opens after validation and any required approval. People review it. |
 | Human review | An MR/PR is available for human review. Merge remains a human decision. |
 | Revision round | Another agent pass after requested changes or failed CI. Each round repeats validation and follows the project approval policy. |
-| Forge | The hosting platform where tickets, labels, approvals and MR/PRs live: GitHub, GitLab or Gitea. |
+| Forge | The hosting platform where tickets, labels, approvals and MR/PRs live: GitHub, GitLab, Gitea or Azure DevOps Services. |
 
 > ADORE has no merge operation. Merging is always a person's decision on the forge.

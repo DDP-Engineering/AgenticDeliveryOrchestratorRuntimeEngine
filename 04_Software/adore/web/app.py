@@ -394,6 +394,9 @@ class ProjectInput(BaseModel):
     auth_mode: Literal["api-key"] = "api-key"
     description: str = ""
     login: str = ""
+    organization: str = ""
+    project: str = ""
+    area_path: str = ""
     env_keys: list[str] | None = None
     ready_label: str = Field(default="agent-ready", min_length=1, max_length=120)
     approval_label: str = Field(default="agent-approved", min_length=1, max_length=120)
@@ -692,6 +695,8 @@ def _readiness_binding(profiles: ProfileStore, name: str, config) -> str:
     env_names = (
         "GH_TOKEN",
         "GITHUB_TOKEN",
+        "AZURE_DEVOPS_EXT_PAT",
+        "AZURE_CONFIG_DIR",
         "GH_ENTERPRISE_TOKEN",
         "GITHUB_ENTERPRISE_TOKEN",
         "GITLAB_TOKEN",
@@ -1069,7 +1074,8 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         config = effective_probe_config(config, runner=bounded_runner)
         git = doctor.detect_git(bounded_runner)
         forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
-        auth = doctor.auth_status(config.platform.kind, bounded_runner, external_auth=False)
+        auth = doctor.auth_status(config.platform.kind, bounded_runner, external_auth=False,
+                                  platform=config.platform)
     except (OSError, UnicodeError, TypeError, ValueError,
             KeyError, TimeoutError, PreparationError) as exc:
         raise _error(503, "readiness_probe_failed") from exc
@@ -1174,6 +1180,12 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             issues.append(_finding(
                 "repository_url_invalid", "clone_url",
                 "Use an https, http or ssh repository address without credentials."))
+        if source is not None and source.organization and (
+            body.kind != "azure_devops" or body.organization != source.organization
+            or body.project != source.project
+        ):
+            issues.append(_finding("setup_field_invalid", "organization",
+                                   "Use the organization and project named by the repository URL."))
         if source is not None and source.repo.casefold() != body.repo.strip().casefold():
             issues.append(_finding("setup_field_invalid", "repo",
                                    "Use the repository named by the repository URL."))
@@ -1355,7 +1367,10 @@ def _transfer_paths(profiles: ProfileStore, config, name: str, *, own_target: bo
             if Path(other.store_root or profiles.default_store_root(other.name)).resolve() != (
                     Path(owned.state.store_root).resolve()):
                 raise _error(503, "project_corrupt")
-            if (config.platform.kind == owned.platform.kind
+            same_azure_scope = (config.platform.kind != "azure_devops" or (
+                config.platform.organization.casefold() == owned.platform.organization.casefold()
+                and config.platform.project.casefold() == owned.platform.project.casefold()))
+            if (config.platform.kind == owned.platform.kind and same_azure_scope
                     and config.platform.repo.casefold() == owned.platform.repo.casefold()):
                 conflict()
             locations = [profiles.profile_dir(other.name), Path(owned.state.store_root),
@@ -2239,7 +2254,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
             raise ValueError("configuration scalar type differs from its model")
     model_value = expected if expected is not None else value
     choices = {
-        "platform.kind": ["gitlab", "github", "gitea"],
+        "platform.kind": ["gitlab", "github", "gitea", "azure_devops"],
         "polling.mode": ["loop", "once"],
         "executor.mode": ["thick", "headless"],
         "executor.provider": list(provider_ids()),
@@ -3505,7 +3520,9 @@ def create_app(home: str | Path | None = None,
         except (RepositorySourceError, ProfileError) as exc:
             raise _error(409, "project_exists") from exc
         path = location(name)
-        return {"url": parsed.url, "kind": kind, "login": login, "repo": parsed.repo,
+        return {**({"organization": parsed.organization, "project": parsed.project}
+                   if parsed.organization else {}),
+                "url": parsed.url, "kind": kind, "login": login, "repo": parsed.repo,
                 "default_branch": default_branch(listing.stdout), "branches": branches,
                 "name": name,
                 "display_name": parsed.name, "repo_path": str(path),

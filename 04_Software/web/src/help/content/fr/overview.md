@@ -6,7 +6,7 @@ ADORE transforme un ticket préparé sur votre forge de code en une demande de f
 
 ## Ce que fait ADORE {#what-adore-does}
 
-ADORE surveille les projets qu’un administrateur a inscrits. Lorsqu’un ticket de la forge (GitHub, GitLab ou Gitea) est préparé pour la prise en charge, ADORE démarre une **tâche** pour ce ticket :
+ADORE surveille les projets qu’un administrateur a inscrits. Lorsqu’un ticket de la forge (GitHub, GitLab, Gitea ou Azure DevOps Services) est préparé pour la prise en charge, ADORE démarre une **tâche** pour ce ticket :
 
 - Il exécute un agent de programmation (l’exécuteur) dans un environnement isolé : une branche dédiée, un dossier de travail et un conteneur.
 - L’agent suit le workflow AEGIS du dépôt, une étape à la fois : Cadrage, Spécification, Conception, Développement et Validation. Une petite modification peut suivre un chemin rapide sans Spécification ni Conception.

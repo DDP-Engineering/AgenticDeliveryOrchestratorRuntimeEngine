@@ -7,6 +7,15 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+Azure Services uses localized enrollment organization/project/Area Path fields,
+repository settings and complete process-name list editors (`azure-names`).
+`azureDevops.ts` centralizes four-locale scope/auth/tag terminology and list
+validation. Azure Repository access renders external-auth guidance instead of a
+token form. Label helper results distinguish verified on-attachment names from
+created catalog labels. PR and ticket URL/status models remain provider-neutral.
+See [Azure DevOps component](Component_Azure_DevOps.md), Node settings contracts
+and focused enrollment browser coverage.
+
 ADORE guides agents and observes their recorded workflow. AEGIS completion is
 read from the task journal; Direct completion comes from the implementation
 session and its summary. Tests and their local/CI selection belong to the agent.

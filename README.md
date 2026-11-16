@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
-ADORE turns an opt-in GitHub, GitLab or Gitea ticket into an isolated,
+ADORE turns an opt-in GitHub, GitLab, Gitea or Azure DevOps Services ticket into an isolated,
 governed merge or pull request. Pi works in a dedicated branch and
 worktree using container or native local execution. A repository with AEGIS
 runs stage by stage with agent-owned checks; a repository without
@@ -64,8 +64,8 @@ ADORE never installs or edits the target's AEGIS payload.
 - **Truthful state.** One conductor per state root, a persisted notification
   outbox, typed failures instead of guesses, and retained evidence for
   explicit recovery.
-- **One coding agent, three forges.** Pi as the executor, driven through its
-  RPC mode in the container; `gh`, `glab` and `tea` as the forge CLIs.
+- **One coding agent, four forges.** Pi as the executor, driven through its
+  RPC mode; `gh`, `glab`, `tea` and `az` + `azure-devops` as the forge CLIs.
 - **Optional web interface.** A local React/FastAPI dashboard adds project and
   job visibility, account/project permissions, reported usage, administrator
   costs, and a durable worker. See
@@ -78,7 +78,10 @@ ADORE never installs or edits the target's AEGIS payload.
   standard-library only.
 - Git with a target clone whose `origin` the run-as account can push to.
 - Docker or rootless Podman, natively or as Docker Engine inside WSL2.
-- An authenticated `gh`, `glab` or `tea` for the target forge.
+- An authenticated `gh`, `glab`, `tea`, or Azure CLI with its official
+  `azure-devops` extension for the target forge. Azure cloud only; see
+  [Azure DevOps Services](01_Documentation/Azure_DevOps_Services.md) for scope,
+  unattended authentication, the complete configuration example and live acceptance.
 - A target repository with documented build/test instructions and ignored
   generated artifacts. AEGIS is optional for CLI/configured projects. When
   `.agentic/aegis.py` is present, it must meet the supported version/schema

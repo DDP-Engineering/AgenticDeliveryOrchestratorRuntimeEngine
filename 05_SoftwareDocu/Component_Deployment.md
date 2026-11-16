@@ -8,6 +8,12 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Component: Deployment (`02_Tools/deploy/`)
 
+Forge preflight also accepts Azure CLI when the official `azure-devops` extension
+is present; otherwise it prints the explicit installation command. This remains
+external host setup, with no credential provisioning or executor installation.
+Azure DevOps Services is cloud-only. Deployment scripts are not automated-test
+subjects. See [Azure DevOps component](Component_Azure_DevOps.md).
+
 > Component documentation per `component_documentation_template.md`.
 > Sources: `02_Tools/deploy/install-ubuntu.sh`, `02_Tools/deploy/install-windows.ps1`,
 > `02_Tools/deploy/adore.service` (template).

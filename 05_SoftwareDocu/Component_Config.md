@@ -7,6 +7,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Component
 
+Azure DevOps Services adds `azure_devops` and explicit organization/project/area
+scope to `PlatformConfig`; repository is a name. Allowed native Work Item types
+and terminal states are unique bounded lists. `validate_azure_scope` is shared
+with the factory and refuses missing/unsafe/on-premises scope. Azure reviewers
+must be GUIDs, tags cannot contain semicolons, and Azure credential variables
+cannot be forwarded to executors. Other providers retain their contracts.
+See [Azure DevOps component](Component_Azure_DevOps.md) and offline config tests.
+
 The nonempty `labels.selection.type_epic` value names the ticket label excluded from automatic pickup and manual Start.
 
 ## 1. Purpose

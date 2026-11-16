@@ -7,6 +7,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Orchestrator Component
 
+Azure Services uses this same conductor, passing explicit platform scope to the
+forge factory. Before entering review, creation/adoption/retry invokes the
+idempotent `Forge.link_ticket` hook; failure preserves publication retry rather
+than reporting in-review without the source association. Other adapters keep
+the default no-op. Approval, polling, replay, review rounds and human-merge Git
+cleanup are unchanged. See [Azure DevOps component](Component_Azure_DevOps.md).
+
 ADORE guides agents and observes their recorded workflow. AEGIS completion is
 read from the task journal; Direct completion comes from the implementation
 session and its summary. Tests and their local/CI selection belong to the agent.

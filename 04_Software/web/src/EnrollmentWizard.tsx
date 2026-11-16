@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { azureCopy } from "./azureDevops";
 import { completedConfiguration } from "./configurationTasks";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Locale, MessageKey } from "./i18n";
@@ -30,6 +31,7 @@ import { environmentCopy, environmentFailure, prepareEnvironment, type Environme
 
 type Draft = {
   clone_url: string; name: string; display_name: string; description: string; kind: string; repo: string;
+  organization: string; project: string; area_path: string;
   repo_path: string; target_branch: string; login: string; provider: string; model: string; thinking: string;
   endpoint_base_url: string; endpoint_api: string;
   runtime: string; image: string; auth_mode: string; env_keys: string; reviewers: string;
@@ -46,7 +48,7 @@ type Verification = { status: "failed" | "partial" | "verified"; draft_revision:
   checked_at: string; workflow: RepositoryWorkflow; evidence_token: string; required_checks: string[]; auth_bound: boolean; checks: Record<string, boolean | null> };
 type Created = { id: string; name: string; display_name: string; pickup_state: string; paused: boolean };
 /** What Read repository found for a repository URL; nothing is written on the server yet. */
-type Detected = { url: string; kind: string | null; login: string; repo: string; default_branch: string | null;
+type Detected = { url: string; kind: string | null; login: string; repo: string; organization?: string; project?: string; default_branch: string | null;
   branches: string[]; name: string; display_name: string; repo_path: string; clone: "new" | "existing" };
 /** Mirror the bounded Git short-ref contract before displaying server choices. */
 const validBranch = (name: unknown): name is string => typeof name === "string" && name.length > 0 && name.length <= 1024
@@ -55,7 +57,8 @@ const validBranch = (name: unknown): name is string => typeof name === "string" 
   && name.split("/").every(part => !part.startsWith(".") && !part.endsWith(".lock"));
 const validDetected = (value: unknown): value is Detected => {
   const item = value as Detected;
-  return !!item && typeof item.url === "string" && (item.kind === null || ["gitlab", "github", "gitea"].includes(item.kind))
+  return !!item && typeof item.url === "string" && (item.kind === null || ["gitlab", "github", "gitea", "azure_devops"].includes(item.kind))
+    && (item.kind !== "azure_devops" || typeof item.organization === "string" && typeof item.project === "string")
     && typeof item.login === "string" && typeof item.repo === "string" && (item.default_branch === null || typeof item.default_branch === "string")
     && Array.isArray(item.branches) && item.branches.length <= 10_000 && item.branches.every(validBranch)
     && new Set(item.branches).size === item.branches.length
@@ -92,19 +95,20 @@ function DefaultSettings({ defaults, locale, backend }: {
 
 /** Locale-neutral example values shown in empty fields. */
 const examples: Partial<Record<string, string>> = { clone_url: "https://github.com/owner/repository",
+  organization: "https://dev.azure.com/contoso", project: "Payments", area_path: "Payments\\Backend",
   login: "gitea-main", repo_path: "/home/adore/repos/payments", target_branch: "main", model: "gpt-5.5",
   endpoint_base_url: "http://192.168.1.20:1234/v1",
   reviewers: "alice, bob", env_keys: "OPENAI_API_KEY" };
 class SetupError extends ApiError {
   constructor(code: string, readonly findings: Finding[]) { super(code); }
 }
-const initial: Draft = { clone_url: "", name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
+const initial: Draft = { organization: "", project: "", area_path: "", clone_url: "", name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
   execution_backend: "container", local_account: "current", local_path: "",
   target_branch: "main", login: "", provider: "openai", model: "", thinking: "", endpoint_base_url: "", endpoint_api: "",
   runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
   max_iterations: "20", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
-const fields: FieldName[][] = [[], ["clone_url", "display_name", "name", "description", "kind", "repo", "login", "repo_path", "target_branch"],
+const fields: FieldName[][] = [[], ["clone_url", "display_name", "name", "description", "kind", "repo", "organization", "project", "area_path", "login", "repo_path", "target_branch"],
   ["provider", "model", "thinking", "endpoint_base_url", "endpoint_api", "execution_backend", "runtime", "image", "local_account", "local_path", "auth_mode", "env_keys"],
   ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"], []];
 const numeric = ["max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"] as const;
@@ -264,6 +268,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           || key === "reviewers" && !draft.reviewers.trim()
           || key === "env_keys" && !draft.env_keys.trim()
           || key === "repo"
+          || ["organization", "project", "area_path"].includes(key) && draft.kind !== "azure_devops"
           || key === "auth_mode" && draft.execution_backend === "local"
         || key.startsWith("local_") && draft.execution_backend !== "local"
           || ["runtime", "image"].includes(key) && draft.execution_backend === "local"
@@ -273,7 +278,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       let valid = !!value.trim();
       if (key === "clone_url") valid = !!detected && detected.url === value;
       if (key === "target_branch") valid = !!detected?.branches.includes(value);
-      if (key === "kind") valid = ["gitlab", "github", "gitea"].includes(value);
+      if (key === "kind") valid = ["gitlab", "github", "gitea", "azure_devops"].includes(value);
+      if (key === "organization") valid = /^https:\/\/dev\.azure\.com\/[A-Za-z0-9][A-Za-z0-9-]{0,49}$/.test(value);
+      if (key === "area_path") valid = value.startsWith(draft.project + "\\") && value.length > draft.project.length + 1;
       if (key === "name") valid = /^[a-z0-9][a-z0-9._-]{0,63}$/.test(value);
       if (key === "display_name") valid = value === value.trim() && value.length > 0 && value.length <= 120 &&
         !/[\p{Cc}\p{Cf}]/u.test(value);
@@ -346,6 +353,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       if (!keepBranch) selectedBranch.current = null;
       setDraft(current => ({ ...current, clone_url: value.url, name: value.name, repo: value.repo, repo_path: value.repo_path,
         kind: value.kind ?? "", login: value.login,
+        organization: value.organization ?? "", project: value.project ?? "", area_path: "",
         target_branch: keepBranch && selected ? selected.branch : value.default_branch ?? "",
         display_name: current.display_name.trim() ? current.display_name : value.display_name }));
     } catch (cause) { if (alive.current && token === generation.current) reject(cause); }
@@ -412,6 +420,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     execution_backend: c.runsIn, local_account: localCopy[locale].account,
     local_path: localCopy[locale].path,
     clone_url: c.url, name: c.id, display_name: c.display, description: t("description"), kind: t("forge"), repo: t("repository"),
+    organization: azureCopy[locale].organization, project: azureCopy[locale].project, area_path: azureCopy[locale].area_path,
     login: "Gitea tea login", repo_path: t("clonePath"), target_branch: t("targetBranch"),
     provider: connectionCopy[locale].provider, model: connectionCopy[locale].model, thinking: thinkingCopy[locale].label,
     endpoint_base_url: connectionCopy[locale].baseUrl, endpoint_api: connectionCopy[locale].api,
@@ -426,6 +435,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     numeric.includes(key as typeof numeric[number]) ? "limits" : "rules";
   const modelOptions = providerModels(draft.provider, catalog);
   const control = (key: FieldName) => {
+    if (["organization", "project", "area_path"].includes(key) && draft.kind !== "azure_devops") return null;
     if (key === "auth_mode" || key === "local_account" || key === "login" && draft.kind !== "gitea"
         || key.startsWith("local_") && draft.execution_backend !== "local"
         || ["runtime", "image"].includes(key) && draft.execution_backend === "local"
@@ -439,7 +449,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         descriptionId="" locale={locale} disabled={busy === "create"}
         autoSelect onChange={value => change("runtime", value)} />
     </div>;
-    const options: Partial<Record<FieldName, string[]>> = { kind: [...(draft.kind ? [] : [""]), "gitlab", "github", "gitea"],
+    const options: Partial<Record<FieldName, string[]>> = { kind: [...(draft.kind ? [] : [""]), "gitlab", "github", "gitea", "azure_devops"],
       target_branch: detected ? [...(detected.default_branch ? [detected.default_branch] : []),
         ...detected.branches.filter(branch => branch !== detected.default_branch)] : undefined,
       // A cloned WSL-wrapped runtime stays selectable instead of silently showing docker.
@@ -544,7 +554,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             </section>}
             <p className="visually-hidden" role="status">{detected ? c.detected : ""}</p>
             {detected && <>{detected.kind === null && <p role="note">{c.forgeUnknown}</p>}
-              <div className="enrollment-grid">{(["display_name", "description", "kind", "login", "repo_path", "target_branch"] as FieldName[]).map(control)}</div>
+              <div className="enrollment-grid">{(["display_name", "description", "kind", "organization", "project", "area_path", "login", "repo_path", "target_branch"] as FieldName[]).map(control)}</div>
               </>}
           </> : step === 2 ? <div className="enrollment-agent-columns">
             <div className="enrollment-agent-column">{(["provider", "model", "thinking", "endpoint_base_url", "endpoint_api"] satisfies FieldName[]).map(control)}</div>
@@ -603,6 +613,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       <EnvironmentProgress value={environment} locale={locale} />
       <div className="enrollment-actions">
         {step > 1 && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => move(step - 1)}>{c.back}</button>}
+        {draft.kind === "azure_devops" && <aside className="muted"><p>{azureCopy[locale].help}</p><p>{azureCopy[locale].auth}</p></aside>}
         {/* From a URL, the wizard cannot continue until the repository has been read. */}
         {/* Until the repository is read, Read repository is the primary action. */}
         {step < 4 && <button className={step === 1 && !detected ? "ghost" : "primary"} type="submit"

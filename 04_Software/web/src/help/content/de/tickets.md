@@ -1,6 +1,6 @@
 # Tickets für die automatische Aufnahme
 
-ADORE nimmt Tickets aus Ihrem Forge-Repository (GitHub, GitLab oder Gitea) auf, wenn sie die richtigen Labels tragen, und Sie können ein Ticket auch von Hand starten. Dieser Artikel behandelt Labels, Eignung und die Ticketansicht.
+ADORE nimmt Tickets aus Ihrem Forge-Repository (GitHub, GitLab, Gitea oder Azure DevOps Services) auf, wenn sie die richtigen Labels tragen, und Sie können ein Ticket auch von Hand starten. Dieser Artikel behandelt Labels, Eignung und die Ticketansicht.
 
 
 Tickets mit dem konfigurierten Epic-Label werden nicht übernommen oder gestartet. Starten bleibt für geeignete Tickets bei pausierter Überwachung verfügbar.
@@ -14,6 +14,10 @@ Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle u
 Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 
 Vor der Aufnahme prüft ADORE AEGIS nur, wenn `.agentic/aegis.py` vorhanden ist. Eine defekte oder nicht unterstützte Installation wird abgelehnt. Ohne diese Datei implementiert der Agent das Ticket direkt. Repository-Prüfungen gehören bei beiden Workflows dem Agenten; ADORE beobachtet den Fortschritt und folgt der Freigaberichtlinie. Siehe [Repository-Workflows](/help/projects#workflows).
+
+## Azure Work Items und PR-Labels {#azure-tags}
+
+Bei Azure DevOps Services sind nur das genaue Projekt und der eigene Repository-Bereichspfad geeignet. Erlaubte Typen und Endzustände folgen den Prozesseinstellungen; Unterbereiche sind ausgeschlossen. HTML-Beschreibung und Akzeptanzkriterien werden lesbarer Text. Native Priorität ist informativ: konfigurierte Tags steuern Rangfolge und Eignung. Bereit, Halten/Ausschluss, Status, Antwort und Kandidatenfreigabe sind Work-Item-Tags. Überarbeitung ist ein separates PR-Label am Pull Request, nicht am Work Item. Der Labelhelfer prüft Zugriff und beim Anhängen verfügbare Namen, keinen Repository-Katalog. Er erstellt kein Dummy-Work-Item oder PR und erhält fremde menschliche Tags.
 
 ## Zuerst die Labels anlegen {#labels}
 

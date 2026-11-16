@@ -1,6 +1,6 @@
 # Tichete pentru preluare automată
 
-ADORE preia tichete din repository-ul dumneavoastră de pe forge (GitHub, GitLab sau Gitea) când poartă etichetele potrivite, iar dumneavoastră puteți porni și manual unul. Acest articol acoperă etichetele, eligibilitatea și vizualizarea Tichete.
+ADORE preia tichete din repository-ul dumneavoastră de pe forge (GitHub, GitLab, Gitea sau Azure DevOps Services) când poartă etichetele potrivite, iar dumneavoastră puteți porni și manual unul. Acest articol acoperă etichetele, eligibilitatea și vizualizarea Tichete.
 
 
 Tichetele cu eticheta configurată pentru epic nu sunt preluate sau pornite. Pornirea manuală rămâne disponibilă pentru tichetele eligibile când monitorizarea este în pauză.
@@ -14,6 +14,10 @@ Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În
 Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 
 Înaintea preluării, ADORE verifică AEGIS numai dacă există `.agentic/aegis.py`. Un AEGIS defect sau nesuportat este refuzat. Fără acest fișier, agentul implementează direct tichetul. Agentul alege verificările repository-ului în ambele fluxuri; ADORE monitorizează progresul și urmează politica de aprobare configurată. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
+
+## Work Items Azure și labels PR {#azure-tags}
+
+Pentru Azure DevOps Services sunt eligibile doar proiectul exact și Area Path rezervat repository-ului. Tipurile permise și stările terminale urmează setările procesului; subariile sunt excluse. Descrierea HTML și criteriile de acceptare devin text lizibil. Prioritatea nativă este informativă: tags configurate controlează ordinea și readiness. Ready, hold/exclude, status, answered și aprobarea candidatului sunt tags pe Work Item. Revizia este un label PR separat, pus pe Pull Request, nu pe Work Item. Helperul verifică accesul și numele disponibile la atașare, nu un catalog al repository-ului. Nu creează Work Items sau PR-uri fictive și păstrează tags umane fără legătură.
 
 ## Creați mai întâi etichetele {#labels}
 

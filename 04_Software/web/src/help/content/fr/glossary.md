@@ -23,6 +23,6 @@ Voici les termes utilisés dans l’interface web d’ADORE et dans ces rubrique
 | MR/PR brouillon | La demande de fusion ou de tirage ouverte après validation et approbation si requise. Les personnes la relisent. |
 | Revue humaine | Une MR/PR est disponible pour revue humaine. La fusion reste une décision humaine. |
 | Tour de révision | Un nouveau passage de l’agent après une demande ou un échec CI. Chaque tour répète la validation et suit la politique d’approbation du projet. |
-| Forge | La plateforme d’hébergement où se trouvent les tickets, étiquettes, approbations et MR/PR : GitHub, GitLab ou Gitea. |
+| Forge | La plateforme d’hébergement où se trouvent les tickets, étiquettes, approbations et MR/PR : GitHub, GitLab, Gitea ou Azure DevOps Services. |
 
 > ADORE n’a aucune opération de fusion. La fusion est toujours une décision humaine sur la forge.

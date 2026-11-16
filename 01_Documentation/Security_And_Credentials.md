@@ -7,6 +7,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Security And Credentials
 
+Azure DevOps Services credentials are external host/service-account credentials:
+use private `AZURE_DEVOPS_EXT_PAT` or host `az devops login`, never public TOML,
+GUI responses, examples or executor environment. Code and Work Items read/write
+scopes plus repository/area ACLs are required; no bypass, auto-complete or merge
+permission is requested. Git credentials remain separate. See
+[Azure authentication and permissions](Azure_DevOps_Services.md).
+
 This guide defines where ADORE obtains credentials, which boundary each
 credential serves, and how to keep a target project under human control. Use it
 with [Getting_Started.md](Getting_Started.md) and

@@ -7,6 +7,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Operations Guide
 
+Azure cloud operations use the common conductor. Work Item tags carry pickup,
+status, clarification and candidate approval; a PR **label** carries revision.
+Active/completed/abandoned PRs map to opened/merged/closed. Advisory CI uses the
+current PR iteration's statuses and never infers success from missing information.
+See [Azure DevOps Services](Azure_DevOps_Services.md) for exact area/process scope,
+permission troubleshooting, missing-resource limitations and bounded live acceptance.
+
 ## First web import
 
 Install and start Docker or Podman on the ADORE server before importing a container

@@ -14,6 +14,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Azure DevOps Services adapter for scoped Boards Work Items and Repos PRs through
+  Azure CLI, with CLI/GUI configuration, process mappings, separate tag/PR-label
+  signaling, replay-safe comments, advisory CI, onboarding and operator acceptance guidance.
+
 - Queue job instructions from Agent sessions for immediate or after-work delivery through Pi acknowledgements, with durable ticket-comment replay.
 
 - Live agent sessions show completed activity every three seconds, unfinished tools/thinking and safe archive handoff.

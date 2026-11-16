@@ -16,6 +16,11 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "new"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Connect Azure cloud projects with scoped Work Items and Pull Requests.", fr = "Connectez des projets Azure cloud avec des Work Items ciblés et des Pull Requests.", de = "Azure-Cloudprojekte mit eingegrenzten Work Items und Pull Requests verbinden.", ro = "Conectează proiecte Azure cloud cu Work Items delimitate și Pull Requests." }
+
+[[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "Project enrollment explains the repository URL and project identity.", fr = "L’inscription explique l’URL du dépôt et l’identité du projet.", de = "Bei der Projektregistrierung werden Repository-URL und Projektidentität erklärt.", ro = "Înrolarea proiectului explică URL-ul repository-ului și identitatea proiectului." }

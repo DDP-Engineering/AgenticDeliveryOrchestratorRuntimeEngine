@@ -88,7 +88,11 @@ $glab = Get-Command glab -ErrorAction SilentlyContinue
 $gh   = Get-Command gh   -ErrorAction SilentlyContinue
 $tea  = Get-Command tea  -ErrorAction SilentlyContinue
 if ($null -eq $glab -and $null -eq $gh -and $null -eq $tea) {
-    Fail "none of 'glab', 'gh' or 'tea' found; ADORE drives the platform through one of them (setup doc section 3)"
+    Need-Command az "Install: winget install Microsoft.AzureCLI (Services only)"
+    & az extension show --name azure-devops --output none --only-show-errors 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Fail "Install the official extension: az extension add --name azure-devops"
+    }
 }
 
 # 2. Python environment (locked, reproducible)

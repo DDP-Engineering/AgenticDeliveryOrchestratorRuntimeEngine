@@ -7,6 +7,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
+Azure DevOps Services enrollment recognizes Azure Repos cloud URLs and exposes
+organization, project and exact repository-owned Work Item Area Path. Repository
+settings include allowed Work Item types and terminal states as reviewed lists.
+The usual Admin/Developer, pause/idle, preview/apply and worker polling rules
+remain unchanged. Azure sign-in is external to normal GUI forms; no token is
+stored in browser settings. Label helpers verify attachment readiness rather
+than creating a repository label catalog. See [Azure DevOps Services](Azure_DevOps_Services.md).
+
 The optional ADORE web interface lets operators enroll projects, start and
 follow jobs, and review their results using the same profiles and run state as
 the CLI. ADORE conducts the repository's AEGIS workflow when present, or a bounded

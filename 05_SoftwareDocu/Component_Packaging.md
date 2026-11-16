@@ -7,6 +7,12 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Component: Repository environment and packaging tools
 
+Portable bundles copy the Azure Services operator guide and complete Azure TOML
+example, and the manifest's `external_forge_tools` names `az` plus the official
+`azure-devops` extension. These host tools/credentials are not embedded in the
+runtime or executor. No Python dependency change is required. Azure Server is
+not supported. See [Azure DevOps component](Component_Azure_DevOps.md).
+
 ## 1. Purpose
 
 Expose three public cross-platform commands in `02_Tools/`:

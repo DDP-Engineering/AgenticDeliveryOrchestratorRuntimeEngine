@@ -7,6 +7,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Getting Started
 
+For Azure Repos and Boards, follow [Azure DevOps Services](Azure_DevOps_Services.md)
+for host `az` + `azure-devops` installation, private unattended authentication,
+CLI/GUI enrollment and an exact repository-owned Area Path. Cloud Services only;
+Server is not supported. The same polling and human approval workflow applies.
+
 For the complete portable web application, extract the matching Windows ZIP
 or Linux TAR.GZ from `07_Delivery/`. Start `Start-ADORE.cmd` (Windows) or
 `./start-adore.sh` (Linux). The included Python starts the API and worker and

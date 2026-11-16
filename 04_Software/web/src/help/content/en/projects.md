@@ -10,12 +10,16 @@ A current environment check is carried to the created project. Unchecked prerequ
 
 A successful external CLI sign-in remains partial because it can change outside ADORE without an observable credential change. Connect repository access and check again to bind the project credential.
 
+## Azure DevOps Services {#azure-devops}
+
+Choose Azure DevOps Services for cloud Azure Repos and Boards; Server is not supported. Read the repository URL, confirm **Organization URL**, **Azure project**, repository name and target branch, then enter the exact repository-owned **Work Item Area Path**, for example `Payments\Backend`. Child areas are excluded. The administrator installs Azure CLI with the official extension and manages unattended sign-in externally for the ADORE service account; never enter a token in project settings. Git access is separate. Imports use the same scope. Review, check prerequisites and create stopped before enabling pickup.
+
 ## Before you start {#before-you-start}
 
 Have these ready:
 
 - The repository address (https or ssh) that the ADORE server account can read. ADORE clones it into its own folder when you create the project.
-- A GitLab, GitHub or Gitea account that can read and update issues and create draft reviews.
+- A GitLab, GitHub, Gitea or Azure DevOps Services account that can read and update issues and create draft reviews.
 - The ready and approval label names. A person adds the ready label to make a ticket eligible; see [Tickets for automatic pickup](/help/tickets#labels).
 - The model ID for Pi and, for containers, a running Docker or Podman service. The default shared image is prepared automatically on import; custom images must already exist on that service. See [Executors and models](/help/executors).
 

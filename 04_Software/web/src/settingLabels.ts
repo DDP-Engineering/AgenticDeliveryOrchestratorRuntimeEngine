@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { azureSettingLabel } from "./azureDevops";
 import { executorSettingLabel } from "./executorSettings";
 import { localCopy } from "./localExecution";
 import { messages, type Locale } from "./i18n";
@@ -16,6 +17,8 @@ import {
 
 /** The name a setting has in Settings, in the chosen language (shared by Settings and enrollment). */
 export function settingDisplayLabel(key: string, locale: Locale): string {
+  const azure = azureSettingLabel(key, locale);
+  if (azure) return azure;
   if (key === "delivery.require_human_approval") return { en: "Require human approval before PR/MR", fr: "Exiger une approbation humaine avant PR/MR", de: "Menschliche Freigabe vor PR/MR verlangen", ro: "Cere aprobare uman\u0103 \u00eenainte de PR/MR" }[locale];
   if (key === "local.path") return localCopy[locale].path;
   if (key === "labels.selection.type_epic") return { en: "Epic label", fr: "Étiquette épopée", de: "Epic-Label", ro: "Etichetă epic" }[locale];

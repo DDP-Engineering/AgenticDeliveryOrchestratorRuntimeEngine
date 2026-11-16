@@ -4,19 +4,20 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { azureCopy } from "./azureDevops";
 import { useState } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale } from "./i18n";
 
 /** What creating the project's labels did in the repository. */
-export type LabelReport = { created: string[]; existing: string[]; failed: Array<{ name: string; reason: string }> };
+export type LabelReport = { mode?: "azure_on_attachment"; verified?: string[]; created: string[]; existing: string[]; failed: Array<{ name: string; reason: string }> };
 
 const names = (value: unknown) => Array.isArray(value) && value.length <= 200 && value.every(item => typeof item === "string");
 
 /** A well-formed label report from the server. */
 export function validLabelReport(value: unknown): value is LabelReport {
   const item = value as Partial<LabelReport> | null;
-  return !!item && names(item.created) && names(item.existing) && Array.isArray(item.failed) && item.failed.length <= 200
+  return !!item && (item.mode === undefined || item.mode === "azure_on_attachment" && names(item.verified)) && names(item.created) && names(item.existing) && Array.isArray(item.failed) && item.failed.length <= 200
     && item.failed.every(entry => !!entry && typeof entry.name === "string" && typeof entry.reason === "string");
 }
 
@@ -50,6 +51,7 @@ export const forgeLabelsCopy: Record<Locale, {
 export function LabelReportView({ report, locale }: { report: LabelReport; locale: Locale }) {
   const c = forgeLabelsCopy[locale];
   const list = (items: string[]) => items.length ? items.map(name => <span className="ticket-label" key={name}>{name}</span>) : <span className="muted">{c.none}</span>;
+  if (report.mode === "azure_on_attachment") return <div role="status"><p>{azureCopy[locale].labels}</p><p>{azureCopy[locale].verified}</p>{list(report.verified ?? [])}</div>;
   return <dl className="label-report">
     <div><dt>{c.created} ({report.created.length})</dt><dd>{list(report.created)}</dd></div>
     <div><dt>{c.existing} ({report.existing.length})</dt><dd>{list(report.existing)}</dd></div>

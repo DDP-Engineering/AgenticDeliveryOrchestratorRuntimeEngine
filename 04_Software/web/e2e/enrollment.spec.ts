@@ -66,6 +66,29 @@ test("guided enrollment begins at repository and identity with visible step navi
   await expect(page.getByRole("button", { name: "Use an existing clone on this server", exact: true })).toHaveCount(0);
 });
 
+test("Azure cloud enrollment exposes explicit scope and refuses an unscoped project", async ({ page }) => {
+  await enter(page);
+  await page.route("**/api/v1/projects/repository-source", route => route.fulfill({ json: {
+    url: "https://dev.azure.com/contoso/Payments/_git/backend", kind: "azure_devops",
+    organization: "https://dev.azure.com/contoso", project: "Payments", repo: "backend",
+    login: "", default_branch: "main", branches: ["main"], name: "azure-browser",
+    display_name: "backend", repo_path: "/tmp/azure-browser", clone: "new",
+  }}));
+  await page.getByLabel("Repository URL", { exact: false }).fill("https://dev.azure.com/contoso/Payments/_git/backend");
+  await page.getByRole("button", { name: "Read repository", exact: true }).click();
+  await expect(page.getByLabel(/^Organization URL/)).toHaveValue("https://dev.azure.com/contoso");
+  await expect(page.getByLabel(/^Azure project/)).toHaveValue("Payments");
+  await expect(page.getByLabel(/^Work Item Area Path/)).toHaveValue("");
+  await expect(page.getByLabel("Gitea tea login", { exact: false })).toHaveCount(0);
+  await expect(page.getByText(/Server is not supported|not Server/)).toBeVisible();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.locator(".enrollment-errors")).toContainText("Work Item Area Path");
+  await page.getByLabel(/^Work Item Area Path/).fill("Payments\\Backend");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Agent and model", exact: true })).toBeVisible();
+  await expect(page.locator('input[type="password"]')).toHaveCount(0);
+});
+
 test("step 2 offers Pi providers and an OpenAI-compatible endpoint and names the credential", async ({ page }) => {
   await enter(page);
   await repository(page, "e2e-endpoint");

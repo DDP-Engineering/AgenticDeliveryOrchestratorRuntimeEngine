@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { validAzureNames } from "./azureDevops.ts";
 import { CONNECTION_KEY, CUSTOM, validConnection } from "./agentConnection.ts";
 import { validCredentialNames } from "./executorSettings.ts";
 import { validImplementationCollection } from "./implementationSettings.ts";
@@ -26,7 +27,7 @@ export type SettingMeta = {
 };
 
 /** How a row's value is edited in the browser; `none` means not editable here. */
-export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "duration" | "retry-delays" | "stage-timeouts" | "credential-names" | "connection" | "none";
+export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "azure-names" | "duration" | "retry-delays" | "stage-timeouts" | "credential-names" | "connection" | "none";
 
 type CommonKind = "text" | "positive" | "forge" | "runtime";
 
@@ -81,6 +82,7 @@ const inputKind = (item: SettingMeta): InputKind => {
   if (item.editable && item.key === "clarification.answer_timeout" && item.type === "text") return "duration";
   if (item.editable && item.key === "recovery.retry_backoff_seconds" && item.type === "list") return "retry-delays";
   if (item.editable && item.key === "workflow.stage_timeout_overrides" && item.type === "map") return "stage-timeouts";
+  if (item.editable && ["platform.work_item_types", "platform.closed_states"].includes(item.key)) return "azure-names";
   if (item.editable && item.key === "delivery.reviewers" && item.type === "list") return "reviewers";
   if (!item.editable || !["boolean", "integer", "number", "text"].includes(item.type || "")) return "none";
   if (item.choices?.length) return "choice";
@@ -267,6 +269,7 @@ export function validBatchValues(value: unknown): value is BatchValues {
     || keys.some(other => key !== other && key.startsWith(other + ".")))) return false;
   if (keys.includes(CONNECTION_KEY) && keys.some(key => ["executor.provider", "executor.model", "executor.thinking", "executor.endpoint.base_url", "executor.endpoint.api"].includes(key))) return false;
   return entries.every(([key, item]) => {
+    if (["platform.work_item_types", "platform.closed_states"].includes(key)) return validAzureNames(item);
     if (key === CONNECTION_KEY) return validConnection(item);
     if (key === "executor.env_keys") return validCredentialNames(item);
     if (key === "recovery.retry_backoff_seconds" || key === "workflow.stage_timeout_overrides") return validImplementationCollection(key, item);
@@ -288,14 +291,15 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
     && item.proposed_value.every(name => typeof name === "string"
       && name.length > 0 && name.length <= 255 && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
   const credentials = item.key === "executor.env_keys" && validCredentialNames(item.proposed_value);
-  const collection = validImplementationCollection(item.key, item.proposed_value);
+  const collection = validImplementationCollection(item.key, item.proposed_value)
+    || ["platform.work_item_types", "platform.closed_states"].includes(item.key) && validAzureNames(item.proposed_value);
   const connection = item.key === CONNECTION_KEY && validConnection(item.proposed_value);
   const batch = item.key === BATCH_KEY && validBatchValues(item.proposed_value);
   const json = reviewerList || collection || credentials || connection || batch;
   return digest(item.base_revision) && digest(item.candidate_revision)
     && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
     && item.value === (json ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
-    && (json || ![BATCH_KEY, CONNECTION_KEY, "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
+    && (json || !["platform.work_item_types", "platform.closed_states", BATCH_KEY, CONNECTION_KEY, "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
     && (item.execution_plan === undefined || validExecutionPlan(item.execution_plan))

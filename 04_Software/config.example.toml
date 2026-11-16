@@ -38,8 +38,9 @@ email = "adore-bot@example.com"
 
 # ----- Git platform ----------------------------------------------------------
 [platform]
-# Which adapter to use: "gitlab" (glab CLI), "github" (gh CLI) or "gitea"
-# (tea CLI >= 0.15). The matching CLI must be installed and authenticated on
+# Which adapter: "gitlab" (glab), "github" (gh), "gitea" (tea >= 0.15)
+# or "azure_devops" (az + official azure-devops extension; Services only).
+# For Azure's mandatory explicit scope, use config.azure-devops.example.toml. The matching CLI must be installed and authenticated on
 # the host.
 kind = "gitlab"
 # Project path (GitLab: GROUP/.../PROJECT), repository (GitHub: OWNER/REPO),

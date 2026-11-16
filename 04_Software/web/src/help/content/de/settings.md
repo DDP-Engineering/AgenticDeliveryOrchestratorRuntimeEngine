@@ -2,6 +2,10 @@
 
 Der Reiter Einstellungen eines Projekts listet die Arbeitsregeln auf, die ADORE dafür anwendet: welche Tickets aufgenommen werden, welche Limits gelten, wie veröffentlicht wird und welcher Agent verwendet wird. Administratoren bearbeiten mehrere Einstellungen und speichern sie gemeinsam; Entwickler lesen sie.
 
+## Azure-Repository und Ticketbereich {#azure-settings}
+
+Azure DevOps Services ergänzt **Organisations-URL**, **Azure-Projekt**, **Bereichspfad der Work Items**, **Erlaubte Work-Item-Typen** und **Endzustände der Work Items** unter Repository. Exakte native Prozessnamen verwenden, einen pro Zeile. Einen eigenen exakten Unterbereich reservieren. Native Priorität ersetzt keine Prioritäts-Tags. Reviewer sind Azure-Identitäts-GUIDs. Überarbeitung nutzt PR-Labels; Aufnahme und Freigabe nutzen Work-Item-Tags. Administratoren prüfen und übernehmen Änderungen mit denselben Pause- und Leerlaufregeln; Entwickler dürfen nicht bearbeiten. Die Executor-Konfiguration bleibt separat. Nicht lesbare CI bleibt unbekannt, niemals erfolgreich.
+
 ## Wo Sie die Einstellungen finden {#where}
 
 Öffnen Sie [Projekte](/projects), wählen Sie ein Projekt und dann den Reiter **Einstellungen**. Die Reiter sind Zusammenfassung, Einstellungen, Aufträge, Statistiken, Verlauf und, für Administratoren, Zugriff.

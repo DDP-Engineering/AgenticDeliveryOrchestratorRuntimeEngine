@@ -66,7 +66,10 @@ backoff; other projects and configuration keep their own processes.
    this runtime directory after relocation.
 2. `cp config.example.toml config.toml` and adjust it (repo, `repo_path`,
    `runtime`, budgets - see `../../01_Documentation/Configuration_Reference.md`).
-3. Authenticate `glab`, `gh` or `tea` on the host. Put only executor provider API
+3. Authenticate `glab`, `gh`, `tea`, or Azure CLI (`az` plus the official
+   `azure-devops` extension, Services only) on the host. Azure requires explicit
+   organization/project/repository/Area Path configuration; see
+   [Azure DevOps Services](../../01_Documentation/Azure_DevOps_Services.md). Put only executor provider API
    keys required by `env_keys` in the gitignored `.env` file
    (`cp .env.example .env`); see
    `../../01_Documentation/Security_And_Credentials.md`.

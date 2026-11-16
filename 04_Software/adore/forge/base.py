@@ -334,6 +334,14 @@ class Forge(ABC):
         @param[in]  labels Label names to remove.
         """
 
+    def link_ticket(self, mr_iid: int, ticket_iid: int) -> None:
+        """@brief Associate a ticket with its PR when the provider requires a native link.
+        @param[in] mr_iid Published or adopted PR ID.
+        @param[in] ticket_iid Source ticket ID; repeated calls must be idempotent.
+        @note Other providers already retain the ticket reference in the description.
+        """
+        return None
+
     def update_merge_request_body(self, mr_iid: int, body: str) -> None:
         """
         @brief Replace an existing review's description without changing review settings.

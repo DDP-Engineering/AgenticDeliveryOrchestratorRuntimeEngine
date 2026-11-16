@@ -7,6 +7,16 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
+Azure Services extends guided project input and repository-source detection with
+organization/project/Area Path, all validated through the shared wizard and
+factory. Repository identity comparisons retain organization and project.
+`platform.work_item_types` and `platform.closed_states` are bounded, complete
+reviewed collections using existing revision, role, pause and idle-job fences.
+Azure auth checks are scope-bound; public origin/token credential connection is
+not supported for this provider. The label helper returns
+`mode=azure_on_attachment`, verified names and empty provisioning lists. See
+[Azure DevOps component](Component_Azure_DevOps.md) and `test_web_azure_devops.py`.
+
 ADORE guides agents and observes their recorded workflow. AEGIS completion is
 read from the task journal; Direct completion comes from the implementation
 session and its summary. Tests and their local/CI selection belong to the agent.

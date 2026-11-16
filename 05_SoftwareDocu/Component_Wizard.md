@@ -8,6 +8,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Component: Assisted-Config Wizard (`adore/wizard.py`)
 
+The `azure_devops` choice prompts for organization URL, project name, repository
+name and exact repository-owned Area Path. The same answer keys feed web guided
+setup and `--answers` files; scope is written only after ordinary validation.
+No credential is accepted as a wizard answer. Process type/state lists retain
+validated defaults and can be edited through reviewed configuration. See
+[Azure DevOps component](Component_Azure_DevOps.md).
+
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/adore/wizard.py`.
 > CLI: `adore init` (wired in `adore/cli.py`).
