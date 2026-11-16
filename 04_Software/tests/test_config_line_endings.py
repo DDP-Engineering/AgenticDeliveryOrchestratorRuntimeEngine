@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_config_line_endings.py
-@brief Configuration edits keep the file's line endings on every OS.
-@details Files are written and read as explicit bytes, so each test fails on
-         Linux and on Windows when an edit translates line endings.
-"""
+"""Configuration edits keep the file's line endings on every OS."""
 
 
 from adore.cli import EXIT_OK, _set_toml_scalar, main
@@ -48,7 +34,7 @@ _HEAD = _CONFIG.split("[worktree]")[0]  # lines no edit below touches
 
 
 def _assert_endings(data: bytes, newline: str) -> None:
-    """@brief Every line ends with `newline`; no CR is added or doubled."""
+    """Every line ends with `newline`; no CR is added or doubled."""
     if newline == "\r\n":
         assert b"\r\r" not in data
         assert data.count(b"\n") == data.count(b"\r\n")
@@ -59,7 +45,7 @@ def _assert_endings(data: bytes, newline: str) -> None:
 @pytest.mark.parametrize("newline", ["\r\n", "\n"])
 def test_scalar_edit_keeps_the_text_line_endings(newline):
     """
-    @brief   Replaced, inserted and appended lines use the text's own ending,
+    Replaced, inserted and appended lines use the text's own ending,
              and every other line is returned unchanged.
     """
     def native(text):
@@ -84,7 +70,7 @@ def test_scalar_edit_keeps_the_text_line_endings(newline):
 
 
 def test_scalar_edit_in_a_mixed_file_keeps_each_line_ending():
-    """@brief A replaced line keeps its own ending; an added line takes CR LF."""
+    """A replaced line keeps its own ending; an added line takes CR LF."""
     text = "[budgets]\r\nmax_iterations = 20\nmax_files_touched = 5\r\n"
     assert _set_toml_scalar(text, "budgets.max_iterations", "30") == (
         "[budgets]\r\nmax_iterations = 30\nmax_files_touched = 5\r\n")
@@ -95,7 +81,7 @@ def test_scalar_edit_in_a_mixed_file_keeps_each_line_ending():
 @pytest.mark.parametrize("newline", ["\r\n", "\n"])
 def test_cli_config_set_keeps_the_file_line_endings(tmp_path, newline):
     """
-    @brief   `adore config set` changes only the edited value, on every OS,
+    `adore config set` changes only the edited value, on every OS,
              and an appended table uses the file's line ending.
     """
     path = tmp_path / "config.toml"
@@ -115,7 +101,7 @@ def test_cli_config_set_keeps_the_file_line_endings(tmp_path, newline):
 @pytest.mark.parametrize("newline", ["\r\n", "\n"])
 def test_web_edits_keep_the_file_line_endings(tmp_path, newline):
     """
-    @brief   Staging and applying a key whose table is absent and a direct
+    Staging and applying a key whose table is absent and a direct
              edit both succeed and keep the file's line endings.
     """
     profiles = ProfileStore(tmp_path / "home")

@@ -1,36 +1,13 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file gitlab.py
-@brief GitLab adapter implemented over the `glab` CLI.
-@details Uses `glab issue list --output json` for selection, `glab issue note`
-         to create comments, and `glab api` for everything glab has no
-         subcommand for: reading notes and editing a note in place (PUT), per
-         the Prerequisites_Check_Report findings. The command runner is
-         injected so the adapter is unit-testable without glab. `_run`,
-         `_is_not_found`, and `_parse_json` moved to the shared `Forge` base
-         (ADORE-PY-004); this adapter overrides `_NOT_FOUND_MARKERS` to add
-         glab's branch-lookup miss, which the shared 404 default never matched.
-"""
+"""GitLab adapter implemented over the `glab` CLI."""
 
 from __future__ import annotations
 
-# IMPORTS
 import re
 from typing import Any
 import urllib.parse
 
 from adore.forge.base import Comment, Forge, ForgeError, MergeRequest, Ticket
 from adore.util import CommandRunner, run_command
-
-# CONSTANTS
 
 _NOTE_ID_RE = re.compile(r"#note_(\d+)")
 _MR_URL_RE = re.compile(r"https?://\S+/-/merge_requests/\d+")
@@ -56,13 +33,9 @@ _PIPELINE_STATES = {
     "skipped": "none",
 }
 
-# PUBLIC API
-
 
 class GitLabForge(Forge):
-    """
-    @brief   GitLab implementation of the Forge interface (via `glab`).
-    """
+    """GitLab implementation of the Forge interface (via `glab`)."""
 
     #: glab's BRANCH lookup miss reads "no open merge request available for
     #: <branch>" (gitlab-org/cli internal/commands/mr/mrutils) and shares no
@@ -73,9 +46,9 @@ class GitLabForge(Forge):
 
     def __init__(self, repo: str, runner: CommandRunner = run_command) -> None:
         """
-        @brief      Bind the adapter to a GitLab project path.
-        @param[in]  repo GitLab project path (GROUP/.../PROJECT).
-        @param[in]  runner Command runner (injectable for tests).
+        Bind the adapter to a GitLab project path.
+        repo: GitLab project path (GROUP/.../PROJECT).
+        runner: Command runner (injectable for tests).
         """
         self.repo = repo
         self.runner = runner
@@ -84,15 +57,15 @@ class GitLabForge(Forge):
 
     def list_ready(self, ready_label: str) -> list[Ticket]:
         """
-        @brief      List open issues carrying the label, via JSON output.
-        @details    Paginated: GitLab caps `--per-page` at 100, so a repository
+        List open issues carrying the label, via JSON output.
+        Paginated: GitLab caps `--per-page` at 100, so a repository
                     with more than 100 ready tickets would otherwise drop the
                     overflow from the selection pool - including a high-priority
                     ticket the caller would have ranked first. Pages are walked
                     until a short (last) page, bounded by `_MAX_LIST_PAGES`.
-        @param[in]  ready_label Eligibility label.
-        @return     Eligible tickets, unordered (caller ranks by priority).
-        @exception  ForgeError When glab fails.
+        ready_label: Eligibility label.
+        Returns: Eligible tickets, unordered (caller ranks by priority).
+        Raises ForgeError: When glab fails.
         """
         tickets: list[Ticket] = []
         page = 1
@@ -119,12 +92,12 @@ class GitLabForge(Forge):
 
     def list_open(self, limit: int) -> list[Ticket]:
         """
-        @brief      List open issues without a label filter, page by page.
-        @details    Walks pages of `_PAGE_SIZE` until a short page, `limit` items
+        List open issues without a label filter, page by page.
+        Walks pages of `_PAGE_SIZE` until a short page, `limit` items
                     or `_MAX_LIST_PAGES`; the state is explicit as in `list_ready`.
-        @param[in]  limit Maximum number of tickets to return.
-        @return     Open tickets, at most `limit`.
-        @exception  ForgeError When glab fails or a record is malformed.
+        limit: Maximum number of tickets to return.
+        Returns: Open tickets, at most `limit`.
+        Raises ForgeError: When glab fails or a record is malformed.
         """
         items: list[Any] = []
         page = 1
@@ -147,10 +120,10 @@ class GitLabForge(Forge):
 
     def get_ticket(self, iid: int) -> Ticket | None:
         """
-        @brief      Fetch one issue; None when it was deleted.
-        @param[in]  iid Issue iid.
-        @return     The ticket or None on 404.
-        @exception  ForgeError When glab fails for another reason.
+        Fetch one issue; None when it was deleted.
+        iid: Issue iid.
+        Returns: The ticket or None on 404.
+        Raises ForgeError: When glab fails for another reason.
         """
         result = self.runner(
             ["glab", "issue", "view", str(iid), "--repo", self.repo, "--output", "json"]
@@ -165,29 +138,29 @@ class GitLabForge(Forge):
 
     def list_comments(self, iid: int) -> list[Comment]:
         """
-        @brief      Read all notes oldest-first via the notes API.
-        @details    Paginated through `_list_notes`. GitLab caps a page at 100
+        Read all notes oldest-first via the notes API.
+        Paginated through `_list_notes`. GitLab caps a page at 100
                     and every ADORE label change adds a SYSTEM note, so one
                     ticket can cross that bound inside a single run; an
                     unwalked ascending page would then hold nothing but early
                     system notes and a parked run would never see the human
                     answer.
-        @param[in]  iid Issue iid.
-        @return     All notes, system notes flagged.
-        @exception  ForgeError When glab fails.
+        iid: Issue iid.
+        Returns: All notes, system notes flagged.
+        Raises ForgeError: When glab fails.
         """
         return self._list_notes("issues", iid)
 
     def post_comment(self, iid: int, body: str) -> int:
         """
-        @brief      Create a note via `glab issue note`.
-        @details    The note id is parsed from the "#note_<id>" URL glab
+        Create a note via `glab issue note`.
+        The note id is parsed from the "#note_<id>" URL glab
                     prints; if the output format changes, falls back to
                     finding the newest note with the same body.
-        @param[in]  iid Issue iid.
-        @param[in]  body Note body.
-        @return     Created note id.
-        @exception  ForgeError When glab fails or the id cannot be found.
+        iid: Issue iid.
+        body: Note body.
+        Returns: Created note id.
+        Raises ForgeError: When glab fails or the id cannot be found.
         """
         result = self._run(
             ["glab", "issue", "note", str(iid), "--repo", self.repo, "--message", body]
@@ -202,16 +175,16 @@ class GitLabForge(Forge):
 
     def edit_comment(self, iid: int, comment_id: int, body: str) -> None:
         """
-        @brief      Edit a note in place via the API (PUT).
-        @details    glab has no note-edit subcommand (prereq report section 4),
+        Edit a note in place via the API (PUT).
+        glab has no note-edit subcommand (prereq report section 4),
                     so this is `glab api --method PUT .../notes/:id`. The body
                     goes through --raw-field: in glab api, --field infers
                     types (true/false/numbers), --raw-field is guaranteed
                     string (verified live against glab 1.105, 2026-07-03).
-        @param[in]  iid Issue iid.
-        @param[in]  comment_id Note id.
-        @param[in]  body Replacement body.
-        @exception  ForgeError When glab fails.
+        iid: Issue iid.
+        comment_id: Note id.
+        body: Replacement body.
+        Raises ForgeError: When glab fails.
         """
         endpoint = f"projects/{self._project_enc}/issues/{iid}/notes/{comment_id}"
         self._run(["glab", "api", "--method", "PUT", endpoint, "--raw-field", f"body={body}"])
@@ -220,10 +193,10 @@ class GitLabForge(Forge):
 
     def add_labels(self, iid: int, labels: list[str]) -> None:
         """
-        @brief      Add labels via `glab issue update --label`.
-        @param[in]  iid Issue iid.
-        @param[in]  labels Labels to add.
-        @exception  ForgeError When glab fails.
+        Add labels via `glab issue update --label`.
+        iid: Issue iid.
+        labels: Labels to add.
+        Raises ForgeError: When glab fails.
         """
         if not labels:
             return
@@ -234,10 +207,10 @@ class GitLabForge(Forge):
 
     def remove_labels(self, iid: int, labels: list[str]) -> None:
         """
-        @brief      Remove labels via `glab issue update --unlabel`.
-        @param[in]  iid Issue iid.
-        @param[in]  labels Labels to remove.
-        @exception  ForgeError When glab fails.
+        Remove labels via `glab issue update --unlabel`.
+        iid: Issue iid.
+        labels: Labels to remove.
+        Raises ForgeError: When glab fails.
         """
         if not labels:
             return
@@ -250,10 +223,10 @@ class GitLabForge(Forge):
 
     def get_merge_request(self, ref: int | str) -> MergeRequest | None:
         """
-        @brief      Fetch one MR by iid or source branch via `glab mr view`.
-        @param[in]  ref MR iid, or the source branch name (open MRs only).
-        @return     The MergeRequest, or None when not found.
-        @exception  ForgeError When glab fails for another reason.
+        Fetch one MR by iid or source branch via `glab mr view`.
+        ref: MR iid, or the source branch name (open MRs only).
+        Returns: The MergeRequest, or None when not found.
+        Raises ForgeError: When glab fails for another reason.
         """
         result = self.runner(
             ["glab", "mr", "view", str(ref), "--repo", self.repo, "--output", "json"]
@@ -273,13 +246,13 @@ class GitLabForge(Forge):
 
     def pipeline_status(self, mr_iid: int) -> str:
         """
-        @brief      The MR's head-pipeline verdict, normalized; never raises.
-        @details    GitLab returns the pipeline inline on the MR document, so
+        The MR's head-pipeline verdict, normalized; never raises.
+        GitLab returns the pipeline inline on the MR document, so
                     this is one call and needs no commit lookup. An older
                     GitLab that omits the key reads as "unknown" rather than
                     being reported as a passing pipeline.
-        @param[in]  mr_iid MR iid.
-        @return     A PIPELINE_STATES value.
+        mr_iid: MR iid.
+        Returns: A PIPELINE_STATES value.
         """
         result = self.runner(
             ["glab", "mr", "view", str(mr_iid), "--repo", self.repo, "--output", "json"]
@@ -308,19 +281,19 @@ class GitLabForge(Forge):
 
     def list_mr_comments(self, mr_iid: int) -> list[Comment]:
         """
-        @brief      Read all MR notes oldest-first via the notes API.
-        @details    Paginated like the issue surface. GitLab's notes endpoint
+        Read all MR notes oldest-first via the notes API.
+        Paginated like the issue surface. GitLab's notes endpoint
                     already returns DiffNote entries, so the review thread the
                     revise loop feeds the executor is complete here without a
                     separate review surface.
-        @param[in]  mr_iid MR iid.
-        @return     All notes, system notes flagged.
-        @exception  ForgeError When glab fails.
+        mr_iid: MR iid.
+        Returns: All notes, system notes flagged.
+        Raises ForgeError: When glab fails.
         """
         return self._list_notes("merge_requests", mr_iid)
 
     def post_mr_comment(self, mr_iid: int, body: str) -> int:
-        """@brief Create an MR note through the GitLab API."""
+        """Create an MR note through the GitLab API."""
         endpoint = f"projects/{self._project_enc}/merge_requests/{mr_iid}/notes"
         result = self._run([
             "glab", "api", "--method", "POST", endpoint,
@@ -333,7 +306,7 @@ class GitLabForge(Forge):
         return data["id"]
 
     def edit_mr_comment(self, mr_iid: int, comment_id: int, body: str) -> None:
-        """@brief Edit an MR note through the GitLab API."""
+        """Edit an MR note through the GitLab API."""
         endpoint = (
             f"projects/{self._project_enc}/merge_requests/{mr_iid}/notes/"
             f"{comment_id}"
@@ -345,10 +318,10 @@ class GitLabForge(Forge):
 
     def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
         """
-        @brief      Remove MR labels via the API (PUT remove_labels).
-        @param[in]  mr_iid MR iid.
-        @param[in]  labels Labels to remove.
-        @exception  ForgeError When glab fails.
+        Remove MR labels via the API (PUT remove_labels).
+        mr_iid: MR iid.
+        labels: Labels to remove.
+        Raises ForgeError: When glab fails.
         """
         if not labels:
             return
@@ -357,9 +330,10 @@ class GitLabForge(Forge):
                    "--raw-field", f"remove_labels={','.join(labels)}"])
 
     def update_merge_request_body(self, mr_iid: int, body: str) -> None:
-        """@brief Replace only the MR description; CLI failure raises ForgeError.
-        @param[in] mr_iid MR iid.
-        @param[in] body Literal current candidate description.
+        """
+        Replace only the MR description; CLI failure raises ForgeError.
+        mr_iid: MR iid.
+        body: Literal current candidate description.
         """
         endpoint = f"projects/{self._project_enc}/merge_requests/{mr_iid}"
         result = self._run(["glab", "api", "--method", "PUT", endpoint,
@@ -380,19 +354,19 @@ class GitLabForge(Forge):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a draft or ready MR via `glab mr create`. Never merges.
-        @param[in]  source Source branch.
-        @param[in]  target Target branch.
-        @param[in]  title MR title.
-        @param[in]  body MR description.
-        @param[in]  draft Open as draft when true, otherwise ready for review.
-        @param[in]  reviewers Reviewer usernames.
-        @param[in]  remove_source_branch Delete the branch on merge.
-        @param[in]  cwd Git checkout to run in; glab resolves remotes from a
+        Open a draft or ready MR via `glab mr create`. Never merges.
+        source: Source branch.
+        target: Target branch.
+        title: MR title.
+        body: MR description.
+        draft: Open as draft when true, otherwise ready for review.
+        reviewers: Reviewer usernames.
+        remove_source_branch: Delete the branch on merge.
+        cwd: Git checkout to run in; glab resolves remotes from a
                         local repo even with --repo, so the run's worktree is
                         passed (see the Forge base contract).
-        @return     MR web URL.
-        @exception  ForgeError When glab fails or no URL is printed.
+        Returns: MR web URL.
+        Raises ForgeError: When glab fails or no URL is printed.
         """
         argv = [
             "glab", "mr", "create",
@@ -419,14 +393,14 @@ class GitLabForge(Forge):
 
     def _list_notes(self, kind: str, iid: int) -> list[Comment]:
         """
-        @brief      Read one resource's notes oldest-first, page by page.
-        @details    GitLab caps `per_page` at 100, so a single ascending page
+        Read one resource's notes oldest-first, page by page.
+        GitLab caps `per_page` at 100, so a single ascending page
                     hides every later note. Pages are walked until a short
                     (last) page, bounded by `_MAX_LIST_PAGES`.
-        @param[in]  kind Notes owner path segment ("issues" | "merge_requests").
-        @param[in]  iid Issue or MR iid.
-        @return     All notes, oldest first, system notes flagged.
-        @exception  ForgeError When glab fails or a page is malformed.
+        kind: Notes owner path segment ("issues" | "merge_requests").
+        iid: Issue or MR iid.
+        Returns: All notes, oldest first, system notes flagged.
+        Raises ForgeError: When glab fails or a page is malformed.
         """
         notes: list[Comment] = []
         page = 1
@@ -451,7 +425,7 @@ class GitLabForge(Forge):
             page += 1
 
     def list_labels(self) -> list[str]:
-        """@brief Project label names, read page by page."""
+        """Project label names, read page by page."""
         names: list[str] = []
         page = 1
         while True:
@@ -464,7 +438,7 @@ class GitLabForge(Forge):
             page += 1
 
     def create_label(self, name: str, color: str, description: str) -> None:
-        """@brief Create a project label (GitLab takes the colour with #)."""
+        """Create a project label (GitLab takes the colour with #)."""
         self._run(["glab", "api", "--method", "POST", f"projects/{self._project_enc}/labels",
                    "--raw-field", f"name={name}", "--raw-field", f"color=#{color}",
                    "--raw-field", f"description={description}"])
@@ -472,17 +446,17 @@ class GitLabForge(Forge):
     @property
     def _project_enc(self) -> str:
         """
-        @brief   URL-encoded project path for API endpoints.
-        @return  The percent-encoded repo path.
+        URL-encoded project path for API endpoints.
+        Returns: The percent-encoded repo path.
         """
         return urllib.parse.quote(self.repo, safe="")
 
     @staticmethod
     def _to_ticket(item: dict[str, Any]) -> Ticket:
         """
-        @brief      Map one glab issue JSON record to a Ticket.
-        @param[in]  item Raw issue mapping.
-        @return     The normalized Ticket.
+        Map one glab issue JSON record to a Ticket.
+        item: Raw issue mapping.
+        Returns: The normalized Ticket.
         """
         return Ticket(
             iid=int(item["iid"]),
@@ -495,6 +469,3 @@ class GitLabForge(Forge):
             created_at=item.get("created_at", ""),
             updated_at=item.get("updated_at", ""),
         )
-
-
-# END OF FILE

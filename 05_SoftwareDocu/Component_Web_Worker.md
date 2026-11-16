@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Web supervisor and worker processes
 
 ## 1. Purpose
@@ -20,6 +13,10 @@ failed workers with per-scope backoff, and stops owned trees. `ProjectWorker`
 keeps its own polling, quiet hours, backoff, commands and run deadlines. It
 uses the canonical atomic project admission limit for Start/Retry/resumptions.
 `CommandWorker` validates one scoped request/result through fixed CLI arguments.
+Cancelled Restart rechecks the confirmed state and dispatches `restart --admit-only`.
+Its success is bound to the retained cancellation, picked ticket, chosen workflow
+and new run owner. The acknowledgement exposes `admitted_run_id`; the independent
+run pool conducts the new job after admission. No web database schema changes.
 Its synchronous scheduling helper remains available for in-process callers;
 production startup routes through the process supervisor.
 
@@ -130,7 +127,7 @@ tests/test_retry_revalidation.py; existing queue authorization remains unchanged
 
 ## Revision-bound restart
 
-The durable `restart` action stores `<run-id>.<state-sha256>` in the existing operation target. The worker rechecks current actor/project grants, immutable project identity, failed lifecycle and exact state bytes before launching fixed CLI argv `restart <run-id> --force --expected-revision <sha256>`. The CLI checks again under the conductor lock. Changed incarnations are `restart:job_changed`; unsuccessful invocation is localized as incomplete/refused recovery, with bounded redacted diagnostics. In-flight worker loss remains uncertain and is never replayed automatically. Offline proof: `tests/test_drift_recovery.py`.
+The durable `restart` action stores `<run-id>.<state-sha256>` in the existing operation target. The worker rechecks current actor/project grants, immutable project identity, failed or cancelled lifecycle and exact state bytes before launching fixed CLI argv `restart <run-id> --force --expected-revision <sha256>`. The CLI checks again under the conductor lock. Changed incarnations are `restart:job_changed`; unsuccessful invocation is localized as incomplete/refused recovery, with bounded redacted diagnostics. In-flight worker loss remains uncertain and is never replayed automatically. Offline proof: `tests/test_drift_recovery.py`.
 
 Confirmed deletion clears the owning profile/job usage projections while holding their SQLite write transaction across source removal; old reporting readers cannot restore a discarded cursor. The CLI binds this callback only to the registered profile matching its exact resolved config path. No account, grant, audit or other project projection is reset.
 

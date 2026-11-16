@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_orchestrator.py
-@brief ADORE conductor, recovery, approval and notification tests.
-@details Uses only injected offline fakes; no forge, git, container or model is
-         contacted. The tests focus on observable contracts and fail-closed
-         trust boundaries rather than private implementation structure.
-"""
+"""ADORE conductor, recovery, approval and notification tests."""
 
 from __future__ import annotations
 
@@ -41,20 +26,14 @@ from adore.state import RunState, StateError, StateStore, content_hash
 from adore.util import CommandResult, utc_now_iso
 import pytest
 
-# IMPORTS
 from tests.execution_records import execution_record
 from tests.usage_events import versioned_usage
-
-# CONSTANTS
 
 TASK_ID = "TASK-abc123ef"
 
 
-# DATA MODELS / TYPEDEFINITIONS
-
-
 class FakeForge:
-    """@brief In-memory forge implementing both ticket and MR comment surfaces."""
+    """In-memory forge implementing both ticket and MR comment surfaces."""
 
     def __init__(self, ticket: Ticket | None = None) -> None:
         self.ticket = ticket or Ticket(
@@ -143,12 +122,12 @@ class FakeForge:
             self.mr.labels = [item for item in self.mr.labels if item not in labels]
 
     def link_ticket(self, mr_iid: int, ticket_iid: int) -> None:
-        """@brief Acknowledge provider-native association at publication."""
+        """Acknowledge provider-native association at publication."""
         assert self.mr and mr_iid == self.mr.iid
         assert self.ticket and ticket_iid == self.ticket.iid
 
     def update_merge_request_body(self, mr_iid: int, body: str) -> None:
-        """@brief Replace the review description without changing any other review field."""
+        """Replace the review description without changing any other review field."""
         assert self.mr and mr_iid == self.mr.iid
         self.mr_body = body
         self.updated_bodies.append((mr_iid, body))
@@ -163,7 +142,7 @@ class FakeForge:
 
 
 class FakeWorktrees:
-    """@brief Git/worktree fake with mutable target and candidate fingerprints."""
+    """Git/worktree fake with mutable target and candidate fingerprints."""
 
     repo_path = Path("C:/repo")
 
@@ -183,7 +162,7 @@ class FakeWorktrees:
         return True
 
     def repository_lock(self):
-        """@brief Fake Git mutations are already deterministic in these unit tests."""
+        """Fake Git mutations are already deterministic in these unit tests."""
         from contextlib import nullcontext
         return nullcontext()
 
@@ -197,13 +176,13 @@ class FakeWorktrees:
         return None
 
     def fresh_branch(self, base, *, validate):
-        """@brief Default fake has no occupied local/remote branch names."""
+        """Default fake has no occupied local/remote branch names."""
         if not validate(base):
             raise IsolationError("repository naming rule refused branch")
         return base
 
     def remote_branch_head(self, branch):
-        """@brief Default fake has no unpublished remote orphan."""
+        """Default fake has no unpublished remote orphan."""
         return ""
 
     def merge(self, run_id, ref):
@@ -216,8 +195,8 @@ class FakeWorktrees:
         self.pushes.append(branch)
         return CommandResult(exit_code=0)
 
-    def remove_remote_branch(self, branch, expected, target):
-        """@brief Simulate successful idempotent merged-branch cleanup."""
+    def remove_remote_branch(self, branch, expected, target, *, allow_absent=False):
+        """Simulate successful idempotent merged-branch cleanup."""
         return None
 
     def is_dirty(self, run_id):
@@ -251,7 +230,7 @@ class FakeWorktrees:
         return True
 
     def read_summary(self, run_id, *, max_chars):
-        """@brief Model the typed safe-reader seam; filesystem boundary proof lives in isolation."""
+        """Model the typed safe-reader seam; filesystem boundary proof lives in isolation."""
         from types import SimpleNamespace
 
         path = self.path_for(run_id) / "ADORE_SUMMARY.md"
@@ -260,7 +239,7 @@ class FakeWorktrees:
         return SimpleNamespace(text=path.read_text(encoding="utf-8")[-max_chars:])
 
     def remove_summary(self, run_id, artifact):
-        """@brief Remove only the current fake handoff, after the conductor persists its text."""
+        """Remove only the current fake handoff, after the conductor persists its text."""
         (self.path_for(run_id) / "ADORE_SUMMARY.md").unlink()
 
     def admin_dir_name(self, run_id):
@@ -270,7 +249,7 @@ class FakeWorktrees:
         return self.dirs
 
     def verify_removal(self, run_id, branch):
-        """@brief Default fake represents an unchanged owned worktree."""
+        """Default fake represents an unchanged owned worktree."""
         return None
 
     def remove(self, run_id, **kwargs):
@@ -278,7 +257,7 @@ class FakeWorktrees:
 
 
 class FakeContainers:
-    """@brief Container lifecycle fake."""
+    """Container lifecycle fake."""
 
     def __init__(self) -> None:
         self.runtime_state = {"status": "running"}
@@ -293,12 +272,12 @@ class FakeContainers:
 
     @property
     def status_value(self):
-        """@brief Read the runtime state shared by shallow image-manager copies."""
+        """Read the runtime state shared by shallow image-manager copies."""
         return self.runtime_state["status"]
 
     @status_value.setter
     def status_value(self, value):
-        """@brief Update the shared external-runtime lifecycle receipt."""
+        """Update the shared external-runtime lifecycle receipt."""
         self.runtime_state["status"] = value
 
     def ensure_volumes(self):
@@ -309,17 +288,17 @@ class FakeContainers:
         return "created"
 
     def image_identity(self, image):
-        """@brief Resolve the injected image without external commands."""
+        """Resolve the injected image without external commands."""
         return "sha256:" + "e" * 64
 
     def resource_identity(self, name):
-        """@brief Supply authoritative runtime identity without invoking a CLI."""
+        """Supply authoritative runtime identity without invoking a CLI."""
         self.observed_name = name
         return {"container_id": "d" * 64, "image_id": "sha256:" + "e" * 64,
                 "status": self.status_value}
 
     def start(self, name):
-        """@brief Resume the same injected container."""
+        """Resume the same injected container."""
         self.status_value = "running"
 
     def verify_required_tools(self, *args, **kwargs):
@@ -341,15 +320,15 @@ class FakeContainers:
         self.removed.append(name)
 
     def remove_executor(self, identity):
-        """@brief Record immutable executor release through the backend seam."""
+        """Record immutable executor release through the backend seam."""
         self.remove(getattr(self, "observed_name", identity))
 
     def status(self, name):
-        """@brief Mirror the fake runtime lifecycle for owned controls."""
+        """Mirror the fake runtime lifecycle for owned controls."""
         return self.status_value
 
     def release_owned(self, name, repo, worktree, io, *, expected=None):
-        """@brief Model path-proven exact release; runtime boundary proof is separate."""
+        """Model path-proven exact release; runtime boundary proof is separate."""
         self.remove(name)
         return {"containers_removed": [name], "proxy_containers_removed": [],
                 "egress_networks_removed": []}
@@ -375,7 +354,7 @@ class FakeContainers:
 
 class FakeRuntime:
     """
-    @brief   Stateful container-runtime double for cleanup: lists containers and
+    Stateful container-runtime double for cleanup: lists containers and
              networks with docker's substring name filter and removes exact
              names, so tests observe which resources survive.
     """
@@ -401,7 +380,7 @@ class FakeRuntime:
 
 
 class FakeExecutor:
-    """@brief Fresh-session executor double with scripted stage results."""
+    """Fresh-session executor double with scripted stage results."""
 
     def __init__(self, *results: GateRun) -> None:
         self.results = deque(results)
@@ -418,7 +397,7 @@ class FakeExecutor:
 
 
 class FakeAegis:
-    """@brief Typed-client fake returning scripted task journal snapshots."""
+    """Typed-client fake returning scripted task journal snapshots."""
 
     def __init__(self, tasks: list[AegisTask]) -> None:
         self.tasks = deque(tasks)
@@ -433,13 +412,10 @@ class FakeAegis:
         raise AssertionError("ADORE must not independently execute AEGIS checks")
 
 
-# HELPER FUNCTIONS
-
-
 def test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume(
     tmp_path, monkeypatch
 ) -> None:
-    """@brief Public retry prepares once, then preserves same-container success."""
+    """Public retry prepares once, then preserves same-container success."""
     from types import SimpleNamespace
 
     from adore.preparation import resolve_plan
@@ -483,7 +459,7 @@ def test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume(
     containers.exec = execute
 
     class Client(FakeAegis):
-        """@brief File-gate client fake checks preparation before AI task creation."""
+        """File-gate client fake checks preparation before AI task creation."""
         def __init__(self, *args):
             super().__init__([task("frame")])
         def probe(self):
@@ -515,7 +491,7 @@ def test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume(
 
 
 def make_config(tmp_path: Path) -> Config:
-    """@brief Return a directly injectable valid-enough configuration."""
+    """Return a directly injectable valid-enough configuration."""
     config = Config()
     config.agent.slug = "adore"
     config.agent.email = "adore@example.test"
@@ -537,7 +513,7 @@ def make_engine(
     forge: FakeForge | None = None,
     executor: FakeExecutor | None = None,
 ):
-    """@brief Build the conductor and its fakes."""
+    """Build the conductor and its fakes."""
     config = make_config(tmp_path)
     fake_forge = forge or FakeForge()
     worktrees = FakeWorktrees()
@@ -558,7 +534,7 @@ def make_engine(
 
 
 def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunState:
-    """@brief Persist one active task-bound run and its ticket snapshot."""
+    """Persist one active task-bound run and its ticket snapshot."""
     run = RunState(
         run_id="github-owner-repo-7",
         ticket_iid=7,
@@ -599,7 +575,7 @@ def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunSt
 
 
 def task(stage: str, *, path="full", task_type="feature") -> AegisTask:
-    """@brief Return a validated task view for scripted conduction."""
+    """Return a validated task view for scripted conduction."""
     steps = {
         "frame": "1_frame.md", "specify": "2_specify.md", "design": "3_design.md",
         "build": "4_build.md", "validate": "5_validate.md",
@@ -627,13 +603,13 @@ def task(stage: str, *, path="full", task_type="feature") -> AegisTask:
 
 
 def executor_validation_evidence() -> dict:
-    """@brief Return saved validation evidence for the fixture task."""
+    """Return saved validation evidence for the fixture task."""
     return {"source": "agent-aegis-journal", "stage": "done", "task_id": TASK_ID,
             "deviations": [], "reported_checks": "Agent reported checks"}
 
 
 def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:
-    """@brief Expand stage transitions into before/after status reads."""
+    """Expand stage transitions into before/after status reads."""
     result: list[AegisTask] = []
     for current, following in zip(stages, stages[1:], strict=False):
         result.extend([
@@ -646,7 +622,7 @@ def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:
 
 
 class DirectExecutor(FakeExecutor):
-    """@brief Each scripted callback is a fresh implementation attempt, never a resumed session."""
+    """Each scripted callback is a fresh implementation attempt, never a resumed session."""
 
     def __init__(self, *attempts):
         super().__init__()
@@ -662,7 +638,7 @@ class DirectExecutor(FakeExecutor):
 
 
 def direct_engine(tmp_path, monkeypatch, *attempts):
-    """@brief Ready-ticket fixture with a real exchange directory and fake Git/forge/Pi."""
+    """Ready-ticket fixture with a real exchange directory and fake Git/forge/Pi."""
     executor = DirectExecutor(*attempts)
     engine, forge, worktrees, containers, _ = make_engine(tmp_path, executor=executor)
     clone, work = tmp_path / "clone", tmp_path / "work"
@@ -681,7 +657,7 @@ def direct_engine(tmp_path, monkeypatch, *attempts):
 
 
 def direct_edit(worktrees, *, summary="Changed feature; checked with repository tests."):
-    """@brief Successful product edit and optional agent summary for one fresh attempt."""
+    """Successful product edit and optional agent summary for one fresh attempt."""
     def attempt(root):
         (root / "feature.txt").write_text("implemented\n")
         worktrees.progress_fingerprint += "-edited"
@@ -692,15 +668,12 @@ def direct_edit(worktrees, *, summary="Changed feature; checked with repository 
     return attempt
 
 
-# PUBLIC API
-
-
 @pytest.mark.parametrize("summary", [None, "Réalisé ${title} {x}; token=private checked."])
 @pytest.mark.parametrize("override", [None, 41])
 def test_direct_one_session_reaches_unverified_approval_and_publication(
     tmp_path, monkeypatch, summary, override,
 ):
-    """@brief A real product edit hands one exact unverified candidate to the human gate."""
+    """A real product edit hands one exact unverified candidate to the human gate."""
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
     for root in (Path(engine.config.worktree.repo_path), work):
         (root / ".agentic").mkdir()
@@ -781,7 +754,7 @@ def test_direct_one_session_reaches_unverified_approval_and_publication(
 
 @pytest.mark.parametrize("failure", [None, "refused", "response-lost"])
 def test_direct_adoption_refreshes_body_and_retries_failed_update(tmp_path, monkeypatch, failure):
-    """@brief An adopted review receives exact direct evidence before entering in-review."""
+    """An adopted review receives exact direct evidence before entering in-review."""
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees, summary="Candidate for adopted review."))
     engine.poll_once(ticket_iid=7)
@@ -824,7 +797,7 @@ def test_direct_adoption_refreshes_body_and_retries_failed_update(tmp_path, monk
 def test_direct_gitea_description_acknowledgment_controls_publication(
     tmp_path, monkeypatch, revision, status,
 ):
-    """@brief Actual Gitea HTTP acknowledgment gates adoption/revision and no-Pi Retry."""
+    """Actual Gitea HTTP acknowledgment gates adoption/revision and no-Pi Retry."""
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees, summary="Original candidate."))
     engine.poll_once(ticket_iid=7)
@@ -844,7 +817,7 @@ def test_direct_gitea_description_acknowledgment_controls_publication(
     statuses = deque([status, 204])
 
     def runner(argv, **kwargs):
-        """@brief Replay final status after a proxy success without invoking tea or the network."""
+        """Replay final status after a proxy success without invoking tea or the network."""
         calls.append(list(argv))
         return CommandResult(
             exit_code=0,
@@ -887,7 +860,7 @@ def test_direct_gitea_description_acknowledgment_controls_publication(
 
 @pytest.mark.parametrize("summary", [None, "No product changes; inspected only."])
 def test_direct_no_changes_fails_once_with_summary(tmp_path, monkeypatch, summary):
-    """@brief Summary-only work is not implementation and cannot obtain approval."""
+    """Summary-only work is not implementation and cannot obtain approval."""
     def attempt(root):
         if summary is not None:
             (root / "ADORE_SUMMARY.md").write_text(summary)
@@ -910,7 +883,7 @@ def test_direct_no_changes_fails_once_with_summary(tmp_path, monkeypatch, summar
 def test_direct_questions_park_and_resume_fresh_with_thread(
     tmp_path, monkeypatch, question, product_edit,
 ):
-    """@brief Presence (even empty) wins over progress/errors and keeps failure counters."""
+    """Presence (even empty) wins over progress/errors and keeps failure counters."""
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
 
     def ask(root):
@@ -952,7 +925,7 @@ def test_direct_questions_park_and_resume_fresh_with_thread(
 def test_direct_errors_use_bounded_build_failure_accounting(
     tmp_path, monkeypatch, result, code, recover,
 ):
-    """@brief Failed or timed-out implementation never completes; below-limit retries are fresh."""
+    """Failed or timed-out implementation never completes; below-limit retries are fresh."""
     engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     engine.config.recovery.max_stage_failures = 2
     executor.attempts.append(lambda root: result)
@@ -970,7 +943,7 @@ def test_direct_errors_use_bounded_build_failure_accounting(
 
 @pytest.mark.parametrize("failure", ["summary", "checkpoint"])
 def test_direct_retry_settlement_failure_cannot_publish(tmp_path, monkeypatch, failure):
-    """@brief A failed-push retry must not suppress unsafe direct artifact/checkpoint errors."""
+    """A failed-push retry must not suppress unsafe direct artifact/checkpoint errors."""
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees))
     engine.poll_once(ticket_iid=7)
@@ -996,7 +969,7 @@ def test_direct_retry_settlement_failure_cannot_publish(tmp_path, monkeypatch, f
 
 @pytest.mark.parametrize("change", ["raise", "lower", "corrupt", "missing", "identity", "capacity"])
 def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, monkeypatch, change):
-    """@brief Direct retry reads the selected source with cumulative attempts and fixed identity."""
+    """Direct retry reads the selected source with cumulative attempts and fixed identity."""
     from adore.config import load_config
 
     from tests.test_web_pending_config import _project
@@ -1056,7 +1029,7 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
 def test_direct_budget_boundaries_stop_without_approval(
     tmp_path, monkeypatch, budget, after_launch,
 ):
-    """@brief All cumulative limits bound direct attempts, including the completion boundary."""
+    """All cumulative limits bound direct attempts, including the completion boundary."""
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     exhausted = [not after_launch]
     if budget == "launch":
@@ -1091,7 +1064,7 @@ def test_direct_budget_boundaries_stop_without_approval(
 @pytest.mark.parametrize("failure", ["summary-read", "summary-remove", "progress", "checkpoint",
                                    "fingerprint", "count"])
 def test_direct_artifact_and_git_failures_preserve_cause(tmp_path, monkeypatch, failure):
-    """@brief Unsafe artifacts and failed observations/checkpoints never become a candidate."""
+    """Unsafe artifacts and failed observations/checkpoints never become a candidate."""
     engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees))
 
@@ -1120,7 +1093,7 @@ def test_direct_artifact_and_git_failures_preserve_cause(tmp_path, monkeypatch, 
 
 
 def test_direct_checkpoint_retry_finishes_without_another_implementation(tmp_path, monkeypatch):
-    """@brief Durable summary/completion survives Git failure and Retry needs no new Pi session."""
+    """Durable summary/completion survives Git failure and Retry needs no new Pi session."""
     engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees))
     commit = worktrees.commit_all_if_dirty
@@ -1146,14 +1119,14 @@ def test_direct_checkpoint_retry_finishes_without_another_implementation(tmp_pat
 def test_direct_completion_save_interruption_recovers_at_launch_limit(
     tmp_path, monkeypatch, completed,
 ):
-    """@brief A durable completion atomically enters validate; partial work cannot bypass limits."""
+    """A durable completion atomically enters validate; partial work cannot bypass limits."""
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees, summary="Completed before interruption."))
     engine.config.budgets.max_iterations = 1
     save = engine.store.save
 
     class Interrupted(BaseException):
-        """@brief Simulated conductor death after the first durable completion write."""
+        """Simulated conductor death after the first durable completion write."""
 
     def save_then_interrupt(run):
         save(run)
@@ -1195,7 +1168,7 @@ def test_direct_completion_save_interruption_recovers_at_launch_limit(
     "target", "candidate", "missing-completion",
 ])
 def test_direct_approval_drift_requires_new_presentation(tmp_path, monkeypatch, drift):
-    """@brief A stale label cannot publish a different candidate or incomplete evidence."""
+    """A stale label cannot publish a different candidate or incomplete evidence."""
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees))
     engine.poll_once(ticket_iid=7)
@@ -1227,7 +1200,7 @@ def test_direct_approval_drift_requires_new_presentation(tmp_path, monkeypatch, 
 
 @pytest.mark.parametrize("stage", ["frame", "specify", "design", "build", "validate", "publishing"])
 def test_direct_reset_retains_workflow_and_refuses_aegis_stages(tmp_path, monkeypatch, stage):
-    """@brief Reset checks the direct stage contract before mutating its saved state."""
+    """Reset checks the direct stage contract before mutating its saved state."""
     engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees))
     engine.poll_once(ticket_iid=7)
@@ -1249,7 +1222,7 @@ def test_direct_reset_retains_workflow_and_refuses_aegis_stages(tmp_path, monkey
 def test_direct_revision_retains_workflow_and_uses_fresh_thread(
     tmp_path, monkeypatch, pipeline, update_fails,
 ):
-    """@brief A bounded review revision needs no task, even after repository adoption of AEGIS."""
+    """A bounded review revision needs no task, even after repository adoption of AEGIS."""
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
     executor.attempts.extend([
         direct_edit(worktrees), direct_edit(worktrees, summary="Review fixed."),
@@ -1309,11 +1282,73 @@ def test_direct_revision_retains_workflow_and_uses_fresh_thread(
     assert "Changed files: 2" not in forge.mr_body and "AEGIS task" not in forge.mr_body
 
 
+@pytest.mark.parametrize("blocked", ["", "revision", "capacity", "notification", "cleanup"])
+def test_cancelled_restart_preserves_evidence_and_creates_fresh_job(tmp_path, monkeypatch, blocked):
+    """A cancelled ticket restarts independently and retained history cannot fork."""
+    from hashlib import sha256
+
+    engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    executor.attempts.extend([direct_edit(worktrees), direct_edit(worktrees)])
+    engine.poll_once(ticket_iid=7)
+    previous = "github-owner-repo-7"
+    assert engine.cancel(previous)
+    directory = engine.store.run_dir(previous)
+    evidence = directory / "io" / "retained.txt"
+    evidence.parent.mkdir(exist_ok=True)
+    evidence.write_text("Recorded conversation", encoding="utf-8")
+    if blocked == "notification":
+        run = engine.store.load(previous)
+        run.notification_outbox = [{"kind": "status"}]
+        engine.store.save(run)
+    raw = (directory / "state.json").read_bytes()
+    revision = sha256(raw).hexdigest()
+    engine.store.pause()
+    if blocked == "capacity":
+        monkeypatch.setattr(engine, "_has_capacity", lambda **kwargs: False)
+        refused = engine.restart(previous, revision, workflow="direct")
+        assert refused["start_reason"] == "at_capacity"
+    elif blocked:
+        if blocked == "cleanup":
+            def refuse(*args, **kwargs):
+                raise IsolationError("unsafe cleanup")
+            monkeypatch.setattr(worktrees, "remove", refuse)
+        with pytest.raises(IsolationError):
+            engine.restart(previous, "0" * 64 if blocked == "revision" else revision,
+                           workflow="direct")
+    if blocked:
+        assert (directory / "state.json").read_bytes() == raw
+        assert evidence.read_text() == "Recorded conversation"
+        assert engine.store.latest_run_id(previous) == previous
+        assert len(executor.prompts) == 1
+        return
+    result = engine.restart(previous, revision, workflow="direct")
+    fresh = engine.store.load(result["run_id"])
+    assert fresh.run_id != previous and fresh.iterations == 1
+    assert fresh.lifecycle == "awaiting-approval"
+    assert (directory / "state.json").read_bytes() == raw
+    assert evidence.read_text() == "Recorded conversation" and engine.store.is_paused()
+    assert engine.store.latest_run_id(previous) == fresh.run_id
+    with pytest.raises(IsolationError, match="changed|latest"):
+        engine.restart(previous, revision, workflow="direct")
+    assert len(executor.prompts) == 2
+    fresh.lifecycle = "failed"
+    engine.store.save(fresh)
+    failed_revision = sha256((engine.store.run_dir(fresh.run_id) / "state.json").read_bytes())
+    executor.attempts.append(direct_edit(worktrees))
+    abandoned = engine.restart(fresh.run_id, failed_revision.hexdigest(), workflow="direct")
+    assert abandoned["picked"] == 7 and abandoned["run_id"] == fresh.run_id
+    assert engine.store.load(fresh.run_id).lifecycle == "awaiting-approval"
+    assert (directory / "state.json").read_bytes() == raw
+    assert evidence.read_text() == "Recorded conversation"
+    assert any(event.get("event") == "restarted-from" and event.get("previous_run_id") == previous
+               for event in engine.store.read_journal(fresh.run_id))
+
+
 @pytest.mark.parametrize("infrastructure_error", [False, True])
 def test_direct_integration_conflict_returns_to_fresh_build(
     tmp_path, monkeypatch, infrastructure_error,
 ):
-    """@brief Only content conflicts relaunch Pi; integration infrastructure failures stop."""
+    """Only content conflicts relaunch Pi; integration infrastructure failures stop."""
     engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.extend([direct_edit(worktrees), direct_edit(worktrees)])
     merges = deque([
@@ -1341,7 +1376,7 @@ def test_direct_integration_conflict_returns_to_fresh_build(
 
 @pytest.mark.parametrize("expired", [False, True])
 def test_direct_clarification_deadline_and_round_limit(tmp_path, monkeypatch, expired):
-    """@brief Direct parking retains the existing deadline and question-round refusals."""
+    """Direct parking retains the existing deadline and question-round refusals."""
     def ask(root):
         return GateRun(exit_code=0, has_questions=True, questions="Need an answer")
 
@@ -1369,7 +1404,7 @@ def test_direct_clarification_deadline_and_round_limit(tmp_path, monkeypatch, ex
     "wrong-stage", "push-retry", "published-retry", "revision-limit",
 ])
 def test_direct_publication_and_review_boundaries(tmp_path, monkeypatch, boundary):
-    """@brief Shared publication/review controls retain direct identity without another Pi gate."""
+    """Shared publication/review controls retain direct identity without another Pi gate."""
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.append(direct_edit(worktrees))
     engine.poll_once(ticket_iid=7)
@@ -1418,7 +1453,7 @@ def test_direct_publication_and_review_boundaries(tmp_path, monkeypatch, boundar
 def test_claim_selects_worktree_workflow_before_first_save(
     tmp_path, monkeypatch, manual, clone_payload, worktree_payload, mode,
 ):
-    """@brief Admission probes only present clones; immutable identity comes from the worktree."""
+    """Admission probes only present clones; immutable identity comes from the worktree."""
     from types import SimpleNamespace
 
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
@@ -1434,7 +1469,7 @@ def test_claim_selects_worktree_workflow_before_first_save(
     probes, allocations, saved = [], [], []
 
     class Client:
-        """@brief Admission-only client: code conduction is captured independently."""
+        """Admission-only client: code conduction is captured independently."""
         def __init__(self, *args):
             pass
 
@@ -1461,7 +1496,7 @@ def test_claim_selects_worktree_workflow_before_first_save(
     admissions = []
 
     def on_admitted(admitted):
-        """@brief The admission callback observes durable state before forge claim/conduction."""
+        """The admission callback observes durable state before forge claim/conduction."""
         observed = engine.store.load(admitted.run_id)
         assert observed.lifecycle == "working" and observed.execution_pending
         assert engine.store.load_ticket(admitted.run_id)["iid"] == 7
@@ -1502,7 +1537,7 @@ def test_claim_selects_worktree_workflow_before_first_save(
 def test_run_owned_poll_preserves_other_jobs_and_counts_project_capacity(
     tmp_path, monkeypatch, capacity, expected,
 ):
-    """@brief A run-owned restart poll admits only its target and preserves other working jobs."""
+    """A run-owned restart poll admits only its target and preserves other working jobs."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     clone, work = tmp_path / "clone", tmp_path / "selected"
     clone.mkdir()
@@ -1532,7 +1567,7 @@ def test_run_owned_poll_preserves_other_jobs_and_counts_project_capacity(
 
 @pytest.mark.parametrize("stale", [False, True])
 def test_claim_pins_preparation_revision_before_snapshot_allocation(tmp_path, monkeypatch, stale):
-    """@brief Resolve recipes before allocation, without execution or provisional claim saves."""
+    """Resolve recipes before allocation, without execution or provisional claim saves."""
     from tests.test_preparation import SourceRunner
 
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
@@ -1563,7 +1598,7 @@ def test_claim_pins_preparation_revision_before_snapshot_allocation(tmp_path, mo
 
 
 def test_payload_presence_observation_failure_refuses_before_claim(tmp_path, monkeypatch):
-    """@brief An unreadable payload location is not evidence of absence/direct authority."""
+    """An unreadable payload location is not evidence of absence/direct authority."""
     engine, forge, _, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     payload = Path(engine.config.worktree.repo_path) / ".agentic/aegis.py"
     original = Path.lstat
@@ -1586,7 +1621,7 @@ def test_payload_presence_observation_failure_refuses_before_claim(tmp_path, mon
 def test_present_payload_refusal_never_claims_or_falls_back(
     tmp_path, monkeypatch, entry, failure, request, mode,
 ):
-    """@brief Present unusable entries remain governed, including dangling symlinks."""
+    """Present unusable entries remain governed, including dangling symlinks."""
     from adore.aegis import AegisError, AegisProtocolError
 
     engine, forge, _, _, executor = make_engine(tmp_path)
@@ -1605,7 +1640,7 @@ def test_present_payload_refusal_never_claims_or_falls_back(
     probes = []
 
     class Client:
-        """@brief Inject a typed client refusal at the present-payload boundary."""
+        """Inject a typed client refusal at the present-payload boundary."""
         def __init__(self, *args):
             pass
 
@@ -1629,7 +1664,7 @@ def test_present_payload_refusal_never_claims_or_falls_back(
 
 @pytest.mark.parametrize("failure", ["allocation", "plan"])
 def test_preclaim_allocation_failure_keeps_ticket_eligible(tmp_path, monkeypatch, failure):
-    """@brief No provisional workflow or claim is persisted on failed snapshot allocation."""
+    """No provisional workflow or claim is persisted on failed snapshot allocation."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     engine.config.worktree.repo_path = str(tmp_path)
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P1"]
@@ -1657,7 +1692,7 @@ def test_preclaim_allocation_failure_keeps_ticket_eligible(tmp_path, monkeypatch
 def test_retry_continues_design_return_and_exposes_stage_before_checkpoint(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, prior_failure: bool,
 ) -> None:
-    """@brief Legal return starts fresh Specify work and exposes durable web evidence."""
+    """Legal return starts fresh Specify work and exposes durable web evidence."""
     from adore.profiles import ProfileStore
     from adore.web.jobs import read_jobs
 
@@ -1681,7 +1716,7 @@ def test_retry_continues_design_return_and_exposes_stage_before_checkpoint(
     commit = worktrees.commit_all_if_dirty
 
     def checkpoint(run_id, message):
-        """@brief Observe the public Jobs projection while checkpoint work is pending."""
+        """Observe the public Jobs projection while checkpoint work is pending."""
         engine.poll_once(locked=True)
         rows, _ = read_jobs(profiles, [item])
         observed.append((message, rows[0]["stage"], rows[0]["lifecycle"]))
@@ -1716,7 +1751,7 @@ def test_retry_continues_design_return_and_exposes_stage_before_checkpoint(
 def test_retry_stage_checkpoint_failure_retains_actual_stage_and_cause(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, following: str,
 ) -> None:
-    """@brief Checkpoint failures leave a typed terminal outcome at the accepted stage."""
+    """Checkpoint failures leave a typed terminal outcome at the accepted stage."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     run = make_run(engine)
     run.stage = "design"
@@ -1727,7 +1762,7 @@ def test_retry_stage_checkpoint_failure_retains_actual_stage_and_cause(
     monkeypatch.setattr(orchestrator_module, "AegisClient", lambda *args: client)
 
     def fail_checkpoint(*args):
-        """@brief Simulate a Git commit failure after the executor's journal transition."""
+        """Simulate a Git commit failure after the executor's journal transition."""
         raise IsolationError("commit failed; dirty files retained")
 
     monkeypatch.setattr(worktrees, "commit_all_if_dirty", fail_checkpoint)
@@ -1752,7 +1787,7 @@ def test_retry_stage_checkpoint_failure_retains_actual_stage_and_cause(
 def test_retry_refuses_untrusted_design_return(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, following: str, wrong_branch: bool,
 ) -> None:
-    """@brief Unevidenced forward skips and foreign tasks cannot authorize another session."""
+    """Unevidenced forward skips and foreign tasks cannot authorize another session."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     run = make_run(engine)
     run.stage = "design"
@@ -1779,7 +1814,7 @@ def test_retry_refuses_untrusted_design_return(
 def test_retry_backward_routes_remain_iteration_bounded(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief Repeated AEGIS returns consume the existing cumulative run budget."""
+    """Repeated AEGIS returns consume the existing cumulative run budget."""
     engine, _, _, _, executor = make_engine(tmp_path)
     engine.config.budgets.max_iterations = 2
     run = make_run(engine)
@@ -1802,7 +1837,7 @@ def test_retry_backward_routes_remain_iteration_bounded(
 def test_poll_still_detects_a_working_run_without_a_conductor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief Relaxed routing does not retain a genuinely orphaned execution slot."""
+    """Relaxed routing does not retain a genuinely orphaned execution slot."""
     engine, _, _, _, executor = make_engine(tmp_path)
     run = make_run(engine)
     engine.store.pause()
@@ -1827,7 +1862,7 @@ def test_poll_still_detects_a_working_run_without_a_conductor(
 def test_clean_full_and_quick_paths_stop_for_fresh_approval(
     tmp_path: Path, stages, path: str, task_type: str,
 ) -> None:
-    """@brief Both documented paths checkpoint locally and stop before push."""
+    """Both documented paths checkpoint locally and stop before push."""
     engine, forge, worktrees, containers, executor = make_engine(tmp_path)
     run = make_run(engine, task_type=task_type, path=path)
     client = FakeAegis(sequence(*stages, path=path, task_type=task_type))
@@ -1861,7 +1896,7 @@ def test_clean_full_and_quick_paths_stop_for_fresh_approval(
 
 
 def test_launch_telemetry_distinguishes_observed_and_disabled_capture(tmp_path):
-    """@brief Completed gates record coverage without double-counting usage."""
+    """Completed gates record coverage without double-counting usage."""
     first = GateRun(exit_code=0, tokens_in=10, tokens_out=2,
                     cache_read_tokens=3, cache_write_tokens=1)
     engine, forge, _worktrees, _containers, _executor = make_engine(
@@ -1897,7 +1932,7 @@ def test_launch_telemetry_distinguishes_observed_and_disabled_capture(tmp_path):
 
 
 def test_launch_telemetry_preserves_reported_zero(tmp_path):
-    """@brief Zero measured tokens remain reported in the durable journal."""
+    """Zero measured tokens remain reported in the durable journal."""
     result = GateRun(exit_code=0, tokens_reported=True)
     engine, forge, _worktrees, _containers, _executor = make_engine(
         tmp_path, executor=FakeExecutor(result))
@@ -1912,7 +1947,7 @@ def test_launch_telemetry_preserves_reported_zero(tmp_path):
 
 
 def test_partial_telemetry_does_not_write_numeric_usage(tmp_path):
-    """@brief Explicit incomplete telemetry stays unknown in projections."""
+    """Explicit incomplete telemetry stays unknown in projections."""
     result = GateRun(exit_code=0, tokens_in=4, tokens_reported=False)
     engine, forge, _worktrees, _containers, _executor = make_engine(
         tmp_path, executor=FakeExecutor(result))
@@ -1928,7 +1963,7 @@ def test_partial_telemetry_does_not_write_numeric_usage(tmp_path):
 
 
 def test_requested_cancel_stops_before_next_gate(tmp_path: Path) -> None:
-    """@brief Durable cancellation takes precedence over another stage attempt."""
+    """Durable cancellation takes precedence over another stage attempt."""
     engine, forge, _, containers, executor = make_engine(tmp_path)
     run = make_run(engine)
     assert engine.store.request_cancel(run.run_id)
@@ -1942,7 +1977,7 @@ def test_requested_cancel_stops_before_next_gate(tmp_path: Path) -> None:
 
 
 def test_requested_cancel_interrupts_active_gate(tmp_path: Path) -> None:
-    """@brief A running executor gate is interrupted and finalized as cancelled."""
+    """A running executor gate is interrupted and finalized as cancelled."""
     engine, forge, _, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
 
@@ -1962,7 +1997,7 @@ def test_requested_cancel_interrupts_active_gate(tmp_path: Path) -> None:
 
 
 def test_cancel_marker_survives_worker_crash_and_reconciles(tmp_path: Path) -> None:
-    """@brief A later conductor poll completes an authorized durable cancel."""
+    """A later conductor poll completes an authorized durable cancel."""
     engine, _, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     engine.store.request_cancel(run.run_id)
@@ -1975,7 +2010,7 @@ def test_cancel_marker_survives_worker_crash_and_reconciles(tmp_path: Path) -> N
 
 
 def test_corrupt_cancel_marker_stops_reconciliation(tmp_path: Path) -> None:
-    """@brief A damaged cancellation request cannot be guessed or discarded."""
+    """A damaged cancellation request cannot be guessed or discarded."""
     engine, _, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     (engine.store.run_dir(run.run_id) / "cancel.request").write_text(
@@ -1989,7 +2024,7 @@ def test_corrupt_cancel_marker_stops_reconciliation(tmp_path: Path) -> None:
 
 
 def test_cancel_before_publication_does_not_push_or_open_draft(tmp_path: Path) -> None:
-    """@brief A waiting cancellation wins before publication side effects."""
+    """A waiting cancellation wins before publication side effects."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "awaiting-approval"
@@ -2004,7 +2039,7 @@ def test_cancel_before_publication_does_not_push_or_open_draft(tmp_path: Path) -
 
 
 def test_approval_presentation_lists_recorded_deviations(tmp_path: Path) -> None:
-    """@brief Journal deviations reach the approver as a count plus full text."""
+    """Journal deviations reach the approver as a count plus full text."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine, task_type="fix", path="quick")
     stages = sequence("frame", "build", "validate", "done", path="quick", task_type="fix")
@@ -2028,7 +2063,7 @@ def test_approval_presentation_lists_recorded_deviations(tmp_path: Path) -> None
 def test_two_failures_then_success_resets_counter_and_questions_do_not_consume_it(
     tmp_path: Path,
 ) -> None:
-    """@brief Attempt failures are stage-scoped; a question parks at zero."""
+    """Attempt failures are stage-scoped; a question parks at zero."""
     executor = FakeExecutor(
         GateRun(exit_code=2, stderr="first"),
         GateRun(exit_code=2, stderr="second"),
@@ -2060,7 +2095,7 @@ def test_two_failures_then_success_resets_counter_and_questions_do_not_consume_i
      "huge"],
 )
 def test_no_stage_progress_evidence_carries_the_stderr_tail(tmp_path: Path, case: str) -> None:
-    """@brief A zero-exit gate without AEGIS progress shows its last stderr lines."""
+    """A zero-exit gate without AEGIS progress shows its last stderr lines."""
     sentence = "executor exited zero but AEGIS remained at frame"
     stderr = {
         "ansi": "starting\n\x1b[93m\x1b[1m! \x1b[0mpermission requested: bash (git status);"
@@ -2123,7 +2158,7 @@ def test_no_stage_progress_evidence_carries_the_stderr_tail(tmp_path: Path, case
 
 
 def test_terminal_outcome_keeps_the_failure_sentence_of_long_evidence(tmp_path: Path) -> None:
-    """@brief Job details keeps the attempt sentence when stderr exceeds every evidence bound."""
+    """Job details keeps the attempt sentence when stderr exceeds every evidence bound."""
     stderr = "\n".join(f"{index:04d} " + "y" * 95 for index in range(200))
     executor = FakeExecutor(*[GateRun(exit_code=2, stderr=stderr) for _ in range(3)])
     engine, forge, _, _, _ = make_engine(tmp_path, executor=executor)
@@ -2138,7 +2173,7 @@ def test_terminal_outcome_keeps_the_failure_sentence_of_long_evidence(tmp_path: 
 
 
 def test_exact_third_failed_attempt_aborts_without_fourth_launch(tmp_path: Path) -> None:
-    """@brief Default 3 means three attempts total, not three retries."""
+    """Default 3 means three attempts total, not three retries."""
     executor = FakeExecutor(*[
         GateRun(exit_code=2, stderr=f"failure {index}") for index in range(3)
     ])
@@ -2181,7 +2216,7 @@ def test_exact_third_failed_attempt_aborts_without_fourth_launch(tmp_path: Path)
 def test_executor_timeout_classification_uses_typed_flag(
     tmp_path: Path, gate: GateRun, expected: str,
 ) -> None:
-    """@brief Timeout classification never guesses from exit code or stderr text."""
+    """Timeout classification never guesses from exit code or stderr text."""
     engine, forge, _, _, _ = make_engine(
         tmp_path, executor=FakeExecutor(gate)
     )
@@ -2197,7 +2232,7 @@ def test_executor_timeout_classification_uses_typed_flag(
 def test_aegis_timeout_retries_inside_the_same_conductor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A permitted timeout immediately reaches a second AEGIS attempt."""
+    """A permitted timeout immediately reaches a second AEGIS attempt."""
     executor = FakeExecutor(
         GateRun(exit_code=0, has_questions=True, questions="Choose an API")
     )
@@ -2206,7 +2241,7 @@ def test_aegis_timeout_retries_inside_the_same_conductor(
     clients: list[TimeoutThenTaskClient] = []
 
     class TimeoutThenTaskClient:
-        """@brief Time out one status read, then expose a conductible task."""
+        """Time out one status read, then expose a conductible task."""
 
         def __init__(self, *args, **kwargs) -> None:
             self.status_reads = 0
@@ -2236,13 +2271,13 @@ def test_aegis_timeout_retries_inside_the_same_conductor(
 def test_aegis_timeout_at_attempt_limit_is_terminal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A timeout at the configured limit terminates as AEGIS_TIMEOUT."""
+    """A timeout at the configured limit terminates as AEGIS_TIMEOUT."""
     engine, forge, _, containers, _ = make_engine(tmp_path)
     engine.config.recovery.max_stage_failures = 1
     run = make_run(engine)
 
     class TimeoutClient:
-        """@brief AEGIS double whose active-task status always times out."""
+        """AEGIS double whose active-task status always times out."""
 
         def __init__(self, *args, **kwargs) -> None:
             pass
@@ -2278,7 +2313,7 @@ def test_clarification_uses_the_validated_duration_parser(
     before: str,
     after: str,
 ) -> None:
-    """@brief Uppercase and numeric valid durations expire only at their bound."""
+    """Uppercase and numeric valid durations expire only at their bound."""
     engine, _, _, _, _ = make_engine(tmp_path)
     engine.config.clarification.answer_timeout = timeout  # type: ignore[assignment]
     run = make_run(engine)
@@ -2300,7 +2335,7 @@ def test_clarification_uses_the_validated_duration_parser(
 
 
 def test_post_gate_questions_are_read_once_and_park_with_text(tmp_path: Path) -> None:
-    """@brief The fallback handoff consumes one file without losing its text."""
+    """The fallback handoff consumes one file without losing its text."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     worktree = tmp_path / "worktree"
@@ -2324,7 +2359,7 @@ def test_post_gate_questions_are_read_once_and_park_with_text(tmp_path: Path) ->
 
 
 def test_park_removes_persisted_questions_handoff(tmp_path: Path) -> None:
-    """@brief A posted and journaled question cannot enter a later checkpoint."""
+    """A posted and journaled question cannot enter a later checkpoint."""
     engine, _, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     worktree = tmp_path / "worktree"
@@ -2347,7 +2382,7 @@ def test_park_removes_persisted_questions_handoff(tmp_path: Path) -> None:
 def test_closed_source_ticket_cancels_reconciled_run(
     tmp_path: Path, lifecycle: str
 ) -> None:
-    """@brief Human ticket closure cancels every waiting reconciliation state."""
+    """Human ticket closure cancels every waiting reconciliation state."""
     engine, forge, worktrees, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = lifecycle
@@ -2375,7 +2410,7 @@ def test_closed_source_ticket_cancels_reconciled_run(
 def test_clarification_resume_refreshes_changed_ticket_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief A resumed executor sees a visible note and the fresh ticket content."""
+    """A resumed executor sees a visible note and the fresh ticket content."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "parked-clarification"
@@ -2409,7 +2444,7 @@ def test_clarification_resume_refreshes_changed_ticket_snapshot(
 def test_clarification_resume_preserves_active_work_consumed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief An answer after a long human wait retains all earlier active work."""
+    """An answer after a long human wait retains all earlier active work."""
     import adore.state as state_module
 
     clock = ["2026-08-15T00:00:00Z"]
@@ -2447,7 +2482,7 @@ def test_clarification_resume_preserves_active_work_consumed(
 def test_approval_observation_refreshes_ticket_without_invalidating(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief Ticket text drift is journaled but does not revoke a valid candidate."""
+    """Ticket text drift is journaled but does not revoke a valid candidate."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "awaiting-approval"
@@ -2480,7 +2515,7 @@ def test_approval_observation_refreshes_ticket_without_invalidating(
 
 
 def test_incident_is_edited_and_terminal_failure_is_separate(tmp_path: Path) -> None:
-    """@brief Recoverable failures share one incident identity; abort posts another."""
+    """Recoverable failures share one incident identity; abort posts another."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     assert engine._stage_failure(run, "E_ONE", "one")
@@ -2495,7 +2530,7 @@ def test_incident_is_edited_and_terminal_failure_is_separate(tmp_path: Path) -> 
 
 
 def test_notification_outage_stops_work_and_replay_is_idempotent(tmp_path: Path) -> None:
-    """@brief Required write failure retains an outbox and blocks operator retry."""
+    """Required write failure retains an outbox and blocks operator retry."""
     forge = FakeForge()
     forge.fail_comments = True
     engine, _, _, containers, _ = make_engine(tmp_path, forge=forge)
@@ -2515,7 +2550,7 @@ def test_notification_outage_stops_work_and_replay_is_idempotent(tmp_path: Path)
 
 
 def test_deleted_mr_notification_falls_back_to_source_ticket(tmp_path: Path) -> None:
-    """@brief A confirmed missing MR routes a pending incident to its ticket."""
+    """A confirmed missing MR routes a pending incident to its ticket."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.mr_iid = 9
@@ -2528,7 +2563,7 @@ def test_deleted_mr_notification_falls_back_to_source_ticket(tmp_path: Path) -> 
 
 
 def test_outbox_crash_replay_finds_existing_marker_without_duplicate(tmp_path: Path) -> None:
-    """@brief A post-success/state-save crash is idempotent by notification marker."""
+    """A post-success/state-save crash is idempotent by notification marker."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     notification_id = "abc123"
@@ -2556,7 +2591,7 @@ def test_outbox_crash_replay_finds_existing_marker_without_duplicate(tmp_path: P
 
 
 def test_approval_rejects_stale_label_and_invalidates_on_target_drift(tmp_path: Path) -> None:
-    """@brief Removal/re-add and both fingerprint dimensions bind approval."""
+    """Removal/re-add and both fingerprint dimensions bind approval."""
     forge = FakeForge()
     forge.ticket.labels.append("agent-approved")
     engine, _, worktrees, _, _ = make_engine(tmp_path, forge=forge)
@@ -2581,7 +2616,7 @@ def test_approval_rejects_stale_label_and_invalidates_on_target_drift(tmp_path: 
 def test_approval_invalidation_preserves_work_and_resets_stage_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief Candidate drift retains active work and clears obsolete stage failures."""
+    """Candidate drift retains active work and clears obsolete stage failures."""
     import adore.state as state_module
 
     clock = ["2026-08-15T00:00:00Z"]
@@ -2626,7 +2661,7 @@ def test_approval_invalidation_preserves_work_and_resets_stage_failures(
 def test_retry_rechecks_missing_approval_before_publication(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, draft: bool,
 ) -> None:
-    """@brief A removed approval label returns retry to one normal conduction."""
+    """A removed approval label returns retry to one normal conduction."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.draft = draft
     run = make_run(engine)
@@ -2669,7 +2704,7 @@ def test_retry_rechecks_missing_approval_before_publication(
 def test_retry_drift_reconducts_only_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief Freshness invalidation owns its re-conduction without an outer duplicate."""
+    """Freshness invalidation owns its re-conduction without an outer duplicate."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "failed"
@@ -2697,7 +2732,7 @@ def test_retry_drift_reconducts_only_once(
 
 
 def test_executor_prompt_forbids_remote_and_uses_quick_only_as_hint(tmp_path: Path) -> None:
-    """@brief Frame autonomy never gives the executor publication authority."""
+    """Frame autonomy never gives the executor publication authority."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     forge.ticket.labels.append("agent-quick")
     run = make_run(engine, task_type="fix", path="quick")
@@ -2711,7 +2746,7 @@ def test_executor_prompt_forbids_remote_and_uses_quick_only_as_hint(tmp_path: Pa
 
 
 def test_executor_prompt_forbids_child_task_journals(tmp_path: Path) -> None:
-    """@brief A conducted run pins one journal; AEGIS 0.9.0 children stay out."""
+    """A conducted run pins one journal; AEGIS 0.9.0 children stay out."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     prompt = engine._stage_prompt(run, forge.ticket, task("build"), "", "")
@@ -2721,8 +2756,8 @@ def test_executor_prompt_forbids_child_task_journals(tmp_path: Path) -> None:
 
 def test_executor_prompt_declares_autopilot_on_every_stage(tmp_path: Path) -> None:
     """
-    @brief   Every stage prompt overrides the AEGIS checkpoint default.
-    @details AEGIS 0.13 checkpoint mode stops before each stage transition,
+    Every stage prompt overrides the AEGIS checkpoint default.
+    AEGIS 0.13 checkpoint mode stops before each stage transition,
              which ADORE would read as NO_STAGE_PROGRESS. The explicit
              autopilot instruction is the per-task override AEGIS defines.
     """
@@ -2737,8 +2772,8 @@ def test_executor_prompt_declares_autopilot_on_every_stage(tmp_path: Path) -> No
 
 def test_executor_prompt_names_the_aegis_journal_writers(tmp_path: Path) -> None:
     """
-    @brief   Every stage prompt names the AEGIS 0.15.0 journal writers only.
-    @details AEGIS 0.15.0 writes the journal state through its CLI: `advance`
+    Every stage prompt names the AEGIS 0.15.0 journal writers only.
+    AEGIS 0.15.0 writes the journal state through its CLI: `advance`
              finishes a stage, `log` records evidence and `pause` stops. The
              Handoff and Stage report sections it replaced, and the deliver
              stage it removed, must not reach an executor.
@@ -2759,9 +2794,9 @@ def test_executor_prompt_does_not_contradict_itself_about_stopping(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   The autopilot override and the one-stage rule must not read as
+    The autopilot override and the one-stage rule must not read as
              opposites.
-    @details The override was added for AEGIS 0.13's checkpoint default, and it
+    The override was added for AEGIS 0.13's checkpoint default, and it
              once said "never stop at a stage-boundary checkpoint" while the
              closing paragraph said "stop after the current stage". A model
              resolving that in favour of the louder, earlier instruction runs
@@ -2782,14 +2817,14 @@ def test_executor_prompt_does_not_contradict_itself_about_stopping(
 
 
 class _NoAegis:
-    """@brief AEGIS client stand-in proving publication runs no AEGIS command."""
+    """AEGIS client stand-in proving publication runs no AEGIS command."""
 
     def __init__(self, *args, **kwargs):
         raise AssertionError("publication must not run an AEGIS command")
 
 
 def _approved_run(engine: Orchestrator, worktrees: FakeWorktrees) -> RunState:
-    """@brief Persist a verified candidate at stage done whose approval is fresh."""
+    """Persist a verified candidate at stage done whose approval is fresh."""
     run = make_run(engine)
     run.stage = "done"
     run.lifecycle = "awaiting-approval"
@@ -2802,13 +2837,12 @@ def _approved_run(engine: Orchestrator, worktrees: FakeWorktrees) -> RunState:
     return run
 
 
-
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("draft", [True, False])
 def test_disabled_approval_publishes_fresh_waiting_candidate(
     tmp_path: Path, draft: bool, backend: str, monkeypatch,
 ) -> None:
-    """@brief Disabling approval publishes the same validated candidate without a label."""
+    """Disabling approval publishes the same validated candidate without a label."""
     if backend == "local":
         from tests.test_local_execution import local_fixture
         native = tmp_path / "native"
@@ -2825,9 +2859,8 @@ def test_disabled_approval_publishes_fresh_waiting_candidate(
     assert forge.opened[0]["draft"] is draft
 
 
-
 def test_disabled_approval_publishes_after_validate(tmp_path: Path) -> None:
-    """@brief A newly validated job proceeds directly to publication."""
+    """A newly validated job proceeds directly to publication."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -2839,7 +2872,7 @@ def test_disabled_approval_publishes_after_validate(tmp_path: Path) -> None:
 
 
 def test_disabled_approval_git_error_stops_publication(tmp_path: Path) -> None:
-    """@brief An unavailable target check fails closed."""
+    """An unavailable target check fails closed."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -2851,9 +2884,8 @@ def test_disabled_approval_git_error_stops_publication(tmp_path: Path) -> None:
     assert not worktrees.pushes and not forge.opened
 
 
-
 def test_disabled_approval_rejects_corrupt_validation_evidence(tmp_path: Path) -> None:
-    """@brief Corrupt persisted validation cannot authorize automatic publication."""
+    """Corrupt persisted validation cannot authorize automatic publication."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -2864,10 +2896,9 @@ def test_disabled_approval_rejects_corrupt_validation_evidence(tmp_path: Path) -
     assert not worktrees.pushes and not forge.opened
 
 
-
 @pytest.mark.parametrize("ticket_state", ["closed", "missing"])
 def test_automatic_publication_rechecks_source_ticket(tmp_path: Path, ticket_state: str) -> None:
-    """@brief A closed or deleted ticket cannot reach automatic publication."""
+    """A closed or deleted ticket cannot reach automatic publication."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -2880,7 +2911,7 @@ def test_automatic_publication_rechecks_source_ticket(tmp_path: Path, ticket_sta
 
 
 def test_automatic_publication_rejects_partial_evidence_before_refresh(tmp_path: Path) -> None:
-    """@brief A missing validation field cannot be silently supplied before publication."""
+    """A missing validation field cannot be silently supplied before publication."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -2892,7 +2923,7 @@ def test_automatic_publication_rejects_partial_evidence_before_refresh(tmp_path:
 
 
 def test_automatic_publication_rejects_missing_task_binding(tmp_path: Path) -> None:
-    """@brief Missing task identity does not validate against a null identity."""
+    """Missing task identity does not validate against a null identity."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -2903,9 +2934,8 @@ def test_automatic_publication_rejects_missing_task_binding(tmp_path: Path) -> N
     assert not worktrees.pushes and not forge.opened
 
 
-
 def test_automatic_retry_rejects_closed_ticket(tmp_path: Path) -> None:
-    """@brief Explicit retry never publishes after the source ticket closes."""
+    """Explicit retry never publishes after the source ticket closes."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -2917,11 +2947,10 @@ def test_automatic_retry_rejects_closed_ticket(tmp_path: Path) -> None:
     assert not worktrees.pushes and not forge.opened
 
 
-
 def test_automatic_retry_closed_ticket_never_pushes_dirty_checkpoint(
     tmp_path: Path, monkeypatch,
 ) -> None:
-    """@brief A closed ticket is checked before settling a dirty worktree."""
+    """A closed ticket is checked before settling a dirty worktree."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     engine.config.delivery.publish_checkpoints = True
@@ -2937,11 +2966,10 @@ def test_automatic_retry_closed_ticket_never_pushes_dirty_checkpoint(
     assert not pushes and not worktrees.pushes and not forge.opened
 
 
-
 def test_automatic_retry_corrupt_evidence_never_pushes_dirty_checkpoint(
     tmp_path: Path, monkeypatch,
 ) -> None:
-    """@brief Corrupt validation evidence is rejected before worktree settlement."""
+    """Corrupt validation evidence is rejected before worktree settlement."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     engine.config.delivery.publish_checkpoints = True
@@ -2957,7 +2985,7 @@ def test_automatic_retry_corrupt_evidence_never_pushes_dirty_checkpoint(
 
 
 def test_reenabled_approval_blocks_automatic_retry(tmp_path: Path, monkeypatch) -> None:
-    """@brief Enabling approval again blocks an unapproved failed automatic publication."""
+    """Enabling approval again blocks an unapproved failed automatic publication."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = True
     run = _approved_run(engine, worktrees)
@@ -2975,7 +3003,7 @@ def test_reenabled_approval_blocks_automatic_retry(tmp_path: Path, monkeypatch) 
 
 
 def test_disabled_approval_retry_verifies_then_publishes(tmp_path: Path) -> None:
-    """@brief A failed automatic publication retry checks freshness and resumes."""
+    """A failed automatic publication retry checks freshness and resumes."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -2989,7 +3017,7 @@ def test_disabled_approval_retry_verifies_then_publishes(tmp_path: Path) -> None
 
 
 def test_disabled_approval_revalidates_target_drift(tmp_path: Path, monkeypatch) -> None:
-    """@brief Automatic publication does not bypass target freshness."""
+    """Automatic publication does not bypass target freshness."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.delivery.require_human_approval = False
     run = _approved_run(engine, worktrees)
@@ -3008,8 +3036,8 @@ def test_approved_publication_opens_draft_without_an_executor_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, draft: bool,
 ) -> None:
     """
-    @brief   An approved candidate reaches the forge exactly as verified.
-    @details AEGIS 0.15.0 closes the task in validate, so publication is Git
+    An approved candidate reaches the forge exactly as verified.
+    AEGIS 0.15.0 closes the task in validate, so publication is Git
              and forge work only: one push, the configured draft or ready
              MR/PR, and review at stage done, with no executor session and no
              AEGIS command after the human approved.
@@ -3032,7 +3060,7 @@ def test_approved_publication_opens_draft_without_an_executor_session(
 def test_publication_adopts_existing_open_mr_before_create(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief Crash recovery adopts a branch MR and never attempts a duplicate."""
+    """Crash recovery adopts a branch MR and never attempts a duplicate."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     forge.branch_mr_exists = True
     run = _approved_run(engine, worktrees)
@@ -3057,7 +3085,7 @@ def test_publication_adopts_existing_open_mr_before_create(
 def test_publication_fails_closed_on_malformed_existing_mr(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief Missing branch-MR identity blocks creation instead of risking a duplicate."""
+    """Missing branch-MR identity blocks creation instead of risking a duplicate."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     forge.branch_mr_exists = True
     forge.mr.web_url = ""
@@ -3077,8 +3105,8 @@ def test_failed_publication_push_keeps_the_approval_for_retry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pointer: str,
 ) -> None:
     """
-    @brief   A refused push fails the run but keeps the verified candidate.
-    @details The approval stays bound to the stored evidence, so `retry` from
+    A refused push fails the run but keeps the verified candidate.
+    The approval stays bound to the stored evidence, so `retry` from
              stage done, or after `reset --to publishing`, rechecks freshness
              and publishes the same candidate without new validation.
     """
@@ -3117,8 +3145,8 @@ def test_retry_after_publication_returns_to_review(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str,
 ) -> None:
     """
-    @brief   A run that fails in review after publication returns to review.
-    @details Stage done spans approval, publication and review, so retry tells a
+    A run that fails in review after publication returns to review.
+    Stage done spans approval, publication and review, so retry tells a
              published candidate by its recorded fingerprint. A target that
              moved or an approval label removed during review must not reopen
              the AEGIS task or ask for a new approval.
@@ -3152,8 +3180,8 @@ def test_retry_after_publishing_reset_without_approval_conducts_from_done(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   The publishing pointer has no AEGIS stage of its own.
-    @details Without a fresh approval, retry conducts the run from the closed
+    The publishing pointer has no AEGIS stage of its own.
+    Without a fresh approval, retry conducts the run from the closed
              task at done instead of reporting the pointer as an AEGIS move.
     """
     engine, _, worktrees, _, _ = make_engine(tmp_path)
@@ -3177,8 +3205,8 @@ def test_retry_of_a_run_failed_at_done_before_verification_conducts_from_done(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   A run ADORE never verified holds no published candidate.
-    @details Both fingerprints are empty and so equal; retry must conduct the
+    A run ADORE never verified holds no published candidate.
+    Both fingerprints are empty and so equal; retry must conduct the
              run from done instead of sending it to review with no MR/PR.
     """
     engine, _, _, _, _ = make_engine(tmp_path)
@@ -3202,8 +3230,8 @@ def test_retry_conducts_a_published_run_reset_to_an_earlier_stage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   The return to review applies only at done or publishing.
-    @details An operator who resets a published run to validate asks for AEGIS
+    The return to review applies only at done or publishing.
+    An operator who resets a published run to validate asks for AEGIS
              work again, so retry conducts from validate although the
              candidate still equals the published one.
     """
@@ -3227,7 +3255,7 @@ def test_retry_conducts_a_published_run_reset_to_an_earlier_stage(
 def test_publication_refuses_a_run_outside_the_done_stage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief An approved run that is not at the done stage is never published."""
+    """An approved run that is not at the done stage is never published."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     run = _approved_run(engine, worktrees)
     run.stage = "validate"
@@ -3248,8 +3276,8 @@ def test_target_drift_invalidates_approval_and_revalidates_from_done(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   Target drift voids the approval and the task returns to validate.
-    @details The approval check sees the moved target, clears the evidence and
+    Target drift voids the approval and the task returns to validate.
+    The approval check sees the moved target, clears the evidence and
              conducts again: the done task is routed back with `advance --to
              validate`, validated after integration, verified once and
              presented anew against the new target.
@@ -3262,7 +3290,7 @@ def test_target_drift_invalidates_approval_and_revalidates_from_done(
     worktrees.target = "d" * 40
 
     class ReopenedClient(FakeAegis):
-        """@brief The done task, routed back, validated and closed again."""
+        """The done task, routed back, validated and closed again."""
 
         def __init__(self, *args, **kwargs):
             super().__init__([task("done"), task("validate"), task("validate"),
@@ -3291,8 +3319,8 @@ def test_retry_publishes_a_review_round_candidate_not_yet_published(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   A revision's candidate waits at done with the earlier MR/PR open.
-    @details Its fingerprint differs from the one ADORE last published, so a
+    A revision's candidate waits at done with the earlier MR/PR open.
+    Its fingerprint differs from the one ADORE last published, so a
              retry after a refused push publishes it instead of returning the
              run to review unpushed.
     """
@@ -3319,7 +3347,7 @@ def test_retry_publishes_a_review_round_candidate_not_yet_published(
 def test_route_session_that_leaves_the_task_done_is_a_validate_failure(
     tmp_path: Path,
 ) -> None:
-    """@brief A route session that does not return the task counts against validate."""
+    """A route session that does not return the task counts against validate."""
     engine, forge, _, _, executor = make_engine(tmp_path)
     engine.config.recovery.max_stage_failures = 1
     run = make_run(engine)
@@ -3339,7 +3367,7 @@ def test_route_session_that_leaves_the_task_done_is_a_validate_failure(
 
 @pytest.mark.parametrize("target", ["frame", "validate", "publishing"])
 def test_reset_accepts_current_stages_and_publishing(tmp_path: Path, target: str) -> None:
-    """@brief Reset moves ADORE's pointer to a conducted stage or to publication."""
+    """Reset moves ADORE's pointer to a conducted stage or to publication."""
     engine, _, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.stage = "build"
@@ -3353,7 +3381,7 @@ def test_reset_accepts_current_stages_and_publishing(tmp_path: Path, target: str
 
 @pytest.mark.parametrize("target", ["deliver", "done", "intake"])
 def test_reset_refuses_other_targets_and_keeps_the_run(tmp_path: Path, target: str) -> None:
-    """@brief A pointer to a stage ADORE does not conduct is refused unchanged."""
+    """A pointer to a stage ADORE does not conduct is refused unchanged."""
     engine, _, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.stage = "build"
@@ -3368,7 +3396,7 @@ def test_reset_refuses_other_targets_and_keeps_the_run(tmp_path: Path, target: s
 def test_review_round_creates_new_aegis_task_on_same_branch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief Every bounded requested revision preserves the prior task journal."""
+    """Every bounded requested revision preserves the prior task journal."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "in-review"
@@ -3407,7 +3435,7 @@ def test_review_round_creates_new_aegis_task_on_same_branch(
 
 def test_selection_never_trusts_the_server_label_filter(tmp_path: Path) -> None:
     """
-    @brief   A server that silently drops an unrecognised `labels=` filter
+    A server that silently drops an unrecognised `labels=` filter
              answers with its whole open backlog, which at this boundary would
              mean ADORE autonomously conducting arbitrary tickets. Gitea 1.25.4
              was observed doing exactly that; GitHub was verified to filter
@@ -3428,7 +3456,7 @@ def test_selection_never_trusts_the_server_label_filter(tmp_path: Path) -> None:
 
 def test_selection_skips_a_ticket_that_is_not_open(tmp_path: Path) -> None:
     """
-    @brief   Conducting a closed ticket is worse than missing one, so the state
+    Conducting a closed ticket is worse than missing one, so the state
              is confirmed at the boundary and not left to a CLI default.
     """
     engine, forge, _, _, _ = make_engine(tmp_path)
@@ -3441,7 +3469,7 @@ def test_selection_skips_a_ticket_that_is_not_open(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("require_criteria", [False, True])
 def test_public_pickup_obeys_optional_acceptance_criteria(tmp_path, monkeypatch, require_criteria):
-    """@brief A plain ready ticket is picked only when the optional text gate is off."""
+    """A plain ready ticket is picked only when the optional text gate is off."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     engine.config.readiness.require_acceptance_criteria = require_criteria
     forge.ticket.description = "Implement the requested change."
@@ -3458,7 +3486,7 @@ def test_public_pickup_obeys_optional_acceptance_criteria(tmp_path, monkeypatch,
 def test_explicit_ticket_start_keeps_readiness_boundary(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief A web-selected ticket must still satisfy normal readiness."""
+    """A web-selected ticket must still satisfy normal readiness."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     ready = engine.config.labels.lifecycle.ready
     forge.ticket.labels = [ready, "P2"]
@@ -3477,7 +3505,7 @@ def test_explicit_ticket_start_keeps_readiness_boundary(
 
 def test_retry_settles_a_dirty_worktree_before_freshness(tmp_path: Path) -> None:
     """
-    @brief   Fingerprinting refuses a dirty candidate, and `retry` checks
+    Fingerprinting refuses a dirty candidate, and `retry` checks
              approval freshness by fingerprint before it publishes again.
              Leftover work is checkpointed first, so a dirty tree reaches the
              freshness check as a changed candidate that invalidates the
@@ -3504,7 +3532,7 @@ def test_retry_settles_a_dirty_worktree_before_freshness(tmp_path: Path) -> None
 
 def test_settle_is_a_no_op_on_a_clean_worktree(tmp_path: Path) -> None:
     """
-    @brief   Settling must not manufacture an empty commit on a retry whose
+    Settling must not manufacture an empty commit on a retry whose
              tree validation already left clean.
     """
     engine, _, worktrees, _, _ = make_engine(tmp_path)
@@ -3522,7 +3550,7 @@ def test_settle_is_a_no_op_on_a_clean_worktree(tmp_path: Path) -> None:
 
 def test_push_retries_a_transient_remote_failure(tmp_path: Path) -> None:
     """
-    @brief   A one-off credential refresh used to end a fully validated run at
+    A one-off credential refresh used to end a fully validated run at
              the push, discarding the human approval bound to that candidate
              (live finding 2026-09-18). Every fetch around the push already
              retried; the push itself did not. Retrying is safe because the
@@ -3549,7 +3577,7 @@ def test_push_retries_a_transient_remote_failure(tmp_path: Path) -> None:
 
 def test_push_still_fails_loudly_when_the_remote_refuses(tmp_path: Path) -> None:
     """
-    @brief   A genuine refusal - a protected branch, a non-fast-forward - must
+    A genuine refusal - a protected branch, a non-fast-forward - must
              still end the run. Retrying only delays it, bounded by
              max_transient_retries.
     """
@@ -3570,11 +3598,11 @@ def test_push_still_fails_loudly_when_the_remote_refuses(tmp_path: Path) -> None
 
 def _review_run(engine, forge, **overrides):
     """
-    @brief      An in-review run bound to the fake forge's draft MR.
-    @param[in]  engine The orchestrator under test.
-    @param[in]  forge The FakeForge backing it.
-    @param[in]  overrides Extra RunState fields to set.
-    @return     The persisted RunState.
+    An in-review run bound to the fake forge's draft MR.
+    engine: The orchestrator under test.
+    forge: The FakeForge backing it.
+    overrides: Extra RunState fields to set.
+    Returns: The persisted RunState.
     """
     run = make_run(engine)
     run.lifecycle = "in-review"
@@ -3588,7 +3616,7 @@ def _review_run(engine, forge, **overrides):
 
 
 class _ReviewClient:
-    """@brief AEGIS client double that only has to create the revision task."""
+    """AEGIS client double that only has to create the revision task."""
 
     def __init__(self, *args, **kwargs) -> None:
         pass
@@ -3604,7 +3632,7 @@ def test_failed_pipeline_starts_a_governed_repair_round(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   A newly red pipeline starts a revision on the SAME bounded path
+    A newly red pipeline starts a revision on the SAME bounded path
              the revise label uses, with no label applied and no human action.
              The executor is told the pipeline is what must go green, and the
              run returns to `working` so the round ends at a fresh approval
@@ -3638,7 +3666,7 @@ def test_failed_pipeline_is_not_repaired_twice_for_one_verdict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   An unchanged red verdict must not restart a repair round on every
+    An unchanged red verdict must not restart a repair round on every
              poll while the previous one is still in flight, so only a CHANGE
              is a signal.
     """
@@ -3658,7 +3686,7 @@ def test_notify_mode_reports_a_red_pipeline_without_acting(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   With automatic repair off, the red pipeline is surfaced once on
+    With automatic repair off, the red pipeline is surfaced once on
              the MR and the run keeps waiting for a human.
     """
     engine, forge, _, _, _ = make_engine(tmp_path)
@@ -3679,7 +3707,7 @@ def test_pipeline_repair_stops_at_the_review_round_budget(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   A permanently red pipeline cannot loop: once the review-round
+    A permanently red pipeline cannot loop: once the review-round
              budget is spent the run is left in review with a comment saying
              so, rather than being failed or repaired again.
     """
@@ -3699,9 +3727,7 @@ def test_pipeline_repair_stops_at_the_review_round_budget(
 def test_ignore_mode_never_reads_the_pipeline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """
-    @brief   A repository with no CI pays nothing: the adapter is not called.
-    """
+    """A repository with no CI pays nothing: the adapter is not called."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     engine.config.review.on_pipeline_failure = "ignore"
     asked: list[int] = []
@@ -3718,7 +3744,7 @@ def test_ignore_mode_never_reads_the_pipeline(
 def test_review_revision_preserves_active_work_consumed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A late review request retains earlier active time and lifetime counters."""
+    """A late review request retains earlier active time and lifetime counters."""
     import adore.state as state_module
 
     clock = ["2026-08-15T00:00:00Z"]
@@ -3740,7 +3766,7 @@ def test_review_revision_preserves_active_work_consumed(
     observed: list[tuple[str, int, int]] = []
 
     class ReviewClient:
-        """@brief Create one fresh revision task through the normal poll path."""
+        """Create one fresh revision task through the normal poll path."""
 
         def __init__(self, *args, **kwargs):
             pass
@@ -3770,7 +3796,7 @@ def test_review_revision_preserves_active_work_consumed(
 def test_revision_task_failure_preserves_revise_label(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief A task-creation failure cannot consume the human revise intent."""
+    """A task-creation failure cannot consume the human revise intent."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "in-review"
@@ -3781,7 +3807,7 @@ def test_revision_task_failure_preserves_revise_label(
     engine.store.save(run)
 
     class FailingReviewClient:
-        """@brief Fail only at the AEGIS task-creation boundary."""
+        """Fail only at the AEGIS task-creation boundary."""
 
         def __init__(self, *args, **kwargs):
             pass
@@ -3806,7 +3832,7 @@ def test_revision_task_failure_preserves_revise_label(
 def test_revision_label_removal_failure_is_fail_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief A created revision task is journaled while its trigger stays visible."""
+    """A created revision task is journaled while its trigger stays visible."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "in-review"
@@ -3818,7 +3844,7 @@ def test_revision_label_removal_failure_is_fail_closed(
     engine.store.save(run)
 
     class CreatedReviewClient:
-        """@brief Create one task before the forge label write fails."""
+        """Create one task before the forge label write fails."""
 
         def __init__(self, *args, **kwargs):
             pass
@@ -3846,7 +3872,7 @@ def test_revision_label_removal_failure_is_fail_closed(
 
 
 def test_human_merge_is_visible_in_aggregate_and_profile_metrics(tmp_path: Path) -> None:
-    """@brief The actual merged-by-human outcome drives all headline metrics."""
+    """The actual merged-by-human outcome drives all headline metrics."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     db = tmp_path / "metrics.db"
     engine.config.metrics.enabled = True
@@ -3870,7 +3896,7 @@ def test_human_merge_is_visible_in_aggregate_and_profile_metrics(tmp_path: Path)
 
 
 def test_merged_mr_precedes_closed_source_ticket(tmp_path: Path) -> None:
-    """@brief An authoritative merge wins over simultaneous source-ticket closure."""
+    """An authoritative merge wins over simultaneous source-ticket closure."""
     engine, forge, worktrees, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "in-review"
@@ -3893,7 +3919,7 @@ def test_merged_mr_precedes_closed_source_ticket(tmp_path: Path) -> None:
 
 
 def test_cleanup_reports_live_lock_without_releasing_it(tmp_path: Path) -> None:
-    """@brief Cleanup leaves its live conductor lock intact and names the pid."""
+    """Cleanup leaves its live conductor lock intact and names the pid."""
     engine, _, _, _, _ = make_engine(tmp_path)
     assert engine.store.acquire_lock()
     try:
@@ -3909,7 +3935,7 @@ def test_cleanup_preserves_failed_run_resources_and_reports_egress_gc(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   Failed worktrees/containers/proxy/networks remain retryable while
+    Failed worktrees/containers/proxy/networks remain retryable while
              this project's state-less run resources are reported as removed.
     """
     engine, _, worktrees, containers, _ = make_engine(tmp_path)
@@ -3946,7 +3972,7 @@ def test_ticket_kind_mapping_uses_configured_default_and_bug_label(
     labels: list[str],
     expected: str,
 ) -> None:
-    """@brief Kind mapping honors the configured fallback and bug -> fix map."""
+    """Kind mapping honors the configured fallback and bug -> fix map."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     engine.config.workflow.default_kind = "change"
     forge.ticket.labels = labels
@@ -3961,7 +3987,7 @@ def test_configured_feature_label_overrides_nonfeature_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A configured feature label wins before a non-feature fallback."""
+    """A configured feature label wins before a non-feature fallback."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     engine.config.workflow.default_kind = "change"
     engine.config.workflow.kind_labels["enhancement"] = "feature"
@@ -3977,7 +4003,7 @@ def test_budget_check_reads_cost_once(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief One budget decision reads and sums the durable journal once."""
+    """One budget decision reads and sums the durable journal once."""
     engine, _, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     calls: list[str] = []
@@ -3997,7 +4023,7 @@ def test_from_config_env_filter_and_process_precedence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   Direct construction defaults sensibly but an explicit env file is
+    Direct construction defaults sensibly but an explicit env file is
              filtered by env_keys and overridden by the process environment.
     """
     config = make_config(tmp_path)
@@ -4026,7 +4052,7 @@ def test_from_config_wires_the_provider_key_and_endpoint_models_into_stage_runs(
     keyed: bool,
 ) -> None:
     """
-    @brief   A stage run receives the provider's key variable as a secret, Pi's
+    A stage run receives the provider's key variable as a secret, Pi's
              provider, and for an endpoint the models.json naming its key.
     """
     for name in ("OPENAI_API_KEY", "ADORE_ENDPOINT_API_KEY"):
@@ -4053,7 +4079,7 @@ def test_from_config_wires_the_provider_key_and_endpoint_models_into_stage_runs(
 
 
 def test_terminal_status_failure_preserves_lifecycle_and_outcome(tmp_path: Path) -> None:
-    """@brief A queued cancellation-status replay cannot rewrite terminal truth."""
+    """A queued cancellation-status replay cannot rewrite terminal truth."""
     forge = FakeForge()
     engine, _, _, _, _ = make_engine(tmp_path, forge=forge)
     run = make_run(engine)
@@ -4069,7 +4095,7 @@ def test_terminal_status_failure_preserves_lifecycle_and_outcome(tmp_path: Path)
 
 
 def test_nonterminal_status_failure_still_stops_work(tmp_path: Path) -> None:
-    """@brief Required status signaling remains fail-closed during active work."""
+    """Required status signaling remains fail-closed during active work."""
     forge = FakeForge()
     engine, _, _, containers, _ = make_engine(tmp_path, forge=forge)
     run = make_run(engine)
@@ -4084,16 +4110,13 @@ def test_nonterminal_status_failure_still_stops_work(tmp_path: Path) -> None:
 
 
 def test_forge_contract_deliberately_has_no_merge_operation() -> None:
-    """@brief The conductor's remote capability cannot merge by construction."""
+    """The conductor's remote capability cannot merge by construction."""
     assert not hasattr(Forge, "merge")
-
-
-# END OF FILE
 
 
 @pytest.mark.parametrize("signal", ["both", "files", "log", "rewrite", "empty"])
 def test_partial_stage_requires_candidate_and_append_only_evidence(tmp_path, monkeypatch, signal):
-    """@brief Useful partial work continues; incomplete or rewritten evidence fails."""
+    """Useful partial work continues; incomplete or rewritten evidence fails."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     engine.config.recovery.max_stage_failures = 1
     engine.config.budgets.max_iterations = 2
@@ -4132,7 +4155,7 @@ def test_partial_stage_requires_candidate_and_append_only_evidence(tmp_path, mon
 
 
 def test_partial_stage_preserves_prior_failure_count(tmp_path, monkeypatch):
-    """@brief A continuation never resets a real failure and remains iteration bounded."""
+    """A continuation never resets a real failure and remains iteration bounded."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     engine.config.budgets.max_iterations = 1
     run = make_run(engine)
@@ -4154,7 +4177,7 @@ def test_partial_stage_preserves_prior_failure_count(tmp_path, monkeypatch):
 def test_partial_stage_eventually_advances_and_requests_approval(
     tmp_path, monkeypatch, changed_ticket,
 ):
-    """@brief Continuation leads to governed validation and the existing approval stop."""
+    """Continuation leads to governed validation and the existing approval stop."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     engine.config.recovery.max_stage_failures = 1
     run = make_run(engine)
@@ -4202,7 +4225,7 @@ def test_partial_stage_eventually_advances_and_requests_approval(
 
 @pytest.mark.parametrize("when", ["before", "after"])
 def test_partial_stage_snapshot_failure_stops_visibly(tmp_path, monkeypatch, when):
-    """@brief Untrustworthy progress observations are terminal, never continuations."""
+    """Untrustworthy progress observations are terminal, never continuations."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     run = make_run(engine)
     run.stage = "build"
@@ -4224,7 +4247,7 @@ def test_partial_stage_snapshot_failure_stops_visibly(tmp_path, monkeypatch, whe
 
 
 def test_nonzero_gate_with_candidate_work_is_still_failure(tmp_path, monkeypatch):
-    """@brief Progress never overrides a genuine failed gate."""
+    """Progress never overrides a genuine failed gate."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     engine.config.recovery.max_stage_failures = 1
     run = make_run(engine)
@@ -4240,7 +4263,7 @@ def test_nonzero_gate_with_candidate_work_is_still_failure(tmp_path, monkeypatch
 
 @pytest.mark.parametrize("bound", ["none", "iterations", "clock", "files"])
 def test_disabled_cost_cap_preserves_other_bounds_and_usage(tmp_path, monkeypatch, bound):
-    """@brief High reported cost remains visible but cannot stop a zero-cap run."""
+    """High reported cost remains visible but cannot stop a zero-cap run."""
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     engine.config.budgets.max_cost_usd = 0
     run = make_run(engine)
@@ -4266,7 +4289,7 @@ def test_disabled_cost_cap_preserves_other_bounds_and_usage(tmp_path, monkeypatc
 
 @pytest.mark.parametrize("cap", [0, 5.0])
 def test_reported_cost_cap_controls_validation_resume_without_erasing_usage(tmp_path, cap):
-    """@brief Preserved subscription work reaches approval at zero; paid caps still stop."""
+    """Preserved subscription work reaches approval at zero; paid caps still stop."""
     engine, forge, _, _, executor = make_engine(tmp_path)
     engine.config.budgets.max_cost_usd = cap
     run = make_run(engine)
@@ -4282,7 +4305,7 @@ def test_reported_cost_cap_controls_validation_resume_without_erasing_usage(tmp_
 
 def test_purge_resources_touches_only_this_projects_non_human_runs(tmp_path: Path) -> None:
     """
-    @brief   Project deletion releases the containers and worktrees recorded for
+    Project deletion releases the containers and worktrees recorded for
              this project's runs, keeps human-owned work, and never sweeps by
              name prefix or shared worktree root (other projects share both).
     """
@@ -4317,7 +4340,7 @@ def test_purge_resources_touches_only_this_projects_non_human_runs(tmp_path: Pat
 
 
 def remove_fake_worktree(worktrees, run_id, **kwargs):
-    """@brief Emulate Git removal only for cleanup tests with dedicated fake folders."""
+    """Emulate Git removal only for cleanup tests with dedicated fake folders."""
     import shutil
     worktrees.removed.append(run_id)
     path = worktrees.path_for(run_id)
@@ -4326,7 +4349,7 @@ def remove_fake_worktree(worktrees, run_id, **kwargs):
 
 
 def saved_resource_run(engine, run_id, iid, lifecycle):
-    """@brief Save a complete owned identity for cleanup contract fixtures."""
+    """Save a complete owned identity for cleanup contract fixtures."""
     run = RunState(run_id=run_id, ticket_iid=iid, lifecycle=lifecycle,
                    branch=engine._branch_name(run_id, iid),
                    container=engine._container_name(run_id),
@@ -4338,12 +4361,12 @@ def saved_resource_run(engine, run_id, iid, lifecycle):
 def _shared_host(tmp_path: Path, engine: Orchestrator, worktrees: FakeWorktrees, *,
                  run_ids=(), dirs=(), mode: str = "allowlist-proxy"):
     """
-    @brief      Put the engine on a host whose slug, worktree root and egress
+    Put the engine on a host whose slug, worktree root and egress
                 network prefix every project shares.
-    @param[in]  run_ids Run IDs that get an executor, proxy and network.
-    @param[in]  dirs Directory names created under the shared worktree root.
-    @param[in]  mode Egress mode of the real ContainerManager under test.
-    @return     (worktree root, FakeRuntime).
+    run_ids: Run IDs that get an executor, proxy and network.
+    dirs: Directory names created under the shared worktree root.
+    mode: Egress mode of the real ContainerManager under test.
+    Returns: (worktree root, FakeRuntime).
     """
     root = tmp_path / "shared-worktrees"
     root.mkdir()
@@ -4366,7 +4389,7 @@ def _shared_host(tmp_path: Path, engine: Orchestrator, worktrees: FakeWorktrees,
             run.worktree = str(root / run.run_id)
             engine.store.save(run)
     def release_owned(name, repo, worktree, io, *, expected=None):
-        """@brief Emulate only the verified release result at the manager seam."""
+        """Emulate only the verified release result at the manager seam."""
         proxy = name + "-egress-proxy"
         network = "adore-egress-" + name
         result = {"containers_removed": [name] if name in runtime.containers else [],
@@ -4381,7 +4404,7 @@ def _shared_host(tmp_path: Path, engine: Orchestrator, worktrees: FakeWorktrees,
 
 def test_cleanup_leaves_other_projects_resources_on_a_shared_host(tmp_path: Path) -> None:
     """
-    @brief   Cleanup for owner/repo removes only its own cancelled run: another
+    Cleanup for owner/repo removes only its own cancelled run: another
              project's runs (whatever their lifecycle, since that project's
              state is never read here), a look-alike owner/repo-tools run and
              an unrelated folder keep every container, proxy, network and
@@ -4412,7 +4435,7 @@ def test_cleanup_removes_this_projects_finished_and_stateless_run_resources(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   Done, cancelled and stale runs (also under a recorded ID outside
+    Done, cancelled and stale runs (also under a recorded ID outside
              the run-ID form or a recorded container name of another form),
              and this project's run IDs without state (found by container or
              by worktree directory), lose executor, proxy, networks and
@@ -4456,7 +4479,7 @@ def test_cleanup_removes_this_projects_finished_and_stateless_run_resources(
 
 def test_cleanup_keeps_resources_of_runs_with_corrupt_state(tmp_path: Path) -> None:
     """
-    @brief   A run whose state file is unreadable keeps its worktree, executor,
+    A run whose state file is unreadable keeps its worktree, executor,
              proxy and network and is reported under corrupt_runs.
     """
     engine, _, worktrees, _, _ = make_engine(tmp_path)
@@ -4479,7 +4502,7 @@ def test_cleanup_keeps_resources_of_runs_with_corrupt_state(tmp_path: Path) -> N
 
 def test_cleanup_continues_when_the_container_runtime_fails(tmp_path: Path) -> None:
     """
-    @brief   Failed runtime listings and sweeps are skipped: cleanup still
+    Failed runtime listings and sweeps are skipped: cleanup still
              removes the eligible worktree and returns its report.
     """
     engine, _, worktrees, containers, _ = make_engine(tmp_path)
@@ -4508,7 +4531,7 @@ def test_cleanup_reports_only_worktrees_it_removed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A worktree directory that survives removal is not reported as removed."""
+    """A worktree directory that survives removal is not reported as removed."""
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     run_id = "github-owner-repo-5"
     saved_resource_run(engine, run_id, 5, "done")
@@ -4528,7 +4551,7 @@ def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   Without the executor listing, cleanup cannot tell which proxies and
+    Without the executor listing, cleanup cannot tell which proxies and
              networks other runs still use, so it removes none; executor and
              worktree removal continue.
     """
@@ -4569,7 +4592,7 @@ def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
 def test_loop_polling_cadence_matches_web_errors_and_success(
     tmp_path, monkeypatch, backoff, expected,
 ):
-    """@brief CLI loop keeps the same capped delays and reset as web rounds."""
+    """CLI loop keeps the same capped delays and reset as web rounds."""
     engine, *_ = make_engine(tmp_path)
     engine.config.polling.poll_interval_seconds = 10
     engine.config.polling.poll_jitter_seconds = 2
@@ -4580,7 +4603,7 @@ def test_loop_polling_cadence_matches_web_errors_and_success(
     monkeypatch.setattr("random.uniform", lambda low, high: high)
 
     def poll(**kwargs):
-        """@brief Report forge/unexpected faults through the public polling seam."""
+        """Report forge/unexpected faults through the public polling seam."""
         assert kwargs == {}
         value = outcomes[len(delays)]
         if value is not None:
@@ -4588,7 +4611,7 @@ def test_loop_polling_cadence_matches_web_errors_and_success(
         return {}
 
     def sleep(seconds):
-        """@brief Record completed-round delays and stop the bounded loop."""
+        """Record completed-round delays and stop the bounded loop."""
         delays.append(seconds)
         if len(delays) == len(expected):
             raise KeyboardInterrupt
@@ -4602,7 +4625,7 @@ def test_loop_polling_cadence_matches_web_errors_and_success(
 
 
 def test_manual_start_preserves_monitoring_pause(tmp_path, monkeypatch):
-    """@brief Manual admission selects one IID without enabling automatic pickup."""
+    """Manual admission selects one IID without enabling automatic pickup."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     selected = []
@@ -4619,7 +4642,7 @@ def test_manual_start_preserves_monitoring_pause(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("iid", [0, -1, True, "7"])
 def test_manual_start_rejects_invalid_identity(tmp_path, iid):
-    """@brief Malformed manual identities cannot bypass the monitoring gate."""
+    """Malformed manual identities cannot bypass the monitoring gate."""
     engine, _, _, _, _ = make_engine(tmp_path)
     engine.store.pause()
     with pytest.raises(ValueError):
@@ -4629,7 +4652,7 @@ def test_manual_start_rejects_invalid_identity(tmp_path, iid):
 
 @pytest.mark.parametrize("blocker", ["held", "capacity", "payload", "missing"])
 def test_paused_manual_start_reports_its_actual_blocker(tmp_path, monkeypatch, blocker):
-    """@brief Explicit admission retains capacity, workflow and ticket trust gates."""
+    """Explicit admission retains capacity, workflow and ticket trust gates."""
     from adore.aegis import AegisError
     engine, forge, _, _, _ = make_engine(tmp_path)
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
@@ -4657,7 +4680,7 @@ def test_paused_manual_start_reports_its_actual_blocker(tmp_path, monkeypatch, b
 
 @pytest.mark.parametrize("stage", ["frame", "specify", "design", "build", "validate", "done"])
 def test_stage_prompt_preserves_aegis_journal_authoring_contract(tmp_path, stage):
-    """@brief New AEGIS journal guidance applies to every stage without new authority."""
+    """New AEGIS journal guidance applies to every stage without new authority."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     prompt = engine._stage_prompt(make_run(engine), forge.ticket, task(stage), "", "")
     assert ".agentic/templates/task.md" in prompt
@@ -4672,7 +4695,7 @@ def test_stage_prompt_preserves_aegis_journal_authoring_contract(tmp_path, stage
     "non-budget-type",
 ])
 def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, change):
-    """@brief A source edit affects the next attempt, never resets usage or identity."""
+    """A source edit affects the next attempt, never resets usage or identity."""
     from adore.config import load_config
 
     from tests.test_web_pending_config import _project
@@ -4745,7 +4768,7 @@ def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, chan
 
 
 def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path, monkeypatch):
-    """@brief HTTP budget apply resumes the same task with cumulative sessions and time."""
+    """HTTP budget apply resumes the same task with cumulative sessions and time."""
     from adore.config import load_config
     import adore.state as state_module
     from adore.web.app import create_app
@@ -4809,7 +4832,7 @@ def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path,
 def test_terminal_comment_names_backend_and_retry_choices(
     tmp_path: Path, backend: str, expected: str, monkeypatch,
 ) -> None:
-    """@brief A timed-out parked run reports its own backend and recovery choices."""
+    """A timed-out parked run reports its own backend and recovery choices."""
     if backend == "local":
         from tests.test_local_execution import local_fixture
         native = tmp_path / "native"
@@ -4833,7 +4856,7 @@ def test_terminal_comment_names_backend_and_retry_choices(
 
 
 def test_status_replay_reconciles_current_lifecycle_labels(tmp_path: Path) -> None:
-    """@brief A failed label write remains pending until polling restores current status."""
+    """A failed label write remains pending until polling restores current status."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "parked-clarification"
@@ -4871,14 +4894,14 @@ def test_status_replay_reconciles_current_lifecycle_labels(tmp_path: Path) -> No
 def test_review_question_uses_ticket_clarify_label_via_poll(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A review revision question parks on the ticket with its lifecycle label."""
+    """A review revision question parks on the ticket with its lifecycle label."""
     engine, forge, _, _, _ = make_engine(
         tmp_path, executor=FakeExecutor(GateRun(exit_code=0, has_questions=True,
                                                questions="Question — țară")))
     run = _review_run(engine, forge)
     forge.mr.labels = ["agent-revise"]
     class Client(FakeAegis):
-        """@brief Offline revision task and stage snapshots."""
+        """Offline revision task and stage snapshots."""
         def __init__(self, *args):
             super().__init__([task("frame", task_type="change")])
         def probe(self):
@@ -4898,7 +4921,7 @@ def test_review_question_uses_ticket_clarify_label_via_poll(
 
 
 def test_status_replay_recovers_post_before_edit_failure_without_duplicate(tmp_path: Path) -> None:
-    """@brief Polling adopts a replayed status after a write fails before acknowledgement."""
+    """Polling adopts a replayed status after a write fails before acknowledgement."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "cancelled"
@@ -4931,7 +4954,7 @@ def test_status_replay_recovers_post_before_edit_failure_without_duplicate(tmp_p
 def test_review_question_delivery_recovers_parking_after_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief Poll replay completes the same clarification without a duplicate question."""
+    """Poll replay completes the same clarification without a duplicate question."""
     engine, forge, _, _, _ = make_engine(
         tmp_path,
         executor=FakeExecutor(GateRun(exit_code=0, has_questions=True, questions="Need answer")),
@@ -4939,7 +4962,7 @@ def test_review_question_delivery_recovers_parking_after_failure(
     run = _review_run(engine, forge)
     forge.mr.labels = ["agent-revise"]
     class Client(FakeAegis):
-        """@brief Provide a revision task without external AEGIS."""
+        """Provide a revision task without external AEGIS."""
         def __init__(self, *args):
             super().__init__([task("frame", task_type="change")])
         def probe(self):
@@ -4969,7 +4992,7 @@ def test_review_question_delivery_recovers_parking_after_failure(
 
 
 def test_poll_restores_missing_parked_label_after_interruption(tmp_path: Path) -> None:
-    """@brief A persisted parked run regains its label without needing an answer."""
+    """A persisted parked run regains its label without needing an answer."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "parked-clarification"
@@ -4985,12 +5008,12 @@ def test_poll_restores_missing_parked_label_after_interruption(tmp_path: Path) -
 def test_review_status_failure_prevents_executor_launch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A failed required status label stops a review before its executor gate."""
+    """A failed required status label stops a review before its executor gate."""
     engine, forge, _, _, executor = make_engine(tmp_path)
     run = _review_run(engine, forge)
     forge.mr.labels = ["agent-revise"]
     class Client(FakeAegis):
-        """@brief Revision client with an executable stage."""
+        """Revision client with an executable stage."""
         def __init__(self, *args):
             super().__init__([task("frame", task_type="change")])
         def probe(self):
@@ -5009,7 +5032,7 @@ def test_review_status_failure_prevents_executor_launch(
 
 @pytest.mark.parametrize("kind", ["question", "status"])
 def test_replay_adopts_comment_when_post_response_is_lost(tmp_path: Path, kind: str) -> None:
-    """@brief An accepted post with a lost response is adopted on the next public poll."""
+    """An accepted post with a lost response is adopted on the next public poll."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     post = forge.post_comment
@@ -5046,7 +5069,7 @@ def test_replay_adopts_comment_when_post_response_is_lost(tmp_path: Path, kind: 
 def test_terminal_uses_pinned_backend_after_config_drift(
     tmp_path: Path, pinned: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief Saved execution identity, not changed configuration, selects the text."""
+    """Saved execution identity, not changed configuration, selects the text."""
     from adore.preparation import resolve_plan
 
     engine, forge, _, _, _ = make_engine(tmp_path)
@@ -5075,7 +5098,7 @@ def test_terminal_uses_pinned_backend_after_config_drift(
 
 
 def test_terminal_does_not_claim_stop_succeeded_on_backend_error(tmp_path: Path) -> None:
-    """@brief Failed backend stops remain accurately described as requests."""
+    """Failed backend stops remain accurately described as requests."""
     engine, forge, _, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "parked-clarification"
@@ -5092,7 +5115,7 @@ def test_terminal_does_not_claim_stop_succeeded_on_backend_error(tmp_path: Path)
 
 
 def test_replay_does_not_adopt_quoted_human_marker(tmp_path: Path) -> None:
-    """@brief A quoted notification marker never authorizes editing a human comment."""
+    """A quoted notification marker never authorizes editing a human comment."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "cancelled"
@@ -5113,7 +5136,7 @@ def test_replay_does_not_adopt_quoted_human_marker(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("fails", [False, True])
 def test_poll_finishes_parked_resource_cleanup(tmp_path: Path, fails: bool) -> None:
-    """@brief A recovered parked run stops its backend and cleans the handoff."""
+    """A recovered parked run stops its backend and cleans the handoff."""
     engine, forge, _, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
     worktree = tmp_path / "worktree"
@@ -5143,7 +5166,7 @@ def test_poll_finishes_parked_resource_cleanup(tmp_path: Path, fails: bool) -> N
 
 
 def test_settled_parked_run_does_not_repeat_stop_after_drift(tmp_path: Path) -> None:
-    """@brief A settled parked run does not revalidate native tools on ordinary polls."""
+    """A settled parked run does not revalidate native tools on ordinary polls."""
     engine, forge, _, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "parked-clarification"
@@ -5159,7 +5182,7 @@ def test_settled_parked_run_does_not_repeat_stop_after_drift(tmp_path: Path) -> 
 
 
 def test_pending_question_is_not_posted_after_park_cleanup_failure(tmp_path: Path) -> None:
-    """@brief Failed parking never replays an obsolete question as actionable."""
+    """Failed parking never replays an obsolete question as actionable."""
     engine, forge, _, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "parked-clarification"
@@ -5219,7 +5242,7 @@ def test_direct_completion_honors_disabled_human_approval(tmp_path, monkeypatch,
 
 
 def test_checkpoint_drift_before_presentation_requires_fresh_validation(tmp_path: Path) -> None:
-    """@brief A changed checkpoint cannot use the just-accepted validation."""
+    """A changed checkpoint cannot use the just-accepted validation."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     run = make_run(engine)
     run.stage = "validate"
@@ -5245,7 +5268,7 @@ def test_checkpoint_drift_before_presentation_requires_fresh_validation(tmp_path
 
 
 def test_failed_validate_session_does_not_record_approval_evidence(tmp_path: Path) -> None:
-    """@brief A nonzero Validate exit cannot authorize the candidate."""
+    """A nonzero Validate exit cannot authorize the candidate."""
     engine, forge, _, _, executor = make_engine(
         tmp_path, executor=FakeExecutor(GateRun(exit_code=1, stderr="validation failed")),
     )
@@ -5268,7 +5291,7 @@ def test_failed_validate_session_does_not_record_approval_evidence(tmp_path: Pat
 def test_instruction_prompt_delivery_and_independent_ticket_replay(
     tmp_path, monkeypatch, forge_failure
 ):
-    """@brief Direct conduction acknowledges fallback and replays one ticket comment."""
+    """Direct conduction acknowledges fallback and replays one ticket comment."""
     from adore.instructions import InstructionInbox
 
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
@@ -5278,7 +5301,7 @@ def test_instruction_prompt_delivery_and_independent_ticket_replay(
     queued = []
 
     def comments(iid):
-        """@brief Simulate an operator queuing text between claim and fresh Pi startup."""
+        """Simulate an operator queuing text between claim and fresh Pi startup."""
         root = engine.store.run_dir("github-owner-repo-7")
         if root.exists() and not queued:
             queued.append(
@@ -5292,7 +5315,7 @@ def test_instruction_prompt_delivery_and_independent_ticket_replay(
     original_run = executor.run_gate
 
     def acknowledge(*args, **kwargs):
-        """@brief Only the fake Pi acknowledgement, never composing, consumes fallback."""
+        """Only the fake Pi acknowledgement, never composing, consumes fallback."""
         assert kwargs.get("instructions") is not None, "conductor instruction handoff missing"
         prompt = args[3]
         assert "INSTRUCTION_LITERAL" in prompt
@@ -5307,7 +5330,7 @@ def test_instruction_prompt_delivery_and_independent_ticket_replay(
     failed = []
 
     def posting(iid, body):
-        """@brief Only instruction comment transport fails; other lifecycle notices work."""
+        """Only instruction comment transport fails; other lifecycle notices work."""
         if body.startswith("Instruction from") and forge_failure != "none" and not failed:
             failed.append(True)
             if forge_failure == "response-lost":
@@ -5339,7 +5362,7 @@ def test_instruction_prompt_delivery_and_independent_ticket_replay(
 
 
 def test_delivered_instruction_receipt_recovers_record_after_conductor_restart(tmp_path):
-    """@brief A persisted Pi receipt reconstructs its journal/outbox once through public polling."""
+    """A persisted Pi receipt reconstructs its journal/outbox once through public polling."""
     from adore.instructions import InstructionInbox
 
     engine, forge, *_ = make_engine(tmp_path)

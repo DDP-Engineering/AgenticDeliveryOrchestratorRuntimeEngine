@@ -1,0 +1,19 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-2f57e5c6"
+title = "Restart cancelled jobs with preserved history"
+status = "active"
+requirement = "When an authorized operator confirms restart of the latest cancelled job for an open ticket, ADORE shall admit a fresh execution under current manual-admission policy while retaining the cancelled job and its recorded evidence."
+verification = "Cancel a job with retained session evidence, restart while monitoring is paused, and assert independent identity/resources/budgets, preserved old evidence and normal capacity/workflow checks."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/state.py", "04_Software/adore/web/store.py", "04_Software/adore/web/worker_context.py", "04_Software/adore/cli.py", "04_Software/adore/web/commands.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_cancelled_restart_preserves_evidence_and_creates_fresh_job", "04_Software/tests/test_state.py::test_ticket_execution_generations_preserve_history_and_refuse_corruption", "04_Software/tests/test_web_ownership.py::test_cancelled_restart_acknowledges_new_execution_and_retains_previous"]
+spec = ""
+priority = "normal"
+rationale = ""
+created = 2026-11-16
+updated = 2026-11-16

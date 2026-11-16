@@ -1,83 +1,50 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
+# Code style
 
-# Code Style
+Rules for readable code; Ruff and TypeScript enforce the mechanical checks.
+Licensing comes from `REUSE.toml`, `LICENSE.txt` and `LICENSES/`.
 
-## Purpose
+## Shared rules
 
-This document defines the code style, documentation style, and related
-implementation readability rules for the Agentic Delivery Orchestrator & Runtime Engine (ADORE).
+- Use simple, direct code and explicit names. Avoid speculative abstractions and wrappers.
+- Keep one responsibility per module; extract coherent parts of large files when touching them.
+  Do not split files solely to satisfy an arbitrary line count.
+- English for identifiers, comments, logs, tests and internal documents.
+- Comments explain decisions or constraints; code and type hints explain mechanics.
+  No commented-out code, file banners, section markers or end-of-file markers.
+- Validate external input at its boundary and raise typed errors; never guess or accept partial data.
+- Keep the core forge/executor agnostic and portable. Follow the pre-release data policy in AGENTS.md.
+- Preserve third-party notices and managed AEGIS files. Prompt resources keep their loader-required
+  legal prefix; generated standalone files and deployed Pi extensions keep required notices.
+  Ordinary project files have no license header.
 
-## General Code Style
+## Python
 
-- Code must be clear, simple, and easily maintainable by a human developer.
-- Prefer small, composable modules.
-- Avoid unnecessary abstraction, wrapper classes, and speculative architecture.
-- Keep implementation sufficiently documented so intent, contracts, and
-  non-obvious logic remain understandable during maintenance.
-- Keep responsibilities separated across polling, Git-platform adapters,
-  executor launching, isolation, gate conducting, and delivery.
-- Avoid host-specific assumptions in reusable code.
-- Prefer deterministic local configuration and storage paths.
-- Preserve public interfaces unless change is explicitly requested.
+- PEP 8, explicit type hints on public interfaces, standard library where practical.
+- One short module docstring. A callable needs a docstring when its contract is not obvious:
+  describe important input constraints, outputs, side effects and typed failures.
+  Use plain concise text; no mandatory Doxygen tags or parameter lists duplicating type hints.
+- Keep meaningful existing contract explanations. Remove redundant file names and boilerplate.
+- A shebang belongs on directly executable scripts. Python 3 source is UTF-8 without an encoding banner.
+- Ruff configuration is `04_Software/ruff.toml`; run from `04_Software`.
+  Preserve repository line-ending rules in `.gitattributes`.
 
-## Python Documentation Style
+## Frontend
 
-For Python source and test files, use a consistent engineering-style header and
-Doxygen-like documentation pattern.
+- Strict TypeScript and shared typed transports; keep side effects at explicit boundaries.
+- User-facing UI, help and release notes use `en`, `fr`, `de`, `ro` with matching terms.
+- Reuse existing navigation, pagination, status and action components.
+  Keep explanatory material in help rather than repeated helper paragraphs.
+- Help authoring rules: `04_Software/web/src/help/README.md`.
 
-Required file prologue:
+## Tests and component documentation
 
-1. shebang: `#!/usr/bin/env python3`
-2. encoding line: `# -*- coding: utf-8 -*-`
-3. copyright/license banner using dashed separator lines
-4. module docstring with aligned tags. The following are required:
-   - `@file`
-   - `@brief`
-   - `@details`
-   Optional only when relevant:
-   - `@example`
+- Test public behavior and trust boundaries with offline injected collaborators.
+  Keep mutable test state isolated. Use `-n 0` for small selections; the default uses two workers.
+- Fixture/authentication details: [test infrastructure](../05_SoftwareDocu/Component_Test_Infrastructure.md).
+- Update the affected [component contract](../05_SoftwareDocu/README.md) rather than copying it into code
+  or an AEGIS page. Keep only relevant sections of the component template.
+- Release procedure and user-facing notes: [Releases](Releases.md).
 
-Required section markers where meaningful:
-
-- `IMPORTS`
-- `CONSTANTS`
-- `DATA MODELS / TYPEDEFINITIONS`
-- `HELPER FUNCTIONS` or `LOCAL HELPERS`
-- `PUBLIC API` or `EXPORTED FUNCTIONS / PUBLIC API`
-- `END OF FILE`
-
-Function, method, class, and nested-helper docstrings should use Doxygen-like
-tags whenever the callable or type is non-trivial, part of the public API,
-implements important logic, or benefits from an explicit contract.
-
-Required when applicable:
-
-- `@brief`
-- `@param[in]`
-- `@param[out]`
-- `@param[in,out]`
-- `@return`
-
-Use when applicable:
-
-- `@exception`
-- `@note`
-- `@todo`
-- `@retval`
-- `@example`
-
-Guidance:
-
-- trivial one-line helpers may omit docstrings if the intent is already obvious
-- public API functions should normally have docstrings
-- classes should have a class-level docstring
-- nested wrappers and decorator helpers should be documented when they carry
-  non-obvious behavior
-
-Keep these comments concise and engineering-focused. Avoid placeholder prose or
-casual commentary.
+Licensing metadata check (a repository check, not a product test):
+`uvx --from "reuse[charset-normalizer]==6.0.0" reuse lint`.
+The first invocation provisions the pinned checker; subsequent checks can use its cached environment.

@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    worker_context.py
-@brief   Bound worker-to-CLI ownership context and engine fencing.
-@details The context is internal process transport, never a credential/config
-         payload. A child attaches before effects and preserves dead-parent safety.
-"""
+"""Bound worker-to-CLI ownership context and engine fencing."""
 
 from __future__ import annotations
 
-# IMPORTS
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -28,14 +13,12 @@ from typing import Any
 
 from adore.web.ownership import OwnershipError, WorkerOwner
 
-# CONSTANTS
 _CURRENT: ContextVar[WorkerContext | None] = ContextVar("adore_worker_context", default=None)
 
 
-# DATA MODELS / TYPEDEFINITIONS
 @dataclass
 class WorkerContext:
-    """@brief One attached CLI participant and its immutable operation claim."""
+    """One attached CLI participant and its immutable operation claim."""
 
     web: Any
     owner: WorkerOwner
@@ -48,7 +31,7 @@ class WorkerContext:
     request_identity: dict[str, Any] = field(init=False, default_factory=dict)
 
     def __post_init__(self) -> None:
-        """@brief Pin immutable request fields and the exact canonical command run once."""
+        """Pin immutable request fields and the exact canonical command run once."""
         if self.operation_id:
             operation = self.web.operation(self.operation_id)
             if operation is None:
@@ -61,7 +44,7 @@ class WorkerContext:
                 self.command_run_id = resource[4:]
 
     def authorize(self) -> dict:
-        """@brief Refuse lost ownership and revoked rights before each effect."""
+        """Refuse lost ownership and revoked rights before each effect."""
         from adore.web.processes import assert_ancestry
 
         assert_ancestry()
@@ -80,7 +63,7 @@ class WorkerContext:
         return operation
 
     def validate_configuration(self, path: str | Path) -> None:
-        """@brief Refuse a recycled profile name resolving to another config file."""
+        """Refuse a recycled profile name resolving to another config file."""
         from adore.profiles import ProfileStore
 
         operation = self.authorize()
@@ -89,7 +72,7 @@ class WorkerContext:
             raise OwnershipError("worker ownership configuration target changed")
 
     def bind_engine(self, engine) -> None:
-        """@brief Fence state writes, external Git/forge commands and job boundaries."""
+        """Fence state writes, external Git/forge commands and job boundaries."""
         self.authorize()
         engine.before_effect = self.authorize
         engine.run_scope = self.run_scope
@@ -100,14 +83,17 @@ class WorkerContext:
             original = getattr(collaborator, "runner", None)
             if original is not None:
                 collaborator.runner = self._runner(original)
-        if self.authorize()["action"] == "start":
+        action = self.authorize()["action"]
+        if (action == "start" or action == "restart"
+                and engine.store.load(self.command_run_id).lifecycle == "cancelled"):
             engine.on_admitted = self.admitted
 
     def run_available(self, run_id: str) -> bool:
-        """@brief Protect durable foreign owners even across lock/dispatch gaps.
-        @param[in] run_id Exact run identity considered by the conductor.
-        @return Whether no foreign durable owner prevents entering the run scope.
-        @note Stale heartbeats and unavailable process probes retain ownership.
+        """
+        Protect durable foreign owners even across lock/dispatch gaps.
+        run_id: Exact run identity considered by the conductor.
+        Returns: Whether no foreign durable owner prevents entering the run scope.
+        Note: Stale heartbeats and unavailable process probes retain ownership.
         """
         self.authorize()
         with self.lock:
@@ -118,7 +104,7 @@ class WorkerContext:
                                                run_id=run_id)
 
     def _own_run(self, run_id: str) -> None:
-        """@brief Claim actual execution of a job before acknowledgement or conduction."""
+        """Claim actual execution of a job before acknowledgement or conduction."""
         with self.lock:
             if run_id not in self.runs:
                 if self.owner.role == "run":
@@ -132,7 +118,7 @@ class WorkerContext:
                     "run", project_id=self.owner.project_id, run_id=run_id)
 
     def admitted(self, run) -> None:
-        """@brief Own the durable admitted job before confirming its Start operation."""
+        """Own the durable admitted job before confirming its Start operation."""
         self.authorize()
         self._own_run(run.run_id)
         self.web.acknowledge_start(self.operation_id, owner=self.owner,
@@ -141,7 +127,7 @@ class WorkerContext:
 
     @contextmanager
     def run_scope(self, run_id: str):
-        """@brief Publish explicit ownership during conduction or publication of one run."""
+        """Publish explicit ownership during conduction or publication of one run."""
         self.authorize()
         with self.lock:
             already_owned = run_id in self.runs
@@ -156,7 +142,7 @@ class WorkerContext:
                     del self.runs[run_id]
 
     def heartbeat(self) -> None:
-        """@brief Refresh the attached CLI and every actual run it owns."""
+        """Refresh the attached CLI and every actual run it owns."""
         try:
             with self.lock:
                 self.web.touch_worker(self.owner)
@@ -167,7 +153,7 @@ class WorkerContext:
             self.heartbeat_failed.set()
 
     def close(self) -> None:
-        """@brief Relinquish completed run scopes while retaining the parent command owner."""
+        """Relinquish completed run scopes while retaining the parent command owner."""
         with self.lock:
             for run_owner in self.runs.values():
                 if run_owner != self.owner:
@@ -175,7 +161,7 @@ class WorkerContext:
             self.runs.clear()
 
     def validate_command(self, args) -> None:
-        """@brief Bind parsed CLI action and target to the immutable queued request."""
+        """Bind parsed CLI action and target to the immutable queued request."""
         operation = self.authorize()
         action, target = operation["action"], operation["run_id"]
         if action == "conduct":
@@ -217,24 +203,24 @@ class WorkerContext:
             self.authorize()
 
     def _runner(self, original):
-        """@brief Preserve injected command contracts behind current ownership checks."""
+        """Preserve injected command contracts behind current ownership checks."""
         def run(*args, **kwargs):
-            """@brief Check authority immediately before dispatching an external command."""
+            """Check authority immediately before dispatching an external command."""
             self.authorize()
             return original(*args, **kwargs)
         return run
 
 
-# PUBLIC API
 def current_context() -> WorkerContext | None:
-    """@brief Return the active CLI context; standalone CLI has no web dependency."""
+    """Return the active CLI context; standalone CLI has no web dependency."""
     return _CURRENT.get()
 
 
 @contextmanager
 def attached_context():
-    """@brief Attach a strictly parsed internal claim before CLI dispatch.
-    @exception OwnershipError Missing, malformed, stale or mismatched process context.
+    """
+    Attach a strictly parsed internal claim before CLI dispatch.
+    Raises OwnershipError: Missing, malformed, stale or mismatched process context.
     """
     raw = os.environ.get("ADORE_WORKER_CONTEXT")
     if raw is None:
@@ -270,7 +256,7 @@ def attached_context():
     done = Event()
 
     def beat() -> None:
-        """@brief Keep scoped child readiness current during blocking executor calls."""
+        """Keep scoped child readiness current during blocking executor calls."""
         while not done.wait(2):
             context.heartbeat()
             if context.heartbeat_failed.is_set():
@@ -287,6 +273,3 @@ def attached_context():
             context.close()
         finally:
             _CURRENT.reset(token)
-
-
-# END OF FILE

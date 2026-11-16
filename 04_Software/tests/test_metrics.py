@@ -1,16 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_metrics.py
-@brief Tests for statistics capture and query (journal -> summary -> SQLite).
-"""
+"""Tests for statistics capture and query (journal -> summary -> SQLite)."""
 
 from __future__ import annotations
 
@@ -36,18 +24,15 @@ from adore.metrics import (
 from adore.state import RunState, StateError, StateStore
 import pytest
 
-# IMPORTS
 from tests.execution_records import execution_record
 from tests.usage_events import versioned_usage
-
-# HELPER FUNCTIONS
 
 
 def _seed_run(tmp_path: Path) -> StateStore:
     """
-    @brief      A store with one finished run: journal, state, ticket.
-    @param[in]  tmp_path pytest tmp dir.
-    @return     The StateStore with run "r-45".
+    A store with one finished run: journal, state, ticket.
+    tmp_path: pytest tmp dir.
+    Returns: The StateStore with run "r-45".
     """
     store = StateStore(tmp_path / ".adore")
     store.save(RunState(
@@ -92,7 +77,7 @@ def _seed_run(tmp_path: Path) -> StateStore:
 
 def test_summarize_run_computes_the_catalog(tmp_path: Path) -> None:
     """
-    @brief   The summary derives every catalog field from the journal: gate
+    The summary derives every catalog field from the journal: gate
              outcomes, launches, usage totals, park wait, time-to-MR, span.
     """
     store = _seed_run(tmp_path)
@@ -116,7 +101,7 @@ def test_summarize_run_computes_the_catalog(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("workflow", ["aegis", "direct"])
 def test_summary_serializes_recorded_workflow(tmp_path: Path, workflow: str) -> None:
-    """@brief Workflow survives summaries and exports without inventing a strict pass."""
+    """Workflow survives summaries and exports without inventing a strict pass."""
     store = StateStore(tmp_path / "state")
     run = RunState(run_id="workflow-1", ticket_iid=1, workflow=workflow,
                    stage="done", lifecycle="done",
@@ -145,7 +130,7 @@ def test_summary_serializes_recorded_workflow(tmp_path: Path, workflow: str) -> 
 @pytest.mark.parametrize("loader", [load_summaries, load_analytical_summaries])
 @pytest.mark.parametrize("workflow", ["unknown", "", None, 1])
 def test_summary_unknown_workflow_is_refused(tmp_path: Path, loader, workflow: object) -> None:
-    """@brief Corrupt summary workflow cannot be inferred from task or governance data."""
+    """Corrupt summary workflow cannot be inferred from task or governance data."""
     db = tmp_path / "metrics.db"
     record_summary(db, RunSummary(run_id="workflow-1"))
     assert "workflow" in {item.name for item in fields(RunSummary)}
@@ -159,7 +144,7 @@ def test_summary_unknown_workflow_is_refused(tmp_path: Path, loader, workflow: o
 
 @pytest.mark.parametrize("loader", [load_summaries, load_analytical_summaries])
 def test_summary_missing_workflow_column_is_refused(tmp_path: Path, loader) -> None:
-    """@brief A previous table shape is refused unchanged rather than extended."""
+    """A previous table shape is refused unchanged rather than extended."""
     db = tmp_path / "metrics.db"
     record_summary(db, RunSummary(run_id="workflow-1"))
     assert "workflow" in {item.name for item in fields(RunSummary)}
@@ -172,7 +157,7 @@ def test_summary_missing_workflow_column_is_refused(tmp_path: Path, loader) -> N
 
 
 def test_versioned_usage_replay_counts_once_and_conflict_fails(tmp_path: Path) -> None:
-    """@brief Replayed launch usage cannot inflate a terminal summary."""
+    """Replayed launch usage cannot inflate a terminal summary."""
     store = StateStore(tmp_path / "state")
     store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done",
         execution=execution_record()))
@@ -191,7 +176,7 @@ def test_versioned_usage_replay_counts_once_and_conflict_fails(tmp_path: Path) -
 
 @pytest.mark.parametrize("stamp", [None, ""])
 def test_usage_event_without_timestamp_is_refused(stamp) -> None:
-    """@brief The journal stamps every event, so an undated usage record is older data."""
+    """The journal stamps every event, so an undated usage record is older data."""
     event = {"event": "usage", **versioned_usage("run-1", 1, tokens_in=1)}
     if stamp is not None:
         event["ts"] = stamp
@@ -201,7 +186,7 @@ def test_usage_event_without_timestamp_is_refused(stamp) -> None:
 
 def test_record_load_roundtrip_is_duplicate_free(tmp_path: Path) -> None:
     """
-    @brief   INSERT OR REPLACE by run_id: re-recording updates, never
+    INSERT OR REPLACE by run_id: re-recording updates, never
              duplicates; the JSONL mirror matches the database.
     """
     db = tmp_path / "m.db"
@@ -217,7 +202,7 @@ def test_record_load_roundtrip_is_duplicate_free(tmp_path: Path) -> None:
 
 def test_metrics_database_of_another_build_is_refused_untouched(tmp_path: Path) -> None:
     """
-    @brief   No migration: a summary table with other columns stops recording and
+    No migration: a summary table with other columns stops recording and
              names the file to delete.
     """
     db = tmp_path / "metrics.db"
@@ -235,7 +220,7 @@ def test_metrics_database_of_another_build_is_refused_untouched(tmp_path: Path) 
 
 def test_since_window_filters_by_ended_at(tmp_path: Path) -> None:
     """
-    @brief   --since keeps only runs ending inside the window; unparseable
+    --since keeps only runs ending inside the window; unparseable
              ended_at rows are excluded rather than guessed.
     """
     from datetime import UTC, datetime, timedelta
@@ -251,9 +236,7 @@ def test_since_window_filters_by_ended_at(tmp_path: Path) -> None:
 
 
 def test_aggregate_groups_and_totals(tmp_path: Path) -> None:
-    """
-    @brief   Grouping by priority yields per-group counts and totals.
-    """
+    """Grouping by priority yields per-group counts and totals."""
     rows = [
         RunSummary(run_id="1", priority="P1", outcome="merged",
                    lifecycle="done", span_seconds=100, tokens_in=10,
@@ -274,7 +257,7 @@ def test_aggregate_groups_and_totals(tmp_path: Path) -> None:
 
 def test_csv_and_html_outputs(tmp_path: Path) -> None:
     """
-    @brief   CSV carries a header + one line per run; the HTML file is
+    CSV carries a header + one line per run; the HTML file is
              self-contained and escapes content.
     """
     rows = [RunSummary(run_id="r<1>", title='He said "hi" & left',
@@ -291,7 +274,7 @@ def test_csv_and_html_outputs(tmp_path: Path) -> None:
 
 def test_profile_stats_empty_and_seeded(tmp_path: Path) -> None:
     """
-    @brief   profile_stats yields zeros for a missing DB and headline figures
+    profile_stats yields zeros for a missing DB and headline figures
              (runs/merged/failed/success_rate/last_run) for a seeded one.
     """
     db = tmp_path / "metrics.db"
@@ -312,9 +295,7 @@ def test_profile_stats_empty_and_seeded(tmp_path: Path) -> None:
 
 
 def test_is_terminal_classification() -> None:
-    """
-    @brief   Only true end states are recordable.
-    """
+    """Only true end states are recordable."""
     for lifecycle in ("done", "failed", "cancelled"):
         assert is_terminal(lifecycle)
     for lifecycle in (
@@ -322,6 +303,3 @@ def test_is_terminal_classification() -> None:
         "ticket-closed", "deleted",
     ):
         assert not is_terminal(lifecycle)
-
-
-# END OF FILE

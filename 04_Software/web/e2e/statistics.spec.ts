@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { test, expect, type Page } from "@playwright/test";
 import { messages, type Locale } from "../src/i18n";
 import { statisticsCopy } from "../src/statisticsCopy";
@@ -49,6 +43,8 @@ function analytical(value: any, input = 7) {
   return result;
 }
 test("statistics summary shows only measures, compact period and job elapsed time in Usage", async ({ page }) => {
+  // Fit the desktop row with native Linux and Windows font metrics.
+  await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
   await page.goto("/metrics");
   await expect(page.getByRole("button", { name: "All time", exact: true })).toBeVisible();

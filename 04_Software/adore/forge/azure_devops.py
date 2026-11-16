@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       azure_devops.py
-@brief      Azure DevOps Services adapter over az and the azure-devops extension.
-@details    Every request explicitly binds organization and project. Boards access
-            is restricted to an exact Area Path; Git requests bind repository too.
-            Writes never complete PRs, enable auto-complete or bypass policies.
-"""
+"""Azure DevOps Services adapter over az and the azure-devops extension."""
 
 from __future__ import annotations
 
-# IMPORTS
 from html.parser import HTMLParser
 import json
 from pathlib import Path
@@ -30,19 +14,17 @@ from adore import azure_cli
 from adore.forge.base import Comment, Forge, ForgeError, ForgeResponseError, MergeRequest, Ticket
 from adore.util import CommandRunner, run_command, strict_json_loads
 
-# CONSTANTS
 PAGE_SIZE = 200
 MAX_PAGES = 50
 DEFAULT_TYPES = ("Bug", "Task", "Issue", "User Story", "Product Backlog Item", "Requirement")
 DEFAULT_CLOSED_STATES = ("Closed", "Done", "Removed")
 
-# LOCAL HELPERS
-
 
 def validate_azure_scope(organization: str, project: str, repo: str, area_path: str,
                          work_item_types: list[str], closed_states: list[str]) -> None:
-    """@brief Validate cloud-only scope before any CLI request.
-    @exception ValueError On unsafe, incomplete or on-premises scope.
+    """
+    Validate cloud-only scope before any CLI request.
+    Raises ValueError: On unsafe, incomplete or on-premises scope.
     """
     if (not isinstance(organization, str) or not re.fullmatch(
             r"https://dev\.azure\.com/[A-Za-z0-9][A-Za-z0-9-]{0,49}", organization)):
@@ -64,7 +46,7 @@ def validate_azure_scope(organization: str, project: str, repo: str, area_path: 
 
 
 class _HtmlText(HTMLParser):
-    """@brief Normalize Boards HTML without executing or retaining active content."""
+    """Normalize Boards HTML without executing or retaining active content."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -125,22 +107,22 @@ def _literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-# PUBLIC API
 class AzureDevOpsForge(Forge):
-    """@brief Scoped Azure Boards and Azure Repos implementation of Forge."""
+    """Scoped Azure Boards and Azure Repos implementation of Forge."""
 
     def __init__(self, repo: str, runner: CommandRunner = run_command, *, organization: str,
                  project: str, area_path: str, work_item_types: list[str] | None = None,
                  closed_states: list[str] | None = None):
-        """@brief Bind explicit cloud, project, repository and Boards scope.
-        @param[in] repo Azure repository name (not a URL or GUID).
-        @param[in] runner Injectable offline command boundary.
-        @param[in] organization Canonical Services organization URL.
-        @param[in] project Exact Azure project name.
-        @param[in] area_path Exact repository-owned child area.
-        @param[in] work_item_types Allowed native process type names.
-        @param[in] closed_states Native terminal-state names.
-        @exception ValueError On invalid or incomplete scope.
+        """
+        Bind explicit cloud, project, repository and Boards scope.
+        repo: Azure repository name (not a URL or GUID).
+        runner: Injectable offline command boundary.
+        organization: Canonical Services organization URL.
+        project: Exact Azure project name.
+        area_path: Exact repository-owned child area.
+        work_item_types: Allowed native process type names.
+        closed_states: Native terminal-state names.
+        Raises ValueError: On invalid or incomplete scope.
         """
         self.work_item_types = list(DEFAULT_TYPES) if work_item_types is None else work_item_types
         self.closed_states = (list(DEFAULT_CLOSED_STATES)
@@ -154,10 +136,11 @@ class AzureDevOpsForge(Forge):
     def _api(self, area: str, resource: str, *, method: str = "GET", route: dict | None = None,
              query: dict | None = None, body: object = None, version: str = "7.1",
              patch: bool = False, allow_continuation: bool = False) -> dict:
-        """@brief Invoke an exact REST location with bounded, strict JSON validation.
-        @details Payload files are private and ephemeral. Errors deliberately omit
+        """
+        Invoke an exact REST location with bounded, strict JSON validation.
+        Payload files are private and ephemeral. Errors deliberately omit
                  CLI streams/argv, which may echo credentials or human content.
-        @exception ForgeError On command, authentication, permission or API failure.
+        Raises ForgeError: On command, authentication, permission or API failure.
         """
         routes = {"project": self.project, **(route or {})}
         if area == "git":
@@ -206,7 +189,7 @@ class AzureDevOpsForge(Forge):
         return data
 
     def _ticket(self, data: dict) -> Ticket:
-        """@brief Normalize a strictly scoped Work Item, including HTML acceptance text."""
+        """Normalize a strictly scoped Work Item, including HTML acceptance text."""
         fields = _dict(data.get("fields"))
         if (fields.get("System.TeamProject") != self.project
                 or fields.get("System.AreaPath") != self.area_path):
@@ -241,7 +224,7 @@ class AzureDevOpsForge(Forge):
                       else "opened", f"{self.base_url}/_workitems/edit/{iid}", *dates)
 
     def _query(self, extra: str = "", limit: int | None = None) -> list[Ticket]:
-        """@brief Read ID-keyset pages without partial results at the safety bound."""
+        """Read ID-keyset pages without partial results at the safety bound."""
         found: list[Ticket] = []
         last = 0
         for _ in range(MAX_PAGES):
@@ -271,28 +254,31 @@ class AzureDevOpsForge(Forge):
         raise ForgeResponseError("Azure Work Item pagination exceeded the safety limit")
 
     def list_ready(self, ready_label: str) -> list[Ticket]:
-        """@brief List opted-in Work Items; shared selection enforces hold/exclude/readiness.
-        @param[in] ready_label Human opt-in tag.
-        @return Scoped, open tickets carrying the exact tag.
-        @exception ForgeError On CLI, API or response-contract failure.
+        """
+        List opted-in Work Items; shared selection enforces hold/exclude/readiness.
+        ready_label: Human opt-in tag.
+        Returns: Scoped, open tickets carrying the exact tag.
+        Raises ForgeError: On CLI, API or response-contract failure.
         """
         return [t for t in self._query(f"AND [System.Tags] CONTAINS {_literal(ready_label)}")
                 if ready_label in t.labels]
 
     def list_open(self, limit: int) -> list[Ticket]:
-        """@brief Browse at most limit open scoped Work Items.
-        @param[in] limit Positive maximum number of tickets.
-        @return Normalized tickets; no partial results on failure.
+        """
+        Browse at most limit open scoped Work Items.
+        limit: Positive maximum number of tickets.
+        Returns: Normalized tickets; no partial results on failure.
         """
         if type(limit) is not int or limit < 1:
             raise ForgeError("Azure browse limit must be positive")
         return self._query(limit=limit)
 
     def get_ticket(self, iid: int) -> Ticket | None:
-        """@brief Read a scoped Work Item; inaccessible/deleted items fail explicitly.
-        @param[in] iid Organization-wide Work Item ID.
-        @return The scoped ticket.
-        @exception ForgeError If access/deletion cannot be distinguished safely.
+        """
+        Read a scoped Work Item; inaccessible/deleted items fail explicitly.
+        iid: Organization-wide Work Item ID.
+        Returns: The scoped ticket.
+        Raises ForgeError: If access/deletion cannot be distinguished safely.
         """
         return self._ticket(self._wi(iid))
 
@@ -307,10 +293,11 @@ class AzureDevOpsForge(Forge):
                        pr and item.get("commentType") == "system")
 
     def list_comments(self, iid: int) -> list[Comment]:
-        """@brief Read every Boards comment page, oldest first, retaining hidden markers.
-        @param[in] iid Scoped Work Item ID.
-        @return Comments ordered by creation date and ID.
-        @exception ForgeError On malformed/incomplete pagination or CLI failure.
+        """
+        Read every Boards comment page, oldest first, retaining hidden markers.
+        iid: Scoped Work Item ID.
+        Returns: Comments ordered by creation date and ID.
+        Raises ForgeError: On malformed/incomplete pagination or CLI failure.
         """
         self._wi(iid)
         comments = []
@@ -339,10 +326,11 @@ class AzureDevOpsForge(Forge):
         raise ForgeResponseError("Azure comments exceeded the safety limit")
 
     def post_comment(self, iid: int, body: str) -> int:
-        """@brief Post a Markdown Boards status/clarification/approval comment.
-        @param[in] iid Scoped Work Item ID.
-        @param[in] body Literal marker-bearing Markdown.
-        @return Positive created comment ID for durable replay.
+        """
+        Post a Markdown Boards status/clarification/approval comment.
+        iid: Scoped Work Item ID.
+        body: Literal marker-bearing Markdown.
+        Returns: Positive created comment ID for durable replay.
         """
         self._wi(iid)
         data = self._api("wit", "comments", method="POST", route={"workItemId": iid},
@@ -351,11 +339,12 @@ class AzureDevOpsForge(Forge):
         return _id(data.get("id"))
 
     def edit_comment(self, iid: int, comment_id: int, body: str) -> None:
-        """@brief Update the exact persisted Boards comment without adding a duplicate.
-        @param[in] iid Scoped Work Item ID.
-        @param[in] comment_id Durable native comment ID.
-        @param[in] body Replacement marker-bearing Markdown.
-        @exception ForgeError On unconfirmed acknowledgement.
+        """
+        Update the exact persisted Boards comment without adding a duplicate.
+        iid: Scoped Work Item ID.
+        comment_id: Durable native comment ID.
+        body: Replacement marker-bearing Markdown.
+        Raises ForgeError: On unconfirmed acknowledgement.
         """
         self._wi(iid)
         data = self._api("wit", "comments", method="PATCH",
@@ -365,7 +354,7 @@ class AzureDevOpsForge(Forge):
             raise ForgeResponseError("Azure updated a different comment")
 
     def _tags(self, iid: int, labels: list[str], remove: bool = False) -> None:
-        """@brief Preserve human tags with optimistic Work Item revision protection."""
+        """Preserve human tags with optimistic Work Item revision protection."""
         if not labels:
             return
         if any(not isinstance(v, str) or not v.strip() or ";" in v for v in labels):
@@ -385,16 +374,18 @@ class AzureDevOpsForge(Forge):
             raise ForgeResponseError("Azure did not acknowledge the requested tag update")
 
     def add_labels(self, iid: int, labels: list[str]) -> None:
-        """@brief Add Work Item tags with revision protection; preserve human tags.
-        @param[in] iid Scoped Work Item ID.
-        @param[in] labels Exact tag names to attach.
+        """
+        Add Work Item tags with revision protection; preserve human tags.
+        iid: Scoped Work Item ID.
+        labels: Exact tag names to attach.
         """
         self._tags(iid, labels)
 
     def remove_labels(self, iid: int, labels: list[str]) -> None:
-        """@brief Remove only named Work Item tags with revision protection.
-        @param[in] iid Scoped Work Item ID.
-        @param[in] labels Exact tag names to remove.
+        """
+        Remove only named Work Item tags with revision protection.
+        iid: Scoped Work Item ID.
+        labels: Exact tag names to remove.
         """
         self._tags(iid, labels, remove=True)
 
@@ -414,10 +405,11 @@ class AzureDevOpsForge(Forge):
                             data["isDraft"], [_string(v.get("name")) for v in _items(labels)])
 
     def get_merge_request(self, ref: int | str) -> MergeRequest | None:
-        """@brief Find an active source branch or read a stored PR's terminal state.
-        @param[in] ref Stored PR ID or short source branch.
-        @return Scoped PR, or None when a branch has no active PR.
-        @exception ForgeError On denied/malformed/ambiguous resource data.
+        """
+        Find an active source branch or read a stored PR's terminal state.
+        ref: Stored PR ID or short source branch.
+        Returns: Scoped PR, or None when a branch has no active PR.
+        Raises ForgeError: On denied/malformed/ambiguous resource data.
         """
         if type(ref) is int:
             data = self._api("git", "pullRequests", route={"pullRequestId": _id(ref)})
@@ -441,18 +433,19 @@ class AzureDevOpsForge(Forge):
     def open_merge_request(self, source: str, target: str, title: str, body: str, *,
                            draft: bool = True, reviewers: list[str] | None = None,
                            remove_source_branch: bool = True, cwd: str | None = None) -> str:
-        """@brief Create a draft/ready PR, with explicit reviewers; never merge.
-        @details Reviewers are Azure identity GUIDs. Branch cleanup is conductor-owned.
-        @param[in] source Short source branch.
-        @param[in] target Short integration branch.
-        @param[in] title Literal PR title.
-        @param[in] body Approved candidate evidence.
-        @param[in] draft Requested draft state.
-        @param[in] reviewers Optional Azure identity GUIDs.
-        @param[in] remove_source_branch Conductor cleanup setting; no completion option is sent.
-        @param[in] cwd Unused: API calls never infer a Git remote.
-        @return Validated PR web URL.
-        @exception ForgeError On unconfirmed scope, reviewers or publication settings.
+        """
+        Create a draft/ready PR, with explicit reviewers; never merge.
+        Reviewers are Azure identity GUIDs. Branch cleanup is conductor-owned.
+        source: Short source branch.
+        target: Short integration branch.
+        title: Literal PR title.
+        body: Approved candidate evidence.
+        draft: Requested draft state.
+        reviewers: Optional Azure identity GUIDs.
+        remove_source_branch: Conductor cleanup setting; no completion option is sent.
+        cwd: Unused: API calls never infer a Git remote.
+        Returns: Validated PR web URL.
+        Raises ForgeError: On unconfirmed scope, reviewers or publication settings.
         """
         if any(not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", v)
                for v in reviewers or []):
@@ -472,10 +465,11 @@ class AzureDevOpsForge(Forge):
         return self._pull(data).web_url
 
     def link_ticket(self, mr_iid: int, ticket_iid: int) -> None:
-        """@brief Idempotently associate the source Work Item with the PR on replay.
-        @param[in] mr_iid Repository-scoped PR ID.
-        @param[in] ticket_iid Scoped Work Item ID.
-        @exception ForgeError On invalid references or unconfirmed write.
+        """
+        Idempotently associate the source Work Item with the PR on replay.
+        mr_iid: Repository-scoped PR ID.
+        ticket_iid: Scoped Work Item ID.
+        Raises ForgeError: On invalid references or unconfirmed write.
         """
         self._wi(ticket_iid)
         links = _items(self._api("git", "pullRequestWorkItems", route={"pullRequestId": mr_iid}))
@@ -502,10 +496,11 @@ class AzureDevOpsForge(Forge):
             raise ForgeError("Azure Work Item association failed") from exc
 
     def update_merge_request_body(self, mr_iid: int, body: str) -> None:
-        """@brief Refresh approved evidence without changing PR settings.
-        @param[in] mr_iid Repository-scoped PR ID.
-        @param[in] body Current approved candidate evidence.
-        @exception ForgeError On failed or mismatched acknowledgement.
+        """
+        Refresh approved evidence without changing PR settings.
+        mr_iid: Repository-scoped PR ID.
+        body: Current approved candidate evidence.
+        Raises ForgeError: On failed or mismatched acknowledgement.
         """
         data = self._api("git", "pullRequests", method="PATCH",
                          route={"pullRequestId": mr_iid}, body={"description": body})
@@ -513,9 +508,10 @@ class AzureDevOpsForge(Forge):
             raise ForgeResponseError("Azure did not acknowledge the PR description update")
 
     def list_mr_comments(self, mr_iid: int) -> list[Comment]:
-        """@brief Read all review threads including inline comments, with stable composite IDs.
-        @param[in] mr_iid Repository-scoped PR ID.
-        @return Nondeleted comments, oldest first; system notes remain flagged.
+        """
+        Read all review threads including inline comments, with stable composite IDs.
+        mr_iid: Repository-scoped PR ID.
+        Returns: Nondeleted comments, oldest first; system notes remain flagged.
         """
         threads = _items(self._api("git", "pullRequestThreads", route={"pullRequestId": mr_iid}))
         comments = []
@@ -533,10 +529,11 @@ class AzureDevOpsForge(Forge):
         return sorted(comments, key=lambda c: (c.created_at, c.id))
 
     def post_mr_comment(self, mr_iid: int, body: str) -> int:
-        """@brief Create one PR status thread; encode thread and comment IDs durably.
-        @param[in] mr_iid Repository-scoped PR ID.
-        @param[in] body Literal marker-bearing status text.
-        @return Composite thread/comment ID, independent of process memory.
+        """
+        Create one PR status thread; encode thread and comment IDs durably.
+        mr_iid: Repository-scoped PR ID.
+        body: Literal marker-bearing status text.
+        Returns: Composite thread/comment ID, independent of process memory.
         """
         data = self._api("git", "pullRequestThreads", method="POST",
                          route={"pullRequestId": mr_iid}, body={"status": "active", "comments": [
@@ -550,10 +547,11 @@ class AzureDevOpsForge(Forge):
         return (tid << 32) | cid
 
     def edit_mr_comment(self, mr_iid: int, comment_id: int, body: str) -> None:
-        """@brief Edit the exact thread/comment recorded before restart.
-        @param[in] mr_iid Repository-scoped PR ID.
-        @param[in] comment_id Composite durable thread/comment ID.
-        @param[in] body Replacement marker-bearing text.
+        """
+        Edit the exact thread/comment recorded before restart.
+        mr_iid: Repository-scoped PR ID.
+        comment_id: Composite durable thread/comment ID.
+        body: Replacement marker-bearing text.
         """
         tid, cid = divmod(_id(comment_id), 2**32)
         _id(tid)
@@ -565,10 +563,11 @@ class AzureDevOpsForge(Forge):
             raise ForgeResponseError("Azure did not acknowledge the PR comment edit")
 
     def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
-        """@brief Clear PR revise labels, never Work Item tags.
-        @param[in] mr_iid Repository-scoped PR ID.
-        @param[in] labels Exact PR label names to remove.
-        @exception ForgeError On failed label removal.
+        """
+        Clear PR revise labels, never Work Item tags.
+        mr_iid: Repository-scoped PR ID.
+        labels: Exact PR label names to remove.
+        Raises ForgeError: On failed label removal.
         """
         rows = _items(self._api("git", "pullRequestLabels", route={"pullRequestId": mr_iid}))
         for item in rows:
@@ -585,9 +584,10 @@ class AzureDevOpsForge(Forge):
                     raise ForgeError("Azure PR label removal failed; check Code permissions")
 
     def pipeline_status(self, mr_iid: int) -> str:
-        """@brief Report advisory PR statuses; unreadable/unsupported CI is unknown.
-        @param[in] mr_iid Repository-scoped PR ID.
-        @return Common pipeline vocabulary; this method never raises.
+        """
+        Report advisory PR statuses; unreadable/unsupported CI is unknown.
+        mr_iid: Repository-scoped PR ID.
+        Returns: Common pipeline vocabulary; this method never raises.
         """
         try:
             iterations = _items(self._api("git", "pullRequestIterations",
@@ -622,15 +622,15 @@ class AzureDevOpsForge(Forge):
             return "unknown"
 
     def list_labels(self) -> list[str]:
-        """@brief Azure has no repository label catalog to provision."""
+        """Azure has no repository label catalog to provision."""
         return []
 
     def create_label(self, name: str, color: str, description: str) -> None:
-        """@brief Refuse catalog creation: tags and PR labels are attached on demand."""
+        """Refuse catalog creation: tags and PR labels are attached on demand."""
         raise ForgeError("Azure tags/PR labels are created on attachment, not in a label catalog")
 
     def verify_access(self) -> None:
-        """@brief Read the exact repository and Boards scope without writing resources."""
+        """Read the exact repository and Boards scope without writing resources."""
         data = self._api("git", "repositories", route={"repositoryId": self.repo})
         if data.get("name") != self.repo or _dict(data.get("project")).get("name") != self.project:
             raise ForgeResponseError("Azure repository scope does not match configuration")
@@ -642,6 +642,3 @@ class AzureDevOpsForge(Forge):
             raise ForgeResponseError("Azure Area Path does not match configuration")
         _id(node.get("id"))
         self._query(limit=1)
-
-
-# END OF FILE

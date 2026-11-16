@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import type { Locale } from "./i18n";
 
 const en = {maximize:"Maximize",restore:"Restore",current:"Current session",newMessages:"New messages",queue:"Queue message",received:"Received by agent",message:"Message to the agent",invalid:"Enter 1–4000 characters without NUL.",session:"Session",open:"Open conversation",event:"Job updated",usage:"Usage recorded",artifacts:"Artifacts saved",observation:"Consumption updated",initial:"Initial prompt",agent:"Agent"};

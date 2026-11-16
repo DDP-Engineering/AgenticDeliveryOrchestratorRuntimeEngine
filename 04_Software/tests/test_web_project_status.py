@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_web_project_status.py
-@brief      Project capacity, worker diagnostics and durable feedback contracts.
-@details    Uses isolated current stores and offline configuration consumers.
-"""
+"""Project capacity, worker diagnostics and durable feedback contracts."""
 
-# IMPORTS
 from pathlib import Path
 
 from adore.config import load_config
@@ -30,7 +16,7 @@ from tests.execution_records import execution_record
 
 @pytest.fixture
 def setup(tmp_path):
-    """@brief Create two independently configured project stores and an authenticated API."""
+    """Create two independently configured project stores and an authenticated API."""
     profiles = ProfileStore(tmp_path / "home")
     example = (Path(__file__).parents[1] / "config.example.toml").read_text(encoding="utf-8")
     states = {}
@@ -50,7 +36,7 @@ def setup(tmp_path):
 
 
 def test_capacity_queue_and_feedback_are_project_scoped(setup):
-    """@brief A full project queues work while B retains its free slot and feedback."""
+    """A full project queues work while B retains its free slot and feedback."""
     profiles, states, web, client, headers = setup
     aid, bid = (profiles.load(name).project_id for name in ("alpha", "beta"))
     web.register_worker("supervisor")
@@ -106,7 +92,7 @@ def test_capacity_queue_and_feedback_are_project_scoped(setup):
 
 
 def test_roles_readiness_and_corrupt_heartbeat(setup):
-    """@brief Server readiness names configuration loss and project loss stays local."""
+    """Server readiness names configuration loss and project loss stays local."""
     _profiles, _states, web, client, _headers = setup
     supervisor = web.register_worker("supervisor")
     response = client.get("/api/v1/ready")
@@ -141,7 +127,7 @@ def test_roles_readiness_and_corrupt_heartbeat(setup):
 
 @pytest.mark.parametrize("role", ["project", "run", "command"])
 def test_corrupt_project_heartbeat_does_not_break_other_projects_or_server(setup, role):
-    """@brief Only A refuses capacity when its own project worker timestamp is damaged."""
+    """Only A refuses capacity when its own project worker timestamp is damaged."""
     profiles, _states, web, client, _headers = setup
     web.register_worker("supervisor")
     web.register_worker("configuration")
@@ -159,7 +145,7 @@ def test_corrupt_project_heartbeat_does_not_break_other_projects_or_server(setup
 def test_reduced_limit_preserves_reservations_and_bounds_actual_executor_starts(
     tmp_path, already_started
 ):
-    """@brief Queued reservations start one at a time at N=1; two started jobs continue."""
+    """Queued reservations start one at a time at N=1; two started jobs continue."""
     from hashlib import sha256
 
     from adore.web.processes import stop_trees
@@ -171,7 +157,7 @@ def test_reduced_limit_preserves_reservations_and_bounds_actual_executor_starts(
     first, second = reserve(profiles, "alpha", 7), reserve(profiles, "alpha", 8)
     app = create_app(profiles.home)
     web = app.state.web_store
-    web.register_worker("supervisor")
+    supervisor = web.register_worker("supervisor")
     worker = start_project(profiles, web, profile)
     results = [first, second]
     markers = [
@@ -215,6 +201,10 @@ def test_reduced_limit_preserves_reservations_and_bounds_actual_executor_starts(
                 status_client.post(
                     "/api/v1/session", json={"username": "admin", "password": "admin"}
                 )
+                # The fixture drives workers manually, so refresh their real heartbeat
+                # after process startup/login instead of depending on machine speed.
+                web.touch_worker(supervisor)
+                web.touch_worker(worker.owner)
                 status = status_client.get("/api/v1/projects/alpha/capacity").json()
                 assert status["waiting_runs"] == [{"ticket_iid": 8, "reason": "staged_change"}]
             markers[0].with_suffix(".release").touch()
@@ -235,7 +225,7 @@ def test_reduced_limit_preserves_reservations_and_bounds_actual_executor_starts(
 
 
 def test_corrupt_inputs_and_unauthorized_scope_fail_closed(setup):
-    """@brief Corrupt config/queue never invents a free slot or leaks a foreign project."""
+    """Corrupt config/queue never invents a free slot or leaks a foreign project."""
     profiles, _states, web, client, _headers = setup
     with HttpClient(create_app(profiles.home)) as anonymous:
         assert anonymous.get("/api/v1/projects/alpha/capacity").status_code == 401
@@ -261,7 +251,7 @@ def test_corrupt_inputs_and_unauthorized_scope_fail_closed(setup):
 
 
 def test_invalid_limit_reduction_staging_and_independent_save(setup):
-    """@brief Invalid/reduced N preserves A while idle B saves its canonical N."""
+    """Invalid/reduced N preserves A while idle B saves its canonical N."""
     profiles, states, _web, client, headers = setup
     path = profiles.config_path("alpha")
     path.write_text(
@@ -325,7 +315,7 @@ def test_invalid_limit_reduction_staging_and_independent_save(setup):
 
 
 def test_staged_reduction_fences_admission_and_preserves_existing_jobs(tmp_path, monkeypatch):
-    """@brief Occupancy two and staged N=1 blocks new admission until both jobs settle."""
+    """Occupancy two and staged N=1 blocks new admission until both jobs settle."""
     from dataclasses import replace
 
     from tests.supervisor_helper import offline_engine
@@ -393,7 +383,7 @@ def test_staged_reduction_fences_admission_and_preserves_existing_jobs(tmp_path,
 
 
 def test_omitted_limit_has_same_default_in_api_and_portable_import(setup):
-    """@brief The only canonical field defaults to one across saved and portable configuration."""
+    """The only canonical field defaults to one across saved and portable configuration."""
     profiles, _states, _web, client, _headers = setup
     path = profiles.config_path("beta")
     path.write_text(
@@ -404,7 +394,7 @@ def test_omitted_limit_has_same_default_in_api_and_portable_import(setup):
 
 
 def test_busy_initial_start_keeps_dispatch_until_operator_lock_released(tmp_path, monkeypatch):
-    """@brief Bounded initial-start contention retains authority for later execution."""
+    """Bounded initial-start contention retains authority for later execution."""
     from tests.supervisor_helper import offline_engine
     from tests.test_web_supervisor import project, reserve
 
@@ -428,7 +418,7 @@ def test_busy_initial_start_keeps_dispatch_until_operator_lock_released(tmp_path
 
 @pytest.mark.parametrize("damage", ["invalid-json", "wrong-hash", "wrong-base", "boolean-limit"])
 def test_staged_capacity_corruption_blocks_only_its_project(setup, damage):
-    """@brief Corrupt staged admission evidence is refused without guessing active capacity."""
+    """Corrupt staged admission evidence is refused without guessing active capacity."""
     from hashlib import sha256
     import json
 
@@ -470,12 +460,10 @@ def test_staged_capacity_corruption_blocks_only_its_project(setup, damage):
     assert client.get("/api/v1/projects/alpha/capacity").status_code == 200
 
 
-# END OF FILE
-
-
 def test_capacity_exposes_only_current_job_states_and_monitoring(setup):
-    """@brief Current capacity excludes finished history and reserved, unstarted execution.
-    @param[in] setup Isolated authorized projects and offline stores.
+    """
+    Current capacity excludes finished history and reserved, unstarted execution.
+    setup: Isolated authorized projects and offline stores.
     """
     profiles, states, _web, client, _headers = setup
     for index, lifecycle in enumerate(("working", "publishing", "parked-clarification",

@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       executor_configuration.py
-@brief      Atomic reviewed Pi provider/model/endpoint configuration.
-@details Provider, model, thinking and the endpoint change together through
-            executor.connection. Both production backends use fixed Pi RPC.
-"""
+"""Atomic reviewed Pi provider/model/endpoint configuration."""
 
-# IMPORTS
 from copy import deepcopy
 import json
 import re
@@ -31,7 +16,6 @@ from adore.pi_providers import (
 )
 from adore.util import strict_json_loads
 
-# CONSTANTS
 #: Virtual edit key of the provider/model/endpoint selection.
 CONNECTION_KEY = "executor.connection"
 #: Configuration rows edited through CONNECTION_KEY, never one by one.
@@ -42,15 +26,12 @@ _ENDPOINT_HEADER = re.compile(r"\s*\[\s*executor\s*\.\s*endpoint\s*\]\s*(?:#.*)?
 _TABLE_HEADER = re.compile(r"\s*\[")
 
 
-# HELPER FUNCTIONS
-
-
 def _without_endpoint(text: str) -> str:
     """
-    @brief      Remove the `[executor.endpoint]` table (header through its last line).
-    @param[in]  text Configuration text.
-    @return     The text without the table; unchanged when there is none.
-    @exception  ValueError When the endpoint is spelled another way (inline or dotted).
+    Remove the `[executor.endpoint]` table (header through its last line).
+    text: Configuration text.
+    Returns: The text without the table; unchanged when there is none.
+    Raises ValueError: When the endpoint is spelled another way (inline or dotted).
     """
     lines = text.split("\n")
     start = next((index for index, line in enumerate(lines)
@@ -69,14 +50,11 @@ def _without_endpoint(text: str) -> str:
     return "\n".join(lines[:start] + rest)
 
 
-# PUBLIC API
-
-
 def valid_connection(value: object) -> bool:
     """
-    @brief      Validate the exact provider/model/endpoint transport.
-    @param[in]  value Parsed external JSON.
-    @return     True for a known provider, one model id, and an endpoint
+    Validate the exact provider/model/endpoint transport.
+    value: Parsed external JSON.
+    Returns: True for a known provider, one model id, and an endpoint
                 (http(s) URL and Pi API type) exactly when the provider is custom.
     """
     if not isinstance(value, dict) or set(value) != _FIELDS:
@@ -96,9 +74,9 @@ def valid_connection(value: object) -> bool:
 
 def connection_value(tree: dict) -> dict:
     """
-    @brief      Project a configuration onto the connection review value.
-    @param[in]  tree Parsed TOML.
-    @return     `{provider, model, thinking, base_url, api}`; the endpoint fields are empty
+    Project a configuration onto the connection review value.
+    tree: Parsed TOML.
+    Returns: `{provider, model, thinking, base_url, api}`; the endpoint fields are empty
                 unless the provider is custom.
     """
     executor = tree.get("executor") if isinstance(tree.get("executor"), dict) else {}
@@ -112,11 +90,11 @@ def connection_value(tree: dict) -> dict:
 
 def set_connection(text: str, wire_value: str) -> str:
     """
-    @brief      Produce an atomic reviewed connection edit preserving unrelated TOML.
-    @param[in]  text Current human TOML.
-    @param[in]  wire_value Strict JSON `{provider, model, thinking, base_url, api}`.
-    @return     Candidate TOML with exactly the connection fields changed.
-    @exception  ValueError Invalid value or an unsupported TOML spelling.
+    Produce an atomic reviewed connection edit preserving unrelated TOML.
+    text: Current human TOML.
+    wire_value: Strict JSON `{provider, model, thinking, base_url, api}`.
+    Returns: Candidate TOML with exactly the connection fields changed.
+    Raises ValueError: Invalid value or an unsupported TOML spelling.
     """
     if len(wire_value) > 4096:
         raise ValueError("connection too large")
@@ -147,6 +125,3 @@ def set_connection(text: str, wire_value: str) -> str:
     if tomllib.loads(changed) != expected:
         raise ValueError("connection changed unrelated configuration")
     return changed
-
-
-# END OF FILE

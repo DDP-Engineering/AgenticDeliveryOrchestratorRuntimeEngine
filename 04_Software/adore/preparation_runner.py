@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    preparation_runner.py
-@brief   Standalone Linux-container preparation file runner.
-@details Copied into the bounded exchange directory; requires only Python 3.
-         Drains both streams with bounded redacted retention and enforces a
-         process-group wall timeout. No ADORE imports or host shell are used.
-"""
+"""Standalone Linux-container preparation file runner."""
 
-# IMPORTS
 import codecs
 import contextlib
 import json
@@ -27,21 +11,18 @@ import subprocess
 import sys
 from threading import Thread
 
-# CONSTANTS
 MAX_OUTPUT_BYTES = 65536
-
-# LOCAL HELPERS
 
 
 def _drain(stream, path: Path, secrets: list[str], *,
            max_bytes: int = MAX_OUTPUT_BYTES, strict_utf8: bool = False) -> None:
     """
-    @brief Drain one pipe, redacting split credential values before bounded writes.
-    @param[in] stream Child stdout/stderr byte stream.
-    @param[in] path Owned output file.
-    @param[in] secrets Known values read only from the container process environment.
-    @param[in] max_bytes Retained output bound; native AEGIS preserves its JSON limit.
-    @param[in] strict_utf8 Native evidence refuses corrupt UTF-8.
+    Drain one pipe, redacting split credential values before bounded writes.
+    stream: Child stdout/stderr byte stream.
+    path: Owned output file.
+    secrets: Known values read only from the container process environment.
+    max_bytes: Retained output bound; native AEGIS preserves its JSON limit.
+    strict_utf8: Native evidence refuses corrupt UTF-8.
     """
     decoder = codecs.getincrementaldecoder("utf-8")(
         errors="strict" if strict_utf8 else "replace")
@@ -66,14 +47,11 @@ def _drain(stream, path: Path, secrets: list[str], *,
                 break
 
 
-# PUBLIC API
-
-
 def main(argv: list[str]) -> int:
     """
-    @brief Run a file-safe shell step and write authoritative exit/timeout result.
-    @param[in] argv Timeout, owned IO directory and worktree path.
-    @return Actual shell status, or 124 only on enforced wall timeout.
+    Run a file-safe shell step and write authoritative exit/timeout result.
+    argv: Timeout, owned IO directory and worktree path.
+    Returns: Actual shell status, or 124 only on enforced wall timeout.
     """
     timeout = float(argv[0])
     directory = Path(argv[1])
@@ -118,5 +96,3 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-
-# END OF FILE

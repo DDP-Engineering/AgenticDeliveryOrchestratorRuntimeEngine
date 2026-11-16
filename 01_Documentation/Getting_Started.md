@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Getting Started
 
 For Azure Repos and Boards, follow [Azure DevOps Services](Azure_DevOps_Services.md)
@@ -26,7 +19,7 @@ or `./start-adore.sh --verify` separately for complete integrity/dependency
 verification after extraction or when diagnosing damaged media.
 The following sections describe source/CLI setup.
 
-ADORE selects eligible GitHub, GitLab or Gitea tickets, conducts either the
+ADORE selects eligible GitHub, GitLab, Gitea or Azure DevOps Services tickets, conducts either the
 repository's AEGIS workflow or a direct implementation inside a dedicated
 worktree with container or native local execution, and opens draft or ready
 MR/PRs after fresh human approval. It never merges.
@@ -36,16 +29,20 @@ MR/PRs after fresh human approval. It never merges.
 - Python 3.11 or newer for ADORE;
 - Git and a non-interactively pushable target clone;
 - Docker or rootless Podman for container profiles; native scope controls for local profiles;
-- authenticated `gh`, `glab`, or `tea` on the host;
+- authenticated `gh`, `glab`, `tea`, or Azure CLI with the azure-devops extension on the host;
 - Pi, ADORE's only coding agent: built into the executor base image for container
   profiles, installed for the service account (`pi --version`) for local profiles;
 - documented project build/test instructions and ignore rules for generated files;
-- optionally AEGIS as `.agentic/aegis.py`; when present, a supported payload,
+- for AEGIS jobs, `.agentic/aegis.py` with a supported payload,
   schema 1 from `status --all --json` and valid configured AEGIS tests.
 
-No AEGIS means the direct workflow, with an explicitly unverified candidate
-for human approval. An unsupported or broken installed payload is refused,
-never treated as absence. Both web enrollment and CLI setup accept Direct projects.
+Automatic workflow detection selects Direct when AEGIS is absent, and refuses
+an unusable installed payload. An explicit **Without AEGIS** choice or project
+`workflow.mode = "direct"` skips AEGIS even when installed. Direct candidates
+remain explicitly unverified by an independent conductor check. Publication
+follows the project's approval policy. Both web enrollment and CLI setup accept
+Direct projects. Azure scope and authentication are described in
+[Azure DevOps Services](Azure_DevOps_Services.md).
 
 ADORE reads only its current stored formats. Unsupported data is refused with
 explicit cleanup guidance; it is never converted or recreated automatically.
@@ -105,7 +102,8 @@ draft = true
 
 ## Verify the Environment and Optional AEGIS
 
-When the target clone contains `.agentic/aegis.py`, check it with:
+When using AEGIS or automatic detection and the target clone contains
+`.agentic/aegis.py`, check it with:
 
 ```text
 python .agentic/aegis.py --version
@@ -113,7 +111,8 @@ python .agentic/aegis.py status --all --json
 ```
 
 The version must satisfy the client-declared supported range and JSON schema
-must be `1`. A present malformed or incompatible payload is refused.
+must be `1`. A present malformed or incompatible payload is refused in those
+modes. Explicit Direct bypasses the payload and does not require this check.
 Without that file, `adore init` and doctor report the information:
 "No AEGIS found: tickets run in the direct workflow". No AEGIS probe is run
 for absence, and ADORE does not install the payload for you.
@@ -160,7 +159,8 @@ An eligible ticket normally needs:
 
 - `agent-ready`;
 - one configured priority label such as `P1`, `P2`, or `P3`;
-- acceptance criteria in the body;
+- acceptance criteria in the body when `readiness.require_acceptance_criteria` is enabled
+  (off by default; a clear goal and acceptance criteria remain recommended);
 - optionally `bug`, `fix`, or `change` for AEGIS task type;
 - optionally `agent-quick` as a framing hint only.
 

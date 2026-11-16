@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_automatic_processes.py
-@brief   Offline background command and inherited pager contracts.
-@details Injects subprocesses; never runs Git, executors or active project jobs.
-"""
+"""Offline background command and inherited pager contracts."""
 
-# IMPORTS
 import os
 import subprocess
 import sys
@@ -30,7 +16,7 @@ import pytest
 @pytest.mark.parametrize("source", [None, {}, {"HOME": "selected", "PATH": "tools",
                                             "git_pager": "less", "PAGER": "more"}])
 def test_automatic_runner_background_environment(monkeypatch, system, source):
-    """@brief Child policy overrides pagers without mutating or widening environments."""
+    """Child policy overrides pagers without mutating or widening environments."""
     monkeypatch.setenv("GIT_PAGER", "interactive-pager")
     monkeypatch.setenv("AMBIENT_ONLY", "must-not-leak")
     monkeypatch.setattr("adore.util.sys.platform", system)
@@ -69,7 +55,7 @@ def test_automatic_runner_background_environment(monkeypatch, system, source):
     (subprocess.TimeoutExpired("git", 1, output=b"partial"), 124, True),
 ])
 def test_automatic_runner_keeps_failed_spawn_outcomes(monkeypatch, failure, code, timed_out):
-    """@brief Background launch options retain typed OS/timeout failures."""
+    """Background launch options retain typed OS/timeout failures."""
     def launch(*args, **kwargs):
         assert kwargs["env"]["GIT_PAGER"] == "cat"
         raise failure
@@ -83,7 +69,7 @@ def test_automatic_runner_keeps_failed_spawn_outcomes(monkeypatch, failure, code
 
 @pytest.mark.parametrize("system", ["win32", "linux"])
 def test_branch_preview_background_regex_keeps_json_stdin(monkeypatch, system):
-    """@brief Regex subprocess hides Windows consoles while retaining bounded JSON input."""
+    """Regex subprocess hides Windows consoles while retaining bounded JSON input."""
     monkeypatch.setattr("adore.util.sys.platform", system)
 
     def launch(argv, **kwargs):
@@ -99,13 +85,10 @@ def test_branch_preview_background_regex_keeps_json_stdin(monkeypatch, system):
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Win32 console allocation contract")
 def test_windows_automatic_child_has_no_console():
-    """@brief A real bounded Python child reports no Windows console handle."""
+    """A real bounded Python child reports no Windows console handle."""
     result = run_command([
         sys.executable, "-I", "-c",
         "import ctypes,os; print(ctypes.windll.kernel32.GetConsoleWindow()); "
         "print(os.environ['GIT_PAGER']); print(os.environ['PAGER'])",
     ], timeout=10)
     assert result.ok and result.stdout.splitlines() == ["0", "cat", "cat"]
-
-
-# END OF FILE

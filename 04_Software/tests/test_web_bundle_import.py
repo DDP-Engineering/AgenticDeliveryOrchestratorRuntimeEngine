@@ -1,17 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-"""
-@file    test_web_bundle_import.py
-@brief   Prove complete exported ZIP import at the authenticated project boundary.
-@details Isolated homes and fake runners preserve exact sources without external tools.
-"""
+"""Prove complete exported ZIP import at the authenticated project boundary."""
 
-# IMPORTS
 import base64
 from contextlib import contextmanager
 from dataclasses import replace
@@ -33,9 +21,8 @@ import pytest
 from tests.configuration_client import TestClient
 
 
-# LOCAL HELPERS
 def document(root):
-    """@brief Select absolute, unowned server locations and one executor image."""
+    """Select absolute, unowned server locations and one executor image."""
     text = (Path(__file__).parents[1] / "config.example.toml").read_text(encoding="utf-8")
     for old, new in {
         ".adore": root / "state",
@@ -52,7 +39,7 @@ def document(root):
 
 
 def recipe():
-    """@brief Carry an executable context file and a local base in the exported graph."""
+    """Carry an executable context file and a local base in the exported graph."""
     header = LEGAL_HEADER.encode()
     return Recipe(
         "bundle-executor:1",
@@ -77,18 +64,18 @@ def recipe():
 
 
 def encoded(source):
-    """@brief Transfer the selected bytes through the JSON upload boundary."""
+    """Transfer the selected bytes through the JSON upload boundary."""
     return {"source": base64.b64encode(source).decode("ascii")}
 
 
 def headers(client):
-    """@brief Authenticate the isolated administrator with its CSRF token."""
+    """Authenticate the isolated administrator with its CSRF token."""
     login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
     return {"X-CSRF-Token": login.json()["csrf"]}
 
 
 def prepared(client, auth, source):
-    """@brief Confirm only the exact identity and archive accepted by preview."""
+    """Confirm only the exact identity and archive accepted by preview."""
     preview = client.post(
         "/api/v1/projects/import/bundle-preview", json=encoded(source), headers=auth
     )
@@ -100,14 +87,14 @@ def prepared(client, auth, source):
 
 # PUBLIC API / CONTRACT TESTS
 def test_exported_zip_imports_exact_config_and_complete_sources_together(tmp_path):
-    """@brief One confirmation publishes a paused project whose sources re-export exactly."""
+    """One confirmation publishes a paused project whose sources re-export exactly."""
     home = tmp_path / "home"
     raw = document(tmp_path).encode("utf-8")
     expected = recipe()
     source = recipe_archive(expected, config_raw=raw)
 
     def runner(*args, **kwargs):
-        """@brief A plain ZIP import never invokes a runtime, forge or other command."""
+        """A plain ZIP import never invokes a runtime, forge or other command."""
         raise AssertionError("unexpected external command")
 
     with TestClient(create_app(home, probe_runner=runner)) as client:
@@ -142,7 +129,7 @@ def test_exported_zip_imports_exact_config_and_complete_sources_together(tmp_pat
 
 
 def test_source_staging_cleanup_failure_never_publishes_a_project(tmp_path, monkeypatch):
-    """@brief Finish source staging cleanup before making profile metadata visible."""
+    """Finish source staging cleanup before making profile metadata visible."""
     from adore import executor_recipes
 
     home = tmp_path / "home"
@@ -151,7 +138,7 @@ def test_source_staging_cleanup_failure_never_publishes_a_project(tmp_path, monk
 
     @contextmanager
     def failing_cleanup(*args, **kwargs):
-        """@brief Simulate a temporary source file held open after staging."""
+        """Simulate a temporary source file held open after staging."""
         with original(*args, **kwargs) as directory:
             yield directory
         raise PermissionError("fixture staging cleanup failure")
@@ -168,7 +155,7 @@ def test_source_staging_cleanup_failure_never_publishes_a_project(tmp_path, monk
 
 
 def test_conflicting_root_recipe_is_a_typed_conflict_and_is_preserved(tmp_path):
-    """@brief Import is not authority to replace shared existing source definitions."""
+    """Import is not authority to replace shared existing source definitions."""
     home = tmp_path / "home"
     graph = recipe()
     changed = dict(graph.definitions)
@@ -189,11 +176,11 @@ def test_conflicting_root_recipe_is_a_typed_conflict_and_is_preserved(tmp_path):
 
 @pytest.mark.parametrize("route", ["bundle-preview", "bundle"])
 def test_bundle_routes_authorize_before_decoding_or_retaining_sources(tmp_path, monkeypatch, route):
-    """@brief Anonymous, developer and invalid-CSRF inputs cannot reach archive parsing."""
+    """Anonymous, developer and invalid-CSRF inputs cannot reach archive parsing."""
     import adore.web.app as api
 
     def refuse(*args, **kwargs):
-        """@brief A rejected caller never crosses the archive trust boundary."""
+        """A rejected caller never crosses the archive trust boundary."""
         raise AssertionError("unexpected source access")
 
     monkeypatch.setattr(api, "read_project_bundle", refuse)
@@ -221,7 +208,7 @@ def test_bundle_routes_authorize_before_decoding_or_retaining_sources(tmp_path, 
 
 @pytest.mark.parametrize("source", ["!invalid-base64!", "é", "eA=="])
 def test_invalid_encoded_archive_is_typed_and_never_reflected(tmp_path, source):
-    """@brief Bad transport and non-ZIP bytes do not create source/catalog state."""
+    """Bad transport and non-ZIP bytes do not create source/catalog state."""
     home = tmp_path / "home"
     with TestClient(create_app(home)) as client:
         result = client.post(
@@ -236,7 +223,7 @@ def test_invalid_encoded_archive_is_typed_and_never_reflected(tmp_path, source):
 
 @pytest.mark.parametrize("bad", ["image", "native", "secret", "malformed_toml"])
 def test_archive_config_mismatch_or_invalid_toml_has_no_publication(tmp_path, bad):
-    """@brief Archive metadata never bypasses native TOML configuration checks."""
+    """Archive metadata never bypasses native TOML configuration checks."""
     home = tmp_path / "home"
     text = document(tmp_path)
     if bad == "image":
@@ -265,7 +252,7 @@ def test_archive_config_mismatch_or_invalid_toml_has_no_publication(tmp_path, ba
 
 @pytest.mark.parametrize("bad", ["extra", "oversized", "unicode"])
 def test_bundle_request_shape_limits_and_unicode_fail_closed(tmp_path, bad):
-    """@brief Request validation never leaks input or creates an import on malformed metadata."""
+    """Request validation never leaks input or creates an import on malformed metadata."""
     home = tmp_path / "home"
     body = encoded(recipe_archive(recipe(), config_raw=document(tmp_path).encode()))
     if bad == "extra":
@@ -289,7 +276,7 @@ def test_bundle_request_shape_limits_and_unicode_fail_closed(tmp_path, bad):
 
 @pytest.mark.parametrize("change", ["archive", "base_binding", "ownership"])
 def test_confirmation_binds_archive_associations_and_server_ownership(tmp_path, change):
-    """@brief Confirmation refuses any changed evidence observed by automatic validation."""
+    """Confirmation refuses any changed evidence observed by automatic validation."""
     home = tmp_path / "home"
     graph = recipe()
     source = recipe_archive(graph, config_raw=document(tmp_path).encode())
@@ -326,7 +313,7 @@ def test_confirmation_binds_archive_associations_and_server_ownership(tmp_path, 
 def test_failed_publication_rolls_back_new_bindings_and_preserves_external_state(
     tmp_path, monkeypatch, failure
 ):
-    """@brief Neither write faults nor a late native ownership conflict leave a partial project."""
+    """Neither write faults nor a late native ownership conflict leave a partial project."""
     from adore import executor_recipes
 
     home = tmp_path / "home"
@@ -337,19 +324,19 @@ def test_failed_publication_rolls_back_new_bindings_and_preserves_external_state
     replace_file = executor_recipes.os.replace
 
     def fail_create(profiles, name, **kwargs):
-        """@brief Fail only the new imported profile, preserving unrelated metadata."""
+        """Fail only the new imported profile, preserving unrelated metadata."""
         if name == "bundled-project":
             raise PermissionError("fixture profile write")
         return create(profiles, name, **kwargs)
 
     def fail_write(source, target):
-        """@brief Fail after a supplemental binding but before the root association."""
+        """Fail after a supplemental binding but before the root association."""
         if Path(target) == store.binding_path("bundle-executor:1"):
             raise PermissionError("fixture binding write")
         return replace_file(source, target)
 
     def late_owner(state, *args, **kwargs):
-        """@brief A competing profile acquires nested ownership at the native lock boundary."""
+        """A competing profile acquires nested ownership at the native lock boundary."""
         if state.root == tmp_path / "state":
             create(ProfileStore(home), "concurrent", store_root=str(tmp_path / "state/child"))
         return acquire(state, *args, **kwargs)
@@ -375,7 +362,7 @@ def test_failed_publication_rolls_back_new_bindings_and_preserves_external_state
 
 @pytest.mark.parametrize("existing", ["identical_root", "different_base"])
 def test_import_reuses_identical_roots_and_preserves_existing_base_associations(tmp_path, existing):
-    """@brief Embedded source snapshots do not replace another project's base binding."""
+    """Embedded source snapshots do not replace another project's base binding."""
     home = tmp_path / "home"
     graph = recipe()
     store = RecipeStore(home)
@@ -397,7 +384,7 @@ def test_import_reuses_identical_roots_and_preserves_existing_base_associations(
 
 @pytest.mark.parametrize("corrupt", ["binding", "object"])
 def test_corrupt_recipe_storage_is_refused_without_repair(tmp_path, corrupt):
-    """@brief Current-schema corrupt storage is preserved for explicit operator action."""
+    """Current-schema corrupt storage is preserved for explicit operator action."""
     home = tmp_path / "home"
     graph = recipe()
     store = RecipeStore(home)
@@ -421,7 +408,7 @@ def test_corrupt_recipe_storage_is_refused_without_repair(tmp_path, corrupt):
 
 
 def test_catalog_lock_contention_does_not_publish_or_release_another_lock(tmp_path):
-    """@brief Source mutation ownership is required in addition to the project locks."""
+    """Source mutation ownership is required in addition to the project locks."""
     home = tmp_path / "home"
     source = recipe_archive(recipe(), config_raw=document(tmp_path).encode())
     with TestClient(create_app(home)) as client:
@@ -441,7 +428,7 @@ def test_catalog_lock_contention_does_not_publish_or_release_another_lock(tmp_pa
 
 
 def test_failed_source_rollback_escalates_without_erasing_existing_data(tmp_path, monkeypatch):
-    """@brief A filesystem rollback failure reports uncertainty instead of false import success."""
+    """A filesystem rollback failure reports uncertainty instead of false import success."""
     home = tmp_path / "home"
     store = RecipeStore(home)
     source = recipe_archive(recipe(), config_raw=document(tmp_path).encode())
@@ -449,13 +436,13 @@ def test_failed_source_rollback_escalates_without_erasing_existing_data(tmp_path
     unlink = Path.unlink
 
     def fail_create(profiles, name, **kwargs):
-        """@brief Fail only this new profile's publication."""
+        """Fail only this new profile's publication."""
         if name == "bundled-project":
             raise PermissionError("fixture publication")
         return create(profiles, name, **kwargs)
 
     def fail_rollback(path, *args, **kwargs):
-        """@brief Preserve a still-valid binding when the disk refuses its removal."""
+        """Preserve a still-valid binding when the disk refuses its removal."""
         if path == store.binding_path(recipe().image):
             raise PermissionError("fixture rollback")
         return unlink(path, *args, **kwargs)
@@ -476,14 +463,14 @@ def test_failed_source_rollback_escalates_without_erasing_existing_data(tmp_path
 def test_final_unlock_failure_does_not_leave_a_profile_without_sources(
     tmp_path, monkeypatch, boundary
 ):
-    """@brief Project and enrollment cleanup remain inside the coordinated rollback boundary."""
+    """Project and enrollment cleanup remain inside the coordinated rollback boundary."""
     home = tmp_path / "home"
     source = recipe_archive(recipe(), config_raw=document(tmp_path).encode())
     release = StateStore.release_lock
     failed = False
 
     def failed_unlock(state):
-        """@brief Simulate an error reported at the final project lock release."""
+        """Simulate an error reported at the final project lock release."""
         nonlocal failed
         release(state)
         target = tmp_path / "state" if boundary == "project" else home / "web-enrollment"

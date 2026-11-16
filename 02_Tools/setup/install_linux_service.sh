@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
 # @file    install_linux_service.sh
 # @brief   Prepare a source checkout and optionally install its Linux CLI service.
 # @details Fail-fast, idempotent, re-runnable. Steps: check host prerequisites,
@@ -22,7 +15,6 @@
 #            --uninstall stop/disable/remove the systemd unit (sudo)
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-11-15
-# @version 0.17.0
 # -----------------------------------------------------------------------------
 set -euo pipefail
 

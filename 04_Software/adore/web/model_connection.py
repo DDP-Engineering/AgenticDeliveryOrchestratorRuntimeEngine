@@ -1,27 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    model_connection.py
-@brief   Explicit bounded model tests through Pi, ADORE's only coding agent.
-@details A container test runs one `pi --mode rpc` process in a temporary empty
-         container under the project's egress and credentials: Pi must run
-         one shell command that prints a tool nonce, then reply with exactly
-         a reply nonce. Pi's own failure class becomes a closed reason
-         (invalid key, unreachable provider or endpoint, unknown model, rate
-         limit). A provider that needs a credential and has none is reported
-         before any container starts. A native (installed) Pi runs the same
-         challenge over RPC inside its owned process scope. Neither proves complete-job
-         readiness.
-"""
+"""Explicit bounded model tests through Pi, ADORE's only coding agent."""
 
-# IMPORTS
 import json
 import os
 from pathlib import Path
@@ -47,7 +25,6 @@ from adore.pi_providers import (
 from adore.preparation import PreparationError, effective_probe_config
 from adore.util import load_env_file
 
-# CONSTANTS
 LOCAL_TIMEOUT_SECONDS = 90
 LOCAL_OUTPUT_BYTES = 1024 * 1024
 #: Wall-clock bound of the Pi run inside the temporary container.
@@ -92,14 +69,14 @@ _FAILURE_REASONS = {
 _MODELS_FILE = "pi-models.json"
 
 
-# HELPER FUNCTIONS
 
 
 def _shell_call_succeeded(event: dict, tool_nonce: str) -> bool:
-    """@brief Recognize one completed, successful Pi shell call that printed the tool nonce.
-    @param[in] event One decoded JSON event.
-    @param[in] tool_nonce Token the shell command had to print.
-    @return True only for a successful bash tool_execution_end carrying the nonce.
+    """
+    Recognize one completed, successful Pi shell call that printed the tool nonce.
+    event: One decoded JSON event.
+    tool_nonce: Token the shell command had to print.
+    Returns: True only for a successful bash tool_execution_end carrying the nonce.
     """
     result = event.get("result")
     content = result.get("content", []) if isinstance(result, dict) else []
@@ -111,11 +88,12 @@ def _shell_call_succeeded(event: dict, tool_nonce: str) -> bool:
 
 
 def _native_tool_response(output: str, tool_nonce: str, nonce: str) -> str:
-    """@brief Decide a local tool challenge: shell call first, then the exact final reply.
-    @param[in] output Bounded, redacted JSON-lines event stream.
-    @param[in] tool_nonce Token the shell command had to print.
-    @param[in] nonce Unique expected final reply.
-    @return ready, tool-call-failed or invalid-response.
+    """
+    Decide a local tool challenge: shell call first, then the exact final reply.
+    output: Bounded, redacted JSON-lines event stream.
+    tool_nonce: Token the shell command had to print.
+    nonce: Unique expected final reply.
+    Returns: ready, tool-call-failed or invalid-response.
     """
     from adore.util import strict_json_loads
 
@@ -138,7 +116,7 @@ def _native_tool_response(output: str, tool_nonce: str, nonce: str) -> str:
 
 
 def _challenge() -> tuple[str, str, str]:
-    """@brief A fresh shell-then-reply challenge: (prompt, tool nonce, reply nonce)."""
+    """A fresh shell-then-reply challenge: (prompt, tool nonce, reply nonce)."""
     nonce = "ADORE_OK_" + uuid4().hex
     tool_nonce = "ADORE_TOOL_" + uuid4().hex
     prompt = ("Connection test. Run this shell command exactly once: echo " + tool_nonce
@@ -148,12 +126,12 @@ def _challenge() -> tuple[str, str, str]:
 
 def _rpc_reason(result, tool_nonce: str, nonce: str, *, subscription: bool = False) -> str:
     """
-    @brief      Turn one Pi RPC outcome into a closed reason.
-    @param[in]  result `PiRpcResult` of the challenge run.
-    @param[in]  tool_nonce Token the shell command had to print.
-    @param[in]  nonce Expected final reply.
-    @param[in]  subscription A ChatGPT subscription run: a rate limit is its usage limit.
-    @return     A member of REASONS.
+    Turn one Pi RPC outcome into a closed reason.
+    result: `PiRpcResult` of the challenge run.
+    tool_nonce: Token the shell command had to print.
+    nonce: Expected final reply.
+    subscription: A ChatGPT subscription run: a rate limit is its usage limit.
+    Returns: A member of REASONS.
     """
     if result.outcome == "completed":
         return _native_tool_response(result.output, tool_nonce, nonce)
@@ -168,22 +146,22 @@ def _rpc_reason(result, tool_nonce: str, nonce: str, *, subscription: bool = Fal
     return "invalid-response"
 
 
-# PUBLIC API
 
 
 def probe_model_connection(config, runner, env_file: Path, *,
                            popen=subprocess.Popen, chatgpt_dir: Path | None = None) -> dict:
-    """@brief Run one bounded challenge through the selected container/native target.
-    @details A ChatGPT project first gets an access token from the server's
+    """
+    Run one bounded challenge through the selected container/native target.
+    A ChatGPT project first gets an access token from the server's
              sign-in (a helper container mounting only that directory) and
              passes it to Pi only in the launch environment.
-    @param[in] config Validated project snapshot.
-    @param[in] runner Injectable external runtime boundary.
-    @param[in] env_file Selected profile executor secret file.
-    @param[in] popen Process factory of the streaming `exec -i` (tests inject a fake Pi).
-    @param[in] chatgpt_dir The server's ChatGPT credential directory (default: ADORE home).
-    @return Closed redacted executor/model/readiness/reason evidence.
-    @exception IsolationError Cleanup cannot be confirmed.
+    config: Validated project snapshot.
+    runner: Injectable external runtime boundary.
+    env_file: Selected profile executor secret file.
+    popen: Process factory of the streaming `exec -i` (tests inject a fake Pi).
+    chatgpt_dir: The server's ChatGPT credential directory (default: ADORE home).
+    Returns: Closed redacted executor/model/readiness/reason evidence.
+    Raises IsolationError: Cleanup cannot be confirmed.
     """
     executor = config.executor
     model = executor.model
@@ -194,7 +172,7 @@ def probe_model_connection(config, runner, env_file: Path, *,
     deadline = monotonic() + PROBE_SECONDS
 
     def bounded(argv, *, cwd=None, timeout=None, env=None):
-        """@brief Bound all setup/inference operations while reserving cleanup time."""
+        """Bound all setup/inference operations while reserving cleanup time."""
         remaining = deadline - monotonic()
         if remaining <= 0:
             raise TimeoutError()
@@ -238,7 +216,7 @@ def probe_model_connection(config, runner, env_file: Path, *,
                 placements = [("", "models.json", models, "")] if models else []
 
                 def spawn_native(command, _env):
-                    """@brief Keep the owned native scope open for the RPC exchange."""
+                    """Keep the owned native scope open for the RPC exchange."""
                     return stack.enter_context(target.pi_session(command, placements))
 
                 if deadline - monotonic() <= 10:
@@ -367,6 +345,3 @@ def probe_model_connection(config, runner, env_file: Path, *,
                 with owned_cleanup():
                     runtime.remove(name)
     return result
-
-
-# END OF FILE

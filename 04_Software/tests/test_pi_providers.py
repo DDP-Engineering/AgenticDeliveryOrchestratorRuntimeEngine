@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_pi_providers.py
-@brief Pi provider catalog, `[executor]` provider schema and endpoint models.json.
-@details Offline: the catalog is the shipped file generated from the pinned Pi;
-         configurations are written to a temporary folder and validated.
-"""
+"""Pi provider catalog, `[executor]` provider schema and endpoint models.json."""
 
 from __future__ import annotations
 
-# IMPORTS
 import json
 from pathlib import Path
 import re
@@ -33,8 +18,6 @@ from adore.pi_providers import (
 )
 import pytest
 
-# CONSTANTS
-
 BASE = """
 [platform]
 kind = "gitlab"
@@ -48,11 +31,9 @@ reviewers = ["dan.pasare"]
 """
 DOCKERFILE = Path(__file__).parents[1] / "docker" / "Dockerfile.executor-base"
 
-# HELPER FUNCTIONS
-
 
 def _issues(tmp_path: Path, executor: str, extra: str = "") -> list[str]:
-    """@brief Validate BASE plus one [executor] body (and optional tables)."""
+    """Validate BASE plus one [executor] body (and optional tables)."""
     path = tmp_path / "config.toml"
     path.write_text(BASE + "\n[executor]\n" + executor + "\n" + extra, encoding="utf-8")
     return validate_config(load_config(path))
@@ -62,7 +43,7 @@ def _issues(tmp_path: Path, executor: str, extra: str = "") -> list[str]:
 
 
 def test_thinking_level_configuration_fails_closed(tmp_path: Path) -> None:
-    """@brief Explicit Pi thinking levels match the pinned provider/model catalog."""
+    """Explicit Pi thinking levels match the pinned provider/model catalog."""
     assert not _issues(tmp_path, 'provider = "openai"\nmodel = "gpt-5"\nthinking = "medium"')
     assert any("thinking" in item for item in _issues(
         tmp_path, 'provider = "openai"\nmodel = "gpt-4"\nthinking = "medium"'))
@@ -73,7 +54,7 @@ def test_thinking_level_configuration_fails_closed(tmp_path: Path) -> None:
 
 
 def test_shipped_catalog_matches_the_pinned_pi_and_lists_key_providers() -> None:
-    """@brief The catalog names the image's Pi version, one variable per provider, models."""
+    """The catalog names the image's Pi version, one variable per provider, models."""
     catalog = pi_providers.catalog()
     pinned = re.search(r"pi-coding-agent@(\d+\.\d+\.\d+)", DOCKERFILE.read_text("utf-8"))
     assert pinned and catalog["pi_version"] == pinned.group(1)
@@ -89,7 +70,7 @@ def test_shipped_catalog_matches_the_pinned_pi_and_lists_key_providers() -> None
 
 
 def test_chatgpt_models_come_from_pis_chatgpt_catalog() -> None:
-    """@brief A ChatGPT subscription serves only some OpenAI models; the catalog names them."""
+    """A ChatGPT subscription serves only some OpenAI models; the catalog names them."""
     catalog = pi_providers.catalog()
     models = catalog["chatgpt_models"]
     assert "gpt-5.6-luna" in models
@@ -99,7 +80,7 @@ def test_chatgpt_models_come_from_pis_chatgpt_catalog() -> None:
 
 
 def test_corrupt_catalog_fails_closed(tmp_path: Path, monkeypatch) -> None:
-    """@brief A malformed catalog file is an error, never an empty provider list."""
+    """A malformed catalog file is an error, never an empty provider list."""
     bad = tmp_path / "pi_catalog.json"
     provider = {"id": "x", "name": "X", "variable": "X_KEY", "models": ["a"]}
     for text in ("{", json.dumps({"pi_version": "1.4.0", "providers": []}),
@@ -121,7 +102,7 @@ def test_corrupt_catalog_fails_closed(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_catalog_providers_carry_their_hosts() -> None:
-    """@brief Every provider names the hosts of Pi's base URLs for the Off allowlist."""
+    """Every provider names the hosts of Pi's base URLs for the Off allowlist."""
     providers = pi_providers.api_key_providers()
     assert all(1 <= len(item["hosts"]) <= 8 for item in providers.values())
     assert providers["openai"]["hosts"] == ["api.openai.com"]
@@ -130,7 +111,7 @@ def test_catalog_providers_carry_their_hosts() -> None:
 
 
 def test_catalog_hosts_are_validated(tmp_path: Path, monkeypatch) -> None:
-    """@brief A provider without hosts, with none or with a malformed one is refused."""
+    """A provider without hosts, with none or with a malformed one is refused."""
     bad = tmp_path / "pi_catalog.json"
     provider = {"id": "x", "name": "X", "variable": "X_KEY", "models": ["a"],
                 "hosts": ["api.x.example"], "thinking": {"a": ["off"]}}
@@ -154,7 +135,7 @@ def test_catalog_hosts_are_validated(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_provider_choices_map_to_pi_and_their_key_variable() -> None:
-    """@brief chatgpt is Pi's openai without a key variable; custom is the endpoint."""
+    """chatgpt is Pi's openai without a key variable; custom is the endpoint."""
     assert pi_provider("openai") == "openai" and credential_variable("openai") == "OPENAI_API_KEY"
     assert pi_provider("chatgpt") == "openai" and credential_variable("chatgpt") is None
     assert pi_provider("custom") == "adore-endpoint"
@@ -173,7 +154,7 @@ def test_provider_choices_map_to_pi_and_their_key_variable() -> None:
     '[executor.endpoint]\nbase_url = "https://models.internal/v1"',
 ])
 def test_valid_provider_model_and_endpoint_are_accepted(tmp_path: Path, executor: str) -> None:
-    """@brief API-key providers, chatgpt and custom with its endpoint validate; free text model."""
+    """API-key providers, chatgpt and custom with its endpoint validate; free text model."""
     assert _issues(tmp_path, executor) == []
 
 
@@ -205,13 +186,13 @@ def test_valid_provider_model_and_endpoint_are_accepted(tmp_path: Path, executor
 ])
 def test_invalid_provider_schema_is_refused_naming_the_key(
         tmp_path: Path, executor: str, named: str) -> None:
-    """@brief Each invalid or unknown executor value is refused with the key named."""
+    """Each invalid or unknown executor value is refused with the key named."""
     issues = _issues(tmp_path, executor)
     assert any(named in issue for issue in issues), issues
 
 
 def test_custom_endpoint_can_use_the_managed_local_backend(tmp_path: Path) -> None:
-    """@brief A managed native agent directory can host the generated endpoint model."""
+    """A managed native agent directory can host the generated endpoint model."""
     endpoint = ('provider = "custom"\nmodel = "m"\n[executor.endpoint]\n'
                 'base_url = "http://127.0.0.1:1234/v1"\n')
     local = "\n[execution]\nbackend = \"local\"\n"
@@ -222,7 +203,7 @@ def test_custom_endpoint_can_use_the_managed_local_backend(tmp_path: Path) -> No
 
 def test_chatgpt_supports_both_backends_with_bounded_stage_limits(
         tmp_path: Path) -> None:
-    """@brief A ChatGPT access token has the same lifetime ceiling on both backends."""
+    """A ChatGPT access token has the same lifetime ceiling on both backends."""
     chatgpt = 'provider = "chatgpt"\nmodel = "gpt-5.6-luna"\n'
     assert not _issues(tmp_path, chatgpt, "\n[budgets]\nper_gate_timeout_seconds = 3000\n")
     local = _issues(tmp_path, chatgpt, "\n[execution]\nbackend = \"local\"\n")
@@ -240,7 +221,7 @@ def test_chatgpt_supports_both_backends_with_bounded_stage_limits(
 
 
 def test_secret_names_add_the_provider_variable_to_additional_names(tmp_path: Path) -> None:
-    """@brief A launch receives the provider's key variable plus the configured extra names."""
+    """A launch receives the provider's key variable plus the configured extra names."""
     path = tmp_path / "config.toml"
     path.write_text(BASE + '\n[executor]\nprovider = "anthropic"\nmodel = "m"\n'
                     'env_keys = ["EXTRA_TOKEN"]\n', encoding="utf-8")
@@ -250,7 +231,7 @@ def test_secret_names_add_the_provider_variable_to_additional_names(tmp_path: Pa
 
 
 def test_endpoint_models_json_has_the_spike_shape_with_and_without_a_key(tmp_path: Path) -> None:
-    """@brief The models.json names the key variable, or a literal placeholder without one."""
+    """The models.json names the key variable, or a literal placeholder without one."""
     path = tmp_path / "config.toml"
     path.write_text(BASE + '\n[executor]\nprovider = "custom"\nmodel = "qwen/qwen3.5-9b"\n'
                     '[executor.endpoint]\nbase_url = "http://172.27.80.1:1234/v1"\n',
@@ -264,6 +245,3 @@ def test_endpoint_models_json_has_the_spike_shape_with_and_without_a_key(tmp_pat
     path.write_text(BASE + '\n[executor]\nprovider = "openai"\nmodel = "gpt-5.4"\n',
                     encoding="utf-8")
     assert models_json(load_config(path).executor, has_key=True) is None
-
-
-# END OF FILE

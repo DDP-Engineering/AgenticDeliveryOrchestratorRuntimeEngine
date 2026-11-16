@@ -1,10 +1,3 @@
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
 # @file    Dockerfile.egress-proxy
 # @brief   ADORE-managed HTTP/HTTPS CONNECT proxy for executor egress control.
 # @details The runtime mounts a generated Squid config at
@@ -13,7 +6,6 @@
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-07
 # @version 0.2.0
-# -----------------------------------------------------------------------------
 
 FROM ubuntu:24.04
 

@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    pi_installation.py
-@brief   Install and verify the ADORE-managed native Pi release.
-@details Resolve Node from the server account, never the project PATH. Publish
-         only a verified candidate, under the release pin, without global npm.
-"""
+"""Install and verify the ADORE-managed native Pi release."""
 
-# IMPORTS
 from collections.abc import Callable
 from dataclasses import dataclass
 import os
@@ -27,7 +12,6 @@ from adore.profiles import adore_home
 from adore.resource_lock import ResourceLockError, resource_lock
 from adore.util import run_command, strict_json_loads
 
-# CONSTANTS
 PI_VERSION = "1.5.2"
 WEB_VERSION = "0.46.0"
 PI_PACKAGE = "@earendil-works/pi-coding-agent"
@@ -40,43 +24,40 @@ BUNDLED_TOOLS = Path(__file__).with_name("_native_tools")
 
 
 class PiInstallationError(RuntimeError):
-    """@brief A safe, actionable native Pi prerequisite or installation failure."""
+    """A safe, actionable native Pi prerequisite or installation failure."""
 
     def __init__(self, reason: str, message: str, exit_code: int | None = None):
-        """@brief Retain only the closed reason and measured exit code."""
+        """Retain only the closed reason and measured exit code."""
         super().__init__(message)
         self.reason, self.exit_code = reason, exit_code
 
 
 @dataclass(frozen=True)
 class ManagedPi:
-    """@brief Exact native paths derived from the build pin and service account."""
+    """Exact native paths derived from the build pin and service account."""
 
     node: Path
     prefix: Path
 
     @property
     def cli(self) -> Path:
-        """@brief The pinned package's native CLI entrypoint."""
+        """The pinned package's native CLI entrypoint."""
         return self.prefix / "node_modules" / PI_PACKAGE / "dist/bundle/cli.js"
 
     @property
     def web(self) -> Path:
-        """@brief The pinned web extension package folder."""
+        """The pinned web extension package folder."""
         return self.prefix / "node_modules" / WEB_PACKAGE
 
 
-# LOCAL HELPERS
-
-
 def _bundled_installation() -> bool:
-    """@brief Recognize the delivery-owned runtime, including an incomplete payload."""
+    """Recognize the delivery-owned runtime, including an incomplete payload."""
     return (getattr(sys, "_adore_offline_delivery", False) is True
             or BUNDLED_TOOLS.exists() or BUNDLED_TOOLS.is_symlink())
 
 
 def _node_path() -> Path:
-    """@brief Resolve an absolute host Node without current-directory search."""
+    """Resolve an absolute host Node without current-directory search."""
     if _bundled_installation():
         node = BUNDLED_TOOLS / "node" / ("node.exe" if os.name == "nt" else "bin/node")
         if not _regular(BUNDLED_TOOLS, node) or not os.access(node, os.X_OK):
@@ -101,14 +82,14 @@ def _node_path() -> Path:
 
 
 def _linked(path: Path) -> bool:
-    """@brief Recognize symlinks and Windows reparse points on the managed tree."""
+    """Recognize symlinks and Windows reparse points on the managed tree."""
     return path.is_symlink() or bool(
         getattr(path.lstat(), "st_file_attributes", 0) & 0x400
     )
 
 
 def _regular(root: Path, path: Path) -> bool:
-    """@brief Refuse an aliased or external managed package path."""
+    """Refuse an aliased or external managed package path."""
     try:
         return (path.is_file() and all(
             not _linked(part) for part in (path, *path.parents)
@@ -119,7 +100,7 @@ def _regular(root: Path, path: Path) -> bool:
 
 
 def _check_packages(pi: ManagedPi) -> None:
-    """@brief Check declared package pins and the exact owned entrypoint."""
+    """Check declared package pins and the exact owned entrypoint."""
     for name, pin in ((PI_PACKAGE, PI_VERSION), (WEB_PACKAGE, WEB_VERSION)):
         manifest = pi.prefix / "node_modules" / name / "package.json"
         if not _regular(pi.prefix.parent.parent, manifest):
@@ -146,7 +127,7 @@ def _check_packages(pi: ManagedPi) -> None:
 
 
 def _environment(root: Path) -> dict[str, str]:
-    """@brief Keep personal npm, Pi and Node configuration out of tool operations."""
+    """Keep personal npm, Pi and Node configuration out of tool operations."""
     keep = {"PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP", "TMPDIR",
             "SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_EXTRA_CA_CERTS"}
     env = {key: value for key, value in os.environ.items() if key.upper() in keep}
@@ -156,7 +137,7 @@ def _environment(root: Path) -> dict[str, str]:
 
 
 def _check_node(node: Path, runner, cwd: Path) -> None:
-    """@brief Require the supported Node major and minimum known-good Windows version."""
+    """Require the supported Node major and minimum known-good Windows version."""
     result = runner([str(node), "--version"], cwd=cwd, env=_environment(cwd), timeout=10)
     match = re.fullmatch(r"v([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})", result.stdout.strip())
     if not result.ok or result.timed_out or match is None:
@@ -170,7 +151,7 @@ def _check_node(node: Path, runner, cwd: Path) -> None:
 
 
 def _check_cli(pi: ManagedPi, runner, cwd: Path) -> None:
-    """@brief Verify that the exact installed entrypoint reports the build pin."""
+    """Verify that the exact installed entrypoint reports the build pin."""
     result = runner([str(pi.node), str(pi.cli), "--version"],
                     cwd=cwd, env=_environment(cwd), timeout=15)
     if result.timed_out:
@@ -187,7 +168,7 @@ def _check_cli(pi: ManagedPi, runner, cwd: Path) -> None:
 
 
 def _npm_cli(node: Path) -> Path:
-    """@brief Find npm JavaScript adjacent to Node or its distro npm installation."""
+    """Find npm JavaScript adjacent to Node or its distro npm installation."""
     for root in (node.parent, node.parent.parent):
         for relative in ("node_modules/npm/bin/npm-cli.js", "lib/node_modules/npm/bin/npm-cli.js",
                          "share/nodejs/npm/bin/npm-cli.js"):
@@ -197,13 +178,11 @@ def _npm_cli(node: Path) -> Path:
     raise PiInstallationError("npm-missing", "Install npm for the selected Node distribution.")
 
 
-# PUBLIC API
-
-
 def bundled_tool_path() -> str:
-    """@brief Return delivery-owned executable directories, or empty for source installs.
-    @return Node/npm and bundled search-tool PATH prefix.
-    @exception PiInstallationError An incomplete or linked delivery is refused.
+    """
+    Return delivery-owned executable directories, or empty for source installs.
+    Returns: Node/npm and bundled search-tool PATH prefix.
+    Raises PiInstallationError: An incomplete or linked delivery is refused.
     """
     if not _bundled_installation():
         return ""
@@ -219,7 +198,7 @@ def bundled_tool_path() -> str:
 
 
 def managed_pi() -> ManagedPi:
-    """@brief Inspect managed paths without running programs or writing files."""
+    """Inspect managed paths without running programs or writing files."""
     prefix = (BUNDLED_TOOLS / "pi" if _bundled_installation()
               else adore_home().resolve() / "tools" / "pi" / PI_VERSION)
     pi = ManagedPi(_node_path(), prefix)
@@ -228,7 +207,7 @@ def managed_pi() -> ManagedPi:
 
 
 def verify_pi(*, runner=None) -> ManagedPi:
-    """@brief Verify compatible Node, pinned files and the CLI without provider access."""
+    """Verify compatible Node, pinned files and the CLI without provider access."""
     runner = runner or run_command
     node = _node_path()
     with tempfile.TemporaryDirectory(prefix="adore-pi-check-") as directory:
@@ -241,7 +220,7 @@ def verify_pi(*, runner=None) -> ManagedPi:
 
 
 def install_pi(*, progress: Callable[[str], None], runner=None) -> ManagedPi:
-    """@brief Install one version using isolated npm and publish only after verification."""
+    """Install one version using isolated npm and publish only after verification."""
     runner = runner or run_command
     if _bundled_installation():
         pi = verify_pi(runner=runner)
@@ -299,6 +278,3 @@ def install_pi(*, progress: Callable[[str], None], runner=None) -> ManagedPi:
             "permission-denied", f"Could not publish managed Pi at {pi.prefix}. "
             "Check the service account's write permissions or retry after another install finishes."
         ) from exc
-
-
-# END OF FILE

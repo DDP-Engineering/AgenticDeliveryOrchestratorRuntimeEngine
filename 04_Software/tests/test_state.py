@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_state.py
-@brief Tests for the local authoritative run-state store.
-@details Offline state, locking, cumulative clock and corruption-boundary proof.
-"""
+"""Tests for the local authoritative run-state store."""
 
 from __future__ import annotations
 
@@ -31,17 +18,14 @@ from adore.state import (
 )
 import pytest
 
-# IMPORTS
 from tests.execution_records import execution_record
-
-# HELPER FUNCTIONS
 
 
 def _store(tmp_path: Path) -> StateStore:
     """
-    @brief      A store rooted in the test tmp dir.
-    @param[in]  tmp_path pytest tmp dir.
-    @return     The StateStore.
+    A store rooted in the test tmp dir.
+    tmp_path: pytest tmp dir.
+    Returns: The StateStore.
     """
     return StateStore(tmp_path / ".adore", slug="adore")
 
@@ -49,8 +33,28 @@ def _store(tmp_path: Path) -> StateStore:
 # PUBLIC API / TESTS
 
 
+@pytest.mark.parametrize("corrupt", [False, True])
+def test_ticket_execution_generations_preserve_history_and_refuse_corruption(tmp_path, corrupt):
+    """Latest-generation lookup preserves history and refuses corrupt current evidence."""
+    store = _store(tmp_path)
+    base = derive_run_id("gitea", "owner/repo", 25)
+    assert store.latest_run_id(base) == base
+    for identity in (base, base + "-r1", base + "-r2"):
+        store.save(RunState(run_id=identity, ticket_iid=25, lifecycle="cancelled",
+                            execution=execution_record()))
+    original = (store.run_dir(base) / "state.json").read_bytes()
+    if corrupt:
+        (store.run_dir(base + "-r2") / "state.json").write_text("broken", encoding="utf-8")
+        with pytest.raises(StateError):
+            store.latest_run_id(base)
+    else:
+        assert store.latest_run_id(base) == base + "-r2"
+        assert state_module.run_id_pattern("gitea", "owner/repo").fullmatch(base + "-r2")
+    assert (store.run_dir(base) / "state.json").read_bytes() == original
+
+
 def test_execution_state_is_required_and_closed() -> None:
-    """@brief Empty and incomplete execution records are refused without repair."""
+    """Empty and incomplete execution records are refused without repair."""
     state = RunState(run_id="owned-1", ticket_iid=1)
     assert hasattr(state, "execution"), "state has no durable execution record"
     with pytest.raises(StateError, match="unsupported empty execution record"):
@@ -62,9 +66,7 @@ def test_execution_state_is_required_and_closed() -> None:
 
 
 def test_derive_run_id_is_stable_and_safe() -> None:
-    """
-    @brief   Run-id is deterministic and filesystem-safe (design doc 8a).
-    """
+    """Run-id is deterministic and filesystem-safe (design doc 8a)."""
     a = derive_run_id("gitlab", "group/sub/runtime-project", 14)
     b = derive_run_id("gitlab", "group/sub/runtime-project", 14)
     assert a == b == "gitlab-group-sub-runtime-project-14"
@@ -73,7 +75,7 @@ def test_derive_run_id_is_stable_and_safe() -> None:
 
 def test_run_id_pattern_matches_only_one_projects_run_ids() -> None:
     """
-    @brief   The run-ID pattern accepts exactly the run IDs derived for one
+    The run-ID pattern accepts exactly the run IDs derived for one
              project: a look-alike repository, another platform, a non-numeric
              ticket part or an unrelated name never matches.
     """
@@ -92,18 +94,14 @@ def test_run_id_pattern_matches_only_one_projects_run_ids() -> None:
 
 
 def test_content_hash_detects_drift() -> None:
-    """
-    @brief   Same content hashes equal; changed content hashes differ.
-    """
+    """Same content hashes equal; changed content hashes differ."""
     assert content_hash("Title", "Body") == content_hash("Title", "Body")
     assert content_hash("Title", "Body") != content_hash("Title", "Body changed")
     assert content_hash("  Title  ", "Body\n") == content_hash("Title", "Body")
 
 
 def test_save_load_round_trip(tmp_path: Path) -> None:
-    """
-    @brief   RunState persists and reloads with timestamps stamped.
-    """
+    """RunState persists and reloads with timestamps stamped."""
     store = _store(tmp_path)
     state = RunState(
         run_id="gitlab-g-p-14", ticket_iid=14, stage="validate", lifecycle="working",
@@ -121,7 +119,7 @@ def test_save_load_round_trip(tmp_path: Path) -> None:
 @pytest.mark.parametrize("workflow", ["aegis", "direct"])
 @pytest.mark.parametrize("stage", ["build", "validate", "done", "publishing"])
 def test_workflow_round_trip(tmp_path: Path, workflow: str, stage: str) -> None:
-    """@brief Both workflow identities survive current-format save and reload."""
+    """Both workflow identities survive current-format save and reload."""
     store = _store(tmp_path)
     run = RunState(run_id="workflow-1", ticket_iid=1, stage=stage, execution=execution_record())
     assert run.to_dict().get("workflow") == "aegis"
@@ -137,7 +135,7 @@ def test_workflow_round_trip(tmp_path: Path, workflow: str, stage: str) -> None:
 
 @pytest.mark.parametrize("workflow", ["aegis", "direct"])
 def test_missing_workflow_refuses_without_repair(tmp_path: Path, workflow: str) -> None:
-    """@brief A missing persisted workflow never receives the constructor default."""
+    """A missing persisted workflow never receives the constructor default."""
     store = _store(tmp_path)
     run = RunState(run_id="workflow-1", ticket_iid=1, stage="build", execution=execution_record())
     store.save(run)
@@ -156,7 +154,7 @@ def test_missing_workflow_refuses_without_repair(tmp_path: Path, workflow: str) 
 
 @pytest.mark.parametrize("workflow", ["other", "", None, True, 1, [], {}])
 def test_corrupt_workflow_refuses_without_repair(tmp_path: Path, workflow: object) -> None:
-    """@brief Only the two exact workflow strings may enter conductor dispatch."""
+    """Only the two exact workflow strings may enter conductor dispatch."""
     store = _store(tmp_path)
     run = RunState(run_id="workflow-1", ticket_iid=1, stage="build", execution=execution_record())
     store.save(run)
@@ -180,7 +178,7 @@ def test_corrupt_workflow_refuses_without_repair(tmp_path: Path, workflow: objec
     ],
 )
 def test_direct_task_binding_refuses_without_repair(tmp_path: Path, bindings: dict) -> None:
-    """@brief Neither active nor historical AEGIS task ownership is valid for direct."""
+    """Neither active nor historical AEGIS task ownership is valid for direct."""
     store = _store(tmp_path)
     run = RunState(run_id="workflow-1", ticket_iid=1, stage="build", execution=execution_record())
     store.save(run)
@@ -197,7 +195,7 @@ def test_direct_task_binding_refuses_without_repair(tmp_path: Path, bindings: di
 
 @pytest.mark.parametrize("stage", ["frame", "specify", "design"])
 def test_direct_aegis_stage_refuses_without_repair(tmp_path: Path, stage: str) -> None:
-    """@brief AEGIS-only stages cannot be reinterpreted as a direct attempt."""
+    """AEGIS-only stages cannot be reinterpreted as a direct attempt."""
     store = _store(tmp_path)
     run = RunState(run_id="workflow-1", ticket_iid=1, stage=stage, execution=execution_record())
     store.save(run)
@@ -215,8 +213,8 @@ def test_direct_aegis_stage_refuses_without_repair(tmp_path: Path, stage: str) -
 
 def test_run_at_a_stage_this_build_does_not_conduct_is_refused(tmp_path: Path) -> None:
     """
-    @brief   A run at the removed deliver stage, or an invented one, does not load.
-    @details No migrations while ADORE is in development: the refusal names the
+    A run at the removed deliver stage, or an invented one, does not load.
+    No migrations while ADORE is in development: the refusal names the
              run directory to delete.
     """
     store = _store(tmp_path)
@@ -232,7 +230,7 @@ def test_run_at_a_stage_this_build_does_not_conduct_is_refused(tmp_path: Path) -
 
 
 def test_state_missing_a_current_key_is_refused() -> None:
-    """@brief State of another build is never filled in with defaults."""
+    """State of another build is never filled in with defaults."""
     payload = RunState(run_id="run-1", ticket_iid=1, execution=execution_record()).to_dict()
     del payload["published_fingerprint"]
     with pytest.raises(StateError, match="missing keys"):
@@ -240,9 +238,7 @@ def test_state_missing_a_current_key_is_refused() -> None:
 
 
 def test_from_dict_rejects_unknown_keys() -> None:
-    """
-    @brief   Schema-4 state is closed so ambiguous future data fails loudly.
-    """
+    """Schema-4 state is closed so ambiguous future data fails loudly."""
     with pytest.raises(StateError, match="unknown keys"):
         RunState.from_dict({
             "schema_version": STATE_SCHEMA_VERSION,
@@ -253,9 +249,7 @@ def test_from_dict_rejects_unknown_keys() -> None:
 
 
 def test_active_and_historical_aegis_tasks_round_trip(tmp_path: Path) -> None:
-    """
-    @brief   The active and historical task journals survive restart.
-    """
+    """The active and historical task journals survive restart."""
     store = _store(tmp_path)
     state = RunState(
         run_id="gitlab-g-p-14",
@@ -277,9 +271,7 @@ def test_active_and_historical_aegis_tasks_round_trip(tmp_path: Path) -> None:
 def test_adore_3_state_is_rejected_with_hard_break_diagnostic(
     tmp_path: Path,
 ) -> None:
-    """
-    @brief   ADORE 3 state is never silently reinterpreted or migrated.
-    """
+    """ADORE 3 state is never silently reinterpreted or migrated."""
     store = _store(tmp_path)
     run_dir = store.run_dir("gitlab-g-p-15")
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -309,7 +301,7 @@ def test_adore_3_state_is_rejected_with_hard_break_diagnostic(
     ],
 )
 def test_schema_4_state_trust_boundary_rejects_corrupt_fields(changes: dict) -> None:
-    """@brief Persisted path, vocabulary, ids, digests and outbox fail closed."""
+    """Persisted path, vocabulary, ids, digests and outbox fail closed."""
     payload = RunState(run_id="run-1", ticket_iid=1, execution=execution_record()).to_dict()
     payload.update(changes)
     with pytest.raises(StateError):
@@ -317,9 +309,7 @@ def test_schema_4_state_trust_boundary_rejects_corrupt_fields(changes: dict) -> 
 
 
 def test_ticket_snapshot_and_journal(tmp_path: Path) -> None:
-    """
-    @brief   Ticket snapshot round-trips; journal appends in order.
-    """
+    """Ticket snapshot round-trips; journal appends in order."""
     store = _store(tmp_path)
     store.save_ticket("r-1", {"iid": 14, "title": "T", "labels": ["agent-ready"]})
     assert store.load_ticket("r-1")["title"] == "T"
@@ -331,9 +321,7 @@ def test_ticket_snapshot_and_journal(tmp_path: Path) -> None:
 
 
 def test_list_runs_and_delete(tmp_path: Path) -> None:
-    """
-    @brief   Runs list sorted; delete_run removes the whole state dir.
-    """
+    """Runs list sorted; delete_run removes the whole state dir."""
     store = _store(tmp_path)
     assert store.list_runs() == []
     store.save(RunState(run_id="b-run", ticket_iid=2, execution=execution_record()))
@@ -351,8 +339,8 @@ def test_run_listing_tolerates_concurrent_disappearance(
     remove_directory: bool,
 ) -> None:
     """
-    @brief Listing skips state deleted after enumeration without hiding corruption.
-    @details Delete at the file-open boundary, after is_file has selected the run;
+    Listing skips state deleted after enumeration without hiding corruption.
+    Delete at the file-open boundary, after is_file has selected the run;
              no threads, sleeps, retries or private enumeration hooks are needed.
     """
     store = _store(tmp_path)
@@ -365,7 +353,7 @@ def test_run_listing_tolerates_concurrent_disappearance(
     deleted = False
 
     def open_after_deletion(path: Path, *args, **kwargs):
-        """@brief Inject legitimate deletion immediately before the real open."""
+        """Inject legitimate deletion immediately before the real open."""
         nonlocal deleted
         if path == vanished and not deleted:
             deleted = True
@@ -394,14 +382,14 @@ def test_run_listing_tolerates_concurrent_disappearance(
 def test_run_listing_propagates_unrelated_io_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, listing: str,
 ) -> None:
-    """@brief Permission failures are not mistaken for concurrent deletion."""
+    """Permission failures are not mistaken for concurrent deletion."""
     store = _store(tmp_path)
     store.save(RunState(run_id="denied", ticket_iid=1, execution=execution_record()))
     denied = store.run_dir("denied") / "state.json"
     original_open = Path.open
 
     def denied_open(path: Path, *args, **kwargs):
-        """@brief Refuse only the enumerated state-file read."""
+        """Refuse only the enumerated state-file read."""
         if path == denied:
             raise PermissionError("state read denied")
         return original_open(path, *args, **kwargs)
@@ -413,17 +401,13 @@ def test_run_listing_propagates_unrelated_io_errors(
 
 
 def test_load_missing_run_raises(tmp_path: Path) -> None:
-    """
-    @brief   Loading an unknown run raises FileNotFoundError.
-    """
+    """Loading an unknown run raises FileNotFoundError."""
     with pytest.raises(FileNotFoundError):
         _store(tmp_path).load("nope")
 
 
 def test_single_instance_lock(tmp_path: Path) -> None:
-    """
-    @brief   The lock is exclusive, reports its holder, and releases cleanly.
-    """
+    """The lock is exclusive, reports its holder, and releases cleanly."""
     store = _store(tmp_path)
     assert store.lock_info() is None
     assert store.acquire_lock() is True
@@ -437,9 +421,7 @@ def test_single_instance_lock(tmp_path: Path) -> None:
 
 
 def test_pause_flag(tmp_path: Path) -> None:
-    """
-    @brief   pause/resume toggles the global pickup flag.
-    """
+    """pause/resume toggles the global pickup flag."""
     store = _store(tmp_path)
     assert not store.is_paused()
     store.pause()
@@ -451,7 +433,7 @@ def test_pause_flag(tmp_path: Path) -> None:
 
 def test_corrupt_state_json_fails_closed(tmp_path: Path) -> None:
     """
-    @brief   Unparseable, wrong-shape, or key-incomplete state.json raises
+    Unparseable, wrong-shape, or key-incomplete state.json raises
              StateError (never silently reinitialized).
     """
     store = _store(tmp_path)
@@ -464,9 +446,7 @@ def test_corrupt_state_json_fails_closed(tmp_path: Path) -> None:
 
 
 def test_corrupt_ticket_json_fails_closed(tmp_path: Path) -> None:
-    """
-    @brief   A corrupt ticket snapshot raises StateError.
-    """
+    """A corrupt ticket snapshot raises StateError."""
     store = _store(tmp_path)
     store.save_ticket("r-1", {"iid": 14, "title": "T"})
     ticket_file = store.run_dir("r-1") / "ticket.json"
@@ -478,7 +458,7 @@ def test_corrupt_ticket_json_fails_closed(tmp_path: Path) -> None:
 
 def test_list_runs_skips_corrupt_and_invalid_runs_reports_them(tmp_path: Path) -> None:
     """
-    @brief   One corrupt run never breaks listing; it stays visible through
+    One corrupt run never breaks listing; it stays visible through
              invalid_runs() instead of disappearing.
     """
     store = _store(tmp_path)
@@ -492,7 +472,7 @@ def test_list_runs_skips_corrupt_and_invalid_runs_reports_them(tmp_path: Path) -
 
 def test_journal_tolerates_torn_tail(tmp_path: Path) -> None:
     """
-    @brief   A torn trailing journal line (crash mid-append) is skipped; the
+    A torn trailing journal line (crash mid-append) is skipped; the
              intact records still load.
     """
     store = _store(tmp_path)
@@ -506,7 +486,7 @@ def test_journal_tolerates_torn_tail(tmp_path: Path) -> None:
 
 def test_corrupt_lock_file_still_counts_as_held(tmp_path: Path) -> None:
     """
-    @brief   A damaged lock file blocks a second poller instead of being
+    A damaged lock file blocks a second poller instead of being
              treated as free.
     """
     store = _store(tmp_path)
@@ -518,10 +498,10 @@ def test_corrupt_lock_file_still_counts_as_held(tmp_path: Path) -> None:
 
 def _write_lock(root: Path, *, pid: int, host: str) -> None:
     """
-    @brief      Plant a lock file with a chosen pid + host (crash simulation).
-    @param[in]  root Store root.
-    @param[in]  pid Recorded owner pid.
-    @param[in]  host Recorded owner host.
+    Plant a lock file with a chosen pid + host (crash simulation).
+    root: Store root.
+    pid: Recorded owner pid.
+    host: Recorded owner host.
     """
     root.mkdir(parents=True, exist_ok=True)
     (root / "adore.lock").write_text(
@@ -532,7 +512,7 @@ def _write_lock(root: Path, *, pid: int, host: str) -> None:
 
 def test_stale_lock_from_this_host_is_reclaimed(tmp_path: Path) -> None:
     """
-    @brief   A lock whose owner is provably gone on THIS host is reclaimed, so a
+    A lock whose owner is provably gone on THIS host is reclaimed, so a
              crashed poller does not wedge every future start (systemd restart /
              Task Scheduler) until a manual `adore cleanup`.
     """
@@ -546,7 +526,7 @@ def test_stale_lock_from_this_host_is_reclaimed(tmp_path: Path) -> None:
 
 
 def test_reclaim_stale_lock_reports_only_proven_removal(tmp_path: Path) -> None:
-    """@brief The public cleanup seam removes stale locks and reports success."""
+    """The public cleanup seam removes stale locks and reports success."""
     root = tmp_path / ".adore"
     _write_lock(root, pid=424242, host=socket.gethostname())
     store = StateStore(root, slug="adore", process_alive=lambda _pid: False)
@@ -556,9 +536,7 @@ def test_reclaim_stale_lock_reports_only_proven_removal(tmp_path: Path) -> None:
 
 
 def test_live_lock_is_never_reclaimed(tmp_path: Path) -> None:
-    """
-    @brief   A lock whose owner is still alive is never stolen (no double poller).
-    """
+    """A lock whose owner is still alive is never stolen (no double poller)."""
     root = tmp_path / ".adore"
     _write_lock(root, pid=4242, host=socket.gethostname())
     store = StateStore(root, slug="adore", process_alive=lambda _pid: True)
@@ -569,7 +547,7 @@ def test_live_lock_is_never_reclaimed(tmp_path: Path) -> None:
 
 def test_lock_from_another_host_is_not_reclaimed(tmp_path: Path) -> None:
     """
-    @brief   A lock written on a different host is never reclaimed, even if its
+    A lock written on a different host is never reclaimed, even if its
              pid looks dead here - a pid is meaningless across hosts.
     """
     root = tmp_path / ".adore"
@@ -580,7 +558,7 @@ def test_lock_from_another_host_is_not_reclaimed(tmp_path: Path) -> None:
 
 def test_unreadable_lock_is_not_reclaimed(tmp_path: Path) -> None:
     """
-    @brief   An unreadable lock record fails closed - never reclaimed on a guess,
+    An unreadable lock record fails closed - never reclaimed on a guess,
              even with a dead-owner probe.
     """
     root = tmp_path / ".adore"
@@ -593,7 +571,7 @@ def test_unreadable_lock_is_not_reclaimed(tmp_path: Path) -> None:
 
 
 def test_cancel_request_is_durable_and_validated(tmp_path: Path) -> None:
-    """@brief A live run can be signalled once; terminal/invalid targets fail closed."""
+    """A live run can be signalled once; terminal/invalid targets fail closed."""
     store = _store(tmp_path)
     store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="working",
         execution=execution_record()))
@@ -616,7 +594,7 @@ def test_cancel_request_is_durable_and_validated(tmp_path: Path) -> None:
 
 
 def test_cancel_request_malformed_marker_fails_closed(tmp_path: Path) -> None:
-    """@brief A directory masquerading as a marker cannot signal a run."""
+    """A directory masquerading as a marker cannot signal a run."""
     store = _store(tmp_path)
     store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="working",
         execution=execution_record()))
@@ -630,7 +608,7 @@ def test_cancel_request_malformed_marker_fails_closed(tmp_path: Path) -> None:
 
 
 def test_wrong_shape_lock_is_unknown_and_not_reclaimed(tmp_path: Path) -> None:
-    """@brief Valid JSON with the wrong shape is still an unknown held lock."""
+    """Valid JSON with the wrong shape is still an unknown held lock."""
     root = tmp_path / ".adore"
     root.mkdir(parents=True, exist_ok=True)
     (root / "adore.lock").write_text("[]", encoding="utf-8")
@@ -640,11 +618,8 @@ def test_wrong_shape_lock_is_unknown_and_not_reclaimed(tmp_path: Path) -> None:
     assert store.lock_path.is_file()
 
 
-# END OF FILE
-
-
 def test_active_clock_preserves_consumption_across_wait_and_retry(tmp_path, monkeypatch):
-    """@brief Waiting, repeated inactive saves and resume retain accumulated work."""
+    """Waiting, repeated inactive saves and resume retain accumulated work."""
     store = _store(tmp_path)
     clock = ["2026-11-05T10:00:00+00:00"]
     monkeypatch.setattr(state_module, "utc_now_iso", lambda: clock[0])
@@ -673,7 +648,7 @@ def test_active_clock_preserves_consumption_across_wait_and_retry(tmp_path, monk
 
 @pytest.mark.parametrize("value", ["wrong", "2026-11-05T10:00:00", 12, None])
 def test_active_clock_rejects_corrupt_saved_timestamp(tmp_path, value):
-    """@brief Untrusted clock values cannot silently disable the time budget."""
+    """Untrusted clock values cannot silently disable the time budget."""
     store = _store(tmp_path)
     run = RunState(run_id="clock", ticket_iid=1, execution=execution_record())
     store.save(run)
@@ -684,7 +659,7 @@ def test_active_clock_rejects_corrupt_saved_timestamp(tmp_path, value):
 
 
 def test_saved_empty_clock_is_refused_without_reinitializing_work(tmp_path):
-    """@brief An empty persisted clock cannot become a new active period on save."""
+    """An empty persisted clock cannot become a new active period on save."""
     store = _store(tmp_path)
     run = RunState(run_id="clock", ticket_iid=1, execution=execution_record())
     store.save(run)
@@ -700,7 +675,7 @@ def test_saved_empty_clock_is_refused_without_reinitializing_work(tmp_path):
 
 @pytest.mark.parametrize("value", [True, -1, 1.5, "1", None])
 def test_parked_poll_counter_rejects_corrupt_state(tmp_path: Path, value: object) -> None:
-    """@brief Invalid parked cleanup evidence fails closed at the persisted state boundary."""
+    """Invalid parked cleanup evidence fails closed at the persisted state boundary."""
     store = _store(tmp_path)
     run = RunState(run_id="run-1", ticket_iid=1, execution=execution_record())
     store.save(run)
@@ -718,7 +693,7 @@ def test_parked_poll_counter_rejects_corrupt_state(tmp_path: Path, value: object
 def test_state_sharing_contention_is_bounded_and_preserves_evidence(
     tmp_path, monkeypatch, operation, refusals, transport,
 ):
-    """@brief Brief sharing conflicts recover; persistent denial stays typed and atomic."""
+    """Brief sharing conflicts recover; persistent denial stays typed and atomic."""
     store = _store(tmp_path)
     run = RunState("sharing", 7, execution=execution_record())
     store.save(run)
@@ -732,7 +707,7 @@ def test_state_sharing_contention_is_bounded_and_preserves_evidence(
     attempts, delays = [], []
 
     def conflict(*args, **kwargs):
-        """@brief Inject the Windows sharing boundary, not JSON or ownership failures."""
+        """Inject the Windows sharing boundary, not JSON or ownership failures."""
         target = args[0] if operation == "read" else args[1]
         if Path(target) == path:
             attempts.append(target)
@@ -764,7 +739,7 @@ def test_state_sharing_contention_is_bounded_and_preserves_evidence(
 
 
 def test_state_sharing_retry_rechecks_writer_authority(tmp_path, monkeypatch):
-    """@brief Lost ownership during a retry never publishes a previously valid candidate."""
+    """Lost ownership during a retry never publishes a previously valid candidate."""
     store = _store(tmp_path)
     run = RunState("fenced", 7, execution=execution_record())
     store.save(run)
@@ -795,7 +770,7 @@ def test_state_sharing_retry_rechecks_writer_authority(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("listing", ["list_runs", "invalid_runs"])
 def test_state_listing_propagates_exhausted_sharing_denial(tmp_path, monkeypatch, listing):
-    """@brief Unavailable storage never becomes an omitted or merely corrupt run."""
+    """Unavailable storage never becomes an omitted or merely corrupt run."""
     store = _store(tmp_path)
     store.save(RunState("reserved", 7, execution_pending=True, execution=execution_record()))
     path = store.run_dir("reserved") / "state.json"

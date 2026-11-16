@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       capacity.py
-@brief      Canonical project admission ceiling including reviewed staged reductions.
-@details    A lower staged polling.max_concurrent_runs fences new reservations while
-            bound active configuration bytes remain unchanged for admitted jobs.
-"""
+"""Canonical project admission ceiling including reviewed staged reductions."""
 
-# IMPORTS
 from datetime import datetime
 from hashlib import sha256
 import re
@@ -25,12 +10,12 @@ from adore.state import StateError
 from adore.util import strict_json_loads
 
 
-# PUBLIC API
 def initial_start_slots(state, runs: list) -> set[str]:
-    """@brief Count started execution/cleanup slots, excluding queued reservations.
-    @param[in] state Project state store with current live execution locks.
-    @param[in] runs Validated current runs.
-    @return Occupied starts; pending reservations retain admission without deadlocking dispatch.
+    """
+    Count started execution/cleanup slots, excluding queued reservations.
+    state: Project state store with current live execution locks.
+    runs: Validated current runs.
+    Returns: Occupied starts; pending reservations retain admission without deadlocking dispatch.
     """
     return state.execution_slots() | {
         run.run_id
@@ -43,10 +28,11 @@ def initial_start_slots(state, runs: list) -> set[str]:
 
 
 def admission_limit(config: Config) -> int:
-    """@brief Reread canonical N and apply only a current staged lower N.
-    @param[in] config Bound project config or an explicitly injected configuration.
-    @return Positive ceiling; staged increases wait for safe application.
-    @exception StateError Corrupt, linked, oversized or stale capacity evidence;
+    """
+    Reread canonical N and apply only a current staged lower N.
+    config: Bound project config or an explicitly injected configuration.
+    Returns: Positive ceiling; staged increases wait for safe application.
+    Raises StateError: Corrupt, linked, oversized or stale capacity evidence;
                names the staged record the operator can explicitly discard.
     """
     try:
@@ -117,6 +103,3 @@ def admission_limit(config: Config) -> int:
             + str(pending)
             + " after inspecting active settings"
         ) from exc
-
-
-# END OF FILE

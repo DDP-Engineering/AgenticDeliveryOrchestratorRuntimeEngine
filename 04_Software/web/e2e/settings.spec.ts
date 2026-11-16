@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import {settingsSave,settingsImpact,saveSettings,discardSettings} from "./settings-actions";
 import {settingsSaveCopy} from "../src/settingsSave";
 import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
@@ -303,7 +297,7 @@ test("merged branch cleanup help applies to every forge", async ({ page }) => {
   await openSettings(page);
   const row = page.locator(".setting-row").filter({ has: page.getByText("Remove branch after human merge", { exact: true }) });
   await row.getByRole("button", { name: "Edit Remove branch after human merge", exact: true }).click();
-  await expect(row).toContainText("GitHub, GitLab and Gitea");
+  await expect(row).toContainText("GitHub, GitLab, Gitea and Azure DevOps Services");
   await expect(row).toContainText("published commit");
   await expect(row).toContainText("When false");
 });

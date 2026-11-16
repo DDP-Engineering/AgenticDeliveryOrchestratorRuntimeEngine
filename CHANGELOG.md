@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Changelog
 
 All notable changes to the Agentic Delivery Orchestrator & Runtime Engine are recorded here.
@@ -12,13 +5,25 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-16
+
 ### Added
+
+- Restart cancelled jobs from Jobs or Tickets with a selected workflow, fresh execution resources and budgets, durable admission and retained navigation to earlier executions.
 
 - Azure DevOps Services adapter for scoped Boards Work Items and Repos PRs through
   Azure CLI, with CLI/GUI configuration, process mappings, separate tag/PR-label
   signaling, replay-safe comments, advisory CI, onboarding and operator acceptance guidance.
 
+### Changed
+
+- Centralize project licensing with REUSE, compact source documentation and agent instructions, and synchronize release metadata through one version command.
+
+- Speed up Python test fixtures with worker-local cached example input and inexpensive real Argon2 outside authentication contracts; retain production hashing for authentication tests and allow an explicit override. Run Python test files across two isolated workers by default, with serial targeted execution available. Use inexpensive real hashing and fewer heartbeat writes in the disposable browser server.
+
 ### Fixed
+
+- Keep the System status storage label, availability badge and free-space value together.
 
 - Address Azure REST operations by exact Microsoft location IDs rather than ambiguous
   resource names, retaining the official extension's host authentication.

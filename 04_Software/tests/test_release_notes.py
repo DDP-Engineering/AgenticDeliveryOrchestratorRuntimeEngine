@@ -1,35 +1,19 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_release_notes.py
-@brief      Runtime release-note parsing and localized About responses.
-@details    Validates the product reader and API.
-            Repository release scripts are outside product tests.
-"""
+"""Runtime release-note parsing and localized About responses."""
 
 from __future__ import annotations
 
-# IMPORTS
 from adore import __version__ as RELEASE_VERSION
 from adore.release_notes import ReleaseNotesError, parse_release_notes
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
 import pytest
 
-# CONSTANTS
 LOCALES = ("en", "fr", "de", "ro")
 
 # PUBLIC API / TESTS
 
 def test_parse_rejects_malformed_shape() -> None:
-    """@brief The runtime parser refuses a document whose shape is wrong."""
+    """The runtime parser refuses a document whose shape is wrong."""
     with pytest.raises(ReleaseNotesError):
         parse_release_notes('schema = 1\n[[release]]\nversion = 3\n')
     with pytest.raises(ReleaseNotesError):
@@ -38,9 +22,8 @@ def test_parse_rejects_malformed_shape() -> None:
         parse_release_notes('schema = true\n')
 
 
-
 def test_about_stays_available_without_readable_release_notes(tmp_path, monkeypatch) -> None:
-    """@brief A broken packaged file leaves About working with no release notes."""
+    """A broken packaged file leaves About working with no release notes."""
     def broken() -> list[dict]:
         raise ReleaseNotesError("broken")
     monkeypatch.setattr("adore.web.app.load_release_notes", broken)
@@ -50,9 +33,8 @@ def test_about_stays_available_without_readable_release_notes(tmp_path, monkeypa
     assert response.json()["release_notes"] == []
 
 
-
 def test_about_returns_release_notes_with_every_locale(tmp_path) -> None:
-    """@brief About carries the packaged release notes for the What's new window."""
+    """About carries the packaged release notes for the What's new window."""
     with TestClient(create_app(tmp_path)) as client:
         value = client.get("/api/v1/about").json()
     releases = value["release_notes"]
@@ -61,6 +43,3 @@ def test_about_returns_release_notes_with_every_locale(tmp_path) -> None:
     assert entries
     assert all(set(entry["topic"]) == set(LOCALES) == set(entry["text"]) for entry in entries)
     assert {entry["category"] for entry in entries} <= {"new", "improved", "fixed"}
-
-
-# END OF FILE

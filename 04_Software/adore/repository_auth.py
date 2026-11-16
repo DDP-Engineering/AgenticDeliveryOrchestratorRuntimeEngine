@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    repository_auth.py
-@brief   Project-scoped repository account verification and CLI credentials.
-@details Secrets never enter command arguments, shared CLI config or executors.
-"""
+"""Project-scoped repository account verification and CLI credentials."""
 
-# IMPORTS
 from dataclasses import replace
 import json
 import os
@@ -26,7 +12,6 @@ from adore.forge.base import ForgeError
 from adore.gitea_auth import portable_tea_runner
 from adore.util import CommandRunner, run_command
 
-# CONSTANTS
 AUTH_FILE = "repository-auth.json"
 _FIELDS = {"schema", "project_id", "provider", "repository", "login", "server", "token", "account"}
 _CLI = {"gitea": "tea", "github": "gh", "gitlab": "glab"}
@@ -54,22 +39,19 @@ _AUTH_ENV = {
 }
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class RepositoryAuthError(ForgeError):
-    """@brief Value-free failure of authentication input, verification or storage."""
+    """Value-free failure of authentication input, verification or storage."""
 
     def __init__(self, code: str):
-        """@brief Carry a stable safe code without source values."""
+        """Carry a stable safe code without source values."""
         super().__init__(code)
         self.code = code
 
 
-# HELPER FUNCTIONS
-
-
 def validate_connection(provider: str, server: str, token: str, allow_http: bool = False) -> str:
-    """@brief Validate explicit origin and token; return canonical server origin.
-    @exception RepositoryAuthError If malformed or unacknowledged insecure input.
+    """
+    Validate explicit origin and token; return canonical server origin.
+    Raises RepositoryAuthError: If malformed or unacknowledged insecure input.
     """
     try:
         url = urlsplit(server)
@@ -100,7 +82,7 @@ def validate_connection(provider: str, server: str, token: str, allow_http: bool
 
 
 def _object(pairs):
-    """@brief Reject duplicate JSON fields at every object boundary."""
+    """Reject duplicate JSON fields at every object boundary."""
     result = {}
     for key, value in pairs:
         if key in result:
@@ -110,7 +92,7 @@ def _object(pairs):
 
 
 def _identity(directory: Path) -> str:
-    """@brief Read existing immutable profile identity without exposing metadata."""
+    """Read existing immutable profile identity without exposing metadata."""
     try:
         value = json.loads(
             (directory / "profile.json").read_text(encoding="utf-8"), object_pairs_hook=_object
@@ -124,16 +106,17 @@ def _identity(directory: Path) -> str:
 
 
 def credential_runner(value: dict, runner: CommandRunner = run_command) -> CommandRunner:
-    """@brief Inject credentials only into one forge CLI; redact returned streams.
-    @param[in] value Internally validated scoped record.
-    @param[in] runner Injectable subprocess boundary.
-    @return Scoped runner, leaving non-forge commands untouched.
+    """
+    Inject credentials only into one forge CLI; redact returned streams.
+    value: Internally validated scoped record.
+    runner: Injectable subprocess boundary.
+    Returns: Scoped runner, leaving non-forge commands untouched.
     """
     provider, server, token = value["provider"], value["server"], value["token"]
     host = urlsplit(server).netloc
 
     def scoped(argv, *, cwd=None, timeout=None, env=None):
-        """@brief Execute without shared config or command-line secrets."""
+        """Execute without shared config or command-line secrets."""
         if not argv or argv[0] != _CLI[provider]:
             return runner(argv, cwd=cwd, timeout=timeout, env=env)
         child_env = {
@@ -190,7 +173,7 @@ def credential_runner(value: dict, runner: CommandRunner = run_command) -> Comma
 
 
 def _write_secret(path: Path, value: dict) -> None:
-    """@brief Atomically publish a protected JSON file without following symlinks."""
+    """Atomically publish a protected JSON file without following symlinks."""
     fd, temp = tempfile.mkstemp(prefix=".auth-", dir=path.parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
@@ -203,9 +186,6 @@ def _write_secret(path: Path, value: dict) -> None:
         Path(temp).unlink(missing_ok=True)
 
 
-# PUBLIC API
-
-
 def verify_connection(
     config,
     project_id: str,
@@ -214,9 +194,10 @@ def verify_connection(
     allow_http: bool,
     runner: CommandRunner = run_command,
 ) -> dict:
-    """@brief Verify account and exact repository through bounded read-only CLI calls.
-    @return Internal secret-bearing record; caller must return only connection_view.
-    @exception RepositoryAuthError On invalid input or unusable verification.
+    """
+    Verify account and exact repository through bounded read-only CLI calls.
+    Returns: Internal secret-bearing record; caller must return only connection_view.
+    Raises RepositoryAuthError: On invalid input or unusable verification.
     """
     platform = config.platform
     value = {
@@ -275,15 +256,16 @@ def verify_connection(
 
 
 def connection_view(value: dict) -> dict:
-    """@brief Return only browser-safe verified identity fields."""
+    """Return only browser-safe verified identity fields."""
     return {
         key: value[key] for key in ("project_id", "provider", "server", "repository", "account")
     }
 
 
 def save_connection(directory: Path, value: dict) -> None:
-    """@brief Bind successful verification to existing profile and publish privately.
-    @exception RepositoryAuthError On identity change or storage failure.
+    """
+    Bind successful verification to existing profile and publish privately.
+    Raises RepositoryAuthError: On identity change or storage failure.
     """
     if _identity(directory) != value["project_id"]:
         raise RepositoryAuthError("repository_credentials_corrupt")
@@ -294,8 +276,9 @@ def save_connection(directory: Path, value: dict) -> None:
 
 
 def load_connection(directory: Path, config) -> dict | None:
-    """@brief Read validated private profile credentials for scoped use or redaction.
-    @exception RepositoryAuthError Corruption/scope mismatch never falls back.
+    """
+    Read validated private profile credentials for scoped use or redaction.
+    Raises RepositoryAuthError: Corruption/scope mismatch never falls back.
     """
     path = directory / AUTH_FILE
     try:
@@ -333,15 +316,13 @@ def load_connection(directory: Path, config) -> dict | None:
 
 
 def project_runner(directory: Path, config, runner: CommandRunner = run_command) -> CommandRunner:
-    """@brief Load validated profile credentials into a scoped command runner.
-    @return Protected scoped runner, portable external tea runner, or other forge runner.
-    @exception RepositoryAuthError Corruption/scope mismatch never falls back.
+    """
+    Load validated profile credentials into a scoped command runner.
+    Returns: Protected scoped runner, portable external tea runner, or other forge runner.
+    Raises RepositoryAuthError: Corruption/scope mismatch never falls back.
     """
     value = load_connection(directory, config)
     if value is not None:
         return credential_runner(value, runner)
     return (portable_tea_runner(runner, login=config.platform.login)
             if config.platform.kind == "gitea" else runner)
-
-
-# END OF FILE

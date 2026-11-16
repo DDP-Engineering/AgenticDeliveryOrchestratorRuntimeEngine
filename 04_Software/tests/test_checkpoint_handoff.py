@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_checkpoint_handoff.py
-@brief Checkpoint publication and human handoff contracts.
-@details Uses only injected offline fakes; no forge, git, container or model is
-         contacted. The tests focus on observable contracts and fail-closed
-         trust boundaries rather than private implementation structure.
-"""
+"""Checkpoint publication and human handoff contracts."""
 
 from __future__ import annotations
 
@@ -44,7 +29,7 @@ from .test_smoke import _config_file
 
 
 class CheckpointWorktrees(FakeWorktrees):
-    """@brief Script guarded checkpoint transport independently of delivery pushes."""
+    """Script guarded checkpoint transport independently of delivery pushes."""
 
     def __init__(self):
         super().__init__()
@@ -63,7 +48,7 @@ class CheckpointWorktrees(FakeWorktrees):
         return self.target if ref.startswith("origin/") else self.head
 
     def worktree_progress_fingerprint(self, run_id, *, exclude_paths=()):
-        """@brief Keep simulated source progress stable across checkpoint transport."""
+        """Keep simulated source progress stable across checkpoint transport."""
         self.progress_exclusions.append(tuple(exclude_paths))
         return self.fingerprint
 
@@ -74,7 +59,7 @@ class CheckpointWorktrees(FakeWorktrees):
 
 
 def setup_run(tmp_path):
-    """@brief Return a run with independently observable checkpoint transport."""
+    """Return a run with independently observable checkpoint transport."""
     engine, forge, _, containers, executor = make_engine(tmp_path)
     engine.worktrees = CheckpointWorktrees()
     run = make_run(engine)
@@ -83,7 +68,7 @@ def setup_run(tmp_path):
 
 @pytest.mark.parametrize("error", [False, True])
 def test_direct_handoff_never_checkpoints_exchange_files(tmp_path, monkeypatch, error):
-    """@brief During-attempt handoff retains summary and excludes both exchange artifacts."""
+    """During-attempt handoff retains summary and excludes both exchange artifacts."""
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
     worktrees.push_checkpoint = lambda *args: "d" * 40
 
@@ -117,7 +102,7 @@ def test_direct_handoff_never_checkpoints_exchange_files(tmp_path, monkeypatch, 
 
 
 def test_checkpoint_handoff_configuration_default_on(tmp_path):
-    """@brief Profiles without an override publish guarded progress by default."""
+    """Profiles without an override publish guarded progress by default."""
     path = tmp_path / "config.toml"
     path.write_text(MINIMAL_VALID)
     assert load_config(path).delivery.publish_checkpoints is True
@@ -127,7 +112,7 @@ def test_checkpoint_handoff_configuration_default_on(tmp_path):
     "value,valid", [("true", True), ("false", True), ("1", False), ('"yes"', False)]
 )
 def test_checkpoint_handoff_configuration_boolean_boundary(tmp_path, value, valid):
-    """@brief Explicit overrides accept only TOML booleans."""
+    """Explicit overrides accept only TOML booleans."""
     path = tmp_path / "config.toml"
     path.write_text(MINIMAL_VALID + "\npublish_checkpoints = " + value)
     config = load_config(path)
@@ -139,7 +124,7 @@ def test_checkpoint_handoff_configuration_boolean_boundary(tmp_path, value, vali
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_checkpoint_handoff_progress_push_retains_approval_boundary(tmp_path, enabled):
-    """@brief Progress publication follows the selected policy and retains approval."""
+    """Progress publication follows the selected policy and retains approval."""
     engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = enabled
     run.stage = "build"
@@ -163,10 +148,9 @@ def test_checkpoint_handoff_progress_push_retains_approval_boundary(tmp_path, en
         assert any(e["event"] == "checkpoint-pushed" for e in engine.store.read_journal(run.run_id))
 
 
-
 @pytest.mark.parametrize("backend", ["container", "local"])
 def test_checkpoint_guard_stops_publication_for_both_backends(tmp_path, backend):
-    """@brief A guard refusal preserves the run and prevents checkpoint publication."""
+    """A guard refusal preserves the run and prevents checkpoint publication."""
     engine, run, forge, worktrees, _, _ = setup_run(tmp_path)
     engine.config.execution.backend = backend
     engine.config.delivery.publish_checkpoints = True
@@ -184,7 +168,7 @@ def test_checkpoint_guard_stops_publication_for_both_backends(tmp_path, backend)
 
 
 def test_checkpoint_handoff_transport_failure_is_visible_and_recovers(tmp_path):
-    """@brief Failed progress uploads retain local commits and report stale remote state."""
+    """Failed progress uploads retain local commits and report stale remote state."""
     engine, run, forge, worktrees, _, _ = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = True
     worktrees.transport_errors = [IsolationError("transport unavailable")] * 3
@@ -216,7 +200,7 @@ def test_checkpoint_handoff_transport_failure_is_visible_and_recovers(tmp_path):
 
 
 def test_checkpoint_handoff_remote_ownership_stops_execution(tmp_path):
-    """@brief A foreign remote update prevents another executor launch."""
+    """A foreign remote update prevents another executor launch."""
     engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = True
     worktrees.transport_errors = [
@@ -234,7 +218,7 @@ def test_checkpoint_handoff_remote_ownership_stops_execution(tmp_path):
 
 @pytest.mark.parametrize("notification_failure", [False, True])
 def test_checkpoint_handoff_idle_preserves_human_ownership(tmp_path, notification_failure):
-    """@brief Handoff preserves resources and ownership even when forge signaling fails."""
+    """Handoff preserves resources and ownership even when forge signaling fails."""
     engine, run, forge, worktrees, containers, executor = setup_run(tmp_path)
     run.lifecycle = "failed"
     engine.store.save(run)
@@ -259,7 +243,7 @@ def test_checkpoint_handoff_idle_preserves_human_ownership(tmp_path, notificatio
 
 @pytest.mark.parametrize("failure", ["stop", "commit", "push"])
 def test_checkpoint_handoff_failure_preserves_recovery_evidence(tmp_path, failure):
-    """@brief Failed stop grants no ownership; commit or push failure retains local recovery."""
+    """Failed stop grants no ownership; commit or push failure retains local recovery."""
     engine, run, forge, worktrees, containers, _ = setup_run(tmp_path)
     if failure == "stop":
 
@@ -283,7 +267,7 @@ def test_checkpoint_handoff_failure_preserves_recovery_evidence(tmp_path, failur
 
 
 def test_checkpoint_handoff_request_after_gate_prevents_next_session(tmp_path):
-    """@brief A request arriving during a gate transfers only after that gate returns."""
+    """A request arriving during a gate transfers only after that gate returns."""
     engine, run, forge, worktrees, containers, executor = setup_run(tmp_path)
     original = executor.run_gate
 
@@ -302,7 +286,7 @@ def test_checkpoint_handoff_request_after_gate_prevents_next_session(tmp_path):
 
 
 def test_checkpoint_handoff_state_is_strict(tmp_path):
-    """@brief Missing or corrupt checkpoint identities fail closed."""
+    """Missing or corrupt checkpoint identities fail closed."""
     original = RunState("run-1", 1, execution=execution_record()).to_dict()
     missing = {key: value for key, value in original.items()
                if key not in ("checkpoint_remote_commit", "checkpoint_error")}
@@ -314,7 +298,7 @@ def test_checkpoint_handoff_state_is_strict(tmp_path):
 
 
 def test_checkpoint_handoff_request_rejects_corrupt_or_foreign_marker(tmp_path):
-    """@brief Durable requests carry exact run identity and cannot target arbitrary paths."""
+    """Durable requests carry exact run identity and cannot target arbitrary paths."""
     engine, run, _, _, _, _ = setup_run(tmp_path)
     engine.store.request_handoff(run.run_id)
     assert engine.store.handoff_requested(run.run_id)
@@ -327,7 +311,7 @@ def test_checkpoint_handoff_request_rejects_corrupt_or_foreign_marker(tmp_path):
 
 
 def test_checkpoint_handoff_cli_queues_with_live_lock(tmp_path, monkeypatch, capsys):
-    """@brief An operator may request handoff without stealing the run lock."""
+    """An operator may request handoff without stealing the run lock."""
     import adore.cli as cli
 
     config_path = _config_file(tmp_path)
@@ -353,7 +337,7 @@ def test_checkpoint_handoff_cli_queues_with_live_lock(tmp_path, monkeypatch, cap
 
 @pytest.mark.parametrize("remote", ["", "a" * 40 + "\trefs/heads/adore/ticket\n"])
 def test_checkpoint_handoff_guarded_git_push(tmp_path, remote):
-    """@brief A compare-and-update push accepts a new branch or owned ancestor only."""
+    """A compare-and-update push accepts a new branch or owned ancestor only."""
     head = "b" * 40
     replies = [_ok(), _ok("refs/heads/adore/ticket"), _ok(head), _ok(remote)]
     if remote:
@@ -376,7 +360,7 @@ def test_checkpoint_handoff_guarded_git_push(tmp_path, remote):
     ],
 )
 def test_checkpoint_handoff_malformed_remote_never_pushes(tmp_path, remote):
-    """@brief Foreign, duplicate and malformed remote identities fail closed."""
+    """Foreign, duplicate and malformed remote identities fail closed."""
     runner = FakeRunner(_ok(), _ok("refs/heads/adore/ticket"), _ok("b" * 40), _ok(remote))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(IsolationError):
@@ -385,7 +369,7 @@ def test_checkpoint_handoff_malformed_remote_never_pushes(tmp_path, remote):
 
 
 def test_checkpoint_handoff_remote_conflict_and_push_race(tmp_path):
-    """@brief Unexpected remote commits and rejected leases never fall back to force."""
+    """Unexpected remote commits and rejected leases never fall back to force."""
     foreign = "c" * 40 + "\trefs/heads/adore/ticket\n"
     runner = FakeRunner(_ok(), _ok("refs/heads/adore/ticket"), _ok("b" * 40), _ok(foreign))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
@@ -407,7 +391,7 @@ def test_checkpoint_handoff_remote_conflict_and_push_race(tmp_path):
 
 
 def test_checkpoint_handoff_failed_run_publishes_commits_without_resuming(tmp_path):
-    """@brief Failed recovery checkpoints become remote without any executor or dirty commit."""
+    """Failed recovery checkpoints become remote without any executor or dirty commit."""
     engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = True
     run.lifecycle = "failed"
@@ -430,7 +414,7 @@ def test_checkpoint_handoff_failed_run_publishes_commits_without_resuming(tmp_pa
 
 
 def test_checkpoint_handoff_protocol_failure_stops_without_transport_retries(tmp_path):
-    """@brief Malformed Git identities stop instead of being treated as a transient outage."""
+    """Malformed Git identities stop instead of being treated as a transient outage."""
     engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = True
     worktrees.transport_errors = [isolation_module.CheckpointProtocolError("foreign ref")]
@@ -445,7 +429,7 @@ def test_checkpoint_handoff_protocol_failure_stops_without_transport_retries(tmp
 
 
 def test_checkpoint_handoff_git_replay_nonancestor_and_failed_transport(tmp_path):
-    """@brief A published head is idempotent; rewriting ancestry is refused; outage is visible."""
+    """A published head is idempotent; rewriting ancestry is refused; outage is visible."""
     head = "b" * 40
     runner = FakeRunner(
         _ok(), _ok("refs/heads/adore/ticket"), _ok(head), _ok(head + "\trefs/heads/adore/ticket\n")
@@ -481,7 +465,7 @@ def test_checkpoint_handoff_git_replay_nonancestor_and_failed_transport(tmp_path
     ],
 )
 def test_checkpoint_handoff_comment_has_forge_branch_link(tmp_path, kind, url, fragment):
-    """@brief Handoff links are portable across all three forge adapters."""
+    """Handoff links are portable across all three forge adapters."""
     engine, run, forge, _, _, _ = setup_run(tmp_path)
     engine.config.platform.kind = kind
     snapshot = engine.store.load_ticket(run.run_id)
@@ -496,7 +480,7 @@ def test_checkpoint_handoff_comment_has_forge_branch_link(tmp_path, kind, url, f
 
 
 def test_checkpoint_handoff_metrics_records_human_ownership(tmp_path):
-    """@brief Explicit takeover is a terminal ownership outcome, distinct from merge or failure."""
+    """Explicit takeover is a terminal ownership outcome, distinct from merge or failure."""
     from adore.metrics import is_terminal
 
     assert is_terminal("handed-off")
@@ -504,7 +488,7 @@ def test_checkpoint_handoff_metrics_records_human_ownership(tmp_path):
 
 
 def test_checkpoint_handoff_pending_crash_resumes_before_any_executor(tmp_path):
-    """@brief A crash during transfer resumes finalization and never resumes development."""
+    """A crash during transfer resumes finalization and never resumes development."""
     engine, run, forge, worktrees, containers, executor = setup_run(tmp_path)
     engine.store.request_handoff(run.run_id)
     run.lifecycle = "handoff-pending"
@@ -517,7 +501,7 @@ def test_checkpoint_handoff_pending_crash_resumes_before_any_executor(tmp_path):
 
 
 def test_checkpoint_handoff_owner_not_announced_before_git_finishes(tmp_path):
-    """@brief A developer cannot see handed-off while the conductor still writes Git files."""
+    """A developer cannot see handed-off while the conductor still writes Git files."""
     engine, run, _, worktrees, _, _ = setup_run(tmp_path)
     original = worktrees.commit_all_if_dirty
 
@@ -531,7 +515,7 @@ def test_checkpoint_handoff_owner_not_announced_before_git_finishes(tmp_path):
 
 
 def test_checkpoint_handoff_delivery_still_requires_fresh_approval(tmp_path, monkeypatch):
-    """@brief WIP visibility preserves normal approved draft publication without AEGIS."""
+    """WIP visibility preserves normal approved draft publication without AEGIS."""
     import adore.orchestrator as conductor
     from adore.util import utc_now_iso
 
@@ -552,7 +536,7 @@ def test_checkpoint_handoff_delivery_still_requires_fresh_approval(tmp_path, mon
     forge.ticket.labels.append("agent-approved")
 
     class NoAegis:
-        """@brief Publication runs no AEGIS command after approval."""
+        """Publication runs no AEGIS command after approval."""
 
         def __init__(self, *args, **kwargs):
             raise AssertionError("publication must not run an AEGIS command")
@@ -568,7 +552,7 @@ def test_checkpoint_handoff_delivery_still_requires_fresh_approval(tmp_path, mon
 
 @pytest.mark.parametrize("lifecycle", ["done", "cancelled"])
 def test_checkpoint_handoff_cli_rejects_released_run(tmp_path, monkeypatch, capsys, lifecycle):
-    """@brief Completed resources cannot be reclaimed as a human takeover."""
+    """Completed resources cannot be reclaimed as a human takeover."""
     import adore.cli as cli
 
     config_path = _config_file(tmp_path)
@@ -581,7 +565,7 @@ def test_checkpoint_handoff_cli_rejects_released_run(tmp_path, monkeypatch, caps
 
 
 def test_checkpoint_handoff_cli_completes_when_lock_is_free(tmp_path, monkeypatch, capsys):
-    """@brief Idle operator handoff uses the run lock and uses the typed engine."""
+    """Idle operator handoff uses the run lock and uses the typed engine."""
     import adore.cli as cli
 
     config_path = _config_file(tmp_path)
@@ -603,7 +587,7 @@ def test_checkpoint_handoff_cli_completes_when_lock_is_free(tmp_path, monkeypatc
 
 
 def test_checkpoint_handoff_foreign_local_branch_never_pushes(tmp_path):
-    """@brief Local manual checkout changes do not publish another branch as the candidate."""
+    """Local manual checkout changes do not publish another branch as the candidate."""
     runner = FakeRunner(_ok(), _ok("refs/heads/developer"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(isolation_module.CheckpointConflictError):

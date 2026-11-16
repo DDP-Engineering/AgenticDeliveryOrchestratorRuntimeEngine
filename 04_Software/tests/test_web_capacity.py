@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_capacity.py
-@brief Bounded first-release dashboard workload with local state only.
-@details Exercises the agreed registration and viewer count without a forge.
-"""
+"""Bounded first-release dashboard workload with local state only."""
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -24,7 +11,7 @@ from tests.execution_records import execution_record
 
 
 def test_ten_users_twenty_projects_five_viewers(tmp_path):
-    """@brief Concurrent viewers see twenty projects and one active job."""
+    """Concurrent viewers see twenty projects and one active job."""
     profiles = ProfileStore(tmp_path / "home")
     for index in range(20):
         profiles.create(f"project-{index:02d}",
@@ -40,7 +27,7 @@ def test_ten_users_twenty_projects_five_viewers(tmp_path):
             user["id"], [f"project-{number:02d}" for number in range(20)])
 
     def view(index: int) -> tuple[int, int, str]:
-        """@brief Open one independent session and load list and job detail."""
+        """Open one independent session and load list and job detail."""
         with TestClient(app) as client:
             login = client.post("/api/v1/session", json={
                 "username": f"dev{index}", "password": "longer-password"})

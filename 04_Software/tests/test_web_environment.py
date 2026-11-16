@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 """Offline shared image preparation, concurrent imports and reviewed API boundaries."""
 
 from pathlib import Path
@@ -222,7 +215,7 @@ def test_reviewed_environment_routes_preserve_candidate_and_enforce_authorizatio
 
 
 def test_worker_owned_preparation_persists_progress_for_another_api_instance(tmp_path):
-    """@brief Foreground worker preparation confirms only after durable value-free progress."""
+    """Foreground worker preparation confirms only after durable value-free progress."""
     import json
 
     from adore.web.environment import EnvironmentError

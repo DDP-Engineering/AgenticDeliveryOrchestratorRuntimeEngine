@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Operations guide
 
 ## System overview
@@ -18,7 +11,7 @@ resource identity. Project limits bound admission and consumed work.
 | Owner | Responsibility |
 |---|---|
 | Pi and the repository instructions | Code changes, engineering decisions and selecting/reporting checks. |
-| AEGIS, when installed in the target | Task journal, stage content and engineering transitions. |
+| AEGIS, when selected for the job | Task journal, stage content and engineering transitions. |
 | ADORE | Ticket selection, resource ownership, limits, recovery, host Git, candidate freshness and publication. |
 | People | Clarification, configured approval, review and merge. |
 
@@ -42,6 +35,16 @@ Before manual Start or Restart, choose **With AEGIS** or **Without AEGIS**.
 Start uses the same selector in global Tickets and Projects > Tickets. Restart
 creates a fresh job after confirmed owned cleanup; Retry, continuation and review
 corrections retain the job’s saved workflow and Pi conversation.
+
+For the latest cancelled job, **Restart job** retains its saved state, activity,
+session archives and outcome. The new execution has a distinct `-rN` identity,
+fresh working resources, conversation and budgets. Tickets follows the latest
+execution; **Previous job** and **New job** navigate retained history. Failed-job
+**Abandon and restart** remains destructive. Restart still requires an open,
+eligible ticket, capacity, valid settings and verified cleanup; monitoring stays
+paused if already paused. Web success confirms durable admission, not completion.
+Retained history has no automatic expiry. Remove an explicitly selected old job
+with `adore delete <run-id> --force`; audit retention does not remove job history.
 
 `workflow.mode = "auto"` (default) detects AEGIS from the repository; absence
 selects Direct and a present unusable payload is refused. `workflow.mode = "direct"`

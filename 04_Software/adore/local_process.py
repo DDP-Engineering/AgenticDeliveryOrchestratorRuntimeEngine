@@ -1,24 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    local_process.py
-@brief   Native process scopes and fail-closed durable command ownership.
-@details Windows Job Objects and delegated Linux cgroups are adapter details.
-         Native APIs and subprocess creation are injectable for offline proof.
-"""
+"""Native process scopes and fail-closed durable command ownership."""
 
 from __future__ import annotations
 
 from contextlib import contextmanager
-
-# IMPORTS
 import ctypes
 from ctypes import wintypes
 import hashlib
@@ -44,23 +28,18 @@ from adore.util import (
     strict_json_loads,
 )
 
-# CONSTANTS
 _TOKEN = re.compile(r"[0-9a-f]{32}\Z")
-
-# DATA MODELS / TYPEDEFINITIONS
 
 
 class LocalExecutionError(ExecutionRecoveryError):
-    """@brief Native execution/control evidence cannot safely authorize work."""
-
-
-# LOCAL HELPERS
+    """Native execution/control evidence cannot safely authorize work."""
 
 
 def atomic_record(path: Path, value: dict) -> None:
-    """@brief Durably replace one parent-owned JSON control record.
-    @param[in] path Authoritative record outside executor IO/worktree.
-    @param[in] value Closed non-secret evidence.
+    """
+    Durably replace one parent-owned JSON control record.
+    path: Authoritative record outside executor IO/worktree.
+    value: Closed non-secret evidence.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + "." + uuid4().hex)
@@ -75,10 +54,11 @@ def atomic_record(path: Path, value: dict) -> None:
 
 
 def read_record(path: Path) -> dict:
-    """@brief Read bounded strict native control JSON or fail closed.
-    @param[in] path Parent-owned evidence path.
-    @return Mapping with no ambiguous fields.
-    @exception LocalExecutionError Missing/corrupt/link evidence.
+    """
+    Read bounded strict native control JSON or fail closed.
+    path: Parent-owned evidence path.
+    Returns: Mapping with no ambiguous fields.
+    Raises LocalExecutionError: Missing/corrupt/link evidence.
     """
     try:
         if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
@@ -92,7 +72,7 @@ def read_record(path: Path) -> dict:
 
 
 class WindowsJobs:
-    """@brief Small Win32 Job/PID-birth API boundary; never issues a PID-only kill."""
+    """Small Win32 Job/PID-birth API boundary; never issues a PID-only kill."""
 
     def __init__(self) -> None:
         self.api = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -132,12 +112,13 @@ class WindowsJobs:
         self.handles: dict[str, int] = {}
 
     def create(self, name: str) -> None:
-        """@brief Create a unique non-breakaway kill-on-close Job.
-        @param[in] name Owned native Job name.
+        """
+        Create a unique non-breakaway kill-on-close Job.
+        name: Owned native Job name.
         """
 
         class Limits(ctypes.Structure):
-            """@brief Native JOBOBJECT_BASIC_LIMIT_INFORMATION layout."""
+            """Native JOBOBJECT_BASIC_LIMIT_INFORMATION layout."""
 
             _fields_ = [
                 ("process_time", ctypes.c_longlong),
@@ -152,7 +133,7 @@ class WindowsJobs:
             ]
 
         class Extended(ctypes.Structure):
-            """@brief Native JOBOBJECT_EXTENDED_LIMIT_INFORMATION layout."""
+            """Native JOBOBJECT_EXTENDED_LIMIT_INFORMATION layout."""
 
             _fields_ = [
                 ("basic", Limits),
@@ -177,9 +158,10 @@ class WindowsJobs:
         self.handles[name] = handle
 
     def attach(self, name: str, pid: int) -> None:
-        """@brief Assign the trusted waiting supervisor before release.
-        @param[in] name Owned native Job name.
-        @param[in] pid Native supervisor PID; birth is checked separately.
+        """
+        Assign the trusted waiting supervisor before release.
+        name: Owned native Job name.
+        pid: Native supervisor PID; birth is checked separately.
         """
         process = self.api.OpenProcess(0x0100 | 0x0001, False, pid)
         if not process:
@@ -191,9 +173,10 @@ class WindowsJobs:
             self.api.CloseHandle(process)
 
     def birth(self, pid: int) -> str | None:
-        """@brief Query immutable native creation time, distinguishing absence/errors.
-        @param[in] pid Native supervisor PID; birth is checked separately.
-        @return Verified native operation result.
+        """
+        Query immutable native creation time, distinguishing absence/errors.
+        pid: Native supervisor PID; birth is checked separately.
+        Returns: Verified native operation result.
         """
         handle = self.api.OpenProcess(0x1000, False, pid)
         if not handle:
@@ -214,8 +197,9 @@ class WindowsJobs:
             self.api.CloseHandle(handle)
 
     def kill(self, name: str) -> None:
-        """@brief Terminate only a verified random Job; absence is idempotent.
-        @param[in] name Owned native Job name.
+        """
+        Terminate only a verified random Job; absence is idempotent.
+        name: Owned native Job name.
         """
         handle = self.handles.get(name) or self.api.OpenJobObjectW(0x0008, False, name)
         if not handle:
@@ -230,8 +214,9 @@ class WindowsJobs:
                 self.api.CloseHandle(handle)
 
     def remove(self, name: str) -> None:
-        """@brief Confirm all owned descendants exited before releasing the Job.
-        @param[in] name Owned native Job name.
+        """
+        Confirm all owned descendants exited before releasing the Job.
+        name: Owned native Job name.
         """
         handle = self.handles.get(name) or self.api.OpenJobObjectW(0x0004, False, name)
         if not handle:
@@ -240,7 +225,7 @@ class WindowsJobs:
             raise LocalExecutionError("native Job drain unavailable")
 
         class Accounting(ctypes.Structure):
-            """@brief JOBOBJECT_BASIC_ACCOUNTING_INFORMATION layout."""
+            """JOBOBJECT_BASIC_ACCOUNTING_INFORMATION layout."""
 
             _fields_ = [
                 ("times", ctypes.c_longlong * 4),
@@ -272,11 +257,8 @@ class WindowsJobs:
         self.handles.pop(name, None)
 
 
-# PUBLIC API
-
-
 def _windows_account_identity() -> tuple[str, str]:
-    """@brief Read token account SID and qualified name, refusing username-only ownership."""
+    """Read token account SID and qualified name, refusing username-only ownership."""
     advapi = ctypes.WinDLL("advapi32", use_last_error=True)
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     advapi.OpenProcessToken.argtypes = [
@@ -326,9 +308,10 @@ def _windows_account_identity() -> tuple[str, str]:
 
 
 def native_context() -> dict[str, str]:
-    """@brief Identify the actual machine/account, never environment USER spoofing.
-    @return Native system/account/host fingerprint and effective home/PATH defaults.
-    @exception LocalExecutionError Unsupported or unidentified host.
+    """
+    Identify the actual machine/account, never environment USER spoofing.
+    Returns: Native system/account/host fingerprint and effective home/PATH defaults.
+    Raises LocalExecutionError: Unsupported or unidentified host.
     """
     system = platform.system()
     try:
@@ -368,7 +351,7 @@ def native_context() -> dict[str, str]:
 
 
 class NativeScopes:
-    """@brief Injectable native scope API and PID-birth authority."""
+    """Injectable native scope API and PID-birth authority."""
 
     def __init__(
         self,
@@ -397,9 +380,10 @@ class NativeScopes:
             raise LocalExecutionError("unsupported local process platform")
 
     def create(self, token: str) -> dict:
-        """@brief Create a uniquely owned Job or delegated cgroup leaf.
-        @param[in] token Random scope UUID.
-        @return Verified native operation result.
+        """
+        Create a uniquely owned Job or delegated cgroup leaf.
+        token: Random scope UUID.
+        Returns: Verified native operation result.
         """
         if not _TOKEN.fullmatch(token):
             raise LocalExecutionError("invalid native scope token")
@@ -424,8 +408,9 @@ class NativeScopes:
             raise LocalExecutionError("cannot provision delegated native scope") from exc
 
     def validate(self, scope: object) -> None:
-        """@brief Validate closed scope identity before any external control.
-        @param[in] scope Closed owned Job/cgroup identity.
+        """
+        Validate closed scope identity before any external control.
+        scope: Closed owned Job/cgroup identity.
         """
         if not isinstance(scope, dict):
             raise LocalExecutionError("invalid native scope")
@@ -459,18 +444,20 @@ class NativeScopes:
                 raise LocalExecutionError("native cgroup was replaced")
 
     def attach(self, scope: dict, pid: int) -> None:
-        """@brief Attach trusted Windows supervisor; Linux child joins before exec.
-        @param[in] scope Closed owned Job/cgroup identity.
-        @param[in] pid Native supervisor PID; birth is checked separately.
+        """
+        Attach trusted Windows supervisor; Linux child joins before exec.
+        scope: Closed owned Job/cgroup identity.
+        pid: Native supervisor PID; birth is checked separately.
         """
         self.validate(scope)
         if self.system == "Windows":
             self.windows.attach(scope["name"], pid)
 
     def birth(self, pid: int) -> str | None:
-        """@brief Read native creation identity rather than trusting a persisted PID.
-        @param[in] pid Native supervisor PID; birth is checked separately.
-        @return Verified native operation result.
+        """
+        Read native creation identity rather than trusting a persisted PID.
+        pid: Native supervisor PID; birth is checked separately.
+        Returns: Verified native operation result.
         """
         if self.birth_reader is not None:
             return self.birth_reader(pid)
@@ -489,8 +476,9 @@ class NativeScopes:
             raise LocalExecutionError("native PID birth cannot be inspected") from exc
 
     def kill(self, scope: dict) -> None:
-        """@brief Kill the complete verified scope, including detached descendants.
-        @param[in] scope Closed owned Job/cgroup identity.
+        """
+        Kill the complete verified scope, including detached descendants.
+        scope: Closed owned Job/cgroup identity.
         """
         self.validate(scope)
         try:
@@ -502,8 +490,9 @@ class NativeScopes:
             raise LocalExecutionError("native scope termination failed") from exc
 
     def remove(self, scope: dict) -> None:
-        """@brief Release only an empty owned native scope; no recursive deletion.
-        @param[in] scope Closed owned Job/cgroup identity.
+        """
+        Release only an empty owned native scope; no recursive deletion.
+        scope: Closed owned Job/cgroup identity.
         """
         self.validate(scope)
         try:
@@ -531,7 +520,7 @@ class NativeScopes:
 
 
 class NativePipeProcess:
-    """@brief Lend process pipes and route forced stops to the owned process scope."""
+    """Lend process pipes and route forced stops to the owned process scope."""
 
     def __init__(self, process, stop):
         self.stdin, self.stdout, self.stderr = process.stdin, process.stdout, process.stderr
@@ -540,18 +529,19 @@ class NativePipeProcess:
 
 
 class LocalProcessController:
-    """@brief Bounded native process launch and durable run-owned control boundary."""
+    """Bounded native process launch and durable run-owned control boundary."""
 
     def __init__(self, scopes: NativeScopes, *, spawn=subprocess.Popen) -> None:
         self.scopes, self.spawn = scopes, spawn
         self.lock = RLock()
 
     def interrupt(self, control: Path, run_id: str, host: str) -> None:
-        """@brief Control verified persisted ownership; reused PID never authorizes kill.
-        @param[in] control Parent-owned authoritative control directory.
-        @param[in] run_id Pinned local run UUID.
-        @param[in] host Pinned machine/account fingerprint.
-        @exception LocalExecutionError Corrupt identity or failed process control.
+        """
+        Control verified persisted ownership; reused PID never authorizes kill.
+        control: Parent-owned authoritative control directory.
+        run_id: Pinned local run UUID.
+        host: Pinned machine/account fingerprint.
+        Raises LocalExecutionError: Corrupt identity or failed process control.
         """
         with self.lock:
             path = control / "active-process.json"
@@ -585,11 +575,12 @@ class LocalProcessController:
             self.scopes.kill(lease["scope"])
 
     def recover(self, control: Path, run_id: str, host: str) -> None:
-        """@brief Reconcile a verified stopped lease before retry/cleanup.
-        @param[in] control Authoritative control directory.
-        @param[in] run_id Pinned local run UUID.
-        @param[in] host Pinned native account/machine.
-        @exception LocalExecutionError Ownership/control/drain is unconfirmed.
+        """
+        Reconcile a verified stopped lease before retry/cleanup.
+        control: Authoritative control directory.
+        run_id: Pinned local run UUID.
+        host: Pinned native account/machine.
+        Raises LocalExecutionError: Ownership/control/drain is unconfirmed.
         """
         with self.lock:
             path = control / "active-process.json"
@@ -606,7 +597,7 @@ class LocalProcessController:
             path.unlink()
 
     def _launch(self, argv, cwd, env, control, run_id, host, *, streaming=False):
-        """@brief Persist the owned process lease before releasing native argv."""
+        """Persist the owned process lease before releasing native argv."""
         token = uuid4().hex
         with self.lock:
             if (control / "active-process.json").exists():
@@ -672,10 +663,10 @@ class LocalProcessController:
 
     @contextmanager
     def stream(self, argv, *, cwd, env, control, run_id, host):
-        """@brief Lend owned binary pipes, then confirm the entire scope drained."""
+        """Lend owned binary pipes, then confirm the entire scope drained."""
         process, scope = self._launch(argv, cwd, env, control, run_id, host, streaming=True)
         def stop():
-            """@brief Stop the job and all descendants after RPC grace expires."""
+            """Stop the job and all descendants after RPC grace expires."""
             self.interrupt(control, run_id, host)
 
         try:
@@ -705,20 +696,21 @@ class LocalProcessController:
         secrets: list[str],
         stdout_limit: int = 65536,
     ) -> CommandResult:
-        """@brief Persist scope/PID ownership before releasing one bounded native command.
-        @param[in] argv Resolved native argv; no shell interpretation.
-        @param[in] cwd Dedicated native worktree or explicit probe directory.
-        @param[in] env Controlled service-account environment.
-        @param[in] timeout Positive wall-clock bound.
-        @param[in] stdout Bounded redacted output file.
-        @param[in] stderr Bounded redacted error file.
-        @param[in] control Authoritative parent-owned control directory.
-        @param[in] run_id Pinned local run UUID.
-        @param[in] host Pinned machine/account identity.
-        @param[in] secrets Approved known values for redaction, never written to controls.
-        @param[in] stdout_limit Native stdout bound; AEGIS JSON uses its existing limit.
-        @return Actual command exit and authoritative timeout outcome.
-        @exception LocalExecutionError Ownership, launch or cleanup cannot be confirmed.
+        """
+        Persist scope/PID ownership before releasing one bounded native command.
+        argv: Resolved native argv; no shell interpretation.
+        cwd: Dedicated native worktree or explicit probe directory.
+        env: Controlled service-account environment.
+        timeout: Positive wall-clock bound.
+        stdout: Bounded redacted output file.
+        stderr: Bounded redacted error file.
+        control: Authoritative parent-owned control directory.
+        run_id: Pinned local run UUID.
+        host: Pinned machine/account identity.
+        secrets: Approved known values for redaction, never written to controls.
+        stdout_limit: Native stdout bound; AEGIS JSON uses its existing limit.
+        Returns: Actual command exit and authoritative timeout outcome.
+        Raises LocalExecutionError: Ownership, launch or cleanup cannot be confirmed.
         """
         if type(timeout) not in {int, float} or not math.isfinite(timeout) or timeout <= 0:
             raise LocalExecutionError("native command requires a positive timeout")
@@ -728,9 +720,10 @@ class LocalProcessController:
         errors = []
 
         def drain(stream, path):
-            """@brief Capture stream failure instead of accepting a dead drain thread.
-            @param[in] stream Child byte output stream.
-            @param[in] path Owned bounded output file.
+            """
+            Capture stream failure instead of accepting a dead drain thread.
+            stream: Child byte output stream.
+            path: Owned bounded output file.
             """
             try:
                 _drain(
@@ -774,6 +767,3 @@ class LocalProcessController:
         return CommandResult(
             argv=[argv[0], "[native-file-launch]"], exit_code=code, timed_out=timed_out
         )
-
-
-# END OF FILE

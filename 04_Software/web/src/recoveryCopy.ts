@@ -1,14 +1,11 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import type { Locale } from "./i18n";
 
 /** Explain destructive recovery consistently in every supported locale. */
-export const recoveryCopy: Record<Locale, { restart: string; restartAegis: string; restartDirect: string; confirm: string; drift: string; changed: string; failed: string; retained: string }> = {
+export const recoveryCopy: Record<Locale, { restart: string; restartAegis: string; restartDirect: string; confirm: string; drift: string; changed: string; failed: string; retained: string; restartJob: string; restartJobAegis: string; restartJobDirect: string; restartJobConfirm: string; previousExecution: string; nextExecution: string }> = {
   en: {
+    restartJob: "Restart job", restartJobAegis: "Restart job with AEGIS", restartJobDirect: "Restart job without AEGIS",
+    restartJobConfirm: "Start ticket #{ticket} again with current settings? The cancelled job's history is kept.",
+    previousExecution: "Previous job", nextExecution: "New job",
     retained: "A fresh job started. An older branch without ownership evidence was kept; a new branch is used.",
     restart: "Abandon and start again",
     restartAegis: "Abandon and restart with AEGIS",
@@ -19,6 +16,9 @@ export const recoveryCopy: Record<Locale, { restart: string; restartAegis: strin
     failed: "Recovery was refused or incomplete. Inspect Job details and operation evidence. A new job requires successful owned cleanup.",
   },
   ro: {
+    restartJob: "Repornește jobul", restartJobAegis: "Repornește jobul cu AEGIS", restartJobDirect: "Repornește jobul fără AEGIS",
+    restartJobConfirm: "Repornești tichetul #{ticket} cu setările curente? Istoricul jobului anulat se păstrează.",
+    previousExecution: "Jobul anterior", nextExecution: "Jobul nou",
     retained: "Jobul nou a pornit pe un branch nou. Branchul vechi fără dovezi de proprietate a fost păstrat.",
     restart: "Renunță și pornește din nou",
     restartAegis: "Renunță și repornește cu AEGIS",
@@ -29,6 +29,9 @@ export const recoveryCopy: Record<Locale, { restart: string; restartAegis: strin
     failed: "Recuperarea a fost refuzată sau este incompletă. Consultă detaliile jobului și dovezile operației. Jobul nou necesită curățarea verificată a resurselor proprii.",
   },
   fr: {
+    restartJob: "Redémarrer le travail", restartJobAegis: "Redémarrer avec AEGIS", restartJobDirect: "Redémarrer sans AEGIS",
+    restartJobConfirm: "Redémarrer le ticket #{ticket} avec les paramètres actuels ? L’historique du travail annulé est conservé.",
+    previousExecution: "Travail précédent", nextExecution: "Nouveau travail",
     retained: "Une nouvelle tâche a démarré sur une nouvelle branche ; l’ancienne sans preuve a été conservée.",
     restart: "Abandonner et recommencer",
     restartAegis: "Abandonner et redémarrer avec AEGIS",
@@ -39,6 +42,9 @@ export const recoveryCopy: Record<Locale, { restart: string; restartAegis: strin
     failed: "La récupération a été refusée ou reste incomplète. Consultez les détails et les preuves de l’opération. Un nouveau travail exige un nettoyage vérifié des ressources propres.",
   },
   de: {
+    restartJob: "Job neu starten", restartJobAegis: "Job mit AEGIS neu starten", restartJobDirect: "Job ohne AEGIS neu starten",
+    restartJobConfirm: "Ticket #{ticket} mit aktuellen Einstellungen neu starten? Der Verlauf des abgebrochenen Jobs bleibt erhalten.",
+    previousExecution: "Vorheriger Job", nextExecution: "Neuer Job",
     retained: "Ein neuer Auftrag nutzt einen neuen Branch. Der alte Branch ohne Eigentumsnachweis bleibt erhalten.",
     restart: "Verwerfen und neu starten",
     restartAegis: "Verwerfen und mit AEGIS neu starten",

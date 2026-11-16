@@ -1,21 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       bundle_native_tools.py
-@brief      Prepare the native executor payload at delivery build time.
-@details    Downloads checksum-pinned native archives into owned temporary
-            storage and installs the exact Pi/web packages without npm scripts.
-            Preserves licenses and dereferences only in-tree package links.
-"""
+"""Prepare the native executor payload at delivery build time."""
 
-# IMPORTS
 import hashlib
 import os
 from pathlib import Path
@@ -25,7 +10,6 @@ import tarfile
 import urllib.request
 import zipfile
 
-# CONSTANTS
 NODE_VERSION = "22.23.4"
 FD_VERSION = "10.5.1"
 RG_VERSION = "15.2.0"
@@ -41,13 +25,13 @@ SEARCH_HASHES = {
 }
 
 
-# LOCAL HELPERS
 def download(url: str, destination: Path, digest: str) -> None:
-    """@brief Download one bounded HTTPS archive and require its pinned SHA-256.
-    @param[in] url Official release asset.
-    @param[in] destination Temporary file.
-    @param[in] digest Required checksum from the upstream release.
-    @exception RuntimeError Oversized or altered download.
+    """
+    Download one bounded HTTPS archive and require its pinned SHA-256.
+    url: Official release asset.
+    destination: Temporary file.
+    digest: Required checksum from the upstream release.
+    Raises RuntimeError: Oversized or altered download.
     """
     checksum, size = hashlib.sha256(), 0
     with urllib.request.urlopen(url, timeout=120) as source, destination.open("xb") as output:
@@ -62,11 +46,12 @@ def download(url: str, destination: Path, digest: str) -> None:
 
 
 def unpack(archive: Path, destination: Path) -> Path:
-    """@brief Extract a verified single-root archive inside an owned directory.
-    @param[in] archive Verified ZIP or TAR archive.
-    @param[in] destination Empty temporary extraction directory.
-    @return Extracted single root directory.
-    @exception RuntimeError Unsafe member, external link or unexpected layout.
+    """
+    Extract a verified single-root archive inside an owned directory.
+    archive: Verified ZIP or TAR archive.
+    destination: Empty temporary extraction directory.
+    Returns: Extracted single root directory.
+    Raises RuntimeError: Unsafe member, external link or unexpected layout.
     """
     destination.mkdir()
     if archive.suffix == ".zip":
@@ -91,9 +76,10 @@ def unpack(archive: Path, destination: Path) -> Path:
 
 
 def dereference_links(root: Path) -> None:
-    """@brief Replace owned npm executable links with their exact in-tree files.
-    @param[in] root Isolated installed package prefix.
-    @exception RuntimeError A package link escapes the prefix or targets a directory.
+    """
+    Replace owned npm executable links with their exact in-tree files.
+    root: Isolated installed package prefix.
+    Raises RuntimeError: A package link escapes the prefix or targets a directory.
     """
     for directory, folders, files in os.walk(root, followlinks=False):
         for name in [*folders, *files]:
@@ -109,14 +95,14 @@ def dereference_links(root: Path) -> None:
             path.chmod(mode)
 
 
-# PUBLIC API
 def prepare_native_tools(destination: Path, work: Path, system: str) -> dict:
-    """@brief Build one host-matched self-contained Node/Pi/search payload.
-    @param[in] destination Application-owned payload directory inside staging.
-    @param[in] work Temporary build directory.
-    @param[in] system windows or linux.
-    @return Exact bundled tool versions for the delivery manifest.
-    @exception RuntimeError A downloaded tool or installation fails verification.
+    """
+    Build one host-matched self-contained Node/Pi/search payload.
+    destination: Application-owned payload directory inside staging.
+    work: Temporary build directory.
+    system: windows or linux.
+    Returns: Exact bundled tool versions for the delivery manifest.
+    Raises RuntimeError: A downloaded tool or installation fails verification.
     """
     from adore.pi_installation import PI_PACKAGE, PI_VERSION, WEB_PACKAGE, WEB_VERSION
 
@@ -134,6 +120,7 @@ def prepare_native_tools(destination: Path, work: Path, system: str) -> dict:
         for entry in (extracted / "bin").iterdir():
             if entry.is_symlink():
                 relative = os.path.relpath(entry.resolve(strict=True), extracted / "bin")
+                # REUSE-IgnoreStart
                 wrapper = (
                     "#!/bin/sh\n"
                     "# Copyright (c) 2026 DDP Engineering\n"
@@ -144,6 +131,7 @@ def prepare_native_tools(destination: Path, work: Path, system: str) -> dict:
                     'script_dir=$(/usr/bin/dirname -- "$0")\n'
                     f'exec "$script_dir/node" "$script_dir/{relative}" "$@"\n'
                 )
+                # REUSE-IgnoreEnd
                 (node_root / "bin" / entry.name).write_text(wrapper, encoding="utf-8")
                 (node_root / "bin" / entry.name).chmod(0o755)
     node = node_root / ("node.exe" if system == "windows" else "bin/node")
@@ -207,6 +195,3 @@ def prepare_native_tools(destination: Path, work: Path, system: str) -> dict:
         raise RuntimeError("bundled Pi does not report the required version")
     return {"node": NODE_VERSION, "pi": PI_VERSION, "web": WEB_VERSION,
             "fd": FD_VERSION, "rg": RG_VERSION}
-
-
-# END OF FILE

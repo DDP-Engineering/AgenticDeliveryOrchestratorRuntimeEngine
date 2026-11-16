@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    instructions.py
-@brief   Bounded durable instructions shared by the web process and Pi owner.
-@details Atomic current-schema records retain literal operator text. Only a Pi
-         acknowledgement creates a delivery receipt; malformed files stay unsent.
-"""
+"""Bounded durable instructions shared by the web process and Pi owner."""
 
-# IMPORTS
 from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -30,24 +15,22 @@ from adore.prompts import PromptCatalog
 from adore.state import LockHeldError, StateError, StateStore
 from adore.util import utc_now_iso
 
-# CONSTANTS
 MAX_INSTRUCTIONS = 256
 MAX_RECORD_BYTES = 32 * 1024
 _ID = re.compile(r"[0-9a-f]{32}")
 _FIELDS = {"schema", "id", "user", "created_at", "mode", "text", "delivery", "last_error"}
 
-# LOCAL HELPERS
-
 
 class InstructionError(StateError):
-    """@brief A bounded inbox operation cannot be completed safely."""
+    """A bounded inbox operation cannot be completed safely."""
 
 
 def validate_instruction(text: object, mode: object) -> None:
-    """@brief Refuse invalid human text/mode without normalizing literal data.
-    @param[in] text Unicode text containing 1..4000 characters without NUL.
-    @param[in] mode Exactly now or after.
-    @exception InstructionError Invalid or non-UTF-8-encodable input.
+    """
+    Refuse invalid human text/mode without normalizing literal data.
+    text: Unicode text containing 1..4000 characters without NUL.
+    mode: Exactly now or after.
+    Raises InstructionError: Invalid or non-UTF-8-encodable input.
     """
     if not isinstance(text, str) or not 1 <= len(text) <= 4000 or "\0" in text:
         raise InstructionError("invalid_instruction")
@@ -60,7 +43,7 @@ def validate_instruction(text: object, mode: object) -> None:
 
 
 def _physical(path: Path, *, directory: bool) -> os.stat_result:
-    """@brief Inspect one physical directory or single-link regular file."""
+    """Inspect one physical directory or single-link regular file."""
     info = path.lstat()
     if (
         stat.S_ISLNK(info.st_mode)
@@ -76,7 +59,7 @@ def _physical(path: Path, *, directory: bool) -> os.stat_result:
 
 
 def _directories(path: Path, *, create: bool = False) -> None:
-    """@brief Inspect every ancestor before optionally creating the next physical directory."""
+    """Inspect every ancestor before optionally creating the next physical directory."""
     for ancestor in reversed((path.absolute(), *path.absolute().parents)):
         try:
             _physical(ancestor, directory=True)
@@ -88,7 +71,7 @@ def _directories(path: Path, *, create: bool = False) -> None:
 
 
 def _unique(pairs: list[tuple[str, object]]) -> dict:
-    """@brief Refuse duplicate JSON keys rather than guessing which value is authoritative."""
+    """Refuse duplicate JSON keys rather than guessing which value is authoritative."""
     result = {}
     for key, value in pairs:
         if key in result:
@@ -98,7 +81,7 @@ def _unique(pairs: list[tuple[str, object]]) -> dict:
 
 
 def _time(value: object) -> bool:
-    """@brief Validate a timezone-aware persisted timestamp."""
+    """Validate a timezone-aware persisted timestamp."""
     if not isinstance(value, str) or len(value) > 50:
         return False
     try:
@@ -108,7 +91,7 @@ def _time(value: object) -> bool:
 
 
 def _validate(row: object, identity: str) -> dict:
-    """@brief Validate the one current record shape before any text is sent."""
+    """Validate the one current record shape before any text is sent."""
     if not isinstance(row, dict) or set(row) != _FIELDS:
         raise InstructionError("instruction_schema; delete the affected instruction file")
     if type(row["schema"]) is not int or row["schema"] != 1 or row["id"] != identity:
@@ -142,18 +125,17 @@ def _validate(row: object, identity: str) -> dict:
     return row
 
 
-# PUBLIC API
 class InstructionInbox:
-    """@brief Store at most 256 physical instruction files in an existing run."""
+    """Store at most 256 physical instruction files in an existing run."""
 
     def __init__(self, run_dir: Path) -> None:
-        """@brief Bind the run directory without creating or resetting stored data."""
+        """Bind the run directory without creating or resetting stored data."""
         self.run_dir = Path(run_dir)
         self.directory = self.run_dir / "instructions"
         self.store = StateStore(self.run_dir)
 
     def _directory(self, *, create: bool = False) -> bool:
-        """@brief Validate containment before opening or creating the inbox."""
+        """Validate containment before opening or creating the inbox."""
         _directories(self.run_dir)
         if create:
             self.directory.mkdir(exist_ok=True)
@@ -165,7 +147,7 @@ class InstructionInbox:
 
     @contextmanager
     def _locked(self):
-        """@brief Serialize short atomic mutations without taking the conductor lock."""
+        """Serialize short atomic mutations without taking the conductor lock."""
         try:
             self._directory()
             _directories(self.store.locks_root, create=True)
@@ -183,7 +165,7 @@ class InstructionInbox:
             raise InstructionError("instruction_storage_unavailable") from exc
 
     def _paths(self) -> list[Path]:
-        """@brief Bound enumeration, including unexpected and crash-retained files."""
+        """Bound enumeration, including unexpected and crash-retained files."""
         paths = []
         with os.scandir(self.directory) as entries:
             for entry in entries:
@@ -193,7 +175,7 @@ class InstructionInbox:
         return paths
 
     def _read(self, path: Path) -> dict:
-        """@brief Read one bounded immutable snapshot with link/identity checks."""
+        """Read one bounded immutable snapshot with link/identity checks."""
         if not _ID.fullmatch(path.stem) or path.suffix != ".json":
             raise InstructionError("invalid_instruction_filename")
         before = _physical(path, directory=False)
@@ -220,9 +202,10 @@ class InstructionInbox:
         return _validate(json.loads(raw.decode("utf-8"), object_pairs_hook=_unique), path.stem)
 
     def read(self) -> tuple[list[dict], list[str]]:
-        """@brief Return valid records and value-free refusals; never repair files.
-        @return Sorted literal records and notices for unreadable neighbors.
-        @exception InstructionError Unavailable/unsafe directory or capacity violation.
+        """
+        Return valid records and value-free refusals; never repair files.
+        Returns: Sorted literal records and notices for unreadable neighbors.
+        Raises InstructionError: Unavailable/unsafe directory or capacity violation.
         """
         rows, notices = [], []
         try:
@@ -243,7 +226,7 @@ class InstructionInbox:
         return sorted(rows, key=lambda row: (row["created_at"], row["id"])), notices
 
     def _write(self, row: dict) -> None:
-        """@brief Flush a complete same-directory temporary before atomic replacement."""
+        """Flush a complete same-directory temporary before atomic replacement."""
         self._directory(create=True)
         raw = (json.dumps(row, ensure_ascii=False) + "\n").encode("utf-8")
         if len(raw) > MAX_RECORD_BYTES:
@@ -262,12 +245,13 @@ class InstructionInbox:
             Path(temporary).unlink(missing_ok=True)
 
     def enqueue(self, user: dict, text: str, mode: str) -> dict:
-        """@brief Atomically enqueue literal validated text with its authenticated author.
-        @param[in] user Authenticated id and username (extra principal fields ignored).
-        @param[in] text Exact instruction, 1..4000 characters without NUL.
-        @param[in] mode now or after.
-        @return Complete queued record.
-        @exception InstructionError Invalid input, full inbox or unavailable storage.
+        """
+        Atomically enqueue literal validated text with its authenticated author.
+        user: Authenticated id and username (extra principal fields ignored).
+        text: Exact instruction, 1..4000 characters without NUL.
+        mode: now or after.
+        Returns: Complete queued record.
+        Raises InstructionError: Invalid input, full inbox or unavailable storage.
         """
         validate_instruction(text, mode)
         identity = uuid4().hex
@@ -291,20 +275,21 @@ class InstructionInbox:
         return row
 
     def acknowledge(self, identity: str, how: str) -> dict:
-        """@brief Persist an idempotent receipt only after a matching Pi success.
-        @param[in] identity Exact UUID-hex instruction identity.
-        @param[in] how prompt, steer or follow_up.
-        @return Existing or newly delivered record.
-        @exception InstructionError Invalid identity, receipt or unreadable source.
+        """
+        Persist an idempotent receipt only after a matching Pi success.
+        identity: Exact UUID-hex instruction identity.
+        how: prompt, steer or follow_up.
+        Returns: Existing or newly delivered record.
+        Raises InstructionError: Invalid identity, receipt or unreadable source.
         """
         return self._update(identity, how=how)
 
     def reject(self, identity: str) -> None:
-        """@brief Keep rejected text queued with a closed value failure reason."""
+        """Keep rejected text queued with a closed value failure reason."""
         self._update(identity)
 
     def _update(self, identity: str, *, how: str = "") -> dict:
-        """@brief Refuse corrupt data rather than overwriting it during receipt updates."""
+        """Refuse corrupt data rather than overwriting it during receipt updates."""
         if (
             not isinstance(identity, str)
             or not _ID.fullmatch(identity)
@@ -325,7 +310,7 @@ class InstructionInbox:
 
 
 class InstructionDelivery:
-    """@brief Snapshot fallback instructions and match live commands to acknowledgements."""
+    """Snapshot fallback instructions and match live commands to acknowledgements."""
 
     def __init__(
         self,
@@ -335,7 +320,7 @@ class InstructionDelivery:
         on_delivery: Callable[[], None] = lambda: None,
         report: Callable[[str], None] = lambda text: None,
     ) -> None:
-        """@brief Capture pending prompt text; construction never acknowledges delivery."""
+        """Capture pending prompt text; construction never acknowledges delivery."""
         self.inbox, self.prompts = inbox, prompts
         self.on_delivery, self.report = on_delivery, report
         self.reported: set[str] = set()
@@ -343,7 +328,7 @@ class InstructionDelivery:
         self.initial = [row for row in self._rows() if row["delivery"] is None]
 
     def _rows(self) -> list[dict]:
-        """@brief Report each local refusal once per launch without leaking stored values."""
+        """Report each local refusal once per launch without leaking stored values."""
         try:
             rows, notices = self.inbox.read()
         except InstructionError as exc:
@@ -355,18 +340,18 @@ class InstructionDelivery:
         return rows
 
     def _wrapped(self, row: dict) -> str:
-        """@brief Insert authorized literal text once through the shipped prompt loader."""
+        """Insert authorized literal text once through the shipped prompt loader."""
         return self.prompts.render(
             "live/instruction.md", user=row["user"]["username"], text=row["text"]
         )
 
     @property
     def suffix(self) -> str:
-        """@brief Literal wrappers for insertion after the human thread."""
+        """Literal wrappers for insertion after the human thread."""
         return "\n\n".join(self._wrapped(row) for row in self.initial)
 
     def _receipt(self, identity: str, how: str) -> None:
-        """@brief Persist receipt before notifying the conductor; preserve failures."""
+        """Persist receipt before notifying the conductor; preserve failures."""
         try:
             self.inbox.acknowledge(identity, how)
         except InstructionError as exc:
@@ -375,12 +360,12 @@ class InstructionDelivery:
         self.on_delivery()
 
     def prompt_accepted(self) -> None:
-        """@brief Acknowledge only the snapshot actually included in the accepted prompt."""
+        """Acknowledge only the snapshot actually included in the accepted prompt."""
         for row in self.initial:
             self._receipt(row["id"], "prompt")
 
     def poll(self) -> list[dict]:
-        """@brief Produce each new live command once, for the existing stdin owner only."""
+        """Produce each new live command once, for the existing stdin owner only."""
         initial = {row["id"] for row in self.initial}
         commands = []
         for row in self._rows():
@@ -394,7 +379,7 @@ class InstructionDelivery:
         return commands
 
     def command_response(self, identity: str, command: str, success: bool) -> None:
-        """@brief Accept only exact id/command responses; rejected text remains queued."""
+        """Accept only exact id/command responses; rejected text remains queued."""
         pending = self.sent.get(identity) if isinstance(identity, str) else None
         if pending is None or pending[1] != command:
             return
@@ -406,6 +391,3 @@ class InstructionDelivery:
                 self.inbox.reject(row_id)
             except InstructionError as exc:
                 self.report(f"instruction rejection not saved: {exc}")
-
-
-# END OF FILE

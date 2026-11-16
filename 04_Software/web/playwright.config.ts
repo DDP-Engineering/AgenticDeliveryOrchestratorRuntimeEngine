@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 
@@ -23,7 +17,7 @@ export default defineConfig({
   timeout: 30_000,
   // The complete serial suite covers all feature journeys; keep a finite total budget
   // while preserving the individual test, assertion and action deadlines.
-  globalTimeout: 2_700_000,
+  globalTimeout: 5_400_000,
   expect: { timeout: 10_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {

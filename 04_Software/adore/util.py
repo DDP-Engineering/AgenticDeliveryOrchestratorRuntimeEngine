@@ -1,25 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file util.py
-@brief Shared low-level helpers: subprocess runner, durations, timestamps.
-@details The CommandRunner protocol lets every shell-out (glab/gh/git/docker)
-         be injected and faked in tests. Output is always captured, never
-         streamed (see Prerequisites_Check_Report.md finding on buffering).
-         Also: timestamps, quiet-hours windows, dotenv loading, and the
-         read-only-tolerant force_rmtree used by teardown and cleanup.
-"""
+"""Shared low-level helpers: subprocess runner, durations, timestamps."""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Callable, Sequence
 import contextlib
 from dataclasses import dataclass, field
@@ -34,8 +16,6 @@ import subprocess
 import sys
 from typing import Protocol
 
-# CONSTANTS
-
 _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd]?)\s*$", re.IGNORECASE)
 _DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
 
@@ -48,14 +28,12 @@ ANSI_ESCAPE = re.compile(
     r"|[PX^_][^\x1b\n]*(?:\x1b\\)?|[ -/]*[0-~])"
 )
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 @dataclass
 class CommandResult:
     """
-    @brief   Captured outcome of one external command invocation.
-    @details `timed_out` is set ONLY when `run_command` itself killed the
+    Captured outcome of one external command invocation.
+    `timed_out` is set ONLY when `run_command` itself killed the
              process for exceeding its wall-clock bound (a wrapper timeout,
              `subprocess.TimeoutExpired`). It is deliberately NOT inferred
              from `exit_code == 124`: a wrapped command (for example
@@ -76,9 +54,10 @@ class CommandResult:
 
     @property
     def stdout_bytes(self) -> bytes:
-        """@brief Exact captured stdout; text-only injected results encode their fixture.
-        @return Original command bytes, without decoding or newline conversion.
-        @note The production runner always supplies raw_stdout, including on timeout.
+        """
+        Exact captured stdout; text-only injected results encode their fixture.
+        Returns: Original command bytes, without decoding or newline conversion.
+        Note: The production runner always supplies raw_stdout, including on timeout.
         """
         return (self.raw_stdout if self.raw_stdout is not None
                 else self.stdout.encode("utf-8", "surrogateescape"))
@@ -86,16 +65,16 @@ class CommandResult:
     @property
     def ok(self) -> bool:
         """
-        @brief   True when the command exited with code 0.
-        @return  Success flag.
+        True when the command exited with code 0.
+        Returns: Success flag.
         """
         return self.exit_code == 0
 
 
 class CommandRunner(Protocol):
     """
-    @brief   Callable contract for running external commands.
-    @details Concrete default is run_command; tests inject fakes so no real
+    Callable contract for running external commands.
+    Concrete default is run_command; tests inject fakes so no real
              CLI (glab/gh/git/docker) is needed.
     """
 
@@ -108,39 +87,33 @@ class CommandRunner(Protocol):
         env: dict[str, str] | None = None,
     ) -> CommandResult:
         """
-        @brief      Run one command and capture its output.
-        @param[in]  argv Command and arguments (no shell).
-        @param[in]  cwd Optional working directory.
-        @param[in]  timeout Optional wall-clock limit in seconds.
-        @param[in]  env Optional replacement environment.
-        @return     The captured CommandResult.
+        Run one command and capture its output.
+        argv: Command and arguments (no shell).
+        cwd: Optional working directory.
+        timeout: Optional wall-clock limit in seconds.
+        env: Optional replacement environment.
+        Returns: The captured CommandResult.
         """
         ...  # pragma: no cover - protocol signature only
 
 
-# HELPER FUNCTIONS
-
-
 def _decode(stream: bytes | str | None) -> str:
     """
-    @brief      Normalize a captured stream (bytes/str/None) to text.
-    @param[in]  stream Raw stream from a TimeoutExpired exception.
-    @return     Decoded text (empty when the stream is None).
+    Normalize a captured stream (bytes/str/None) to text.
+    stream: Raw stream from a TimeoutExpired exception.
+    Returns: Decoded text (empty when the stream is None).
     """
     if isinstance(stream, bytes):
         return stream.decode("utf-8", "replace")
     return stream or ""
 
 
-# PUBLIC API
-
-
 def automatic_environment(env: dict[str, str] | None = None) -> dict[str, str]:
     """
-    @brief      Copy a child environment and disable interactive pagers.
-    @param[in]  env Replacement environment; None inherits the current process.
-    @return     Independent environment with authoritative Git/generic pager values.
-    @note       Explicit environments retain their account/credential boundary.
+    Copy a child environment and disable interactive pagers.
+    env: Replacement environment; None inherits the current process.
+    Returns: Independent environment with authoritative Git/generic pager values.
+    Note: Explicit environments retain their account/credential boundary.
     """
     source = os.environ if env is None else env
     result = {key: value for key, value in source.items()
@@ -151,9 +124,9 @@ def automatic_environment(env: dict[str, str] | None = None) -> dict[str, str]:
 
 def background_process_options() -> dict[str, int]:
     """
-    @brief   Suppress console allocation for automated Windows child processes.
-    @return  Windows CREATE_NO_WINDOW options, or empty options on other hosts.
-    @note    Keeps Job membership and process handles; no detached/breakaway flag.
+    Suppress console allocation for automated Windows child processes.
+    Returns: Windows CREATE_NO_WINDOW options, or empty options on other hosts.
+    Note: Keeps Job membership and process handles; no detached/breakaway flag.
     """
     # The stable Win32 value also permits offline platform simulation on Linux.
     return {"creationflags": 0x08000000} if sys.platform == "win32" else {}
@@ -167,8 +140,8 @@ def run_command(
     env: dict[str, str] | None = None,
 ) -> CommandResult:
     """
-    @brief      Run an external command without a shell, capturing all output.
-    @details    Never raises for command failure; errors are reported through
+    Run an external command without a shell, capturing all output.
+    Never raises for command failure; errors are reported through
                 the exit code (127 = binary missing, 126 = the OS refused the
                 spawn, 124 = timeout) so callers decide deterministically.
                 Raw stdout is retained for byte-exact consumers. Display output
@@ -183,11 +156,11 @@ def run_command(
                 `docker exec`) propagates an inner exit code of 124, so
                 callers can tell "we killed it" from "it exited 124 on its
                 own" (ADORE-ARCH-010).
-    @param[in]  argv Command and arguments (no shell).
-    @param[in]  cwd Optional working directory.
-    @param[in]  timeout Optional wall-clock limit in seconds.
-    @param[in]  env Optional replacement environment.
-    @return     The captured CommandResult.
+    argv: Command and arguments (no shell).
+    cwd: Optional working directory.
+    timeout: Optional wall-clock limit in seconds.
+    env: Optional replacement environment.
+    Returns: The captured CommandResult.
     """
     argv_list = [str(part) for part in argv]
     try:
@@ -239,11 +212,11 @@ def run_command(
 
 def parse_duration(text: str | int | float) -> int:
     """
-    @brief      Parse a human duration ("90s", "30m", "24h", "7d", 60) to seconds.
-    @param[in]  text Duration string with an optional s/m/h/d suffix, or a number
+    Parse a human duration ("90s", "30m", "24h", "7d", 60) to seconds.
+    text: Duration string with an optional s/m/h/d suffix, or a number
                      of seconds.
-    @return     The duration in whole seconds.
-    @exception  ValueError When the value cannot be parsed.
+    Returns: The duration in whole seconds.
+    Raises ValueError: When the value cannot be parsed.
     """
     if isinstance(text, int | float):
         if text < 0:
@@ -258,17 +231,17 @@ def parse_duration(text: str | int | float) -> int:
 
 def utc_now_iso() -> str:
     """
-    @brief   Current UTC time as a compact ISO-8601 string (Z suffix).
-    @return  Timestamp like "2026-07-02T14:02:33Z".
+    Current UTC time as a compact ISO-8601 string (Z suffix).
+    Returns: Timestamp like "2026-07-02T14:02:33Z".
     """
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def iso_to_datetime(text: str) -> datetime | None:
     """
-    @brief      Parse an ISO-8601 timestamp (Z or offset form) to aware UTC.
-    @param[in]  text Timestamp like "2026-07-02T14:02:33Z".
-    @return     The aware datetime, or None when unparseable/empty.
+    Parse an ISO-8601 timestamp (Z or offset form) to aware UTC.
+    text: Timestamp like "2026-07-02T14:02:33Z".
+    Returns: The aware datetime, or None when unparseable/empty.
     """
     if not text:
         return None
@@ -283,13 +256,13 @@ def iso_to_datetime(text: str) -> datetime | None:
 
 def in_quiet_hours(windows: Sequence[str], now: datetime | None = None) -> bool:
     """
-    @brief      Whether the current time falls in a configured quiet window.
-    @details    Windows are "HH:MM-HH:MM" local time; a window crossing
+    Whether the current time falls in a configured quiet window.
+    Windows are "HH:MM-HH:MM" local time; a window crossing
                 midnight ("22:00-06:00") wraps. Malformed windows are ignored
                 (config validation reports them separately).
-    @param[in]  windows Window strings from [polling] quiet_hours.
-    @param[in]  now Override for tests (defaults to local now).
-    @return     True when polling should pause.
+    windows: Window strings from [polling] quiet_hours.
+    now: Override for tests (defaults to local now).
+    Returns: True when polling should pause.
     """
     moment = (now or datetime.now()).time()
     for window in windows:
@@ -309,14 +282,14 @@ def in_quiet_hours(windows: Sequence[str], now: datetime | None = None) -> bool:
 def output_tail(text: str, redact: Callable[[str], str], *,
                 lines: int = 20, chars: int = 2000) -> str:
     """
-    @brief      Keep the last lines of process output as evidence safe to show.
-    @details    NUL and ANSI escapes are removed and the whole text is redacted
+    Keep the last lines of process output as evidence safe to show.
+    NUL and ANSI escapes are removed and the whole text is redacted
                 before the cut, so a cut never separates a key from its value.
-    @param[in]  text Captured output.
-    @param[in]  redact Credential redaction for the whole cleaned text.
-    @param[in]  lines Maximum number of trailing lines kept.
-    @param[in]  chars Maximum length of the result.
-    @return     The trailing lines, or "" when the output is blank.
+    text: Captured output.
+    redact: Credential redaction for the whole cleaned text.
+    lines: Maximum number of trailing lines kept.
+    chars: Maximum length of the result.
+    Returns: The trailing lines, or "" when the output is blank.
     """
     clean = ANSI_ESCAPE.sub("", str(text).replace("\x00", ""))
     kept = redact(clean).strip().splitlines()
@@ -325,16 +298,16 @@ def output_tail(text: str, redact: Callable[[str], str], *,
 
 def force_rmtree(path: str | Path) -> None:
     """
-    @brief      Remove a directory tree, tolerating read-only files and
+    Remove a directory tree, tolerating read-only files and
                 container-created symlinks.
-    @details    Two Windows hazards this handles: git objects are read-only
+    Two Windows hazards this handles: git objects are read-only
                 (plain rmtree fails - clear the bit and retry), and a
                 worktree that ran `uv sync` inside the Linux container holds
                 POSIX symlinks like `.venv/lib64 -> lib` that surface as
                 reparse points Windows scandir refuses (WinError 1920) - the
                 link entry is removed directly instead of recursed into. A
                 missing path is fine (idempotent cleanup).
-    @param[in]  path Directory to remove.
+    path: Directory to remove.
     """
     # One callback shape serves both APIs: shutil.rmtree passes it to `onerror`
     # (<=3.11) and to `onexc` (3.12+); the ignored third positional differs
@@ -363,8 +336,8 @@ def force_rmtree(path: str | Path) -> None:
 
 def process_alive(pid: int) -> bool:
     """
-    @brief      Whether a process id is currently running (cross-platform).
-    @details    Used to tell a genuinely stale single-instance lock (its owner
+    Whether a process id is currently running (cross-platform).
+    Used to tell a genuinely stale single-instance lock (its owner
                 crashed) from a live one. FAILS CLOSED: any uncertainty - an
                 access-denied probe, an unexpected OS error - reports the
                 process as alive, so a held lock is never stolen on a guess;
@@ -372,8 +345,8 @@ def process_alive(pid: int) -> bool:
                 `os.kill(pid, 0)`; on Windows it is an OpenProcess probe that
                 deliberately avoids `os.kill`, which there can terminate the
                 target instead of merely testing it.
-    @param[in]  pid Candidate process id.
-    @return     True when the pid is (or may be) running; False only when it is
+    pid: Candidate process id.
+    Returns: True when the pid is (or may be) running; False only when it is
                 certainly gone.
     """
     if pid <= 0:
@@ -393,9 +366,9 @@ def process_alive(pid: int) -> bool:
 
 def _windows_process_alive(pid: int) -> bool:
     """
-    @brief      Windows liveness probe via OpenProcess (no os.kill).
-    @param[in]  pid Candidate process id.
-    @return     True when the process exists (or cannot be ruled out).
+    Windows liveness probe via OpenProcess (no os.kill).
+    pid: Candidate process id.
+    Returns: True when the process exists (or cannot be ruled out).
     """
     import ctypes
     from ctypes import wintypes
@@ -419,12 +392,12 @@ def _windows_process_alive(pid: int) -> bool:
 
 def load_env_file(path: str | Path = ".env") -> dict[str, str]:
     """
-    @brief      Load a dotenv-style file (KEY=VALUE lines) into a mapping.
-    @details    Comments (#) and blank lines are skipped; surrounding quotes
+    Load a dotenv-style file (KEY=VALUE lines) into a mapping.
+    Comments (#) and blank lines are skipped; surrounding quotes
                 on values are stripped; a missing file yields {} (secrets are
                 optional when the platform CLI auth already covers them).
-    @param[in]  path Path to the .env file.
-    @return     Mapping of the declared variables.
+    path: Path to the .env file.
+    Returns: Mapping of the declared variables.
     """
     env_path = Path(path)
     if not env_path.is_file():
@@ -444,13 +417,13 @@ def load_env_file(path: str | Path = ".env") -> dict[str, str]:
 
 def strict_json_loads(source: str) -> object:
     """
-    @brief Decode external JSON without duplicate keys or non-finite numbers.
-    @param[in] source Untrusted JSON text, bounded by the caller.
-    @return Decoded JSON value.
-    @exception ValueError For malformed or ambiguous input.
+    Decode external JSON without duplicate keys or non-finite numbers.
+    source: Untrusted JSON text, bounded by the caller.
+    Returns: Decoded JSON value.
+    Raises ValueError: For malformed or ambiguous input.
     """
     def unique(pairs):
-        """@brief Reject repeated keys at every nested object boundary."""
+        """Reject repeated keys at every nested object boundary."""
         result = {}
         for key, value in pairs:
             if key in result:
@@ -459,13 +432,10 @@ def strict_json_loads(source: str) -> object:
         return result
 
     def invalid(value):
-        """@brief Reject constants outside the JSON number grammar."""
+        """Reject constants outside the JSON number grammar."""
         raise ValueError("non-finite JSON value")
 
     try:
         return json.loads(source, object_pairs_hook=unique, parse_constant=invalid)
     except RecursionError as exc:
         raise ValueError("JSON nesting exceeds decoder bound") from exc
-
-
-# END OF FILE

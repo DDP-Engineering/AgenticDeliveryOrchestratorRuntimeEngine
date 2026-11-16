@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_executor_settings.py
-@brief Project executor credential and durable evidence contracts.
-@details External command output is faked and never returned to the browser.
-"""
+"""Project executor credential and durable evidence contracts."""
 
 from hashlib import sha256
 import importlib
@@ -25,7 +12,7 @@ from tests.test_model_connection import project
 
 
 def test_provider_credentials_are_private_scoped_and_reversible(tmp_path, monkeypatch):
-    """@brief Save only an approved variable used by real executor environment injection."""
+    """Save only an approved variable used by real executor environment injection."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
@@ -66,7 +53,7 @@ def test_provider_credentials_are_private_scoped_and_reversible(tmp_path, monkey
 
 
 def test_credential_update_invalidates_readiness(tmp_path, monkeypatch):
-    """@brief Updating credentials invalidates prior host evidence before refresh."""
+    """Updating credentials invalidates prior host evidence before refresh."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
@@ -95,7 +82,7 @@ def test_credential_update_invalidates_readiness(tmp_path, monkeypatch):
 
 
 def test_invalid_credential_does_not_discard_readiness(tmp_path, monkeypatch):
-    """@brief Refused credential input leaves existing readiness bytes intact."""
+    """Refused credential input leaves existing readiness bytes intact."""
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     module = importlib.import_module("adore.web.app")
@@ -142,7 +129,7 @@ def test_invalid_credential_does_not_discard_readiness(tmp_path, monkeypatch):
     ],
 )
 def test_credential_boundary_preserves_original_bytes(tmp_path, monkeypatch, mode):
-    """@brief Invalid requests or corrupt stored inputs never overwrite project credentials."""
+    """Invalid requests or corrupt stored inputs never overwrite project credentials."""
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     env = profiles.profile_dir("alpha") / ".env"
@@ -201,7 +188,7 @@ def test_credential_boundary_preserves_original_bytes(tmp_path, monkeypatch, mod
 
 
 def test_model_evidence_saves_and_returns_a_tool_call_failure(tmp_path, monkeypatch):
-    """@brief A local agent that cannot run its shell call yields saved, readable evidence."""
+    """A local agent that cannot run its shell call yields saved, readable evidence."""
     profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
@@ -228,7 +215,7 @@ def test_model_evidence_saves_and_returns_a_tool_call_failure(tmp_path, monkeypa
 
 
 def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path, monkeypatch):
-    """@brief A current explicit result survives host checks and credential drift hides it."""
+    """A current explicit result survives host checks and credential drift hides it."""
     profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
@@ -286,7 +273,7 @@ def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path,
     "mode", ["foreign", "duplicate", "invalid-reason", "invalid-time", "extra"]
 )
 def test_model_evidence_corruption_fails_closed(tmp_path, monkeypatch, mode):
-    """@brief Stored records are validated before checking if they are stale."""
+    """Stored records are validated before checking if they are stale."""
     profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
@@ -328,7 +315,7 @@ def test_model_evidence_corruption_fails_closed(tmp_path, monkeypatch, mode):
 
 
 def test_private_write_failure_preserves_credentials(tmp_path, monkeypatch):
-    """@brief Failed atomic publication leaves prior key bytes and no temporary secret file."""
+    """Failed atomic publication leaves prior key bytes and no temporary secret file."""
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     directory = profiles.profile_dir("alpha")
@@ -341,7 +328,7 @@ def test_private_write_failure_preserves_credentials(tmp_path, monkeypatch):
         ).json()["csrf"]
 
         def fail(*args):
-            """@brief Simulate the secret-file publication trust boundary."""
+            """Simulate the secret-file publication trust boundary."""
             raise OSError("private error")
 
         monkeypatch.setattr("adore.web.executor_settings.os.replace", fail)
@@ -361,12 +348,12 @@ def test_private_write_failure_preserves_credentials(tmp_path, monkeypatch):
 
 
 def test_credentials_changing_during_test_do_not_publish_evidence(tmp_path, monkeypatch):
-    """@brief External credential drift during a diagnostic never records a current success."""
+    """External credential drift during a diagnostic never records a current success."""
     profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
 
     def probe(config, runner, env_file, **_options):
-        """@brief Change an external credential after the initial snapshot."""
+        """Change an external credential after the initial snapshot."""
         env_file.write_text("OPENAI_API_KEY=concurrent-change\n", encoding="utf-8")
         return {
             "executor": "pi",
@@ -388,7 +375,7 @@ def test_credentials_changing_during_test_do_not_publish_evidence(tmp_path, monk
 
 
 def _login(client) -> dict:
-    """@brief Sign in as the seeded administrator and return the CSRF header."""
+    """Sign in as the seeded administrator and return the CSRF header."""
     csrf = client.post(
         "/api/v1/session", json={"username": "admin", "password": "admin"}
     ).json()["csrf"]
@@ -396,7 +383,7 @@ def _login(client) -> dict:
 
 
 def test_credential_follows_the_configured_provider(tmp_path, monkeypatch):
-    """@brief Only the configured provider's variable is shown and saved; chatgpt has none."""
+    """Only the configured provider's variable is shown and saved; chatgpt has none."""
     from tests.test_model_connection import set_executor
 
     for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ADORE_ENDPOINT_API_KEY"):
@@ -433,7 +420,7 @@ def test_credential_follows_the_configured_provider(tmp_path, monkeypatch):
 
 
 def test_search_key_is_a_credential_only_with_internet_on(tmp_path, monkeypatch):
-    """@brief BRAVE_API_KEY / TAVILY_API_KEY join the provider key only for an On project."""
+    """BRAVE_API_KEY / TAVILY_API_KEY join the provider key only for an On project."""
     from tests.test_model_connection import set_internet
 
     for name in ("OPENAI_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY"):
@@ -463,7 +450,7 @@ def test_search_key_is_a_credential_only_with_internet_on(tmp_path, monkeypatch)
 
 
 def test_provider_key_never_leaves_the_credential_store(tmp_path, monkeypatch):
-    """@brief After save, review/apply and a test run the key is only in the profile .env."""
+    """After save, review/apply and a test run the key is only in the profile .env."""
     from adore.config import load_config
     from adore.web import model_connection
 

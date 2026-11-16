@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_storage.py
-@brief Administrator storage-warning API contract tests.
-@details Disk measurements are faked; no host capacity is assumed.
-"""
+"""Administrator storage-warning API contract tests."""
 
 from collections import namedtuple
 
@@ -23,7 +10,7 @@ Usage = namedtuple("Usage", "total used free")
 
 
 def test_admin_storage_warns_for_low_project_volume(tmp_path, monkeypatch):
-    """@brief Storage warnings cover home and project state roots."""
+    """Storage warnings cover home and project state roots."""
     home = tmp_path / "home"
     root = tmp_path / "project-state"
     root.mkdir()
@@ -54,7 +41,7 @@ def test_admin_storage_warns_for_low_project_volume(tmp_path, monkeypatch):
 
 
 def test_storage_requires_admin_and_fails_closed_on_measurement_error(tmp_path, monkeypatch):
-    """@brief A developer cannot read host capacity; failed checks are explicit."""
+    """A developer cannot read host capacity; failed checks are explicit."""
     home = tmp_path / "home"
     app = create_app(home)
     app.state.web_store.create_user("dev", "longer-password", "developer")

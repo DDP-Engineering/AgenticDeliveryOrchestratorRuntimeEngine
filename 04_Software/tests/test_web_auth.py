@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_auth.py
-@brief Public authentication and durable bootstrap contract tests.
-@details Exercises the web account store through account and session operations.
-"""
+"""Public authentication and durable bootstrap contract tests."""
 
 import shutil
 import sqlite3
@@ -25,9 +12,11 @@ import pytest
 
 from tests.execution_records import execution_record
 
+pytestmark = pytest.mark.real_password_hashing
+
 
 def test_default_admin_is_hashed_and_preserved(tmp_path):
-    """@brief A fresh install permits login and a restart preserves changes."""
+    """A fresh install permits login and a restart preserves changes."""
     path = tmp_path / "web.db"
     store = WebStore(path)
     admin = store.authenticate("admin", "admin")
@@ -41,7 +30,7 @@ def test_default_admin_is_hashed_and_preserved(tmp_path):
 
 
 def test_account_preferences_follow_the_user(tmp_path):
-    """@brief Locale/theme belong to accounts and persist when the store reopens."""
+    """Locale/theme belong to accounts and persist when the store reopens."""
     path = tmp_path / "web.db"
     store = WebStore(path)
     admin = store.authenticate("admin", "admin")
@@ -62,7 +51,7 @@ def test_account_preferences_follow_the_user(tmp_path):
 
 
 def test_account_preferences_reject_corrupt_or_unsupported_values(tmp_path):
-    """@brief Invalid writes and corrupt persisted settings fail closed."""
+    """Invalid writes and corrupt persisted settings fail closed."""
     path = tmp_path / "web.db"
     store = WebStore(path)
     admin = store.authenticate("admin", "admin")
@@ -78,7 +67,7 @@ def test_account_preferences_reject_corrupt_or_unsupported_values(tmp_path):
 
 
 def test_ticket_body_mode_round_trip_and_partial_updates(tmp_path):
-    """@brief Ticket modes persist per account without overwriting other fields."""
+    """Ticket modes persist per account without overwriting other fields."""
     path = tmp_path / "web.db"
     store = WebStore(path)
     admin = store.authenticate("admin", "admin")
@@ -96,7 +85,7 @@ def test_ticket_body_mode_round_trip_and_partial_updates(tmp_path):
 
 @pytest.mark.parametrize("mode", ["invalid", "", None, 1, True, [], {}])
 def test_ticket_body_mode_store_rejects_invalid_update(tmp_path, mode):
-    """@brief Invalid direct writes preserve the last confirmed mode."""
+    """Invalid direct writes preserve the last confirmed mode."""
     store = WebStore(tmp_path / "web.db")
     admin = store.authenticate("admin", "admin")
     before = store.set_preferences(admin["id"], {"ticket_body_mode": "source"})
@@ -107,7 +96,7 @@ def test_ticket_body_mode_store_rejects_invalid_update(tmp_path, mode):
 
 @pytest.mark.parametrize("mode", ["invalid", "", 1])
 def test_ticket_body_mode_corrupt_read_and_partial_write_refused(tmp_path, mode):
-    """@brief Corrupt saved modes fail typed without partial-write repair."""
+    """Corrupt saved modes fail typed without partial-write repair."""
     path = tmp_path / "web.db"
     store = WebStore(path)
     admin = store.authenticate("admin", "admin")
@@ -129,7 +118,7 @@ def test_ticket_body_mode_corrupt_read_and_partial_write_refused(tmp_path, mode)
 
 @pytest.mark.parametrize("damage", ["old_version", "missing_column"])
 def test_ticket_mode_schema_refusal_preserves_store(tmp_path, damage):
-    """@brief Old or incomplete stores are refused, never upgraded or recreated."""
+    """Old or incomplete stores are refused, never upgraded or recreated."""
     path = tmp_path / "web.db"
     WebStore(path)
     with sqlite3.connect(path) as connection:
@@ -146,7 +135,7 @@ def test_ticket_mode_schema_refusal_preserves_store(tmp_path, damage):
 
 
 def test_project_grant_follows_immutable_id_after_rename(tmp_path):
-    """@brief A renamed project retains grants; a recycled name cannot take them."""
+    """A renamed project retains grants; a recycled name cannot take them."""
     home = tmp_path / "home"
     profiles = ProfileStore(home)
     original = profiles.create("alpha")
@@ -165,7 +154,7 @@ def test_project_grant_follows_immutable_id_after_rename(tmp_path):
 
 
 def test_schema_four_missing_membership_identity_fails_closed(tmp_path):
-    """@brief A claimed current schema cannot omit its project grant key."""
+    """A claimed current schema cannot omit its project grant key."""
     path = tmp_path / "web.db"
     WebStore(path)
     with sqlite3.connect(path) as connection:
@@ -175,7 +164,7 @@ def test_schema_four_missing_membership_identity_fails_closed(tmp_path):
 
 
 def test_schema_twelve_missing_or_corrupt_policy_fails_startup(tmp_path):
-    """@brief Existing v12 identity data cannot silently reset audit limits."""
+    """Existing v12 identity data cannot silently reset audit limits."""
     path = tmp_path / "web.db"
     WebStore(path)
     with sqlite3.connect(path) as connection:
@@ -185,7 +174,7 @@ def test_schema_twelve_missing_or_corrupt_policy_fails_startup(tmp_path):
 
 
 def test_corrupt_existing_store_never_recreates_admin(tmp_path):
-    """@brief Existing corrupt identity data fails closed."""
+    """Existing corrupt identity data fails closed."""
     path = tmp_path / "web.db"
     path.write_bytes(b"not sqlite")
     with pytest.raises(WebStoreError):
@@ -194,7 +183,7 @@ def test_corrupt_existing_store_never_recreates_admin(tmp_path):
 
 
 def test_deleted_identity_store_never_recreates_default_admin(tmp_path):
-    """@brief A missing database after bootstrap requires explicit recovery."""
+    """A missing database after bootstrap requires explicit recovery."""
     path = tmp_path / "web.db"
     WebStore(path)
     path.unlink()
@@ -203,7 +192,7 @@ def test_deleted_identity_store_never_recreates_default_admin(tmp_path):
 
 
 def test_stopped_service_home_copy_restores_identity_profile_and_run(tmp_path):
-    """@brief A quiescent manual backup preserves all default-home evidence."""
+    """A quiescent manual backup preserves all default-home evidence."""
     original = tmp_path / "original"
     profiles = ProfileStore(original)
     profiles.create("alpha")
@@ -228,7 +217,7 @@ def test_stopped_service_home_copy_restores_identity_profile_and_run(tmp_path):
 
 
 def test_login_failure_window_is_bounded(tmp_path):
-    """@brief Repeated bad credentials lock out one identity and client."""
+    """Repeated bad credentials lock out one identity and client."""
     store = WebStore(tmp_path / "web.db")
     for _ in range(5):
         assert store.allow_login("admin", "local")
@@ -238,7 +227,7 @@ def test_login_failure_window_is_bounded(tmp_path):
 
 
 def test_sessions_and_disabled_accounts(tmp_path):
-    """@brief Sessions can be revoked and disabled users cannot sign in."""
+    """Sessions can be revoked and disabled users cannot sign in."""
     store = WebStore(tmp_path / "web.db")
     admin = store.authenticate("admin", "admin")
     token, csrf = store.create_session(admin["id"])
@@ -256,7 +245,7 @@ def test_sessions_and_disabled_accounts(tmp_path):
 
 
 def test_admin_password_reset_revokes_sessions(tmp_path):
-    """@brief Recovery sets a fresh hash and invalidates old sessions."""
+    """Recovery sets a fresh hash and invalidates old sessions."""
     store = WebStore(tmp_path / "web.db")
     user = store.create_user("dev", "longer-password", "developer")
     token, _csrf = store.create_session(user["id"])
@@ -271,7 +260,7 @@ def test_admin_password_reset_revokes_sessions(tmp_path):
 
 
 def test_reset_password_requires_own_change_until_it_succeeds(tmp_path):
-    """@brief An administrator reset marks the account until its own change."""
+    """An administrator reset marks the account until its own change."""
     path = tmp_path / "web.db"
     store = WebStore(path)
     user = store.create_user("dev", "longer-password", "developer")
@@ -292,13 +281,13 @@ def test_reset_password_requires_own_change_until_it_succeeds(tmp_path):
 
 
 def test_bootstrap_admin_starts_unmarked(tmp_path):
-    """@brief The fresh administrator keeps its bootstrap password without a forced change."""
+    """The fresh administrator keeps its bootstrap password without a forced change."""
     store = WebStore(tmp_path / "web.db")
     assert store.authenticate("admin", "admin")["password_change_required"] is False
 
 
 def test_schema_thirteen_missing_password_policy_fails_closed(tmp_path):
-    """@brief A current store without the reset marker cannot start."""
+    """A current store without the reset marker cannot start."""
     path = tmp_path / "web.db"
     WebStore(path)
     with sqlite3.connect(path) as connection:
@@ -308,7 +297,7 @@ def test_schema_thirteen_missing_password_policy_fails_closed(tmp_path):
 
 
 def test_password_change_required_limits_api_to_account_routes(tmp_path):
-    """@brief A reset account reaches only its own account routes until it changes."""
+    """A reset account reaches only its own account routes until it changes."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
@@ -349,7 +338,7 @@ def test_password_change_required_limits_api_to_account_routes(tmp_path):
 
 
 def test_password_change_required_session_can_sign_out(tmp_path):
-    """@brief Signing out remains available while a new password is required."""
+    """Signing out remains available while a new password is required."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
@@ -363,7 +352,7 @@ def test_password_change_required_session_can_sign_out(tmp_path):
 
 
 def test_factory_admin_status_and_first_boot_notice(tmp_path, capsys):
-    """@brief First boot and own session expose only the current factory state."""
+    """First boot and own session expose only the current factory state."""
     app = create_app(tmp_path / "home")
     assert "admin/admin" in capsys.readouterr().out
     with TestClient(app) as client:
@@ -382,7 +371,7 @@ def test_factory_admin_status_and_first_boot_notice(tmp_path, capsys):
 
 
 def test_factory_password_status_is_private_and_corruption_fails_closed(tmp_path):
-    """@brief Other accounts and reset credentials do not inherit the reminder."""
+    """Other accounts and reset credentials do not inherit the reminder."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     other = web.create_user("otheradmin", "long-password", "admin")
@@ -406,7 +395,7 @@ def test_factory_password_status_is_private_and_corruption_fails_closed(tmp_path
 
 
 def test_factory_notice_requires_actual_creation(tmp_path, capsys, monkeypatch):
-    """@brief A stale pre-open existence observation cannot announce an existing account."""
+    """A stale pre-open existence observation cannot announce an existing account."""
     path = tmp_path / "web.db"
     store = WebStore(path)
     admin = store.authenticate("admin", "admin")

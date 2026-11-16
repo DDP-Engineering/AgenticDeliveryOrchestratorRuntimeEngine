@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_profiles.py
-@brief Tests for the runtime-project profile store (config home, CRUD, active
-       pointer, config-path resolution) - all offline in a tmp ADORE home.
-@details Public persistence and identity boundaries cover contention and corrupt data.
-"""
+"""Tests for the runtime-project profile store (config home, CRUD, active"""
 
 from __future__ import annotations
 
-# IMPORTS
 import errno
 import json
 from pathlib import Path
@@ -30,18 +15,14 @@ from adore.profiles import (
 )
 import pytest
 
-# CONSTANTS
-
 FIXED_NOW = "2026-07-05T00:00:00Z"
-
-# HELPER FUNCTIONS
 
 
 def _store(tmp_path: Path) -> ProfileStore:
     """
-    @brief      A store rooted in a tmp ADORE home with a fixed clock.
-    @param[in]  tmp_path pytest tmp dir.
-    @return     The ProfileStore.
+    A store rooted in a tmp ADORE home with a fixed clock.
+    tmp_path: pytest tmp dir.
+    Returns: The ProfileStore.
     """
     return ProfileStore(tmp_path / "home", now=lambda: FIXED_NOW)
 
@@ -50,9 +31,7 @@ def _store(tmp_path: Path) -> ProfileStore:
 
 
 def test_home_override_wins_on_any_os(tmp_path: Path) -> None:
-    """
-    @brief   ADORE_HOME overrides the OS-native location on both platforms.
-    """
+    """ADORE_HOME overrides the OS-native location on both platforms."""
     env = {"ADORE_HOME": str(tmp_path / "custom"), "APPDATA": "ignored"}
     assert _home_for("nt", env) == tmp_path / "custom"
     assert _home_for("posix", env) == tmp_path / "custom"
@@ -60,7 +39,7 @@ def test_home_override_wins_on_any_os(tmp_path: Path) -> None:
 
 def test_home_windows_uses_appdata_then_localappdata(tmp_path: Path) -> None:
     """
-    @brief   On Windows the home is %APPDATA%\\adore, falling back to
+    On Windows the home is %APPDATA%\\adore, falling back to
              %LOCALAPPDATA%\\adore.
     """
     assert _home_for("nt", {"APPDATA": str(tmp_path / "roaming")}) == (
@@ -72,9 +51,7 @@ def test_home_windows_uses_appdata_then_localappdata(tmp_path: Path) -> None:
 
 
 def test_home_posix_uses_xdg_then_default(tmp_path: Path) -> None:
-    """
-    @brief   On POSIX the home is $XDG_CONFIG_HOME/adore, or ~/.config/adore.
-    """
+    """On POSIX the home is $XDG_CONFIG_HOME/adore, or ~/.config/adore."""
     assert _home_for("posix", {"XDG_CONFIG_HOME": str(tmp_path / "xdg")}) == (
         tmp_path / "xdg" / "adore"
     )
@@ -85,13 +62,11 @@ def test_adore_home_reads_env_at_call_time(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    @brief   The public entry point honours a live ADORE_HOME override (safe:
+    The public entry point honours a live ADORE_HOME override (safe:
              no os.name patching, which would break pathlib process-wide).
     """
     monkeypatch.setenv("ADORE_HOME", str(tmp_path / "live"))
     assert adore_home() == tmp_path / "live"
-
-
 
 
 # PUBLIC API / TESTS - CRUD round-trip
@@ -99,7 +74,7 @@ def test_adore_home_reads_env_at_call_time(
 
 def test_profile_crud_round_trip(tmp_path: Path) -> None:
     """
-    @brief   create -> load returns equal metadata; list is sorted; touch bumps
+    create -> load returns equal metadata; list is sorted; touch bumps
              the usage counters; the profile owns its state root.
     """
     store = _store(tmp_path)
@@ -123,9 +98,7 @@ def test_profile_crud_round_trip(tmp_path: Path) -> None:
 
 
 def test_profile_create_rejects_duplicate_without_overwrite(tmp_path: Path) -> None:
-    """
-    @brief   Re-creating an existing profile fails closed unless overwrite=True.
-    """
+    """Re-creating an existing profile fails closed unless overwrite=True."""
     store = _store(tmp_path)
     store.create("dup")
     with pytest.raises(ProfileError):
@@ -140,7 +113,7 @@ def test_profile_create_rejects_duplicate_without_overwrite(tmp_path: Path) -> N
 def test_profile_save_keeps_metadata_atomic_during_sharing_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, winerror, failures, recovered,
 ) -> None:
-    """@brief Recover transient Windows locks and retain prior metadata on refusal."""
+    """Recover transient Windows locks and retain prior metadata on refusal."""
     store = _store(tmp_path)
     profile = store.create("shared", description="Before")
     path = store.profile_dir(profile.name) / "profile.json"
@@ -149,7 +122,7 @@ def test_profile_save_keeps_metadata_atomic_during_sharing_errors(
     attempts = 0
 
     def sharing_error(source, target):
-        """@brief Deny replacements while checking that the original stays readable."""
+        """Deny replacements while checking that the original stays readable."""
         nonlocal attempts
         assert target == path
         assert path.read_bytes() == original
@@ -174,7 +147,7 @@ def test_profile_save_keeps_metadata_atomic_during_sharing_errors(
 
 def test_profile_rename_and_delete(tmp_path: Path) -> None:
     """
-    @brief   rename moves the directory and keeps identity; delete removes it
+    rename moves the directory and keeps identity; delete removes it
              (idempotent) and both keep the active pointer consistent.
     """
     store = _store(tmp_path)
@@ -194,9 +167,7 @@ def test_profile_rename_and_delete(tmp_path: Path) -> None:
 
 
 def test_profile_rename_rejects_missing_or_colliding(tmp_path: Path) -> None:
-    """
-    @brief   rename fails closed for an unknown source or an existing target.
-    """
+    """rename fails closed for an unknown source or an existing target."""
     store = _store(tmp_path)
     store.create("a")
     store.create("b")
@@ -210,9 +181,7 @@ def test_profile_rename_rejects_missing_or_colliding(tmp_path: Path) -> None:
 
 
 def test_active_pointer_lifecycle(tmp_path: Path) -> None:
-    """
-    @brief   set/get/clear the active profile; setting an unknown one fails.
-    """
+    """set/get/clear the active profile; setting an unknown one fails."""
     store = _store(tmp_path)
     assert store.get_active() is None
     store.create("proj")
@@ -229,7 +198,7 @@ def test_active_pointer_lifecycle(tmp_path: Path) -> None:
 
 def test_resolve_config_path_precedence(tmp_path: Path) -> None:
     """
-    @brief   Explicit -c wins over --profile wins over the active pointer wins
+    Explicit -c wins over --profile wins over the active pointer wins
              over the local ./config.toml; an unknown --profile fails closed;
              a stale active pointer falls through to the default.
     """
@@ -264,7 +233,7 @@ def test_resolve_config_path_precedence(tmp_path: Path) -> None:
 
 def test_corrupt_profile_json_fails_closed(tmp_path: Path) -> None:
     """
-    @brief   A corrupt profile.json raises ProfileError on load and is reported
+    A corrupt profile.json raises ProfileError on load and is reported
              by invalid_profiles() while list_profiles() skips it (never a
              silent reinitialize).
     """
@@ -281,9 +250,7 @@ def test_corrupt_profile_json_fails_closed(tmp_path: Path) -> None:
 
 
 def test_load_missing_profile_raises(tmp_path: Path) -> None:
-    """
-    @brief   Loading a non-existent profile fails closed (distinct message).
-    """
+    """Loading a non-existent profile fails closed (distinct message)."""
     store = _store(tmp_path)
     with pytest.raises(ProfileError):
         store.load("absent")
@@ -291,7 +258,7 @@ def test_load_missing_profile_raises(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("change", ["unknown", "missing"])
 def test_profile_json_of_another_build_is_refused(tmp_path: Path, change: str) -> None:
-    """@brief An unknown or missing key means another build wrote profile.json."""
+    """An unknown or missing key means another build wrote profile.json."""
     store = _store(tmp_path)
     store.create("proj", repo="g/p")
     meta = store.profile_dir("proj") / "profile.json"
@@ -306,7 +273,7 @@ def test_profile_json_of_another_build_is_refused(tmp_path: Path, change: str) -
 
 
 def test_profile_directory_name_overrides_the_stored_name(tmp_path: Path) -> None:
-    """@brief The directory name is the profile's identity."""
+    """The directory name is the profile's identity."""
     store = _store(tmp_path)
     store.create("proj", repo="g/p")
     meta = store.profile_dir("proj") / "profile.json"
@@ -318,7 +285,7 @@ def test_profile_directory_name_overrides_the_stored_name(tmp_path: Path) -> Non
 
 
 def test_profile_identity_survives_rename_and_bad_ids_fail(tmp_path: Path) -> None:
-    """@brief The project ID is stable across renames and a corrupt ID fails closed."""
+    """The project ID is stable across renames and a corrupt ID fails closed."""
     store = _store(tmp_path)
     identity = store.create("old", repo="g/p").project_id
     store.rename("old", "new")
@@ -332,14 +299,12 @@ def test_profile_identity_survives_rename_and_bad_ids_fail(tmp_path: Path) -> No
         store.load("new")
 
 
-
-
 @pytest.mark.parametrize("persistent", [False, True])
 @pytest.mark.parametrize("winerror", [5, 32, 33, None])
 def test_profile_read_bounds_windows_sharing_contention(
     tmp_path, monkeypatch, persistent, winerror,
 ):
-    """@brief Retry transient metadata replacement sharing; persistent denial fails closed."""
+    """Retry transient metadata replacement sharing; persistent denial fails closed."""
     store = ProfileStore(tmp_path)
     expected = store.create("alpha")
     target = store.profile_dir("alpha") / "profile.json"
@@ -374,7 +339,7 @@ def test_profile_read_bounds_windows_sharing_contention(
 
 @pytest.mark.parametrize("error_kind", ["permission", "unrelated", "corrupt"])
 def test_identity_lookup_never_silently_omits_a_failed_read(tmp_path, monkeypatch, error_kind):
-    """@brief Return a coherent identity or typed refusal, never missing for a failed read."""
+    """Return a coherent identity or typed refusal, never missing for a failed read."""
     store = ProfileStore(tmp_path)
     expected = store.create("alpha")
     target = store.profile_dir("alpha") / "profile.json"
@@ -382,7 +347,7 @@ def test_identity_lookup_never_silently_omits_a_failed_read(tmp_path, monkeypatc
     reads = 0
 
     def changes_after_read(path, *args, **kwargs):
-        """@brief Permit a complete read, then expose a boundary failure on any rescan."""
+        """Permit a complete read, then expose a boundary failure on any rescan."""
         nonlocal reads
         if path == target:
             reads += 1
@@ -407,7 +372,7 @@ def test_identity_lookup_never_silently_omits_a_failed_read(tmp_path, monkeypatc
     "boundary", ["persistent", "stat_denied", "unrelated", "corrupt", "duplicate"],
 )
 def test_identity_lookup_fails_closed_on_bad_metadata(tmp_path, monkeypatch, boundary):
-    """@brief Persistent denial, unrelated I/O, corrupt JSON and duplicate IDs cannot disappear."""
+    """Persistent denial, unrelated I/O, corrupt JSON and duplicate IDs cannot disappear."""
     store = ProfileStore(tmp_path)
     expected = store.create("alpha")
     target = store.profile_dir("alpha") / "profile.json"
@@ -418,7 +383,7 @@ def test_identity_lookup_fails_closed_on_bad_metadata(tmp_path, monkeypatch, bou
         original_stat = Path.stat
 
         def denied_stat(path, *args, **kwargs):
-            """@brief A denied metadata stat cannot turn an existing identity into absence."""
+            """A denied metadata stat cannot turn an existing identity into absence."""
             if path == target:
                 raise PermissionError(errno.EACCES, "metadata stat denied")
             return original_stat(path, *args, **kwargs)
@@ -432,7 +397,7 @@ def test_identity_lookup_fails_closed_on_bad_metadata(tmp_path, monkeypatch, bou
         target.write_text("{corrupt", encoding="utf-8")
     else:
         def denied(path, *args, **kwargs):
-            """@brief Keep physical bytes while refusing one metadata read boundary."""
+            """Keep physical bytes while refusing one metadata read boundary."""
             if path == target:
                 attempts.append(True)
                 if boundary == "persistent":
@@ -451,7 +416,7 @@ def test_identity_lookup_fails_closed_on_bad_metadata(tmp_path, monkeypatch, bou
 
 
 def test_identity_lookup_distinguishes_present_unknown_and_deleted(tmp_path):
-    """@brief Resolve valid IDs exactly; absent IDs return None without recreating metadata."""
+    """Resolve valid IDs exactly; absent IDs return None without recreating metadata."""
     store = ProfileStore(tmp_path)
     profile = store.create("alpha", repo="synthetic/repo")
     assert store.find_by_id(profile.project_id) == profile
@@ -463,7 +428,7 @@ def test_identity_lookup_distinguishes_present_unknown_and_deleted(tmp_path):
 
 @pytest.mark.parametrize("error_kind", ["permission", "unknown_windows", "corrupt", "stat"])
 def test_profile_read_does_not_retry_unrelated_failures(tmp_path, monkeypatch, error_kind):
-    """@brief Retry only recognized denials; malformed bytes and other errors fail closed."""
+    """Retry only recognized denials; malformed bytes and other errors fail closed."""
     store = ProfileStore(tmp_path)
     store.create("alpha")
     target = store.profile_dir("alpha") / "profile.json"
@@ -472,7 +437,7 @@ def test_profile_read_does_not_retry_unrelated_failures(tmp_path, monkeypatch, e
     delays = []
 
     def failed_read(path, *args, **kwargs):
-        """@brief Fail one metadata boundary without changing the physical file."""
+        """Fail one metadata boundary without changing the physical file."""
         if path == target:
             attempts.append(True)
             if error_kind == "corrupt":
@@ -488,7 +453,7 @@ def test_profile_read_does_not_retry_unrelated_failures(tmp_path, monkeypatch, e
         original_stat = Path.stat
 
         def failed_stat(path, *args, **kwargs):
-            """@brief Refuse metadata discovery with a typed I/O boundary."""
+            """Refuse metadata discovery with a typed I/O boundary."""
             if path == target:
                 attempts.append(True)
                 raise PermissionError(errno.EACCES, "stat denied")
@@ -504,11 +469,8 @@ def test_profile_read_does_not_retry_unrelated_failures(tmp_path, monkeypatch, e
 
 @pytest.mark.parametrize("identity", [None, "not-an-id", "F" * 32, 17])
 def test_identity_lookup_rejects_malformed_requested_ids(tmp_path, identity):
-    """@brief An invalid external identity is refused without recreating profile storage."""
+    """An invalid external identity is refused without recreating profile storage."""
     store = ProfileStore(tmp_path)
     with pytest.raises(ProfileError, match="invalid project ID"):
         store.find_by_id(identity)
     assert not store.profiles_dir.exists()
-
-
-# END OF FILE

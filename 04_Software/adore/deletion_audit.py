@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file deletion_audit.py
-@brief Durable local CLI deletion attempts outside the job directory.
-@details SQLite is independent of optional web identity and keeps interrupted
-         attempts uncertain. Corrupt or unsupported stores are never replaced.
-"""
+"""Durable local CLI deletion attempts outside the job directory."""
 
 from __future__ import annotations
 
-# IMPORTS
 from contextlib import closing, contextmanager
 from datetime import UTC, datetime
 import os
@@ -27,7 +12,6 @@ import sqlite3
 
 from adore.state import StateError
 
-# CONSTANTS
 NAME = "deletion-audit.db"
 _COLUMNS = {
     "event_key",
@@ -41,17 +25,15 @@ _COLUMNS = {
 }
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class DeletionAuditError(StateError):
-    """@brief Local deletion audit is unavailable or corrupt."""
+    """Local deletion audit is unavailable or corrupt."""
 
 
-# PUBLIC API
 class DeletionAudit:
-    """@brief Own the standard-library local deletion receipt store."""
+    """Own the standard-library local deletion receipt store."""
 
     def __init__(self, home: Path) -> None:
-        """@brief Open or create a store without replacing an existing file."""
+        """Open or create a store without replacing an existing file."""
         self.path = home / NAME
         try:
             home.mkdir(parents=True, exist_ok=True)
@@ -79,7 +61,7 @@ class DeletionAudit:
 
     @contextmanager
     def connect(self):
-        """@brief Open and close the existing ledger without implicit creation."""
+        """Open and close the existing ledger without implicit creation."""
         connection = sqlite3.connect(
             self.path.resolve().as_uri() + "?mode=rw", uri=True, timeout=10
         )
@@ -91,7 +73,7 @@ class DeletionAudit:
 
     @staticmethod
     def validate(connection, prefix="") -> None:
-        """@brief Reject unsupported schemas and any invalid persisted receipt."""
+        """Reject unsupported schemas and any invalid persisted receipt."""
         schema = prefix + "." if prefix else ""
         if connection.execute(f"PRAGMA {schema}user_version").fetchone()[0] != 1:
             raise DeletionAuditError(
@@ -154,7 +136,7 @@ class DeletionAudit:
                 raise DeletionAuditError("deletion audit is corrupt") from exc
 
     def begin(self, project: str, project_id: str | None, run_id: str) -> str:
-        """@brief Commit uncertain evidence before any destructive cleanup."""
+        """Commit uncertain evidence before any destructive cleanup."""
         key = secrets.token_hex(32)
         try:
             with self.connect() as connection:
@@ -170,7 +152,7 @@ class DeletionAudit:
         return key
 
     def confirm(self, key: str) -> None:
-        """@brief Mark only the verified completed attempt applied."""
+        """Mark only the verified completed attempt applied."""
         try:
             with self.connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -184,6 +166,3 @@ class DeletionAudit:
                     raise DeletionAuditError("deletion audit receipt unavailable")
         except (OSError, sqlite3.Error, ValueError) as exc:
             raise DeletionAuditError("cannot confirm deletion audit") from exc
-
-
-# END OF FILE

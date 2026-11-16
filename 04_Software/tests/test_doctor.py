@@ -1,21 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_doctor.py
-@brief Tests for environment detection + prerequisite guidance - offline, with
-       a fake command runner (no real git/glab/gh/tea/docker/wsl calls).
-"""
+"""Tests for environment detection + prerequisite guidance - offline, with"""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Sequence
 import json
 from pathlib import Path
@@ -24,13 +10,11 @@ from adore import doctor
 from adore.util import CommandResult
 import pytest
 
-# HELPER FUNCTIONS
-
 
 class FakeRunner:
     """
-    @brief   Command runner double keyed by argv prefix; unknown -> 127.
-    @details Maps `" ".join(argv)` by longest-prefix to a canned result, so a
+    Command runner double keyed by argv prefix; unknown -> 127.
+    Maps `" ".join(argv)` by longest-prefix to a canned result, so a
              probe for an unlisted tool looks "not found" (exit 127), exactly
              like run_command on a missing binary.
     """
@@ -64,9 +48,7 @@ def _fail(stderr: str = "", exit_code: int = 1) -> CommandResult:
 
 
 def test_os_key_mapping() -> None:
-    """
-    @brief   platform.system() values normalize to ADORE OS keys.
-    """
+    """platform.system() values normalize to ADORE OS keys."""
     assert doctor._os_key("Windows") == "windows"
     assert doctor._os_key("Linux") == "linux"
     assert doctor._os_key("Darwin") == "macos"
@@ -77,9 +59,7 @@ def test_os_key_mapping() -> None:
 
 
 def test_detect_git_present_and_absent() -> None:
-    """
-    @brief   A clean `git --version` -> present with version; exit 127 -> absent.
-    """
+    """A clean `git --version` -> present with version; exit 127 -> absent."""
     present = doctor.detect_git(FakeRunner({"git --version": _ok("git version 2.43.0")}))
     assert present.present and present.version == "git version 2.43.0"
     absent = doctor.detect_git(FakeRunner({}))          # nothing registered -> 127
@@ -88,7 +68,7 @@ def test_detect_git_present_and_absent() -> None:
 
 def test_detect_platform_cli_maps_kind_and_rejects_unknown() -> None:
     """
-    @brief   gitlab -> glab, github -> gh, gitea -> tea; an unknown kind
+    gitlab -> glab, github -> gh, gitea -> tea; an unknown kind
              fails closed.
     """
     runner = FakeRunner({
@@ -105,7 +85,7 @@ def test_detect_platform_cli_maps_kind_and_rejects_unknown() -> None:
 
 def test_auth_status_authenticated_unauth_and_missing() -> None:
     """
-    @brief   auth status distinguishes authenticated (exit 0), present-but-not
+    auth status distinguishes authenticated (exit 0), present-but-not
              (non-zero), and CLI-missing (exit 127).
     """
     good = doctor.auth_status("gitlab", FakeRunner({"glab auth status": _ok("Logged in")}))
@@ -117,9 +97,7 @@ def test_auth_status_authenticated_unauth_and_missing() -> None:
 
 
 def test_auth_status_gitea_probes_verified_account_api() -> None:
-    """
-    @brief   Gitea authentication requires a successful account API, not CLI exit alone.
-    """
+    """Gitea authentication requires a successful account API, not CLI exit alone."""
     runner = FakeRunner({
         "tea api -i --method GET user": CommandResult(
             stdout='{"login":"dpasare"}', stderr="HTTP/1.1 200 OK"),
@@ -148,7 +126,7 @@ def test_auth_status_gitea_probes_verified_account_api() -> None:
     CommandResult(stdout='{"login":"alice"}', stderr="HTTP/1.1 200 OK", timed_out=True),
 ])
 def test_auth_status_gitea_rejects_unverified_identity(result) -> None:
-    """@brief Malformed identities, missing HTTP proof and timeout never authenticate."""
+    """Malformed identities, missing HTTP proof and timeout never authenticate."""
     status = doctor.auth_status("gitea", FakeRunner({"tea api": result}))
     assert status.present and not status.authenticated
     assert "Connect repository" in status.detail
@@ -156,7 +134,7 @@ def test_auth_status_gitea_rejects_unverified_identity(result) -> None:
 
 
 def test_auth_status_gitea_respects_caller_credential_authority() -> None:
-    """@brief A caller-owned credential scope disables external-login discovery."""
+    """A caller-owned credential scope disables external-login discovery."""
     runner = FakeRunner({"tea api": _fail("Error: no available login")})
     assert not doctor.auth_status("gitea", runner, external_auth=False).authenticated
     assert len(runner.calls) == 1
@@ -164,7 +142,7 @@ def test_auth_status_gitea_respects_caller_credential_authority() -> None:
 
 def test_detect_runtimes_windows_lists_wsl_distros() -> None:
     """
-    @brief   On Windows docker/podman are probed and WSL distros parsed (null
+    On Windows docker/podman are probed and WSL distros parsed (null
              bytes / blank lines from the UTF-16 quirk are stripped).
     """
     runner = FakeRunner({
@@ -178,9 +156,7 @@ def test_detect_runtimes_windows_lists_wsl_distros() -> None:
 
 
 def test_detect_runtimes_linux_skips_wsl() -> None:
-    """
-    @brief   On Linux WSL is never probed (distros always empty).
-    """
+    """On Linux WSL is never probed (distros always empty)."""
     runner = FakeRunner({
         "podman --version": _ok("podman version 4.9.3"),
         "wsl -l -q": _ok("SHOULD-NOT-BE-USED"),
@@ -191,7 +167,7 @@ def test_detect_runtimes_linux_skips_wsl() -> None:
 
 
 def test_detect_executor_reports_missing_node_without_global_pi(tmp_path, monkeypatch) -> None:
-    """@brief Doctor gives an actionable result before running any command."""
+    """Doctor gives an actionable result before running any command."""
     monkeypatch.setenv("ADORE_NODE", str(tmp_path / "missing"))
     runner = FakeRunner({})
     status = doctor.detect_executor(runner=runner)
@@ -200,9 +176,7 @@ def test_detect_executor_reports_missing_node_without_global_pi(tmp_path, monkey
 
 
 def test_detect_all_aggregate(tmp_path, monkeypatch) -> None:
-    """
-    @brief   detect_all runs one probe of each and returns a full report.
-    """
+    """detect_all runs one probe of each and returns a full report."""
     from adore import pi_installation as managed
 
     from tests.test_pi_installation import fake_node, write_fake_packages
@@ -225,7 +199,7 @@ def test_detect_all_aggregate(tmp_path, monkeypatch) -> None:
 
 def test_detect_push_access_reports_a_reachable_remote(tmp_path: Path) -> None:
     """
-    @brief   `git ls-remote` proves the HOST credentials ADORE pushes with,
+    `git ls-remote` proves the HOST credentials ADORE pushes with,
              which the platform-CLI auth probe does not cover. It runs in the
              target clone so the remote resolves.
     """
@@ -237,7 +211,7 @@ def test_detect_push_access_reports_a_reachable_remote(tmp_path: Path) -> None:
 
 def test_detect_gitignore_flags_a_target_without_one(tmp_path: Path) -> None:
     """
-    @brief   ADORE checkpoints with `git add -A` and cannot tell new source
+    ADORE checkpoints with `git add -A` and cannot tell new source
              from generated files; only the repository's ignore rules can. A
              target without a .gitignore is flagged at setup rather than
              discovered as fifteen changed files for a two-file change.
@@ -251,7 +225,7 @@ def test_detect_gitignore_flags_a_target_without_one(tmp_path: Path) -> None:
 
 def test_detect_push_access_names_a_missing_clone_directory(tmp_path: Path) -> None:
     """
-    @brief   During `adore init` the likeliest cause is a mistyped clone path.
+    During `adore init` the likeliest cause is a mistyped clone path.
              git run with a missing cwd fails as "no such file" on POSIX and
              WinError 267 on Windows, either of which would otherwise be
              reported as a missing git binary or a raw OS code.
@@ -263,7 +237,7 @@ def test_detect_push_access_names_a_missing_clone_directory(tmp_path: Path) -> N
 
 def test_detect_push_access_surfaces_a_credential_failure(tmp_path: Path) -> None:
     """
-    @brief   An unloaded SSH key fails here, at setup, instead of at
+    An unloaded SSH key fails here, at setup, instead of at
              publication - where it would discard a human approval that had
              already been given for the candidate.
     """
@@ -279,7 +253,7 @@ def test_detect_push_access_surfaces_a_credential_failure(tmp_path: Path) -> Non
 
 def test_guidance_is_os_specific_where_it_matters() -> None:
     """
-    @brief   OS-specific components differ by OS; a "*" component (token setup)
+    OS-specific components differ by OS; a "*" component (token setup)
              is shared and carries the explicit PAT format.
     """
     win = doctor.guidance_for(doctor.GIT, "windows")
@@ -298,16 +272,12 @@ def test_guidance_is_os_specific_where_it_matters() -> None:
 
 
 def test_guidance_unknown_component_is_graceful() -> None:
-    """
-    @brief   An unknown component returns a helpful fallback, not a KeyError.
-    """
+    """An unknown component returns a helpful fallback, not a KeyError."""
     assert "no setup guidance" in doctor.guidance_for("nonsense", "linux")
 
 
 def test_auth_component_for_kind() -> None:
-    """
-    @brief   Maps a platform kind to its auth-guidance component; rejects others.
-    """
+    """Maps a platform kind to its auth-guidance component; rejects others."""
     assert doctor.auth_component_for_kind("gitlab") == doctor.GLAB_AUTH
     assert doctor.auth_component_for_kind("github") == doctor.GH_AUTH
     assert doctor.auth_component_for_kind("gitea") == doctor.TEA_AUTH
@@ -317,7 +287,7 @@ def test_auth_component_for_kind() -> None:
 
 def test_guidance_covers_tea_install_and_auth() -> None:
     """
-    @brief   The tea install text exists per OS and the shared auth text names
+    The tea install text exists per OS and the shared auth text names
              `tea login add` plus the [platform] login alternative - the
              wizard prints these verbatim when something is missing.
     """
@@ -331,9 +301,9 @@ def test_guidance_covers_tea_install_and_auth() -> None:
 
 def _aegis_repo(tmp_path: Path) -> Path:
     """
-    @brief      A directory carrying the AEGIS Python companion CLI.
-    @param[in]  tmp_path pytest tmp dir.
-    @return     The repository root.
+    A directory carrying the AEGIS Python companion CLI.
+    tmp_path: pytest tmp dir.
+    Returns: The repository root.
     """
     root = tmp_path / "target-repo"
     wrapper = root / ".agentic" / "aegis.py"
@@ -346,9 +316,7 @@ def _aegis_repo(tmp_path: Path) -> Path:
 def test_aegis_probe_accepts_a_valid_015_schema_1_payload(
     tmp_path: Path, interpreter: str,
 ) -> None:
-    """
-    @brief   Version 0.15.x plus schema-1 status proves target readiness.
-    """
+    """Version 0.15.x plus schema-1 status proves target readiness."""
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
         f"{interpreter} .agentic/aegis.py --version": CommandResult(
@@ -366,7 +334,7 @@ def test_aegis_probe_accepts_a_valid_015_schema_1_payload(
     seen_cwds: list[str] = []
 
     def probe(argv, **kwargs):
-        """@brief Record the command working directory without executing a CLI."""
+        """Record the command working directory without executing a CLI."""
         seen_cwds.append(kwargs["cwd"])
         return runner(argv, **kwargs)
 
@@ -384,7 +352,7 @@ def test_aegis_probe_accepts_a_valid_015_schema_1_payload(
 
 @pytest.mark.parametrize("interpreter", ["python", "python3"])
 def test_aegis_probe_names_unavailable_interpreter(tmp_path: Path, interpreter: str) -> None:
-    """@brief Exit 127 names the selected executable and skips the status probe."""
+    """Exit 127 names the selected executable and skips the status probe."""
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({})
     status = doctor.detect_aegis(root, runner, aegis_python=interpreter)
@@ -403,7 +371,7 @@ def test_aegis_probe_names_unavailable_interpreter(tmp_path: Path, interpreter: 
 def test_aegis_probe_preserves_version_diagnostic(
     tmp_path: Path, version: str, stderr: str, detail: str,
 ) -> None:
-    """@brief Unsupported/empty versions retain bounded diagnostics and skip status."""
+    """Unsupported/empty versions retain bounded diagnostics and skip status."""
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
         "python3 .agentic/aegis.py --version": CommandResult(
@@ -425,7 +393,7 @@ def test_aegis_probe_preserves_version_diagnostic(
 def test_aegis_probe_preserves_malformed_status_diagnostic(
     tmp_path: Path, stdout: str, stderr: str, detail: str,
 ) -> None:
-    """@brief Malformed exit-zero JSON remains not-ready with bounded evidence."""
+    """Malformed exit-zero JSON remains not-ready with bounded evidence."""
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
         "python3 .agentic/aegis.py --version": _ok("aegis 0.15.2"),
@@ -444,7 +412,7 @@ def test_aegis_probe_preserves_malformed_status_diagnostic(
 
 def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:
     """
-    @brief   No companion CLI means no AEGIS payload; no command runs.
+    No companion CLI means no AEGIS payload; no command runs.
              command it knows will fail.
     """
     runner = FakeRunner({})
@@ -457,7 +425,7 @@ def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:
 @pytest.mark.parametrize("entry", ["directory", "dangling-link"])
 def test_present_unusable_payload_is_not_announced_as_direct(tmp_path: Path, entry: str,
                                                            request) -> None:
-    """@brief An unusable payload entry is not permission to bypass AEGIS probes."""
+    """An unusable payload entry is not permission to bypass AEGIS probes."""
     wrapper = tmp_path / ".agentic" / "aegis.py"
     wrapper.parent.mkdir()
     if entry == "directory":
@@ -476,7 +444,7 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   A nonconforming status and non-JSON output both read as
+    A nonconforming status and non-JSON output both read as
              not-ready with the detail preserved; neither is mistaken for a
              healthy repository.
     """
@@ -510,9 +478,7 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
 
 
 def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
-    """
-    @brief   ADORE speaks only AEGIS schema 1.
-    """
+    """ADORE speaks only AEGIS schema 1."""
     root = _aegis_repo(tmp_path)
     status = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
@@ -549,8 +515,8 @@ def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
 
 def test_aegis_doctor_shares_one_gate_with_the_client() -> None:
     """
-    @brief   Doctor and the orchestrator never disagree about what is supported.
-    @details Doctor once carried its own version regex, which silently went
+    Doctor and the orchestrator never disagree about what is supported.
+    Doctor once carried its own version regex, which silently went
              stale when the client's supported range moved. It now derives the
              answer from the client's constants, so this holds for any minor.
     """
@@ -563,15 +529,10 @@ def test_aegis_doctor_shares_one_gate_with_the_client() -> None:
 
 
 def test_aegis_guidance_names_hard_break(tmp_path: Path) -> None:
-    """
-    @brief   Guidance states the supported range and the schema it speaks.
-    """
+    """Guidance states the supported range and the schema it speaks."""
     text = doctor.guidance_for(doctor.AEGIS, "linux")
     assert text == doctor.guidance_for(doctor.AEGIS, "windows")
     assert doctor.AEGIS_SUPPORTED_TEXT in text
     assert "schema 1" in text and "only" in text.lower()
     assert "optional" in text.lower()
     assert "must carry" not in text and "Install the payload" not in text
-
-
-# END OF FILE

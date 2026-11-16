@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
 # @file    verify_container_runtime.sh
 # @brief   Live verification pass for a container runtime (docker or podman).
 # @details Mirrors, flag for flag, every runtime CLI call ADORE's
@@ -45,7 +38,6 @@
 #          is the real host behaviour, not a script defect.
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-11-15
-# @version 0.17.0
 # -----------------------------------------------------------------------------
 # shellcheck disable=SC2015  # `check && ok || bad` is safe: ok is a bare echo
 set -euo pipefail

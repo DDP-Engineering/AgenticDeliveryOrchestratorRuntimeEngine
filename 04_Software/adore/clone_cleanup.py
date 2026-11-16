@@ -1,27 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file clone_cleanup.py
-@brief Decide whether a deleted project's local clone may be removed.
-@details Enrollment clones repositories into <ADORE home>/repos. When an
-         administrator asks for it, project deletion removes that clone too,
-         but only when it is plainly ADORE's own: under <ADORE home>/repos and
-         not reached through a symlink, a git clone of the project's
-         repository, not another project's clone, with no linked worktree and
-         no uncommitted changes. Every other case keeps the clone and names
-         the reason, so the web dialog and the CLI can say why.
-"""
+"""Decide whether a deleted project's local clone may be removed."""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Iterable
 from dataclasses import dataclass
 import os
@@ -32,7 +12,6 @@ from adore.profiles import ProfileStore
 from adore.util import CommandRunner, run_command
 from adore.web.repository_source import RepositorySourceError, parse_repository_url, read_origin
 
-# CONSTANTS
 STATUS_TIMEOUT = 30
 REASONS = (
     "outside-repos",
@@ -48,14 +27,14 @@ REASONS = (
 
 @dataclass(frozen=True)
 class CloneDecision:
-    """@brief Whether a project's clone may be removed, and why not when it may not."""
+    """Whether a project's clone may be removed, and why not when it may not."""
 
     path: str
     removable: bool
     reason: str = ""
 
     def view(self) -> dict:
-        """@brief JSON form for the API and the CLI report."""
+        """JSON form for the API and the CLI report."""
         return {"path": self.path, "removable": self.removable, "reason": self.reason}
 
 
@@ -64,7 +43,7 @@ def _keep(path: Path | str, reason: str) -> CloneDecision:
 
 
 def _same_repository(clone: Path, repo: str) -> bool:
-    """@brief True when the clone's origin names the project's owner/repository."""
+    """True when the clone's origin names the project's owner/repository."""
     origin = read_origin(clone)
     if not origin:
         return False
@@ -76,7 +55,7 @@ def _same_repository(clone: Path, repo: str) -> bool:
 
 
 def _redirects(part: Path) -> bool:
-    """@brief True when this path component is a symlink or a Windows junction."""
+    """True when this path component is a symlink or a Windows junction."""
     if part.is_symlink():
         return True
     real = os.path.normcase(os.path.realpath(part))
@@ -84,7 +63,7 @@ def _redirects(part: Path) -> bool:
 
 
 def _linked_folders(clone: Path) -> list[Path]:
-    """@brief Folders of the worktrees linked to the clone that still exist."""
+    """Folders of the worktrees linked to the clone that still exist."""
     folders = []
     linked = clone / ".git" / "worktrees"
     for entry in linked.iterdir() if linked.is_dir() else ():
@@ -100,7 +79,7 @@ def _linked_folders(clone: Path) -> list[Path]:
 
 
 def _inside(value: str, clone: Path) -> bool:
-    """@brief True when another project's path is the clone, lies in it, or is not absolute."""
+    """True when another project's path is the clone, lies in it, or is not absolute."""
     if not value:
         return False
     path = Path(value)
@@ -108,7 +87,7 @@ def _inside(value: str, clone: Path) -> bool:
 
 
 def _used_elsewhere(store: ProfileStore, name: str, clone: Path) -> bool:
-    """@brief True when another project uses the clone, or that cannot be ruled out."""
+    """True when another project uses the clone, or that cannot be ruled out."""
     if [other for other in store.invalid_profiles() if other != name]:
         return True
     for profile in store.list_profiles():
@@ -142,15 +121,15 @@ def clone_decision(
     linked_worktrees_ok: bool = False,
 ) -> CloneDecision:
     """
-    @brief      Decide whether the clone at repo_path may be removed with project name.
-    @param[in]  store Profile store; its home defines <ADORE home>/repos.
-    @param[in]  name Project being deleted (its own profile is not "another project").
-    @param[in]  repo_path The project's configured clone path.
-    @param[in]  repo The project's owner/repository identifier.
-    @param[in]  runner Command boundary for `git status`.
-    @param[in]  linked_worktrees_ok Ignore linked worktrees (before the resource sweep,
+    Decide whether the clone at repo_path may be removed with project name.
+    store: Profile store; its home defines <ADORE home>/repos.
+    name: Project being deleted (its own profile is not "another project").
+    repo_path: The project's configured clone path.
+    repo: The project's owner/repository identifier.
+    runner: Command boundary for `git status`.
+    linked_worktrees_ok: Ignore linked worktrees (before the resource sweep,
                 which removes ADORE's own; the caller checks the kept ones).
-    @return     A removable decision, or the first reason to keep the clone.
+    Returns: A removable decision, or the first reason to keep the clone.
     """
     try:
         return _decide(store, name, repo_path, repo, runner, linked_worktrees_ok)
@@ -167,7 +146,7 @@ def _decide(
     runner: CommandRunner,
     linked_worktrees_ok: bool,
 ) -> CloneDecision:
-    """@brief clone_decision without the guard for malformed input."""
+    """clone_decision without the guard for malformed input."""
     raw = Path(repo_path) if repo_path else None
     if raw is None or not raw.is_absolute():
         return _keep(repo_path, "outside-repos")
@@ -211,11 +190,11 @@ def project_clone_decision(
     runner: CommandRunner = run_command,
 ) -> CloneDecision:
     """
-    @brief      clone_decision plus the worktrees that deletion will keep.
-    @details    Before resources are purged: ADORE's own worktrees are about to be
+    clone_decision plus the worktrees that deletion will keep.
+    Before resources are purged: ADORE's own worktrees are about to be
                 removed, but the sweep keeps those of handed-off runs and of runs
                 made by the local backend while the project now uses containers.
-    @param[in]  runs The project's run states.
+    runs: The project's run states.
     """
     decision = clone_decision(
         store,
@@ -250,6 +229,3 @@ def project_clone_decision(
     if any(folder not in swept for folder in _linked_folders(Path(decision.path))):
         return _keep(decision.path, "worktrees")
     return decision
-
-
-# END OF FILE

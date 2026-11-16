@@ -1,20 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_util.py
-@brief Tests for the shared low-level helpers (runner, durations, timestamps).
-"""
+"""Tests for the shared low-level helpers (runner, durations, timestamps)."""
 
 from __future__ import annotations
 
-# IMPORTS
 import os
 import re
 import sys
@@ -35,7 +22,7 @@ import pytest
 
 def test_process_alive_current_and_invalid_pids() -> None:
     """
-    @brief   The liveness probe reports the running test process alive and
+    The liveness probe reports the running test process alive and
              rejects non-positive pids, on both POSIX and Windows.
     """
     assert process_alive(os.getpid()) is True
@@ -44,9 +31,7 @@ def test_process_alive_current_and_invalid_pids() -> None:
 
 
 def test_parse_duration_units() -> None:
-    """
-    @brief   Durations parse for every documented unit and bare numbers.
-    """
+    """Durations parse for every documented unit and bare numbers."""
     assert parse_duration("90s") == 90
     assert parse_duration("30m") == 1800
     assert parse_duration("24h") == 86400
@@ -57,18 +42,14 @@ def test_parse_duration_units() -> None:
 
 
 def test_parse_duration_rejects_garbage() -> None:
-    """
-    @brief   Invalid durations raise ValueError.
-    """
+    """Invalid durations raise ValueError."""
     for bad in ("", "h", "12x", "-5s", "1.5h"):
         with pytest.raises(ValueError):
             parse_duration(bad)
 
 
 def test_run_command_captures_output() -> None:
-    """
-    @brief   The runner captures stdout and the exit code without a shell.
-    """
+    """The runner captures stdout and the exit code without a shell."""
     result = run_command([sys.executable, "-c", "print('hello adore')"])
     assert result.ok
     assert result.exit_code == 0
@@ -76,24 +57,20 @@ def test_run_command_captures_output() -> None:
 
 
 def test_run_command_missing_binary_reports_127() -> None:
-    """
-    @brief   A missing executable becomes exit code 127, never an exception.
-    """
+    """A missing executable becomes exit code 127, never an exception."""
     result = run_command(["definitely-not-a-real-binary-adore"])
     assert not result.ok
     assert result.exit_code == 127
 
 
 def test_utc_now_iso_shape() -> None:
-    """
-    @brief   Timestamps are compact UTC ISO-8601 with a Z suffix.
-    """
+    """Timestamps are compact UTC ISO-8601 with a Z suffix."""
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", utc_now_iso())
 
 
 def test_run_command_timeout_reports_124() -> None:
     """
-    @brief   A hung command becomes exit code 124, never a raised exception,
+    A hung command becomes exit code 124, never a raised exception,
              and is flagged `timed_out=True` - ADORE's OWN wrapper killed it
              (ADORE-ARCH-010).
     """
@@ -105,7 +82,7 @@ def test_run_command_timeout_reports_124() -> None:
 
 def test_run_command_inner_exit_124_is_not_flagged_as_a_timeout() -> None:
     """
-    @brief   A command that exits 124 ON ITS OWN, well within its bound, is
+    A command that exits 124 ON ITS OWN, well within its bound, is
              NOT a wrapper timeout: `timed_out` stays False so a genuine
              inner exit 124 (for example the payload's own `timeout(1)`
              inside a container) is never misreported as ADORE's timeout
@@ -117,9 +94,7 @@ def test_run_command_inner_exit_124_is_not_flagged_as_a_timeout() -> None:
 
 
 def test_iso_to_datetime_round_trip_and_garbage() -> None:
-    """
-    @brief   Z-form timestamps parse to aware UTC; garbage yields None.
-    """
+    """Z-form timestamps parse to aware UTC; garbage yields None."""
     parsed = iso_to_datetime("2026-07-03T10:00:00Z")
     assert parsed is not None and parsed.utcoffset().total_seconds() == 0
     assert iso_to_datetime("") is None
@@ -128,7 +103,7 @@ def test_iso_to_datetime_round_trip_and_garbage() -> None:
 
 def test_in_quiet_hours_windows() -> None:
     """
-    @brief   Plain and midnight-crossing windows match; malformed windows are
+    Plain and midnight-crossing windows match; malformed windows are
              ignored.
     """
     from datetime import datetime
@@ -146,7 +121,7 @@ def test_in_quiet_hours_windows() -> None:
 
 def test_load_env_file(tmp_path) -> None:
     """
-    @brief   KEY=VALUE lines load; comments/blank/quotes handled; a missing
+    KEY=VALUE lines load; comments/blank/quotes handled; a missing
              file is empty, not an error.
     """
     env = tmp_path / ".env"
@@ -159,12 +134,9 @@ def test_load_env_file(tmp_path) -> None:
     assert load_env_file(tmp_path / "missing.env") == {}
 
 
-# END OF FILE
-
-
 @pytest.mark.parametrize("payload", [b"first\r\nsecond\n", b"\xef\xbf\xbd", b"\xff\xfe\x00\r\n"])
 def test_command_preserves_crlf_bytes(monkeypatch, payload):
-    """@brief Raw output preserves newlines, literal replacement characters and binary bytes."""
+    """Raw output preserves newlines, literal replacement characters and binary bytes."""
     from types import SimpleNamespace
 
     from adore.util import run_command
@@ -181,7 +153,7 @@ def test_command_preserves_crlf_bytes(monkeypatch, payload):
 
 @pytest.mark.parametrize("source", ['{"key":1,"key":2}', '{"key":NaN}', '[' * 2000])
 def test_strict_json_rejects_ambiguous_external_data(source):
-    """@brief Duplicate, non-finite and excessive nesting fail closed."""
+    """Duplicate, non-finite and excessive nesting fail closed."""
     from adore.util import strict_json_loads
 
     with pytest.raises(ValueError):
@@ -189,7 +161,7 @@ def test_strict_json_rejects_ambiguous_external_data(source):
 
 
 def test_run_command_preserves_unicode_argument_through_child() -> None:
-    """@brief A local child receives and returns Unicode independently of console encoding."""
+    """A local child receives and returns Unicode independently of console encoding."""
     text = "Question — țară / Grüße"
     child = "import sys; sys.stdout.buffer.write(sys.argv[1].encode('utf-8'))"
     result = run_command([sys.executable, "-c", child, text])

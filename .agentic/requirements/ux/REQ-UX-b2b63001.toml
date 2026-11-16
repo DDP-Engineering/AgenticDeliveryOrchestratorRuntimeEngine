@@ -1,0 +1,19 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-b2b63001"
+title = "Keep storage status and available capacity together"
+status = "active"
+requirement = "When System status displays available storage, the interface shall group its label, availability status and capacity value in one adjacent block."
+verification = "Inspect the shared-volume and multiple-volume views at desktop and narrow widths; assert the capacity content is within the storage block."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+spec = ""
+priority = "normal"
+rationale = ""
+created = 2026-11-16
+updated = 2026-11-16

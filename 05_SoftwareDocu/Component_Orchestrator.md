@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: Orchestrator
 
 ## Purpose and ownership
@@ -22,6 +15,17 @@ refuses an unusable installed payload. The actual workflow is pinned from the al
 the initial claim save and does not change on Retry, resume or review revision.
 
 ## Workflow and durable state
+
+Cancelled Restart uses the exact confirmed latest generation, verifies owned
+cleanup while retaining state/metrics/IO, and reserves the replacement execution
+slot across cleanup and admission. It uses normal manual ticket/workflow policy
+and writes predecessor/successor journal links before acknowledging admission.
+A pending required cancellation notification refuses restart before cleanup so
+its later delivery cannot overwrite the fresh ticket status. A failed history
+write stops the new job. Failed abandonment keeps its existing
+destructive semantics; Retry retains its own execution identity and conversation.
+Abandoning a failed generation pins admission to that generation even while older
+cancelled executions remain; a retained predecessor link is restored after cleanup.
 
 Lifecycle is separate from stage: working, parked-clarification,
 awaiting-approval, publishing, in-review, failed, done, cancelled,

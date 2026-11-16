@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_preparation_lifecycle.py
-@brief   Public preparation failure, replay and resource recovery contracts.
-@details Every source/runtime/gate boundary is injected; tests remain offline.
-"""
+"""Public preparation failure, replay and resource recovery contracts."""
 
-# IMPORTS
 import json
 from types import SimpleNamespace
 
@@ -26,11 +12,9 @@ import pytest
 from tests.test_orchestrator import TASK_ID, FakeAegis, FakeExecutor, make_engine, make_run, task
 from tests.test_preparation import SourceRunner
 
-# LOCAL HELPERS
-
 
 def recipe_engine(tmp_path, monkeypatch, failure="exit"):
-    """@brief Build an injected public conductor with controllable setup outcomes."""
+    """Build an injected public conductor with controllable setup outcomes."""
     engine, _, worktrees, containers, _ = make_engine(
         tmp_path,
         executor=FakeExecutor(
@@ -46,7 +30,7 @@ def recipe_engine(tmp_path, monkeypatch, failure="exit"):
     control = {"failure": failure, "cid": "d" * 64, "calls": [], "gates": 0}
 
     def identity(_):
-        """@brief Return authoritative current IDs or a missing resource failure."""
+        """Return authoritative current IDs or a missing resource failure."""
         if control["cid"] is None:
             raise IsolationError("missing")
         return {
@@ -60,14 +44,14 @@ def recipe_engine(tmp_path, monkeypatch, failure="exit"):
     containers.status = lambda _: "running" if control["cid"] else "absent"
 
     def remove(name):
-        """@brief Explicit removal releases only the owned fake container."""
+        """Explicit removal releases only the owned fake container."""
         containers.removed.append(name)
         control["cid"] = "f" * 64
 
     containers.remove = remove
 
     def execute(name, argv, **kwargs):
-        """@brief Write bounded runner evidence without any subprocess."""
+        """Write bounded runner evidence without any subprocess."""
         if argv[0] != "python3":
             return CommandResult()
         control["calls"].append(argv)
@@ -92,7 +76,7 @@ def recipe_engine(tmp_path, monkeypatch, failure="exit"):
     containers.exec = execute
 
     class Client(FakeAegis):
-        """@brief Count downstream probes only after verified setup succeeds."""
+        """Count downstream probes only after verified setup succeeds."""
 
         def __init__(self, *args):
             super().__init__([task("frame")])
@@ -127,7 +111,7 @@ def recipe_engine(tmp_path, monkeypatch, failure="exit"):
     ],
 )
 def test_setup_failure_retains_outcome_and_never_reaches_ai(tmp_path, monkeypatch, mode, status):
-    """@brief Exit, timeout, cancellation and corrupt receipts fail before AI."""
+    """Exit, timeout, cancellation and corrupt receipts fail before AI."""
     engine, run_id, control, _ = recipe_engine(tmp_path, monkeypatch, mode)
     assert engine.retry(run_id)
     saved = engine.store.load(run_id)
@@ -143,7 +127,7 @@ def test_setup_failure_retains_outcome_and_never_reaches_ai(tmp_path, monkeypatc
 
 
 def test_explicit_reprepare_recreates_owned_container_and_caps_replay(tmp_path, monkeypatch):
-    """@brief Only explicit bounded replay creates a fresh setup attempt."""
+    """Only explicit bounded replay creates a fresh setup attempt."""
     engine, run_id, control, containers = recipe_engine(tmp_path, monkeypatch)
     assert engine.retry(run_id)
     control["failure"] = "success"
@@ -164,7 +148,7 @@ def test_explicit_reprepare_recreates_owned_container_and_caps_replay(tmp_path, 
     "change", ["missing", "replacement", "policy", "plan-file", "step-file", "clone"]
 )
 def test_success_cannot_authorize_drifted_resources_or_configuration(tmp_path, monkeypatch, change):
-    """@brief Saved success never guesses readiness after identity/profile drift."""
+    """Saved success never guesses readiness after identity/profile drift."""
     engine, run_id, control, _ = recipe_engine(tmp_path, monkeypatch, "success")
     assert engine.retry(run_id)
     saved = engine.store.load(run_id)
@@ -188,7 +172,7 @@ def test_success_cannot_authorize_drifted_resources_or_configuration(tmp_path, m
 
 
 def test_crashed_preparation_becomes_explicit_interrupted_evidence(tmp_path, monkeypatch):
-    """@brief Stale conductor reconciliation marks unfinished setup interrupted."""
+    """Stale conductor reconciliation marks unfinished setup interrupted."""
     engine, run_id, control, _ = recipe_engine(tmp_path, monkeypatch)
     assert engine.retry(run_id)
     saved = engine.store.load(run_id)
@@ -204,6 +188,3 @@ def test_crashed_preparation_becomes_explicit_interrupted_evidence(tmp_path, mon
     assert recovered.lifecycle == "failed"
     assert recovered.execution["status"] == "interrupted"
     assert len(control["calls"]) == 1 and control["gates"] == 0
-
-
-# END OF FILE

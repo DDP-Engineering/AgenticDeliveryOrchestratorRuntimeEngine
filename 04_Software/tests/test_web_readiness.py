@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_readiness.py
-@brief Administrator host-readiness probe contract tests.
-@details External command output is faked and never returned to the browser.
-"""
+"""Administrator host-readiness probe contract tests."""
 
 import importlib
 import json
@@ -26,7 +13,7 @@ from tests.configuration_client import TestClient
 
 
 def _project(tmp_path):
-    """@brief Register one valid but deliberately unprovisioned project."""
+    """Register one valid but deliberately unprovisioned project."""
     profiles = ProfileStore(tmp_path / "home")
     root = tmp_path / "state"
     profiles.create("alpha", store_root=str(root))
@@ -42,7 +29,7 @@ def _project(tmp_path):
 @pytest.mark.parametrize("change", ["roundtrip", "old-field", "status",
                                      "extra", "context", "duplicate"])
 def test_readiness_persistence_is_closed(tmp_path, monkeypatch, change):
-    """@brief Current readiness roundtrips; stale and corrupt records fail closed."""
+    """Current readiness roundtrips; stale and corrupt records fail closed."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
     evidence = {"workflow": "aegis", "checks": {"git": True, "forge_cli": True, "forge_auth": True,
@@ -77,7 +64,7 @@ def test_readiness_persistence_is_closed(tmp_path, monkeypatch, change):
 
 
 def test_old_readiness_schema_is_refused_with_deletion_guidance(tmp_path, monkeypatch):
-    """@brief An old readiness record is never migrated or removed automatically."""
+    """An old readiness record is never migrated or removed automatically."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
     checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
@@ -109,7 +96,7 @@ def test_old_readiness_schema_is_refused_with_deletion_guidance(tmp_path, monkey
 
 
 def test_external_auth_change_makes_readiness_stale(tmp_path, monkeypatch):
-    """@brief A different effective forge environment cannot inherit prior evidence."""
+    """A different effective forge environment cannot inherit prior evidence."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
     checks = {
@@ -140,7 +127,7 @@ def test_external_auth_change_makes_readiness_stale(tmp_path, monkeypatch):
 
 
 def test_external_cli_config_change_makes_readiness_stale(tmp_path, monkeypatch):
-    """@brief A changed external CLI config invalidates its earlier check."""
+    """A changed external CLI config invalidates its earlier check."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
     root = tmp_path / "cli"
@@ -170,7 +157,7 @@ def test_external_cli_config_change_makes_readiness_stale(tmp_path, monkeypatch)
 
 
 def test_auth_changes_during_probe_do_not_publish(tmp_path, monkeypatch):
-    """@brief A concurrent authentication change invalidates the entire check."""
+    """A concurrent authentication change invalidates the entire check."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
     checks = {
@@ -207,7 +194,7 @@ def test_auth_changes_during_probe_do_not_publish(tmp_path, monkeypatch):
 
 
 def test_unbound_cli_identity_stays_partial(tmp_path, monkeypatch):
-    """@brief Unobservable external CLI identity cannot produce Verified."""
+    """Unobservable external CLI identity cannot produce Verified."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
     checks = {
@@ -232,7 +219,7 @@ def test_unbound_cli_identity_stays_partial(tmp_path, monkeypatch):
 
 
 def test_malformed_probe_cannot_replace_good_readiness(tmp_path, monkeypatch):
-    """@brief Invalid probe values fail before overwriting existing evidence."""
+    """Invalid probe values fail before overwriting existing evidence."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
     checks = {
@@ -265,7 +252,7 @@ def test_malformed_probe_cannot_replace_good_readiness(tmp_path, monkeypatch):
 
 
 def test_admin_can_probe_host_prerequisites_without_disclosing_cli_output(tmp_path):
-    """@brief An explicit probe reports booleans and bounds every command."""
+    """An explicit probe reports booleans and bounds every command."""
     profiles, _path = _project(tmp_path)
     calls = []
 
@@ -300,7 +287,7 @@ def test_admin_can_probe_host_prerequisites_without_disclosing_cli_output(tmp_pa
 
 @pytest.mark.parametrize("outcome", ["ready", "stopped", "timeout", "invalid-exit"])
 def test_readiness_uses_configured_wsl_runtime_info(tmp_path, outcome):
-    """@brief Check the selected WSL daemon; an unavailable engine cannot launch Pi probes."""
+    """Check the selected WSL daemon; an unavailable engine cannot launch Pi probes."""
     profiles, path = _project(tmp_path)
     path.write_text(path.read_text(encoding="utf-8").replace(
         'runtime = "docker"', 'runtime = "wsl -d Ubuntu -- docker"'), encoding="utf-8")
@@ -331,7 +318,7 @@ def test_readiness_uses_configured_wsl_runtime_info(tmp_path, outcome):
 
 
 def test_host_executor_presence_does_not_hide_missing_image_tool(tmp_path):
-    """@brief Readiness checks the actual executor image without a pull."""
+    """Readiness checks the actual executor image without a pull."""
     profiles, _path = _project(tmp_path)
     calls = []
 
@@ -354,7 +341,7 @@ def test_host_executor_presence_does_not_hide_missing_image_tool(tmp_path):
 
 
 def test_readiness_probe_requires_admin_csrf_and_valid_config(tmp_path):
-    """@brief Membership alone cannot launch a host probe; corrupt TOML fails."""
+    """Membership alone cannot launch a host probe; corrupt TOML fails."""
     profiles, path = _project(tmp_path)
 
     def runner(argv, *, cwd=None, timeout=None, env=None):
@@ -386,7 +373,7 @@ def test_readiness_probe_requires_admin_csrf_and_valid_config(tmp_path):
     (["aegis.py"], "aegis"), (["aegis.py", "aegis.toml"], "aegis")])
 def test_workflow_is_read_only_file_information(
         tmp_path, monkeypatch, backend, files, workflow, mode):
-    """@brief Both backends inspect only aegis.py and leave clone bytes untouched."""
+    """Both backends inspect only aegis.py and leave clone bytes untouched."""
     import adore.local_execution as local_execution
 
     module = importlib.import_module("adore.web.app")
@@ -450,7 +437,7 @@ def test_workflow_is_read_only_file_information(
     ("runtime-unknown", "partial"), ("auth-unbound", "partial")])
 def test_workflow_never_changes_prerequisite_verdict(tmp_path, monkeypatch, workflow,
                                                     condition, status):
-    """@brief The descriptive enum cannot pass, fail or complete host prerequisites."""
+    """The descriptive enum cannot pass, fail or complete host prerequisites."""
     module = importlib.import_module("adore.web.app")
     profiles, _path = _project(tmp_path)
     checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
@@ -475,7 +462,7 @@ def test_workflow_never_changes_prerequisite_verdict(tmp_path, monkeypatch, work
 
 @pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}])
 def test_invalid_workflow_probe_preserves_saved_evidence(tmp_path, monkeypatch, bad):
-    """@brief Missing/invalid workflow fails typed before overwriting previous evidence."""
+    """Missing/invalid workflow fails typed before overwriting previous evidence."""
     module = importlib.import_module("adore.web.app")
     profiles, _path = _project(tmp_path)
     evidence = {"workflow": "direct", "checks": dict.fromkeys(
@@ -503,7 +490,7 @@ def test_invalid_workflow_probe_preserves_saved_evidence(tmp_path, monkeypatch, 
 @pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}, "old-schema"])
 @pytest.mark.parametrize("stale", [False, True])
 def test_corrupt_workflow_is_refused_even_if_stale(tmp_path, monkeypatch, bad, stale):
-    """@brief Invalid saved workflow/schema is never repaired, including stale records."""
+    """Invalid saved workflow/schema is never repaired, including stale records."""
     module = importlib.import_module("adore.web.app")
     profiles, config_path = _project(tmp_path)
     evidence = {"workflow": "direct", "checks": dict.fromkeys(
@@ -533,6 +520,3 @@ def test_corrupt_workflow_is_refused_even_if_stale(tmp_path, monkeypatch, bad, s
             assert result.status_code == 503, result.text
             assert "readiness_corrupt" in result.text and "readiness.json" in result.text
         assert path.read_bytes() == before
-
-
-# END OF FILE

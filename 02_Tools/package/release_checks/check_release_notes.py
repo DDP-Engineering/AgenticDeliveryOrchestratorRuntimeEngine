@@ -1,29 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file check_release_notes.py
-@brief Repository check for the four-locale user-facing release notes.
-@details Applies the authoring contract from `adore.release_notes` to
-         `04_Software/adore/release_notes.toml`, requires every released
-         version to match a dated `CHANGELOG.md` heading and the current
-         package version to have a release section. With `--since <ref>` it
-         also warns, without failing, when `CHANGELOG.md` changed since that
-         revision but the release notes did not.
-@example
-    python 02_Tools/package/release_checks/check_release_notes.py
-    python 02_Tools/package/release_checks/check_release_notes.py --since <task base>
-"""
+"""Repository check for the four-locale user-facing release notes."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 from pathlib import Path
 import re
@@ -39,7 +18,6 @@ from adore.release_notes import (  # noqa: E402
     parse_release_notes,
 )
 
-# CONSTANTS
 
 NOTES = "04_Software/adore/release_notes.toml"
 CHANGELOG = "CHANGELOG.md"
@@ -48,13 +26,11 @@ _HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})[ \t]*$", r
 _VERSION = re.compile(r'^__version__ = "([^"]+)"', re.M)
 
 
-# LOCAL HELPERS
-
 def _issues(root: Path) -> list[str]:
     """
-    @brief      Collect every release notes issue for a repository root.
-    @param[in]  root Repository root.
-    @return     Issues; empty when the notes meet the contract.
+    Collect every release notes issue for a repository root.
+    root: Repository root.
+    Returns: Issues; empty when the notes meet the contract.
     """
     try:
         releases = parse_release_notes((root / NOTES).read_text(encoding="utf-8"))
@@ -83,10 +59,10 @@ def _issues(root: Path) -> list[str]:
 
 def _warnings(root: Path, since: str) -> list[str]:
     """
-    @brief      Warn when the changelog changed since a revision but the notes did not.
-    @param[in]  root Repository root.
-    @param[in]  since Git revision to compare the working tree with.
-    @return     Warning messages.
+    Warn when the changelog changed since a revision but the notes did not.
+    root: Repository root.
+    since: Git revision to compare the working tree with.
+    Returns: Warning messages.
     """
     try:
         result = subprocess.run(
@@ -109,13 +85,11 @@ def _warnings(root: Path, since: str) -> list[str]:
     return []
 
 
-# PUBLIC API
-
 def main(argv: list[str] | None = None) -> int:
     """
-    @brief      Run the check and print its findings.
-    @param[in]  argv Command-line arguments.
-    @return     1 when the notes break the contract, else 0.
+    Run the check and print its findings.
+    argv: Command-line arguments.
+    Returns: 1 when the notes break the contract, else 0.
     """
     parser = argparse.ArgumentParser(description="Check the four-locale user-facing release notes.")
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[3])
@@ -133,5 +107,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-# END OF FILE

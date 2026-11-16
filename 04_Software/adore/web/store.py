@@ -1,24 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file store.py
-@brief Durable web accounts, sessions, memberships, audit, and command queue.
-@details SQLite is local to one ADORE host. An existing corrupt store fails
-         closed and never reboots the admin/admin account.
-"""
+"""Durable web accounts, sessions, memberships, audit, and command queue."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
-
-# IMPORTS
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -43,7 +27,6 @@ from adore.profiles import ProfileError, ProfileStore
 from adore.web import audit as audit_contract
 from adore.web.ownership import OwnershipError, WebStoreError, WorkerOwner, process_birth
 
-# CONSTANTS
 _HASHER = PasswordHasher()
 # Fixed at 1 throughout pre-release; change _SCHEMA in place, never add migrations.
 # Existing stores must match the current structure as well as this identifier.
@@ -148,8 +131,6 @@ CREATE TABLE usage_cursor (
 """
 
 
-# DATA MODELS / TYPEDEFINITIONS
-# HELPER FUNCTIONS
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -167,7 +148,7 @@ def _user(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def _preferences(row: sqlite3.Row) -> dict[str, str | None]:
-    """@brief Validate persisted account preferences before returning them."""
+    """Validate persisted account preferences before returning them."""
     result = {"language": row["language"], "theme": row["theme"],
               "ticket_body_mode": row["ticket_body_mode"]}
     if (result["language"] not in (None, "en", "fr", "de", "ro")
@@ -178,7 +159,7 @@ def _preferences(row: sqlite3.Row) -> dict[str, str | None]:
 
 
 def _price_value(value: str) -> Decimal:
-    """@brief Parse a bounded, fixed-point USD rate without float rounding."""
+    """Parse a bounded, fixed-point USD rate without float rounding."""
     if not isinstance(value, str) or not re.fullmatch(r"\d+(?:\.\d{1,6})?", value):
         raise WebStoreError("invalid price")
     try:
@@ -192,7 +173,7 @@ def _price_value(value: str) -> Decimal:
 
 def _price_identity(project: str, executor: str, model: str,
                     effective_from: str) -> None:
-    """@brief Validate price keys on writes and persisted reads."""
+    """Validate price keys on writes and persisted reads."""
     if (not isinstance(project, str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", project)
             or not isinstance(executor, str)
@@ -210,7 +191,7 @@ def _price_identity(project: str, executor: str, model: str,
 
 
 def _profile_identity(home: Path, project: str) -> tuple[str, str] | None:
-    """@brief Resolve a project's immutable ID and creation stamp."""
+    """Resolve a project's immutable ID and creation stamp."""
     if not isinstance(project, str) or not re.fullmatch(
         r"[a-z0-9][a-z0-9._-]{0,63}", project
     ):
@@ -227,11 +208,10 @@ def _profile_identity(home: Path, project: str) -> tuple[str, str] | None:
     return profile.project_id, profile.created_at
 
 
-# PUBLIC API
 class WebStore:
     """
-    @brief Web identity and durable operation store.
-    @details Every method opens its own connection to avoid sharing a SQLite
+    Web identity and durable operation store.
+    Every method opens its own connection to avoid sharing a SQLite
              handle between HTTP requests. The initial account is created only
              if the database file did not exist before initialization.
     """
@@ -380,12 +360,13 @@ class WebStore:
 
     def register_worker(self, role: str, *, project_id: str = "",
                         run_id: str = "") -> WorkerOwner:
-        """@brief Register one explicit role/project/run process incarnation.
-        @param[in] role Supervisor, project, transient command, run or configuration role.
-        @param[in] project_id Immutable project ID; empty only for global roles.
-        @param[in] run_id Exact run identity for run workers.
-        @return Current server-issued owner handle.
-        @exception OwnershipError A live owner already holds the scope.
+        """
+        Register one explicit role/project/run process incarnation.
+        role: Supervisor, project, transient command, run or configuration role.
+        project_id: Immutable project ID; empty only for global roles.
+        run_id: Exact run identity for run workers.
+        Returns: Current server-issued owner handle.
+        Raises OwnershipError: A live owner already holds the scope.
         """
         self._worker_scope(role, project_id, run_id)
         birth = self._process_probe(os.getpid())
@@ -425,7 +406,7 @@ class WebStore:
 
     @staticmethod
     def _worker_scope(role: str, project_id: str, run_id: str) -> None:
-        """@brief Reject implicit/contradictory owner scope at the storage boundary."""
+        """Reject implicit/contradictory owner scope at the storage boundary."""
         if (role not in ("supervisor", "project", "command", "run", "configuration")
                 or not isinstance(project_id, str) or not isinstance(run_id, str)
                 or (project_id and not re.fullmatch(r"[a-f0-9]{32}", project_id))
@@ -437,7 +418,7 @@ class WebStore:
             raise OwnershipError("invalid worker ownership scope")
 
     def _owned(self, connection, owner: WorkerOwner):
-        """@brief Verify the complete immutable handle against durable active ownership."""
+        """Verify the complete immutable handle against durable active ownership."""
         if (not isinstance(owner, WorkerOwner) or not isinstance(owner.id, str)
                 or not re.fullmatch(r"[a-f0-9]{64}", owner.id)
                 or type(owner.generation) is not int or owner.generation < 1):
@@ -454,7 +435,7 @@ class WebStore:
         return row
 
     def _worker_record(self, row) -> None:
-        """@brief Refuse corrupt historical or active owner evidence before using it."""
+        """Refuse corrupt historical or active owner evidence before using it."""
         self._worker_scope(row["role"], row["project_id"], row["run_id"])
         if (not isinstance(row["id"], str) or not re.fullmatch(r"[a-f0-9]{64}", row["id"])
                 or type(row["generation"]) is not int or row["generation"] < 1
@@ -469,7 +450,7 @@ class WebStore:
             raise WebStoreError("worker heartbeat timestamp is corrupt") from exc
 
     def attach_worker(self, owner: WorkerOwner) -> None:
-        """@brief Bind the current child process before it can perform any effect."""
+        """Bind the current child process before it can perform any effect."""
         birth = self._process_probe(os.getpid())
         if not isinstance(birth, str) or not birth:
             raise OwnershipError("worker ownership process identity unavailable")
@@ -481,7 +462,7 @@ class WebStore:
                 (owner.id, os.getpid(), birth))
 
     def _participant(self, connection, owner: WorkerOwner) -> None:
-        """@brief Require this PID incarnation to participate in the owner."""
+        """Require this PID incarnation to participate in the owner."""
         self._owned(connection, owner)
         birth = self._process_probe(os.getpid())
         if (not birth or connection.execute(
@@ -490,7 +471,7 @@ class WebStore:
             raise OwnershipError("worker ownership process identity changed")
 
     def touch_worker(self, owner: WorkerOwner) -> None:
-        """@brief Refresh only the caller's explicit scoped heartbeat."""
+        """Refresh only the caller's explicit scoped heartbeat."""
         with self._ownership_connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             self._participant(connection, owner)
@@ -498,7 +479,7 @@ class WebStore:
                                (_now(), owner.id))
 
     def authorize_worker(self, owner: WorkerOwner) -> dict[str, Any]:
-        """@brief Authorize project polling or single-run conduction under explicit ownership."""
+        """Authorize project polling or single-run conduction under explicit ownership."""
         with self._ownership_connect() as connection:
             self._participant(connection, owner)
         if owner.role not in {"project", "run"}:
@@ -511,12 +492,12 @@ class WebStore:
                 "run_id": owner.run_id}
 
     def assert_worker(self, owner: WorkerOwner) -> None:
-        """@brief Verify this process still participates in an exact role/project/run owner."""
+        """Verify this process still participates in an exact role/project/run owner."""
         with self._ownership_connect() as connection:
             self._participant(connection, owner)
 
     def set_worker_activity(self, owner: WorkerOwner, activity: str) -> None:
-        """@brief Publish activity only for the verified owner incarnation."""
+        """Publish activity only for the verified owner incarnation."""
         if activity not in ("idle", "busy"):
             raise ValueError("invalid worker activity")
         with self._ownership_connect() as connection:
@@ -526,7 +507,7 @@ class WebStore:
                                (activity, owner.id))
 
     def worker_activity(self) -> str:
-        """@brief Aggregate recent supervisor activity without confusing ownership."""
+        """Aggregate recent supervisor activity without confusing ownership."""
         rows = self.worker_heartbeats(role="supervisor")
         active = [row for row in rows if row["ready"]]
         if not active:
@@ -534,7 +515,7 @@ class WebStore:
         return "busy" if any(row["activity"] == "busy" for row in active) else "idle"
 
     def clear_worker(self, owner: WorkerOwner) -> None:
-        """@brief Stop only an idle owner; running effects retain their ownership."""
+        """Stop only an idle owner; running effects retain their ownership."""
         with self._ownership_connect() as connection:
             processes = connection.execute(
                 "SELECT * FROM worker_processes WHERE owner_id=?", (owner.id,)).fetchall()
@@ -562,9 +543,10 @@ class WebStore:
     def worker_heartbeats(self, *, role: str | None = None,
                           project_id: str | None = None, run_id: str | None = None,
                           max_age_seconds: float = 10) -> list[dict[str, Any]]:
-        """@brief Inspect heartbeat evidence per role, immutable project and run.
-        @return Scoped metadata and readiness; owner capability IDs stay private.
-        @exception WebStoreError Corrupt persisted timestamps or scope.
+        """
+        Inspect heartbeat evidence per role, immutable project and run.
+        Returns: Scoped metadata and readiness; owner capability IDs stay private.
+        Raises WebStoreError: Corrupt persisted timestamps or scope.
         """
         with self._ownership_connect() as connection:
             selectors, parameters = ["status='active'"], []
@@ -596,12 +578,12 @@ class WebStore:
         return result
 
     def worker_ready(self, *, max_age_seconds: float = 10) -> bool:
-        """@brief Readiness requires a recent supervisor heartbeat."""
+        """Readiness requires a recent supervisor heartbeat."""
         return any(row["ready"] for row in self.worker_heartbeats(
             role="supervisor", max_age_seconds=max_age_seconds))
 
     def allow_login(self, username: str, client: str) -> bool:
-        """@brief Enforce five failed attempts per identity and client in ten minutes."""
+        """Enforce five failed attempts per identity and client in ten minutes."""
         identity = _digest(f"{username.casefold()}\0{client}")
         cutoff = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
         with self._connect() as connection:
@@ -612,7 +594,7 @@ class WebStore:
         return row is None or row["window_started"] < cutoff or row["failures"] < 5
 
     def record_login(self, username: str, client: str, *, success: bool) -> None:
-        """@brief Clear the failure window after success or count a failed login."""
+        """Clear the failure window after success or count a failed login."""
         identity = _digest(f"{username.casefold()}\0{client}")
         cutoff = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
         with self._connect() as connection:
@@ -637,7 +619,7 @@ class WebStore:
 
     @contextmanager
     def _connect(self):
-        """@brief Yield and close one transactional SQLite connection."""
+        """Yield and close one transactional SQLite connection."""
         connection = sqlite3.connect(self.path, timeout=10, uri=True)
         try:
             connection.row_factory = sqlite3.Row
@@ -650,7 +632,7 @@ class WebStore:
 
     @contextmanager
     def _ownership_connect(self):
-        """@brief Translate ownership storage faults without changing account error contracts."""
+        """Translate ownership storage faults without changing account error contracts."""
         try:
             with self._connect() as connection:
                 yield connection
@@ -659,11 +641,12 @@ class WebStore:
 
     def forget_run_usage(self, project_id: str, run_id: str, *,
                          remove_source: Callable[[], None]) -> None:
-        """@brief Clear only a verified deleted job's replaceable usage projections.
-        @param[in] project_id Immutable owning profile identity.
-        @param[in] run_id Exact deleted job; caller holds the conductor lock.
-        @param[in] remove_source Remove that job's source while projection readers are serialized.
-        @exception WebStoreError Invalid identity or failed atomic projection cleanup.
+        """
+        Clear only a verified deleted job's replaceable usage projections.
+        project_id: Immutable owning profile identity.
+        run_id: Exact deleted job; caller holds the conductor lock.
+        remove_source: Remove that job's source while projection readers are serialized.
+        Raises WebStoreError: Invalid identity or failed atomic projection cleanup.
         """
         if (not re.fullmatch(r"[0-9a-f]{32}", project_id)
                 or not re.fullmatch(r"[A-Za-z0-9._-]{1,160}", run_id)):
@@ -682,12 +665,12 @@ class WebStore:
                         journal: list[dict], *,
                         current_source: Callable[[], list[dict]] | None = None) -> list[dict]:
         """
-        @brief Project identified usage into SQLite without replay inflation.
-        @param[in] project_id Immutable profile identity.
-        @param[in] run_id Owning run identity.
-        @param[in] journal Retained run journal in persisted order.
-        @return Validated, projected usage records in source order.
-        @exception WebStoreError On malformed, changed or missing evidence.
+        Project identified usage into SQLite without replay inflation.
+        project_id: Immutable profile identity.
+        run_id: Owning run identity.
+        journal: Retained run journal in persisted order.
+        Returns: Validated, projected usage records in source order.
+        Raises WebStoreError: On malformed, changed or missing evidence.
         """
         if (not isinstance(project_id, str)
                 or not re.fullmatch(r"[0-9a-f]{32}", project_id)
@@ -822,7 +805,7 @@ class WebStore:
             raise WebStoreError("usage projection is corrupt") from exc
 
     def authenticate(self, username: str, password: str) -> dict[str, Any] | None:
-        """@brief Verify local credentials without exposing password hashes."""
+        """Verify local credentials without exposing password hashes."""
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT * FROM users WHERE username=?", (username,)
@@ -837,10 +820,11 @@ class WebStore:
         return _user(row)
 
     def factory_password(self, user_id: int) -> bool:
-        """@brief Identify the authenticated factory account's unchanged password.
-        @param[in] user_id Authenticated account identity.
-        @return Whether the public initial password remains in use.
-        @exception WebStoreError Missing account or corrupt password hash.
+        """
+        Identify the authenticated factory account's unchanged password.
+        user_id: Authenticated account identity.
+        Returns: Whether the public initial password remains in use.
+        Raises WebStoreError: Missing account or corrupt password hash.
         """
         try:
             with self._connect() as connection:
@@ -861,7 +845,7 @@ class WebStore:
     def create_user(
         self, username: str, password: str, role: str, *, actor_id: int | None = None
     ) -> dict[str, Any]:
-        """@brief Create a validated account; duplicate names fail closed."""
+        """Create a validated account; duplicate names fail closed."""
         if not username or len(username) > 64 or not username.replace("_", "").isalnum():
             raise WebStoreError("invalid username")
         if len(password) < 8:
@@ -897,7 +881,7 @@ class WebStore:
             raise WebStoreError("username already exists") from exc
 
     def list_users(self) -> list[dict[str, Any]]:
-        """@brief List accounts without their password hashes."""
+        """List accounts without their password hashes."""
         with self._connect() as connection:
             rows = connection.execute("SELECT * FROM users ORDER BY username").fetchall()
         return [_user(row) for row in rows]
@@ -912,16 +896,16 @@ class WebStore:
         actor_id: int,
     ) -> dict[str, Any]:
         """
-        @brief      Commit an explicit account intent, grants and audit atomically.
-        @param[in]  username Valid account identity.
-        @param[in]  password Transient credential, stored only as Argon2id hash.
-        @param[in]  role Explicit admin or developer role.
-        @param[in]  project_ids Distinct immutable visible project identities.
-        @param[in]  allow_no_projects Deliberate developer zero-project choice.
-        @param[in]  actor_id Active administrator committing this intent.
-        @return     Public account with exactly committed project IDs.
-        @exception  WebStoreError Invalid intent, stale project or failed storage.
-        @note       Profile lifecycle changes are rechecked before SQLite commit;
+        Commit an explicit account intent, grants and audit atomically.
+        username: Valid account identity.
+        password: Transient credential, stored only as Argon2id hash.
+        role: Explicit admin or developer role.
+        project_ids: Distinct immutable visible project identities.
+        allow_no_projects: Deliberate developer zero-project choice.
+        actor_id: Active administrator committing this intent.
+        Returns: Public account with exactly committed project IDs.
+        Raises WebStoreError: Invalid intent, stale project or failed storage.
+        Note: Profile lifecycle changes are rechecked before SQLite commit;
                     later replacements cannot inherit immutable identity grants.
         """
         if (
@@ -1018,7 +1002,7 @@ class WebStore:
             raise WebStoreError("user creation storage failed") from exc
 
     def membership_ids(self, user_id: int) -> list[str]:
-        """@brief Return current immutable grants alongside compatible name reads."""
+        """Return current immutable grants alongside compatible name reads."""
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT project,profile_created_at,project_id FROM memberships WHERE user_id=?",
@@ -1028,13 +1012,13 @@ class WebStore:
                       self._granted_projects(rows, self._projects_by_id()))
 
     def user_by_id(self, user_id: int) -> dict[str, Any] | None:
-        """@brief Recheck the actor before worker execution."""
+        """Recheck the actor before worker execution."""
         with self._connect() as connection:
             row = connection.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         return _user(row) if row is not None else None
 
     def disable_user(self, user_id: int, *, actor_id: int | None = None) -> None:
-        """@brief Disable an account and revoke its sessions."""
+        """Disable an account and revoke its sessions."""
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             before = connection.execute(
@@ -1068,7 +1052,7 @@ class WebStore:
                 )
 
     def enable_user(self, user_id: int, *, actor_id: int | None = None) -> None:
-        """@brief Re-enable an existing account without restoring old sessions."""
+        """Re-enable an existing account without restoring old sessions."""
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             before = connection.execute(
@@ -1096,7 +1080,7 @@ class WebStore:
     def change_password(
         self, user_id: int, old: str, new: str, *, actor_id: int | None = None
     ) -> None:
-        """@brief Change own password, satisfy any reset marker and revoke sessions."""
+        """Change own password, satisfy any reset marker and revoke sessions."""
         if len(new) < 8:
             raise WebStoreError("password must contain at least 8 characters")
         with self._connect() as connection:
@@ -1127,7 +1111,7 @@ class WebStore:
     def reset_password(
         self, user_id: int, replacement: str, *, actor_id: int | None = None
     ) -> None:
-        """@brief Set a recovery password the target must replace; revoke its sessions."""
+        """Set a recovery password the target must replace; revoke its sessions."""
         if len(replacement) < 8:
             raise WebStoreError("password must contain at least 8 characters")
         with self._connect() as connection:
@@ -1159,7 +1143,7 @@ class WebStore:
                 )
 
     def create_session(self, user_id: int) -> tuple[str, str]:
-        """@brief Create opaque session and CSRF tokens with an expiry."""
+        """Create opaque session and CSRF tokens with an expiry."""
         token = secrets.token_urlsafe(32)
         csrf = secrets.token_urlsafe(24)
         expiry = (datetime.now(UTC) + timedelta(hours=12)).isoformat()
@@ -1171,7 +1155,7 @@ class WebStore:
         return token, csrf
 
     def session_user(self, token: str) -> dict[str, Any] | None:
-        """@brief Resolve only active unexpired sessions."""
+        """Resolve only active unexpired sessions."""
         if not token:
             return None
         with self._connect() as connection:
@@ -1185,15 +1169,16 @@ class WebStore:
         return {**_user(row), "csrf": row["csrf"]}
 
     def revoke_session(self, token: str) -> None:
-        """@brief Revoke one session."""
+        """Revoke one session."""
         with self._connect() as connection:
             connection.execute("DELETE FROM sessions WHERE token_hash=?", (_digest(token),))
 
     def preferences(self, user_id: int) -> dict[str, str | None]:
-        """@brief Read one user's presentation preferences, or nullable fallbacks.
-        @param[in] user_id Authenticated account identity.
-        @return Validated language, theme and ticket body mode; null means unset.
-        @exception WebStoreError Missing account or corrupt saved preferences.
+        """
+        Read one user's presentation preferences, or nullable fallbacks.
+        user_id: Authenticated account identity.
+        Returns: Validated language, theme and ticket body mode; null means unset.
+        Raises WebStoreError: Missing account or corrupt saved preferences.
         """
         try:
             with self._connect() as connection:
@@ -1210,7 +1195,7 @@ class WebStore:
 
     def set_preferences(self, user_id: int,
                         updates: dict[str, str]) -> dict[str, str | None]:
-        """@brief Update only supplied preference fields in one transaction."""
+        """Update only supplied preference fields in one transaction."""
         if (not updates or set(updates) - {"language", "theme", "ticket_body_mode"}
                 or any(key == "language" and value not in ("en", "fr", "de", "ro")
                        or key == "theme" and value not in ("light", "dark", "system")
@@ -1242,7 +1227,7 @@ class WebStore:
     def set_memberships(
         self, user_id: int, projects: list[str], *, actor_id: int | None = None
     ) -> None:
-        """@brief Replace a developer's project grants atomically."""
+        """Replace a developer's project grants atomically."""
         grants = []
         for project in sorted(set(projects)):
             identity = _profile_identity(self.path.parent, project)
@@ -1287,13 +1272,13 @@ class WebStore:
 
     def project_members(self, project: str) -> set[int]:
         """
-        @brief      IDs of the accounts granted a project.
-        @details    Only grants that carry the project's current identity count,
+        IDs of the accounts granted a project.
+        Only grants that carry the project's current identity count,
                     as in `memberships`, so rows left by a deleted project of the
                     same name do not.
-        @param[in]  project Profile name.
-        @return     Granted account IDs.
-        @exception  WebStoreError When the project does not exist.
+        project: Profile name.
+        Returns: Granted account IDs.
+        Raises WebStoreError: When the project does not exist.
         """
         identity = _profile_identity(self.path.parent, project)
         if identity is None:
@@ -1309,18 +1294,18 @@ class WebStore:
         self, user_id: int, project: str, granted: bool, *, actor_id: int | None = None
     ) -> None:
         """
-        @brief      Grant or remove one account's access to one project.
-        @details    Grants are matched by the project's immutable identity, so a
+        Grant or remove one account's access to one project.
+        Grants are matched by the project's immutable identity, so a
                     grant made before a rename is found. In one write transaction
                     the account's other grants are rewritten under their
                     projects' current names, as `set_memberships` stores them, so a
                     reused name never takes another project's grant; rows of
                     deleted projects, which grant nothing, are dropped. Other
                     accounts' grants are not touched.
-        @param[in]  user_id Account ID.
-        @param[in]  project Profile name.
-        @param[in]  granted True to grant, False to remove.
-        @exception  WebStoreError When the project or account does not exist,
+        user_id: Account ID.
+        project: Profile name.
+        granted: True to grant, False to remove.
+        Raises WebStoreError: When the project or account does not exist,
                     project or membership metadata is corrupt, or a rename
                     lands during the update (nothing is changed then).
         """
@@ -1377,7 +1362,7 @@ class WebStore:
             raise WebStoreError("project changed during the update") from exc
 
     def memberships(self, user_id: int) -> set[str]:
-        """@brief Get assigned profile names for the current request."""
+        """Get assigned profile names for the current request."""
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT project,profile_created_at,project_id "
@@ -1387,7 +1372,7 @@ class WebStore:
         return {profile.name for profile in self._granted_projects(rows, self._projects_by_id())}
 
     def _projects_by_id(self) -> dict[str, Any]:
-        """@brief Live projects by immutable ID, failing closed on corrupt metadata."""
+        """Live projects by immutable ID, failing closed on corrupt metadata."""
         profiles = ProfileStore(self.path.parent)
         if profiles.invalid_profiles():
             raise WebStoreError("project metadata is corrupt")
@@ -1400,7 +1385,7 @@ class WebStore:
 
     @staticmethod
     def _granted_projects(rows: list[sqlite3.Row], by_id: dict[str, Any]) -> list[Any]:
-        """@brief Live projects named by grant rows; a deleted project's row grants nothing."""
+        """Live projects named by grant rows; a deleted project's row grants nothing."""
         granted = []
         for row in rows:
             if (not isinstance(row["project"], str)
@@ -1416,7 +1401,7 @@ class WebStore:
         return granted
 
     def _operation_record(self, row) -> dict[str, Any]:
-        """@brief Validate persisted operation scope without filesystem work."""
+        """Validate persisted operation scope without filesystem work."""
         operation = dict(row)
         action, domain = operation["action"], operation["domain"]
         if (operation["workflow"] not in (None, "aegis", "direct")
@@ -1445,7 +1430,7 @@ class WebStore:
         return operation
 
     def _operation_with_current_project(self, row) -> dict[str, Any]:
-        """@brief Resolve a queued command's immutable target to its current label."""
+        """Resolve a queued command's immutable target to its current label."""
         operation = self._operation_record(row)
         project_id = operation["project_id"]
         if operation["domain"] == "configuration_global":
@@ -1467,7 +1452,7 @@ class WebStore:
         self, actor_id: int, project: str, action: str, run_id: str, key: str, *,
         workflow: str | None = None,
     ) -> dict[str, Any]:
-        """@brief Persist an idempotent operation request."""
+        """Persist an idempotent operation request."""
         if (
             action not in ("start", "retry", "cancel", "restart", "pause", "resume", "delete")
             or type(actor_id) is not int or actor_id < 1
@@ -1527,7 +1512,7 @@ class WebStore:
         return self._operation_with_current_project(row)
 
     def operation(self, operation_id: int) -> dict[str, Any] | None:
-        """@brief Return one durable operation."""
+        """Return one durable operation."""
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT * FROM operations WHERE id=?", (operation_id,)
@@ -1536,10 +1521,11 @@ class WebStore:
 
     def enqueue_configuration(self, actor_id: int, reference: str, key: str, *,
                               project_id: str | None, serial_key: str = "") -> dict[str, Any]:
-        """@brief Queue a protected configuration reference with explicit global/project scope.
-        @param[in] reference Opaque reference to the existing protected candidate, never its data.
-        @param[in] project_id Immutable project ID, or explicit None for global configuration.
-        @exception WebStoreError Invalid scope, non-admin actor or conflicting idempotency key.
+        """
+        Queue a protected configuration reference with explicit global/project scope.
+        reference: Opaque reference to the existing protected candidate, never its data.
+        project_id: Immutable project ID, or explicit None for global configuration.
+        Raises WebStoreError: Invalid scope, non-admin actor or conflicting idempotency key.
         """
         if (not isinstance(reference, str) or not re.fullmatch(r"[a-f0-9]{32}", reference)
                 or not isinstance(key, str) or not key or len(key) > 128):
@@ -1597,13 +1583,14 @@ class WebStore:
 
     def acknowledge_start(self, operation_id: int, *, owner: WorkerOwner,
                           generation: int, run_id: str, run_owner: WorkerOwner) -> None:
-        """@brief Confirm Start only after exact durable run admission and pickup evidence.
-        @param[in] operation_id Requested Start operation.
-        @param[in] owner Current command owner.
-        @param[in] generation Exact claim generation.
-        @param[in] run_id Durably admitted job identity.
-        @param[in] run_owner Current exclusive run owner.
-        @details Completion describes admission; the subsequent job has its own lifecycle.
+        """
+        Confirm Start only after exact durable run admission and pickup evidence.
+        operation_id: Requested Start operation.
+        owner: Current command owner.
+        generation: Exact claim generation.
+        run_id: Durably admitted job identity.
+        run_owner: Current exclusive run owner.
+        Completion describes admission; the subsequent job has its own lifecycle.
         """
         from adore.state import StateError, StateStore
 
@@ -1611,7 +1598,8 @@ class WebStore:
         if (not isinstance(run_owner, WorkerOwner) or run_owner.role != "run"
                 or run_owner.project_id != owner.project_id or run_owner.run_id != run_id):
             raise OwnershipError("start run ownership mismatch")
-        if operation["action"] != "start" or not operation["run_id"].isdigit():
+        if (operation["action"] not in {"start", "restart"}
+                or operation["action"] == "start" and not operation["run_id"].isdigit()):
             raise WebStoreError("invalid start admission")
         try:
             profiles = ProfileStore(self.path.parent)
@@ -1620,11 +1608,24 @@ class WebStore:
                 raise WebStoreError("start project identity changed")
             state = StateStore(profile.store_root or profiles.default_store_root(profile.name))
             run = state.load(run_id)
+            if operation["action"] == "restart":
+                previous_id, revision = operation["run_id"].rsplit(".", 1)
+                previous = state.load(previous_id)
+                previous_raw = (state.run_dir(previous_id) / "state.json").read_bytes()
+                if (previous.lifecycle != "cancelled" or run_id == previous_id
+                        or hashlib.sha256(previous_raw).hexdigest() != revision
+                        or not any(event.get("event") == "restarted-from"
+                                   and event.get("previous_run_id") == previous_id
+                                   for event in state.read_journal(run_id))):
+                    raise WebStoreError("restart admission evidence is invalid")
+                expected_ticket = previous.ticket_iid
+            else:
+                expected_ticket = int(operation["run_id"])
             ticket = state.load_ticket(run_id)
             picked = any(event.get("event") == "picked"
                          and event.get("ticket") == run.ticket_iid
                          for event in state.read_journal(run_id))
-            if (run.ticket_iid != int(operation["run_id"]) or ticket.get("iid") != run.ticket_iid
+            if (run.ticket_iid != expected_ticket or ticket.get("iid") != run.ticket_iid
                     or run.lifecycle != "working"
                     or operation["workflow"] is not None and run.workflow != operation["workflow"]
                     or not picked):
@@ -1649,8 +1650,9 @@ class WebStore:
             self._finish(connection, row, "succeeded", "completed")
 
     def operation_for_key(self, actor_id: int, key: str) -> dict | None:
-        """@brief Resolve a durable idempotency key before preparing external work.
-        @return Current operation or None; callers recheck immutable request binding.
+        """
+        Resolve a durable idempotency key before preparing external work.
+        Returns: Current operation or None; callers recheck immutable request binding.
         """
         with self._connect() as connection:
             row = connection.execute(
@@ -1659,7 +1661,7 @@ class WebStore:
         return self._operation_with_current_project(row) if row else None
 
     def pending_configuration(self) -> list[dict]:
-        """@brief List bounded explicit configure requests without claiming or reading payloads."""
+        """List bounded explicit configure requests without claiming or reading payloads."""
         with self._ownership_connect() as connection:
             rows = connection.execute(
                 "SELECT * FROM operations WHERE action='configure' AND status IN "
@@ -1667,11 +1669,12 @@ class WebStore:
         return [self._operation_with_current_project(row) for row in rows]
 
     def project_operation_status(self, project_id: str, actor_id: int) -> tuple[list, list]:
-        """@brief Read project queue and latest own operations through short local reads.
-        @param[in] project_id Explicit immutable project identity, authorized by caller.
-        @param[in] actor_id Authenticated account, never inferred from active profile.
-        @return Validated unfinished queue and latest own request for each action.
-        @exception WebStoreError Invalid identity or corrupt stored request.
+        """
+        Read project queue and latest own operations through short local reads.
+        project_id: Explicit immutable project identity, authorized by caller.
+        actor_id: Authenticated account, never inferred from active profile.
+        Returns: Validated unfinished queue and latest own request for each action.
+        Raises WebStoreError: Invalid identity or corrupt stored request.
         """
         if (not isinstance(project_id, str) or not re.fullmatch(r"[a-f0-9]{32}", project_id)
                 or type(actor_id) is not int or actor_id < 1):
@@ -1688,7 +1691,7 @@ class WebStore:
                 [self._operation_record(row) for row in recent])
 
     def has_unfinished_operations(self, project: str) -> bool:
-        """@brief Check for other queued/executing operations before a project edit."""
+        """Check for other queued/executing operations before a project edit."""
         from adore.web.configuration import current_operation
         identity = _profile_identity(self.path.parent, project)
         if identity is None:
@@ -1705,7 +1708,7 @@ class WebStore:
         return row is not None
 
     def pending_domains(self, *, actions: tuple[str, ...] = ()) -> list[tuple[str, str]]:
-        """@brief Discover explicit pending project domains without claiming them."""
+        """Discover explicit pending project domains without claiming them."""
         with self._ownership_connect() as connection:
             action_filter = ("AND action IN (" + ",".join("?" for _ in actions) + ") "
                              if actions else "")
@@ -1716,7 +1719,7 @@ class WebStore:
 
     @staticmethod
     def _operation_resource(action: str, target: str) -> str:
-        """@brief Normalize job identity across Retry and revision-bound Restart."""
+        """Normalize job identity across Retry and revision-bound Restart."""
         if not isinstance(target, str):
             raise WebStoreError("invalid operation target")
         if action == "configure":
@@ -1743,7 +1746,7 @@ class WebStore:
 
     @staticmethod
     def _claim_scope(owner: WorkerOwner, domain: str) -> None:
-        """@brief Refuse cross-domain or implicit-project consumption."""
+        """Refuse cross-domain or implicit-project consumption."""
         if not isinstance(owner, WorkerOwner):
             raise OwnershipError("explicit worker ownership required")
         expected = ("execution" if owner.role in ("project", "command", "run") else
@@ -1753,7 +1756,7 @@ class WebStore:
             raise OwnershipError("worker ownership cannot consume this domain")
 
     def _profile_snapshot(self, project_id: str):
-        """@brief Inspect local profile identity outside a SQLite writer transaction."""
+        """Inspect local profile identity outside a SQLite writer transaction."""
         if not project_id:
             return None
         try:
@@ -1762,7 +1765,7 @@ class WebStore:
             return "project_corrupt"
 
     def _request_permission(self, connection, operation: dict, profile) -> str:
-        """@brief Return a closed denial after current actor/immutable-project checks."""
+        """Return a closed denial after current actor/immutable-project checks."""
         actor = connection.execute("SELECT * FROM users WHERE id=?",
                                    (operation["actor_id"],)).fetchone()
         if actor is None or actor["disabled"]:
@@ -1788,13 +1791,14 @@ class WebStore:
 
     def claim_next(self, owner: WorkerOwner, *, domain: str, action: str = "",
                    actions: tuple[str, ...] = (), operation_id: int = 0) -> dict[str, Any] | None:
-        """@brief Atomically claim one authorized operation within the exact owner scope.
-        @param[in] owner Server-issued role/project/run handle.
-        @param[in] action Optional exact action filter.
-        @param[in] actions Optional declared consumer action allowlist.
-        @param[in] domain Explicit execution or project/global configuration domain.
-        @param[in] operation_id Optional exact inspected request; zero selects the next request.
-        @return Claimed operation, or None; revoked requests finish without effects.
+        """
+        Atomically claim one authorized operation within the exact owner scope.
+        owner: Server-issued role/project/run handle.
+        action: Optional exact action filter.
+        actions: Optional declared consumer action allowlist.
+        domain: Explicit execution or project/global configuration domain.
+        operation_id: Optional exact inspected request; zero selects the next request.
+        Returns: Claimed operation, or None; revoked requests finish without effects.
         """
         self._claim_scope(owner, domain)
         if type(operation_id) is not int or operation_id < 0:
@@ -1852,13 +1856,14 @@ class WebStore:
 
     def authorize_effect(self, operation_id: int, *, owner: WorkerOwner,
                          generation: int, run_owner: WorkerOwner | None = None) -> dict[str, Any]:
-        """@brief Recheck ownership, actor rights and project immediately before effects.
-        @param[in] operation_id Exact queued operation identity.
-        @param[in] owner Current command owner handle.
-        @param[in] generation Exact operation claim generation.
-        @param[in] run_owner Optional separately owned run scope for this child.
-        @return Current authorized immutable request.
-        @exception OwnershipError Stale owner, changed request or revoked access.
+        """
+        Recheck ownership, actor rights and project immediately before effects.
+        operation_id: Exact queued operation identity.
+        owner: Current command owner handle.
+        generation: Exact operation claim generation.
+        run_owner: Optional separately owned run scope for this child.
+        Returns: Current authorized immutable request.
+        Raises OwnershipError: Stale owner, changed request or revoked access.
         """
         with self._ownership_connect() as connection:
             self._participant(connection, owner)
@@ -1866,7 +1871,7 @@ class WebStore:
                                      (operation_id,)).fetchone()
             self._operation_owner(row, owner, generation)
             operation = self._operation_record(row)
-            admitted = (row["status"] == "succeeded" and row["action"] == "start"
+            admitted = (row["status"] == "succeeded" and row["action"] in {"start", "restart"}
                         and row["admitted_run_id"])
             if row["status"] != "running" and not admitted:
                 raise OwnershipError("operation ownership is no longer active")
@@ -1890,7 +1895,7 @@ class WebStore:
 
     @staticmethod
     def _operation_owner(row, owner: WorkerOwner, generation: int) -> None:
-        """@brief Fence stale operation and owner generations, including terminal replay."""
+        """Fence stale operation and owner generations, including terminal replay."""
         if (row is None or row["owner_id"] != owner.id
                 or row["owner_generation"] != owner.generation
                 or type(generation) is not int or row["generation"] != generation
@@ -1902,7 +1907,7 @@ class WebStore:
             raise OwnershipError("operation ownership run identity changed")
 
     def pending_cancels(self, project: str | None = None) -> list[dict[str, Any]]:
-        """@brief Inspect queued cancellations for one or every project."""
+        """Inspect queued cancellations for one or every project."""
         identity = (_profile_identity(self.path.parent, project)
                     if project is not None else None)
         if project is not None and identity is None:
@@ -1922,11 +1927,12 @@ class WebStore:
 
     def recover_interrupted(self, *, project_id: str | None = None,
                             role: str | None = None) -> int:
-        """@brief Recover only owners whose exact local process incarnations are dead.
-        @param[in] project_id Optional immutable project recovery scope.
-        @param[in] role Optional exact role recovery scope.
-        @return Number of interrupted operations marked uncertain.
-        @details Process inspection occurs before short CAS write transactions.
+        """
+        Recover only owners whose exact local process incarnations are dead.
+        project_id: Optional immutable project recovery scope.
+        role: Optional exact role recovery scope.
+        Returns: Number of interrupted operations marked uncertain.
+        Process inspection occurs before short CAS write transactions.
                  Stale heartbeat, shutdown requests and unknown probes never prove death.
         """
         with self._ownership_connect() as connection:
@@ -1984,11 +1990,12 @@ class WebStore:
 
     def finish(self, operation_id: int, status: str, result: str, *,
                owner: WorkerOwner, generation: int, reason: str = "", detail: str = "") -> None:
-        """@brief Commit a fenced observed outcome and audit atomically.
-        @param[in] owner Current owner handle; terminal replay requires the same owner.
-        @param[in] generation Exact operation claim generation.
-        @param[in] reason Closed refusal code, excluding credentials.
-        @param[in] detail Bounded, redacted engine tail.
+        """
+        Commit a fenced observed outcome and audit atomically.
+        owner: Current owner handle; terminal replay requires the same owner.
+        generation: Exact operation claim generation.
+        reason: Closed refusal code, excluding credentials.
+        detail: Bounded, redacted engine tail.
         """
         if status not in ("succeeded", "failed", "uncertain"):
             raise WebStoreError("invalid completion status")
@@ -2014,8 +2021,9 @@ class WebStore:
             raise WebStoreError("operation storage is corrupt") from exc
 
     def _finish(self, connection, row, status, result, reason="", detail=""):
-        """@brief Confirm only observed worker outcome; arbitrary error text is excluded.
-        @details Result, reason and engine detail stay on the operation row; the audit
+        """
+        Confirm only observed worker outcome; arbitrary error text is excluded.
+        Result, reason and engine detail stay on the operation row; the audit
                  evidence records only the action and its status.
         """
         connection.execute(
@@ -2053,7 +2061,7 @@ class WebStore:
         self, connection, actor_id, action, project="", detail="", *, payload=None, event_key=None,
         created_at=None,
     ) -> None:
-        """@brief Persist evidence and enforce retention inside the owning transaction."""
+        """Persist evidence and enforce retention inside the owning transaction."""
         if (
             not isinstance(action, str)
             or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", action)
@@ -2090,7 +2098,7 @@ class WebStore:
 
     @staticmethod
     def _safe_detail(action, detail, payload=None):
-        """@brief Keep recognized compact metadata; redact arbitrary or error text."""
+        """Keep recognized compact metadata; redact arbitrary or error text."""
         if not detail:
             return ""
         if action in ("config-staged", "config-applied", "config-updated"):
@@ -2120,7 +2128,7 @@ class WebStore:
 
     @staticmethod
     def _validate_attempt(row):
-        """@brief Validate durable replay receipt independently of retained history."""
+        """Validate durable replay receipt independently of retained history."""
         try:
             if (
                 not re.fullmatch(r"[0-9a-f]{64}", row["event_key"])
@@ -2143,7 +2151,7 @@ class WebStore:
             raise WebStoreError("audit row is corrupt") from exc
 
     def _evidence(self, connection, actor_id, **values):
-        """@brief Snapshot only the validated account name and supplied server evidence."""
+        """Snapshot only the validated account name and supplied server evidence."""
         row = connection.execute("SELECT username FROM users WHERE id=?", (actor_id,)).fetchone()
         try:
             return audit_contract.evidence(actor=row["username"] if row else None, **values)
@@ -2153,7 +2161,7 @@ class WebStore:
     def audit(
         self, actor_id: int | None, action: str, project: str = "", detail: str = "", **values
     ) -> None:
-        """@brief Append server-owned structured evidence; values exclude request secrets."""
+        """Append server-owned structured evidence; values exclude request secrets."""
         confirmation_key = values.pop("confirmation_key", None)
         if confirmation_key is not None:
             identity = _profile_identity(self.path.parent, project) if project else None
@@ -2184,10 +2192,10 @@ class WebStore:
         **values,
     ) -> str:
         """
-        @brief Persist an uncertain filesystem attempt before changing external storage.
-        @param[in] correlation Server-owned replay identity; stored only as SHA-256.
-        @return Opaque correlation for confirmation after the owning mutation.
-        @note Crash or exception keeps after unrecorded and result uncertain.
+        Persist an uncertain filesystem attempt before changing external storage.
+        correlation: Server-owned replay identity; stored only as SHA-256.
+        Returns: Opaque correlation for confirmation after the owning mutation.
+        Note: Crash or exception keeps after unrecorded and result uncertain.
         """
         key = _digest(correlation) if correlation is not None else secrets.token_hex(32)
         try:
@@ -2227,7 +2235,7 @@ class WebStore:
     def confirm_change(
         self, key: str, *, after=None, project_id: str | None = None, detail: str = ""
     ) -> None:
-        """@brief Atomically finalize one attempt and its retained evidence once."""
+        """Atomically finalize one attempt and its retained evidence once."""
         try:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -2286,7 +2294,7 @@ class WebStore:
 
     @staticmethod
     def _audit_projection(row) -> dict:
-        """@brief Validate one stored audit row and project its structured evidence."""
+        """Validate one stored audit row and project its structured evidence."""
         item = dict(row)
         try:
             audit_contract.instant(item["created_at"])
@@ -2321,7 +2329,7 @@ class WebStore:
 
     @staticmethod
     def _audit_storage(connection):
-        """@brief Reject unsupported/corrupt audit shapes on initialization and every read/write."""
+        """Reject unsupported/corrupt audit shapes on initialization and every read/write."""
         if connection.execute("PRAGMA user_version").fetchone()[0] != _SCHEMA_VERSION:
             raise WebStoreError("audit row is corrupt")
         expected = {"id", "actor_id", "action", "project", "detail", "created_at",
@@ -2345,7 +2353,7 @@ class WebStore:
 
     @staticmethod
     def _audit_policy_row(connection: sqlite3.Connection) -> dict[str, int | None]:
-        """@brief Read the singleton policy and reject corrupt persisted values."""
+        """Read the singleton policy and reject corrupt persisted values."""
         row = connection.execute(
             "SELECT retention_days,max_bytes FROM audit_policy WHERE singleton=1"
         ).fetchone()
@@ -2359,14 +2367,14 @@ class WebStore:
         return values
 
     def audit_policy(self) -> dict[str, int | None]:
-        """@brief Return the configured audit retention limits."""
+        """Return the configured audit retention limits."""
         with self._connect() as connection:
             return self._audit_policy_row(connection)
 
     def set_audit_policy(
         self, retention_days: int | None, max_bytes: int | None, *, actor_id: int | None = None
     ) -> dict[str, int | None]:
-        """@brief Atomically set audit limits and prune existing oldest events."""
+        """Atomically set audit limits and prune existing oldest events."""
         for value, maximum in ((retention_days, 36500), (max_bytes, 1073741824)):
             if value is not None and (type(value) is not int or not 1 <= value <= maximum):
                 raise WebStoreError("invalid audit policy")
@@ -2401,7 +2409,7 @@ class WebStore:
         return result
 
     def _prune_audit(self, connection: sqlite3.Connection) -> None:
-        """@brief Enforce configured age and UTF-8 payload size within a transaction."""
+        """Enforce configured age and UTF-8 payload size within a transaction."""
         self._audit_storage(connection)
         policy = self._audit_policy_row(connection)
         days, byte_limit = policy["retention_days"], policy["max_bytes"]
@@ -2441,14 +2449,15 @@ class WebStore:
                 total -= size
 
     def recent_audit(self, limit: int | None = 100) -> list[dict[str, Any]]:
-        """@brief Return bounded recent audit rows for administrator review."""
+        """Return bounded recent audit rows for administrator review."""
         if limit is not None and (type(limit) is not int or not 1 <= limit <= 500):
             raise WebStoreError("invalid audit limit")
         return self.audit_page(limit, 0)[0]
 
     def _import_deletion_audit(self, connection) -> None:
-        """@brief Atomically import local receipts without bootstrapping web identity.
-        @exception WebStoreError The separate receipt store is unreadable or corrupt.
+        """
+        Atomically import local receipts without bootstrapping web identity.
+        Raises WebStoreError: The separate receipt store is unreadable or corrupt.
         """
         path = self.path.parent / DELETION_AUDIT_NAME
         try:
@@ -2541,11 +2550,11 @@ class WebStore:
         project_reader: bool = False,
     ) -> tuple[list[dict], int]:
         """
-        @brief Return filtered newest-first evidence and its count in one SQL snapshot.
-        @param[in] limit Page size 1-500 or None for all rows.
-        @param[in] offset Nonnegative number of matched rows to skip.
-        @return Redacted rows and filtered total.
-        @exception WebStoreError Invalid bounds/filter or corrupt persisted evidence.
+        Return filtered newest-first evidence and its count in one SQL snapshot.
+        limit: Page size 1-500 or None for all rows.
+        offset: Nonnegative number of matched rows to skip.
+        Returns: Redacted rows and filtered total.
+        Raises WebStoreError: Invalid bounds/filter or corrupt persisted evidence.
         """
         if limit is not None and (type(limit) is not int or not 1 <= limit <= 500):
             raise WebStoreError("invalid audit limit")
@@ -2735,7 +2744,7 @@ class WebStore:
         output_rate: str,
         actor_id: int,
     ) -> dict[str, Any]:
-        """@brief Add one immutable project/executor/model price version."""
+        """Add one immutable project/executor/model price version."""
         _price_identity(project, executor, model, effective_from)
         _price_value(input_rate)
         _price_value(output_rate)
@@ -2768,7 +2777,7 @@ class WebStore:
         return dict(row)
 
     def list_prices(self, project: str) -> list[dict[str, Any]]:
-        """@brief Read every immutable price version for one project."""
+        """Read every immutable price version for one project."""
         identity = _profile_identity(self.path.parent, project)
         if identity is None:
             return []
@@ -2787,6 +2796,3 @@ class WebStore:
             _price_value(row["input_usd_per_million"])
             _price_value(row["output_usd_per_million"])
         return result
-
-
-# END OF FILE

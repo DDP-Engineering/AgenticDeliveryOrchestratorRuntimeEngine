@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Configuration Reference
 
 `labels.selection.type_epic` names a nonempty label (default `epic`). Tickets bearing it are excluded from automatic pickup and manual Start.
@@ -95,7 +88,8 @@ defaults include priorities `P1/P2/P3` and type labels. Control defaults are
 The delivery approval label is configured separately and must not collide with
 lifecycle or control labels.
 
-`labels.control.exclude` names the **Exclude from pickup label** (default `no-agent`). ADORE skips a ticket while that label is present, including tickets carrying the ready label. Removing it permits pickup if all other eligibility conditions hold. Adding it does not stop an already-started job. Apply the configured label on the ticket in its GitHub, GitLab or Gitea repository.
+`labels.control.exclude` names the **Exclude from pickup label** (default `no-agent`). ADORE skips a ticket while that label is present, including tickets carrying the ready label. Removing it permits pickup if all other eligibility conditions hold. Adding it does not stop an already-started job. Apply the configured label on the GitHub, GitLab or Gitea ticket, or the
+corresponding tag on an in-scope Azure DevOps Work Item.
 
 The GUI exposes `labels.lifecycle.ready` directly in Tickets as **Ready for pickup label**. `answered` is **Clarification answered label** and needs a new reply comment as well as the label. `answered`, `clarify`, `done`, `failed`, `review` and `working` are in the initially closed **Status labels** group; ADORE manages their ticket state presentation. `working` includes waiting for publication approval, `review` covers a published draft or ready PR/MR, and `done` follows a human merge. Manual status-label changes do not transition the saved job; retry is a separate action. There is no `[labels.executor]` table: a ticket cannot choose the coding agent, and the key is refused with `[labels] unknown key 'executor': remove it from config.toml`.
 
@@ -106,7 +100,7 @@ Pi is ADORE's only coding agent. The `[executor]` table holds:
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `executor.provider` | A Pi API-key provider id (for example `openai`, `anthropic`, `google`, `openrouter`, `mistral`; Settings → Agent and model lists them all), `chatgpt` (the server's ChatGPT Plus/Pro sign-in, made in the web interface; container or native Windows/Linux execution, stage time limits at most 3000 seconds) or `custom` (an OpenAI-compatible endpoint). | required |
-| `executor.model` | Model ID within the provider, for example `gpt-5.4`; Pi's list or any ID the provider accepts. | required |
+| `executor.model` | Model ID within the provider, for example `gpt-6.1-terra`; Pi's list or any ID the provider accepts. | required |
 | `executor.endpoint.base_url` | Only with `custom`: the endpoint address as seen from the container. | required with `custom` |
 | `executor.endpoint.api` | Only with `custom`: `openai-completions`, `openai-responses`, `anthropic-messages` or `google-generative-ai`. | `openai-completions` |
 | `executor.internet` | **Internet access for the agent**: `false` limits a container run to the model provider's hosts; `true` opens its network and loads Pi's web tools. | `false` |

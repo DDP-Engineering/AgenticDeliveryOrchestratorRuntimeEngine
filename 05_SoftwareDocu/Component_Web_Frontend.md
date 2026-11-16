@@ -1,13 +1,12 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: Web frontend
 
 ## Purpose and source ownership
+
+Cancelled jobs offer workflow-aware Restart in Jobs and Tickets. Confirmation
+retains history; durable admission opens the fresh job. Previous/New job links
+navigate within the current project context. Failed-job abandonment and Retry
+remain separate actions. System status groups the storage label, availability
+badge and measured capacity together below the worker list at all widths.
 
 `04_Software/web/` contains the React/TypeScript interface. Vite produces the
 same-origin assets in `04_Software/adore/web/static/`, included in the wheel.

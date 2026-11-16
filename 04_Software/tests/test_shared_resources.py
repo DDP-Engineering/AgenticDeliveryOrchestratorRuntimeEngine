@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_shared_resources.py
-@brief Offline shared-resource contention and ownership contracts.
-@details Uses only injected offline fakes; no forge, git, container or model is
-         contacted. The tests focus on observable contracts and fail-closed
-         trust boundaries rather than private implementation structure.
-"""
+"""Offline shared-resource contention and ownership contracts."""
 
 from __future__ import annotations
 
@@ -31,7 +16,6 @@ from adore.state import LockHeldError, RunState, StateStore
 from adore.util import CommandResult
 import pytest
 
-# IMPORTS
 from tests.execution_records import execution_record
 from tests.test_chatgpt import signed_in
 from tests.test_orchestrator import make_engine, make_run
@@ -39,14 +23,12 @@ from tests.test_orchestrator import make_engine, make_run
 
 @pytest.fixture(autouse=True)
 def isolated_server_home(tmp_path, monkeypatch):
-    """@brief Kernel lock metadata never enters an operator's server home."""
+    """Kernel lock metadata never enters an operator's server home."""
     monkeypatch.setenv("ADORE_HOME", str(tmp_path / "server-home"))
 
 
-# PUBLIC API
-
 def test_shared_git_mutations_wait_but_another_repository_proceeds(tmp_path):
-    """@brief Same-clone mutations serialize; independent repositories progress."""
+    """Same-clone mutations serialize; independent repositories progress."""
     entered, release, second_started, second_entered = (Event() for _ in range(4))
     def runner(argv, **kwargs):
         if "worktree" in argv and "add" in argv:
@@ -80,7 +62,7 @@ def test_shared_git_mutations_wait_but_another_repository_proceeds(tmp_path):
 
 @pytest.mark.parametrize("bad", ["../foreign", ".", "..", "/foreign", "a/b", "a\\b"])
 def test_worktree_identity_refuses_escaping_run_paths(tmp_path, bad):
-    """@brief Invalid run names cannot address another run or repository."""
+    """Invalid run names cannot address another run or repository."""
     calls = []
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work",
                               lambda argv: calls.append(argv) or CommandResult())
@@ -90,7 +72,7 @@ def test_worktree_identity_refuses_escaping_run_paths(tmp_path, bad):
 
 
 def test_project_barrier_checks_terminal_and_removed_execution_slots(tmp_path):
-    """@brief Cleanup ownership outlives state and stays project scoped."""
+    """Cleanup ownership outlives state and stays project scoped."""
     a, peer, other = (StateStore(tmp_path / name) for name in ("a", "a", "b"))
     a.save(RunState("one", 1, lifecycle="done", execution=execution_record()))
     with a.execution_slot("one"):
@@ -105,7 +87,7 @@ def test_project_barrier_checks_terminal_and_removed_execution_slots(tmp_path):
 
 
 def test_refresh_is_serial_and_tokens_remain_call_scoped(tmp_path):
-    """@brief Helpers sharing credentials serialize while returning distinct tokens."""
+    """Helpers sharing credentials serialize while returning distinct tokens."""
     directory = tmp_path / "auth"
     signed_in(directory)
     entered, release, second_started, second_entered = (Event() for _ in range(4))
@@ -139,7 +121,7 @@ def test_refresh_is_serial_and_tokens_remain_call_scoped(tmp_path):
 
 @pytest.mark.parametrize("operation", ["cancel", "handoff"])
 def test_foreign_saved_resource_refused_before_effects(tmp_path, operation):
-    """@brief Corrupt state cannot redirect checkpoint/publication or cancellation."""
+    """Corrupt state cannot redirect checkpoint/publication or cancellation."""
     engine, _, worktrees, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.container = "another-project-run"
@@ -154,7 +136,7 @@ def test_foreign_saved_resource_refused_before_effects(tmp_path, operation):
 
 
 def test_concurrent_metrics_updates_publish_atomic_complete_snapshot(tmp_path, monkeypatch):
-    """@brief A slow mirror writer cannot overwrite a later committed row."""
+    """A slow mirror writer cannot overwrite a later committed row."""
     db, mirror = tmp_path / "metrics.db", tmp_path / "metrics.jsonl"
     entered, release, second_started = Event(), Event(), Event()
     original = metrics.load_summaries
@@ -185,7 +167,7 @@ def test_concurrent_metrics_updates_publish_atomic_complete_snapshot(tmp_path, m
         row.run_id for row in original(db)} == {"first", "second"}
 
 def test_two_runs_provision_checkpoint_and_finish_without_resource_overlap(tmp_path):
-    """@brief Concurrent same-clone lifecycles preserve peer worktrees and metrics."""
+    """Concurrent same-clone lifecycles preserve peer worktrees and metrics."""
     repo, root = tmp_path / "repo", tmp_path / "work"
     common = repo / ".git"
     branches, dirty = {}, {}
@@ -234,7 +216,7 @@ def test_two_runs_provision_checkpoint_and_finish_without_resource_overlap(tmp_p
 
 
 def test_resource_contention_is_bounded_and_failed_owner_releases(tmp_path):
-    """@brief Busy locks fail typed and a failing holder cannot strand a peer."""
+    """Busy locks fail typed and a failing holder cannot strand a peer."""
     path = tmp_path / "shared.lock"
     def peer():
         with pytest.raises(ResourceLockError, match="busy"), resource_lock(path, timeout=0):
@@ -248,7 +230,7 @@ def test_resource_contention_is_bounded_and_failed_owner_releases(tmp_path):
 
 
 def test_metrics_failure_preserves_old_mirror_and_reports_contention(tmp_path, monkeypatch):
-    """@brief Atomic replacement failure leaves valid old output and a typed refusal."""
+    """Atomic replacement failure leaves valid old output and a typed refusal."""
     db, mirror = tmp_path / "m.db", tmp_path / "m.jsonl"
     metrics.record_summary(db, metrics.RunSummary("old"), str(mirror))
     previous = mirror.read_bytes()
@@ -264,7 +246,7 @@ def test_metrics_failure_preserves_old_mirror_and_reports_contention(tmp_path, m
 
 
 def test_metrics_sqlite_contention_is_bounded_and_typed(tmp_path):
-    """@brief External SQLite ownership cannot become an unbounded terminal write."""
+    """External SQLite ownership cannot become an unbounded terminal write."""
     from contextlib import closing
     import sqlite3
     db = tmp_path / "m.db"
@@ -281,7 +263,7 @@ def test_metrics_sqlite_contention_is_bounded_and_typed(tmp_path):
 
 
 def test_managed_pi_concurrent_install_publishes_once(tmp_path, monkeypatch):
-    """@brief Two product prerequisite requests publish one immutable verified prefix."""
+    """Two product prerequisite requests publish one immutable verified prefix."""
     from adore import pi_installation as pi
 
     from tests.test_pi_installation import fake_node, write_fake_packages
@@ -315,7 +297,7 @@ def test_managed_pi_concurrent_install_publishes_once(tmp_path, monkeypatch):
 
 
 def test_container_stop_and_bound_environment_are_run_scoped():
-    """@brief Cancelling one target preserves the peer and copied launch environments."""
+    """Cancelling one target preserves the peer and copied launch environments."""
     from adore.execution import ContainerBackend, ExecutionRecoveryError
     class Manager:
         def __init__(self):
@@ -343,7 +325,7 @@ def test_container_stop_and_bound_environment_are_run_scoped():
 
 
 def test_project_namespaces_separate_same_ticket_resources(tmp_path, monkeypatch):
-    """@brief Production construction retains each project's backend, model and resource key."""
+    """Production construction retains each project's backend, model and resource key."""
     from types import SimpleNamespace
 
     from adore import orchestrator as module
@@ -389,7 +371,7 @@ def test_project_namespaces_separate_same_ticket_resources(tmp_path, monkeypatch
 
 
 def test_archive_and_profile_deletion_refuse_active_terminal_cleanup(tmp_path, monkeypatch):
-    """@brief All project operations observe live cleanup despite terminal saved state."""
+    """All project operations observe live cleanup despite terminal saved state."""
     from adore.cli import main
     from adore.web.app import create_app
     from fastapi.testclient import TestClient
@@ -415,7 +397,7 @@ def test_archive_and_profile_deletion_refuse_active_terminal_cleanup(tmp_path, m
 
 
 def test_refresh_failure_releases_common_lock_without_touching_peer_credentials(tmp_path):
-    """@brief A failed helper does not strand the refresh scope or alter another store."""
+    """A failed helper does not strand the refresh scope or alter another store."""
     directory, other = tmp_path / "one", tmp_path / "two"
     signed_in(directory)
     signed_in(other)
@@ -438,7 +420,7 @@ def test_refresh_failure_releases_common_lock_without_touching_peer_credentials(
 
 
 def test_metrics_rejects_database_as_mirror(tmp_path):
-    """@brief A conflicting output path cannot replace the database with JSONL."""
+    """A conflicting output path cannot replace the database with JSONL."""
     db = tmp_path / "m.db"
     metrics.record_summary(db, metrics.RunSummary("old"))
     with pytest.raises(metrics.MetricsError, match="different files"):
@@ -449,7 +431,7 @@ def test_metrics_rejects_database_as_mirror(tmp_path):
 @pytest.mark.parametrize("runtime", ["docker", "podman", "wsl -d Ubuntu -- docker"])
 @pytest.mark.parametrize("foreign", [False, True])
 def test_warm_provision_checks_ownership_before_start(tmp_path, runtime, foreign):
-    """@brief Warm provisioning accepts owned mounts and refuses a peer's IO binding."""
+    """Warm provisioning accepts owned mounts and refuses a peer's IO binding."""
     from adore.isolation import ContainerManager
 
     from tests.test_isolation import FakeRunner, _ok, owned_container_receipt
@@ -468,7 +450,7 @@ def test_warm_provision_checks_ownership_before_start(tmp_path, runtime, foreign
 
 
 def test_git_contention_refuses_checkpoint_and_preserves_external_config_lock(tmp_path):
-    """@brief External Git contention fails typed without stealing or rewriting its lock."""
+    """External Git contention fails typed without stealing or rewriting its lock."""
     from tests.test_isolation import FakeRunner, _fail
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", FakeRunner(
         _fail("fatal: Unable to create index.lock: File exists")))
@@ -486,7 +468,7 @@ def test_git_contention_refuses_checkpoint_and_preserves_external_config_lock(tm
 
 
 def test_concurrent_process_log_rotation_keeps_run_attribution(tmp_path):
-    """@brief Shared admission logs never race rotation or mix individual records."""
+    """Shared admission logs never race rotation or mix individual records."""
     from adore.process_log import ProcessLogger
     path = tmp_path / "adore.log"
     tokens = [f"run-{i}-unique-evidence" for i in range(20)]
@@ -500,7 +482,7 @@ def test_concurrent_process_log_rotation_keeps_run_attribution(tmp_path):
 
 
 def test_conduct_cli_writes_only_its_run_process_log(tmp_path, monkeypatch):
-    """@brief Independent conduct-run processes have independent diagnostic files."""
+    """Independent conduct-run processes have independent diagnostic files."""
     from adore import cli
     engine, *_ = make_engine(tmp_path)
     def conduct(run_id, **kwargs):
@@ -517,7 +499,7 @@ def test_conduct_cli_writes_only_its_run_process_log(tmp_path, monkeypatch):
 
 
 def test_clone_preview_uses_saved_namespaced_paths_only(tmp_path, monkeypatch):
-    """@brief Clone preview recognizes saved project-suffixed worktrees and keeps peers."""
+    """Clone preview recognizes saved project-suffixed worktrees and keeps peers."""
     from types import SimpleNamespace
 
     from adore import clone_cleanup as cleanup
@@ -538,14 +520,14 @@ def test_clone_preview_uses_saved_namespaced_paths_only(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("invalid", [-1, float("nan"), float("inf"), True, "10"])
 def test_resource_lock_refuses_unbounded_timeout(tmp_path, invalid):
-    """@brief Invalid bounds cannot turn resource contention into an endless wait."""
+    """Invalid bounds cannot turn resource contention into an endless wait."""
     with (pytest.raises(ResourceLockError),
           resource_lock(tmp_path / "invalid.lock", timeout=invalid)):
         pytest.fail("invalid lock bound accepted")
 
 
 def test_cli_loaded_before_archive_cannot_admit_after_barrier(tmp_path, monkeypatch):
-    """@brief Archive remains authoritative for a CLI that loaded its config earlier."""
+    """Archive remains authoritative for a CLI that loaded its config earlier."""
     from adore import cli
 
     from tests.test_profile_cli import _ready_profile
@@ -565,7 +547,7 @@ def test_cli_loaded_before_archive_cannot_admit_after_barrier(tmp_path, monkeypa
 
 
 def test_delete_api_and_restore_require_safe_project_boundary(tmp_path):
-    """@brief Deletion refuses cleanup slots and queued deletion cannot be restored."""
+    """Deletion refuses cleanup slots and queued deletion cannot be restored."""
     from adore.profiles import ProfileStore
     from adore.web.app import create_app
     from fastapi.testclient import TestClient
@@ -588,7 +570,7 @@ def test_delete_api_and_restore_require_safe_project_boundary(tmp_path):
 
 
 def test_repository_locks_stay_inside_git_metadata(tmp_path):
-    """@brief Normal provisioning does not dirty the clone or prevent clone deletion."""
+    """Normal provisioning does not dirty the clone or prevent clone deletion."""
     repo, root = tmp_path / "repo", tmp_path / "worktrees"
     manager = WorktreeManager(repo, root, lambda *args, **kwargs: CommandResult())
     manager.create("owned", "adore/owned", "HEAD", new_branch=True)
@@ -598,7 +580,7 @@ def test_repository_locks_stay_inside_git_metadata(tmp_path):
 
 
 def test_cancel_one_run_preserves_peer_worktree_and_runtime(tmp_path):
-    """@brief Full cancellation targets only one run's dedicated resource identities."""
+    """Full cancellation targets only one run's dedicated resource identities."""
     from dataclasses import replace
     import shutil
     engine, _, trees, containers, _ = make_engine(tmp_path)
@@ -623,7 +605,7 @@ def test_cancel_one_run_preserves_peer_worktree_and_runtime(tmp_path):
 
 
 def test_native_release_preserves_peer_process_scope_and_receipt(tmp_path, monkeypatch):
-    """@brief Independent native backends release only their verified control scopes."""
+    """Independent native backends release only their verified control scopes."""
     from adore.local_execution import LocalBackend
 
     from tests.test_local_execution import local_fixture
@@ -646,7 +628,7 @@ def test_native_release_preserves_peer_process_scope_and_receipt(tmp_path, monke
 @pytest.mark.parametrize("profile_owned", [False, True])
 def test_same_state_root_keeps_kernel_ownership_across_ambient_homes(tmp_path, monkeypatch,
                                                                     profile_owned):
-    """@brief Explicit web home and CLI ambient home cannot split one state lock."""
+    """Explicit web home and CLI ambient home cannot split one state lock."""
     root = (tmp_path / "server" / "profiles" / "one" / "state"
             if profile_owned else tmp_path / "external-state")
     first = StateStore(root)
@@ -665,7 +647,7 @@ def test_same_state_root_keeps_kernel_ownership_across_ambient_homes(tmp_path, m
 
 
 def test_explicit_web_home_barrier_matches_child_cli_ownership(tmp_path, monkeypatch):
-    """@brief Supported --home deployment sees terminal slots despite a different ambient home."""
+    """Supported --home deployment sees terminal slots despite a different ambient home."""
     from adore.profiles import ProfileStore
     from adore.web.app import create_app
     from fastapi.testclient import TestClient
@@ -686,7 +668,7 @@ def test_explicit_web_home_barrier_matches_child_cli_ownership(tmp_path, monkeyp
 
 
 def test_metrics_delete_and_upsert_publish_one_current_snapshot(tmp_path, monkeypatch):
-    """@brief A delayed deletion export cannot overwrite a concurrently completed row."""
+    """A delayed deletion export cannot overwrite a concurrently completed row."""
     db, mirror = tmp_path / "metrics.db", tmp_path / "metrics.jsonl"
     metrics.record_summary(db, metrics.RunSummary("deleted"), str(mirror))
     metrics.record_summary(db, metrics.RunSummary("retained"), str(mirror))
@@ -721,7 +703,7 @@ def test_metrics_delete_and_upsert_publish_one_current_snapshot(tmp_path, monkey
 
 @pytest.mark.parametrize("contains", ["state", "locks"])
 def test_clone_containing_retained_state_is_not_removed(tmp_path, monkeypatch, contains):
-    """@brief Optional clone removal cannot delete retained state or held kernel inodes."""
+    """Optional clone removal cannot delete retained state or held kernel inodes."""
     from types import SimpleNamespace
 
     from adore import clone_cleanup as cleanup
@@ -736,7 +718,7 @@ def test_clone_containing_retained_state_is_not_removed(tmp_path, monkeypatch, c
 
 
 def test_nested_profile_barrier_survives_profile_directory_deletion(tmp_path):
-    """@brief Stable inode placement stays outside every enclosing profile after removal."""
+    """Stable inode placement stays outside every enclosing profile after removal."""
     import shutil
     outer = tmp_path / "server" / "profiles" / "outer"
     root = outer / "nested" / "profiles" / "inner" / "state"
@@ -750,6 +732,3 @@ def test_nested_profile_barrier_survives_profile_directory_deletion(tmp_path):
         with pytest.raises(LockHeldError), StateStore(root).run_lock("finished"):
             pytest.fail("profile removal replaced a still-owned kernel inode")
     assert not root.exists()
-
-
-# END OF FILE

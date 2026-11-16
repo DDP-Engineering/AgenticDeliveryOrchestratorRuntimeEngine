@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_metrics.py
-@brief Daily web metrics and role-specific cost tests.
-@details Uses local journal and summary evidence without any external service.
-"""
+"""Daily web metrics and role-specific cost tests."""
 
 import sqlite3
 
@@ -28,7 +15,7 @@ from tests.usage_events import versioned_usage
 
 
 def test_daily_usage_and_financial_privacy(tmp_path):
-    """@brief Usage is bucketed by event day; developer gets no money fields."""
+    """Usage is bucketed by event day; developer gets no money fields."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -61,7 +48,7 @@ def test_daily_usage_and_financial_privacy(tmp_path):
 
 
 def test_terminal_daily_count_ignores_later_checkpoint_activity(tmp_path):
-    """@brief A recovery checkpoint cannot turn an old failure into today's completion."""
+    """A recovery checkpoint cannot turn an old failure into today's completion."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -84,7 +71,7 @@ def test_terminal_daily_count_ignores_later_checkpoint_activity(tmp_path):
 
 
 def test_usage_projection_replay_and_missing_source_fail_closed(tmp_path):
-    """@brief Web usage reads backfill once and reject lost source evidence."""
+    """Web usage reads backfill once and reject lost source evidence."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -132,7 +119,7 @@ def test_usage_projection_replay_and_missing_source_fail_closed(tmp_path):
 
 
 def test_cache_usage_is_a_subset_of_input_and_bad_overlap_fails(tmp_path):
-    """@brief Cache categories are visible without inflating input totals."""
+    """Cache categories are visible without inflating input totals."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -168,7 +155,7 @@ def test_cache_usage_is_a_subset_of_input_and_bad_overlap_fails(tmp_path):
 
 
 def test_coverage_projection_cursor_replays_append_only_journal(tmp_path):
-    """@brief Coverage and cursor persist, replay, and reject source mutation."""
+    """Coverage and cursor persist, replay, and reject source mutation."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -208,7 +195,7 @@ def test_coverage_projection_cursor_replays_append_only_journal(tmp_path):
 
 
 def test_admin_rebuilds_archived_usage_without_changing_run_state(tmp_path):
-    """@brief Explicit replay is idempotent and limited to administrators."""
+    """Explicit replay is idempotent and limited to administrators."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     profile.archived = True
@@ -254,7 +241,7 @@ def test_admin_rebuilds_archived_usage_without_changing_run_state(tmp_path):
 
 
 def test_reporting_timezone_and_weekly_monthly_buckets(tmp_path):
-    """@brief UTC evidence crosses DST and week/month boundaries by local day."""
+    """UTC evidence crosses DST and week/month boundaries by local day."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -300,7 +287,7 @@ def test_reporting_timezone_and_weekly_monthly_buckets(tmp_path):
 
 
 def test_launch_coverage_is_idempotent_and_cost_status_is_admin_only(tmp_path):
-    """@brief Replayed observations count once without duplicating usage."""
+    """Replayed observations count once without duplicating usage."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -359,7 +346,7 @@ def test_launch_coverage_is_idempotent_and_cost_status_is_admin_only(tmp_path):
 
 
 def test_conflicting_launch_observation_fails_closed(tmp_path):
-    """@brief A conflicting replay cannot silently change coverage."""
+    """A conflicting replay cannot silently change coverage."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -383,7 +370,7 @@ def test_conflicting_launch_observation_fails_closed(tmp_path):
 
 
 def test_malformed_launch_observation_fails_closed(tmp_path):
-    """@brief Missing reported token values cannot masquerade as coverage."""
+    """Missing reported token values cannot masquerade as coverage."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -404,7 +391,7 @@ def test_malformed_launch_observation_fails_closed(tmp_path):
 
 
 def test_versioned_usage_replay_is_idempotent_in_views(tmp_path):
-    """@brief Daily and attributed views count a replayed launch only once."""
+    """Daily and attributed views count a replayed launch only once."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -448,7 +435,7 @@ def test_versioned_usage_replay_is_idempotent_in_views(tmp_path):
 
 
 def test_unreported_zero_cost_is_unknown(tmp_path):
-    """@brief A zero cost the executor did not report never proves a zero-dollar charge."""
+    """A zero cost the executor did not report never proves a zero-dollar charge."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -468,7 +455,7 @@ def test_unreported_zero_cost_is_unknown(tmp_path):
 
 
 def test_corrupt_metrics_store_is_explicit_error(tmp_path):
-    """@brief A corrupt projection is not silently treated as zero activity."""
+    """A corrupt projection is not silently treated as zero activity."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -483,7 +470,7 @@ def test_corrupt_metrics_store_is_explicit_error(tmp_path):
 
 
 def test_scoped_daily_csv_omits_developer_cost(tmp_path):
-    """@brief CSV export uses the same project and financial boundaries."""
+    """CSV export uses the same project and financial boundaries."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -511,7 +498,7 @@ def test_scoped_daily_csv_omits_developer_cost(tmp_path):
 
 
 def test_csv_ignores_invalid_journal_dates(tmp_path):
-    """@brief Persisted malformed dates cannot become spreadsheet formulas."""
+    """Persisted malformed dates cannot become spreadsheet formulas."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -528,7 +515,7 @@ def test_csv_ignores_invalid_journal_dates(tmp_path):
 
 
 def test_daily_usage_converts_timestamp_offsets_to_utc(tmp_path):
-    """@brief Offset-midnight events share the correct UTC reporting day."""
+    """Offset-midnight events share the correct UTC reporting day."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -555,7 +542,7 @@ def test_daily_usage_converts_timestamp_offsets_to_utc(tmp_path):
 
 
 def test_metric_period_scopes_totals_and_filters_exports(tmp_path):
-    """@brief One period scopes headline and daily evidence; lifetime stays explicit."""
+    """One period scopes headline and daily evidence; lifetime stays explicit."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = profiles.create("alpha", store_root=str(tmp_path / "alpha-state"))
     beta = profiles.create("beta", store_root=str(tmp_path / "beta-state"))
@@ -651,7 +638,7 @@ def test_metric_period_scopes_totals_and_filters_exports(tmp_path):
 
 
 def test_period_does_not_assign_summary_only_usage_to_a_day(tmp_path):
-    """@brief Summary-only consumption is explicit lifetime/unallocated evidence."""
+    """Summary-only consumption is explicit lifetime/unallocated evidence."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -674,7 +661,7 @@ def test_period_does_not_assign_summary_only_usage_to_a_day(tmp_path):
 
 
 def test_terminal_duration_uses_utc_completion_and_reports_coverage(tmp_path):
-    """@brief Elapsed-time samples exclude undated history and respect UTC days."""
+    """Elapsed-time samples exclude undated history and respect UTC days."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -734,7 +721,7 @@ def test_terminal_duration_uses_utc_completion_and_reports_coverage(tmp_path):
 
 
 def test_missing_or_corrupt_duration_evidence_is_explicit(tmp_path):
-    """@brief Missing timestamps mean unavailable; corrupt persisted spans fail closed."""
+    """Missing timestamps mean unavailable; corrupt persisted spans fail closed."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -776,7 +763,7 @@ def test_missing_or_corrupt_duration_evidence_is_explicit(tmp_path):
 
 
 def test_attributed_usage_filters_project_global_and_csv_without_cost_leak(tmp_path):
-    """@brief Model/executor filters use dated usage identity and role scope."""
+    """Model/executor filters use dated usage identity and role scope."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = profiles.create("alpha", store_root=str(tmp_path / "alpha-state"))
     beta = profiles.create("beta", store_root=str(tmp_path / "beta-state"))
@@ -840,7 +827,7 @@ def test_attributed_usage_filters_project_global_and_csv_without_cost_leak(tmp_p
 
 
 def test_attributed_usage_rejects_corrupt_persisted_identity(tmp_path):
-    """@brief Non-text executor identity fails closed at the journal boundary."""
+    """Non-text executor identity fails closed at the journal boundary."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -856,7 +843,7 @@ def test_attributed_usage_rejects_corrupt_persisted_identity(tmp_path):
 
 
 def test_attributed_usage_csv_escapes_model_formula(tmp_path):
-    """@brief A journal model label cannot become a spreadsheet formula."""
+    """A journal model label cannot become a spreadsheet formula."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -872,7 +859,7 @@ def test_attributed_usage_csv_escapes_model_formula(tmp_path):
 
 
 def test_attributed_usage_rejects_nonobject_journal_record(tmp_path):
-    """@brief A parseable but non-object journal record is a typed error."""
+    """A parseable but non-object journal record is a typed error."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -890,7 +877,7 @@ def test_attributed_usage_rejects_nonobject_journal_record(tmp_path):
 
 
 def test_attributed_usage_rejects_out_of_range_cost(tmp_path):
-    """@brief Oversize persisted money is a typed error, not an HTTP crash."""
+    """Oversize persisted money is a typed error, not an HTTP crash."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -909,7 +896,7 @@ def test_attributed_usage_rejects_out_of_range_cost(tmp_path):
 
 
 def test_global_daily_csv_is_admin_only_and_identifies_repository(tmp_path):
-    """@brief Global export keeps project/repo provenance and finance private."""
+    """Global export keeps project/repo provenance and finance private."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", repo="=1+1", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -937,7 +924,7 @@ def test_global_daily_csv_is_admin_only_and_identifies_repository(tmp_path):
 
 
 def test_live_run_usage_is_in_project_totals(tmp_path):
-    """@brief Live journal usage reconciles with project/day totals."""
+    """Live journal usage reconciles with project/day totals."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -958,7 +945,7 @@ def test_live_run_usage_is_in_project_totals(tmp_path):
 
 
 def test_human_mr_revisions_and_pipeline_repairs_are_distinct(tmp_path):
-    """@brief Quality metrics separate reviewer requests from CI repairs."""
+    """Quality metrics separate reviewer requests from CI repairs."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -989,7 +976,7 @@ def test_human_mr_revisions_and_pipeline_repairs_are_distinct(tmp_path):
 
 
 def test_revision_cost_attribution_is_admin_only_and_preserves_unknowns(tmp_path):
-    """@brief Attribute subsequent usage to each revision without inventing cost."""
+    """Attribute subsequent usage to each revision without inventing cost."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -1046,7 +1033,7 @@ def test_revision_cost_attribution_is_admin_only_and_preserves_unknowns(tmp_path
 
 
 def test_quality_rates_use_evidence_cohorts_and_keep_open_reviews_separate(tmp_path):
-    """@brief Rates count eligible jobs once, not every revision or launch."""
+    """Rates count eligible jobs once, not every revision or launch."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -1105,7 +1092,7 @@ def test_quality_rates_use_evidence_cohorts_and_keep_open_reviews_separate(tmp_p
 
 
 def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_path):
-    """@brief Reported and estimated USD use separate known-job cohorts."""
+    """Reported and estimated USD use separate known-job cohorts."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -1158,7 +1145,7 @@ def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_pa
 def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(
     tmp_path, validation_event,
 ):
-    """@brief Unknown cohorts stay unavailable and malformed verdicts fail closed."""
+    """Unknown cohorts stay unavailable and malformed verdicts fail closed."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -1179,7 +1166,7 @@ def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(
 
 
 def test_usage_stale_snapshot_preserves_verified_cursor_and_refuses_truncation(tmp_path):
-    """@brief Older concurrent reads preserve verified evidence and the newer cursor."""
+    """Older concurrent reads preserve verified evidence and the newer cursor."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -1206,7 +1193,7 @@ def test_usage_stale_snapshot_preserves_verified_cursor_and_refuses_truncation(t
 
 
 def test_usage_http_out_of_order_projection_retains_actual_snapshot(tmp_path, monkeypatch):
-    """@brief A controlled concurrent append/projection no longer returns false corruption."""
+    """A controlled concurrent append/projection no longer returns false corruption."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -1219,7 +1206,7 @@ def test_usage_http_out_of_order_projection_retains_actual_snapshot(tmp_path, mo
     raced = False
 
     def concurrent(project_id, run_id, journal, **options):
-        """@brief Advance the cursor after the HTTP request captured its older source."""
+        """Advance the cursor after the HTTP request captured its older source."""
         nonlocal raced
         if not raced:
             raced = True
@@ -1240,7 +1227,7 @@ def test_usage_http_out_of_order_projection_retains_actual_snapshot(tmp_path, mo
 
 
 def test_usage_rereads_only_each_selected_run_inside_projection(tmp_path, monkeypatch):
-    """@brief Public reporting performs one strict selected-run reread per projected job."""
+    """Public reporting performs one strict selected-run reread per projected job."""
     from pathlib import Path
 
     profiles = ProfileStore(tmp_path / "home")
@@ -1256,7 +1243,7 @@ def test_usage_rereads_only_each_selected_run_inside_projection(tmp_path, monkey
     reads = []
 
     def observed(path):
-        """@brief Count actual selected state-file reads, preserving real strict parsing."""
+        """Count actual selected state-file reads, preserving real strict parsing."""
         if path in paths:
             reads.append(path)
         return original(path)

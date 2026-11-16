@@ -1,36 +1,21 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       status.py
-@brief      Read-only project capacity and component worker projections.
-@details    Heartbeats describe observations, never ownership recovery or free slots.
-"""
+"""Read-only project capacity and component worker projections."""
 
-# IMPORTS
 from adore.capacity import initial_start_slots
 
-# CONSTANTS
 CURRENT_JOB_STATES = (
     "working", "publishing", "parked-clarification", "awaiting-approval",
     "in-review", "handoff-pending",
 )
 
 
-# PUBLIC API
 def worker_status(rows: list[dict], role: str, project_id: str = "", run_id: str = "") -> dict:
-    """@brief Summarize one explicit component without exposing owner capabilities.
-    @param[in] rows Validated WebStore heartbeat observations.
-    @param[in] role Component role.
-    @param[in] project_id Immutable project identity, empty for server components.
-    @param[in] run_id Exact run for a run component.
-    @return Heartbeat freshness, observed activity and timestamp, independently.
+    """
+    Summarize one explicit component without exposing owner capabilities.
+    rows: Validated WebStore heartbeat observations.
+    role: Component role.
+    project_id: Immutable project identity, empty for server components.
+    run_id: Exact run for a run component.
+    Returns: Heartbeat freshness, observed activity and timestamp, independently.
     """
     selected = [
         row
@@ -55,10 +40,11 @@ def worker_status(rows: list[dict], role: str, project_id: str = "", run_id: str
 
 
 def occupied_slots(state, runs: list) -> set[str]:
-    """@brief Mirror admission's working/reserved slots, including owned execution locks.
-    @param[in] state Current project StateStore.
-    @param[in] runs Validated current runs.
-    @return Distinct occupied run identities; parked idle waits do not reserve slots.
+    """
+    Mirror admission's working/reserved slots, including owned execution locks.
+    state: Current project StateStore.
+    runs: Validated current runs.
+    Returns: Distinct occupied run identities; parked idle waits do not reserve slots.
     """
     return state.execution_slots() | {
         run.run_id
@@ -80,16 +66,17 @@ def capacity_status(
     archived: bool = False,
     active_limit: int | None = None,
 ) -> dict:
-    """@brief Project immutable-identity capacity and evidenced queued command causes.
-    @param[in] project_id Authorized immutable project identity.
-    @param[in] limit Canonical polling.max_concurrent_runs.
-    @param[in] state Current project state store.
-    @param[in] runs Validated runs.
-    @param[in] workers Validated relevant component observations.
-    @param[in] operations Validated unfinished project requests.
-    @param[in] archived Whether dispatch is disabled by project archival.
-    @param[in] active_limit Saved limit before any staged reduction.
-    @return Slots and queue facts, without simulating admission or probing a process.
+    """
+    Project immutable-identity capacity and evidenced queued command causes.
+    project_id: Authorized immutable project identity.
+    limit: Canonical polling.max_concurrent_runs.
+    state: Current project state store.
+    runs: Validated runs.
+    workers: Validated relevant component observations.
+    operations: Validated unfinished project requests.
+    archived: Whether dispatch is disabled by project archival.
+    active_limit: Saved limit before any staged reduction.
+    Returns: Slots and queue facts, without simulating admission or probing a process.
     """
     occupied = len(occupied_slots(state, runs))
     free = max(0, limit - occupied)
@@ -160,6 +147,3 @@ def capacity_status(
         "worker": worker,
         "available": ready and free > 0 and not archived,
     }
-
-
-# END OF FILE

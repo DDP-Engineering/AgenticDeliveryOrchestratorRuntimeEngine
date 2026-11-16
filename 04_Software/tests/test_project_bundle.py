@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_project_bundle.py
-@brief   Validate complete export archives at their in-memory import boundary.
-@details Source bytes replace external tools and hostile ZIPs remain unextracted.
-"""
+"""Validate complete export archives at their in-memory import boundary."""
 
-# IMPORTS
 from dataclasses import replace
 from io import BytesIO
 import json
@@ -27,9 +13,8 @@ from adore.recipe_sources import Definition, Recipe, RecipeError, recipe_archive
 import pytest
 
 
-# LOCAL HELPERS
 def graph():
-    """@brief Use a declared local base and an executable source file."""
+    """Use a declared local base and an executable source file."""
     return Recipe(
         "bundle:1",
         {
@@ -53,7 +38,7 @@ def graph():
 
 
 def rewrite(source, *, updates=None, remove=(), extra=None):
-    """@brief Alter selected untrusted entries without extracting the source ZIP."""
+    """Alter selected untrusted entries without extracting the source ZIP."""
     out = BytesIO()
     with ZipFile(BytesIO(source)) as source_zip, ZipFile(out, "w") as target:
         for entry in source_zip.infolist():
@@ -68,7 +53,7 @@ def rewrite(source, *, updates=None, remove=(), extra=None):
 
 # PUBLIC API / CONTRACT TESTS
 def test_complete_bundle_preserves_config_and_source_modes_without_execution():
-    """@brief The current exported archive roundtrips exact bytes and image selection."""
+    """The current exported archive roundtrips exact bytes and image selection."""
     expected = graph()
     source = recipe_archive(expected, config_raw=b"# exact config\r\n")
     bundle = read_project_bundle(source)
@@ -78,7 +63,7 @@ def test_complete_bundle_preserves_config_and_source_modes_without_execution():
     config.container.image = expected.image
 
     def runner(*args, **kwargs):
-        """@brief A directly configured image has no external inspection step."""
+        """A directly configured image has no external inspection step."""
         raise AssertionError("unexpected command")
 
     validate_bundle_image(bundle, config, runner=runner)
@@ -106,7 +91,7 @@ def test_complete_bundle_preserves_config_and_source_modes_without_execution():
     ],
 )
 def test_bundle_rejects_unsafe_incomplete_and_inconsistent_input(bad):
-    """@brief Trust-boundary corruption is refused before callers can retain anything."""
+    """Trust-boundary corruption is refused before callers can retain anything."""
     source = recipe_archive(graph(), config_raw=b"# exact config\n")
     if bad == "not_zip":
         source = b"not a current project ZIP"
@@ -170,7 +155,7 @@ def test_bundle_rejects_unsafe_incomplete_and_inconsistent_input(bad):
 
 @pytest.mark.parametrize("selection", ["other:1", "native"])
 def test_bundle_refuses_configuration_image_mismatch(selection):
-    """@brief A ZIP cannot attach an unrelated definition or a container to native config."""
+    """A ZIP cannot attach an unrelated definition or a container to native config."""
     bundle = read_project_bundle(recipe_archive(graph(), config_raw=b"# config"))
     config = default_config()
     if selection == "native":
@@ -183,7 +168,7 @@ def test_bundle_refuses_configuration_image_mismatch(selection):
 
 @pytest.mark.parametrize("image", ["bundle:1", "different:1"])
 def test_preparation_selected_image_is_checked_without_rewriting_configuration(monkeypatch, image):
-    """@brief Existing preparation resolution owns the effective image selection."""
+    """Existing preparation resolution owns the effective image selection."""
     from adore import preparation
 
     bundle = read_project_bundle(recipe_archive(graph(), config_raw=b"# config"))
@@ -201,7 +186,7 @@ def test_preparation_selected_image_is_checked_without_rewriting_configuration(m
 
 
 def test_changed_association_under_publication_lock_cannot_be_overwritten(tmp_path):
-    """@brief A source writer between preview and lock acquisition invalidates the import."""
+    """A source writer between preview and lock acquisition invalidates the import."""
     from adore.recipe_sources import parse_recipe
 
     store = RecipeStore(tmp_path)
@@ -211,7 +196,7 @@ def test_changed_association_under_publication_lock_cannot_be_overwritten(tmp_pa
     digest = store.put(other, expected_digest=None)
 
     def publish():
-        """@brief Stale archive sources must not reach project publication."""
+        """Stale archive sources must not reach project publication."""
         raise AssertionError("unexpected publication")
 
     with pytest.raises(RecipeError, match="recipe_changed"):
@@ -221,7 +206,7 @@ def test_changed_association_under_publication_lock_cannot_be_overwritten(tmp_pa
 
 
 def test_import_preserves_the_implicit_standard_base_until_sources_match(tmp_path):
-    """@brief An import cannot silently replace bundled sources under their existing tag."""
+    """An import cannot silently replace bundled sources under their existing tag."""
     from adore.recipe_sources import parse_recipe
 
     builtin = resolve_recipe(default_config(), home=tmp_path)
@@ -233,6 +218,3 @@ def test_import_preserves_the_implicit_standard_base_until_sources_match(tmp_pat
         "paused": True
     }
     assert store.get(builtin.image).definitions == builtin.definitions
-
-
-# END OF FILE

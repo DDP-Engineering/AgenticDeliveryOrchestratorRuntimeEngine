@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Web identity and command store
 
 The new identity store announces its factory administrator credentials on creation. The authenticated factory administrator’s password status is derived by verifying the public initial password against the current hash, with no new stored field. Missing or corrupt credential evidence fails closed. Password changes and resets retain session revocation.
@@ -229,8 +222,10 @@ Component_Web_Worker.md for process participation and admission/cancellation con
 
 Actual conductor and publication scopes acquire a unique run-role owner for the
 immutable project/run, with child-process creation evidence and an independent child
-heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
-operation before acknowledging. The child verifies both command/project and active
+heartbeat. Manual Start and cancelled Restart admission persist the exact new
+run-owner ID/generation and `admitted_run_id` before acknowledging. Cancelled
+Restart also validates the confirmed previous state, picked ticket, chosen
+workflow and predecessor journal evidence. The child verifies both command/project and active
 run owners before effects; completed scopes relinquish only their own run role.
 Retry/Restart and automatic conduction/publication use the same run-scope hook.
 A child heartbeat failure refuses subsequent effects; missing heartbeat never permits

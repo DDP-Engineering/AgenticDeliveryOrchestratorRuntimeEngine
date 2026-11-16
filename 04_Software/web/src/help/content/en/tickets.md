@@ -98,3 +98,9 @@ HTML stays visible as text, not executable content. Only absolute http, https an
 In **Job actions**, choose **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** for a fresh job, then accept the short browser confirmation that discards existing work. Missing AEGIS disables its action. Tickets keeps its **Workflow** selector before **Start**. **Retry**, continuation and review corrections retain the saved workflow and the same Pi conversation.
 
 In Tickets, Workflow, any required Priority, Add labels and start, and Cancel share one compact row on wide screens and wrap on small screens.
+
+## Restart cancelled jobs {#restart-cancelled}
+
+A cancelled ticket offers **Restart job**. Select the workflow in the compact confirmation row and confirm a fresh execution. The cancelled history stays available; normal capacity, eligibility and authorization rules still apply.
+
+See [Restart cancelled jobs](/help/jobs#restart-cancelled) for history navigation and explicit cleanup.

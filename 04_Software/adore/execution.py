@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    execution.py
-@brief   Shared execution paths, lifecycle and container adapter.
-@details Keeps backend-specific command, identity and cleanup behavior out of
-         the conductor. The local adapter and image builder extend this seam.
-"""
+"""Shared execution paths, lifecycle and container adapter."""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Sequence
 from copy import copy
 from dataclasses import dataclass
@@ -33,8 +18,8 @@ from adore.isolation import (
 )
 from adore.util import CommandResult, strict_json_loads, utc_now_iso
 
-# CONSTANTS
 MAX_OUTPUT_BYTES = 65536
+# REUSE-IgnoreStart
 SHELL_HEADER = (
     "#!/bin/sh\n"
     "# Copyright (c) 2026 DDP Engineering\n"
@@ -43,17 +28,15 @@ SHELL_HEADER = (
     "# See the LICENSE.txt file for full license details.\n"
     "# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n"
 )
-
-
-# DATA MODELS / TYPEDEFINITIONS
+# REUSE-IgnoreEnd
 
 
 class ExecutionRecoveryError(IsolationError):
-    """@brief Explicit recovery is required; transient retry cannot replay setup."""
+    """Explicit recovery is required; transient retry cannot replay setup."""
 
 
 class PreparationResultError(IsolationError):
-    """@brief Preserve command evidence while refusing an incomplete runner receipt."""
+    """Preserve command evidence while refusing an incomplete runner receipt."""
 
     def __init__(self, outcome: dict) -> None:
         self.outcome = outcome
@@ -62,7 +45,7 @@ class PreparationResultError(IsolationError):
 
 @dataclass(frozen=True)
 class ExecutionPaths:
-    """@brief Backend-native gate paths and shell, independent of host paths."""
+    """Backend-native gate paths and shell, independent of host paths."""
 
     worktree: str = CONTAINER_WORKTREE_MOUNT
     io: str = CONTAINER_IO_MOUNT
@@ -70,22 +53,22 @@ class ExecutionPaths:
 
 
 class ExecutionTarget(Protocol):
-    """@brief Callable native command target and paths shared by all adapters."""
+    """Callable native command target and paths shared by all adapters."""
 
     paths: ExecutionPaths
 
     def __call__(self, argv: Sequence[str], *, timeout: float | None = None) -> CommandResult:
-        """@brief Execute one bounded argv command on the bound owned target."""
+        """Execute one bounded argv command on the bound owned target."""
         ...
 
 
 class ExecutionBackend(Protocol):
-    """@brief Adapter contract for paths, readiness, commands and owned lifecycle."""
+    """Adapter contract for paths, readiness, commands and owned lifecycle."""
 
     paths: ExecutionPaths
 
     def executor_environment(self) -> dict[str, str]:
-        """@brief Supply backend-specific executor homes without new credentials."""
+        """Supply backend-specific executor homes without new credentials."""
         ...
 
     def provision(
@@ -98,42 +81,42 @@ class ExecutionBackend(Protocol):
         *,
         image: str | None = None,
     ) -> str:
-        """@brief Create/resume a target without executing preparation implicitly."""
+        """Create/resume a target without executing preparation implicitly."""
         ...
 
     def bind(self, name: str, env: dict[str, str], expected: dict | None = None) -> ExecutionTarget:
-        """@brief Bind command execution and paths to one owned resource."""
+        """Bind command execution and paths to one owned resource."""
         ...
 
     def verify_required_tools(
         self, name: str, checks: Sequence[str], *, env: dict[str, str]
     ) -> None:
-        """@brief Check declared tools without installing them."""
+        """Check declared tools without installing them."""
         ...
 
     def resource_identity(self, name: str) -> dict[str, str]:
-        """@brief Read authoritative target identity for durable recovery."""
+        """Read authoritative target identity for durable recovery."""
         ...
 
     def image_identity(self, image: str) -> str:
-        """@brief Resolve image/build identity separately from run identity."""
+        """Resolve image/build identity separately from run identity."""
         ...
 
     def stop(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Park an owned target without releasing its persistent files."""
+        """Park an owned target without releasing its persistent files."""
         ...
 
     def interrupt(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Stop active commands within a bounded cancellation window."""
+        """Stop active commands within a bounded cancellation window."""
         ...
 
     def remove(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Release only resources owned by the run; preserve shared images/caches."""
+        """Release only resources owned by the run; preserve shared images/caches."""
         ...
 
 
 class BoundTarget:
-    """@brief Callable gate target carrying backend-native paths and identity."""
+    """Callable gate target carrying backend-native paths and identity."""
 
     def __init__(
         self, backend: ContainerBackend, name: str, env: dict[str, str], expected: dict | None,
@@ -146,20 +129,21 @@ class BoundTarget:
 
     def redact(self, text: str) -> str:
         """
-        @brief      Mask this target's per-launch secret values in evidence.
-        @param[in]  text Evidence text before retention.
-        @return     The text with each value replaced by [REDACTED].
+        Mask this target's per-launch secret values in evidence.
+        text: Evidence text before retention.
+        Returns: The text with each value replaced by [REDACTED].
         """
         for value in self.secrets:
             text = text.replace(value, "[REDACTED]")
         return text
 
     def __call__(self, argv: Sequence[str], *, timeout: float | None = None) -> CommandResult:
-        """@brief Execute the admitted immutable ID and settle expired commands.
-        @param[in] argv Command argument vector.
-        @param[in] timeout Maximum command duration.
-        @return Original command result after any required verified interruption.
-        @exception ExecutionRecoveryError When ownership or recovery is unconfirmed.
+        """
+        Execute the admitted immutable ID and settle expired commands.
+        argv: Command argument vector.
+        timeout: Maximum command duration.
+        Returns: Original command result after any required verified interruption.
+        Raises ExecutionRecoveryError: When ownership or recovery is unconfirmed.
         """
         observed = self.backend._admit_command(self.name, self.expected)
         result = self.backend.manager.exec(
@@ -171,14 +155,14 @@ class BoundTarget:
 
     def spawn(self, argv: Sequence[str], *, env: dict[str, str] | None = None):
         """
-        @brief      Start a streaming command after verifying the pinned identity.
-        @details    The bound executor environment is extended by `env` (for
+        Start a streaming command after verifying the pinned identity.
+        The bound executor environment is extended by `env` (for
                     example Pi's isolation variables); the caller bounds and
                     ends the returned process.
-        @param[in]  argv Command and arguments to run inside the container.
-        @param[in]  env Extra exec-time variables for this command only.
-        @return     The started `subprocess.Popen` with binary pipes.
-        @exception  ExecutionRecoveryError When the resource identity changed.
+        argv: Command and arguments to run inside the container.
+        env: Extra exec-time variables for this command only.
+        Returns: The started `subprocess.Popen` with binary pipes.
+        Raises ExecutionRecoveryError: When the resource identity changed.
         """
         observed = self.backend._admit_command(self.name, self.expected)
         self._stream_identity = observed
@@ -186,18 +170,15 @@ class BoundTarget:
             observed["container_id"], argv, env={**self.env, **(env or {})})
 
     def settle_timeout(self) -> None:
-        """@brief Quiesce all timed-out RPC descendants before the container is reused."""
+        """Quiesce all timed-out RPC descendants before the container is reused."""
         observed = getattr(self, "_stream_identity", None)
         if observed is None:
             raise ExecutionRecoveryError("no admitted RPC invocation to settle")
         self.backend._settle_timeout(self.name, observed)
 
 
-# PUBLIC API
-
-
 class ContainerBackend:
-    """@brief Container implementation of shared execution and recovery contract."""
+    """Container implementation of shared execution and recovery contract."""
 
     paths = ExecutionPaths()
 
@@ -210,12 +191,13 @@ class ContainerBackend:
     def _checked_identity(
         self, name: str, expected: dict | None, *, status: str | None = "running",
     ) -> dict[str, str]:
-        """@brief Require authoritative ownership and lifecycle before a control.
-        @param[in] name Owned run name used for strict runtime inspection.
-        @param[in] expected Optional durable or invocation identity pins.
-        @param[in] status Required authoritative lifecycle state.
-        @return Validated current container identity.
-        @exception ExecutionRecoveryError When identity or state is unconfirmed.
+        """
+        Require authoritative ownership and lifecycle before a control.
+        name: Owned run name used for strict runtime inspection.
+        expected: Optional durable or invocation identity pins.
+        status: Required authoritative lifecycle state.
+        Returns: Validated current container identity.
+        Raises ExecutionRecoveryError: When identity or state is unconfirmed.
         """
         if expected and (
             expected.get("kind") == "local"
@@ -233,11 +215,12 @@ class ContainerBackend:
         return observed
 
     def _admit_command(self, name: str, expected: dict | None) -> dict[str, str]:
-        """@brief Resume only a proven timed-out resource before command dispatch.
-        @param[in] name Owned run name.
-        @param[in] expected Durable identity pins when available.
-        @return Authoritative running invocation identity.
-        @exception ExecutionRecoveryError When recovery remains unsafe.
+        """
+        Resume only a proven timed-out resource before command dispatch.
+        name: Owned run name.
+        expected: Durable identity pins when available.
+        Returns: Authoritative running invocation identity.
+        Raises ExecutionRecoveryError: When recovery remains unsafe.
         """
         if name in self._blocked or name in self._operator_parked:
             raise ExecutionRecoveryError(
@@ -273,10 +256,11 @@ class ContainerBackend:
         return observed
 
     def _settle_timeout(self, name: str, expected: dict[str, str]) -> None:
-        """@brief Confirm all expired command processes stopped before returning.
-        @param[in] name Owned run name.
-        @param[in] expected Immutable identity captured before command dispatch.
-        @exception ExecutionRecoveryError When interruption cannot be confirmed.
+        """
+        Confirm all expired command processes stopped before returning.
+        name: Owned run name.
+        expected: Immutable identity captured before command dispatch.
+        Raises ExecutionRecoveryError: When interruption cannot be confirmed.
         """
         self._blocked.add(name)
         try:
@@ -290,7 +274,7 @@ class ContainerBackend:
         self._blocked.discard(name)
 
     def executor_environment(self) -> dict[str, str]:
-        """@brief A container gets no backend-specific executor home."""
+        """A container gets no backend-specific executor home."""
         return {}
 
     def provision(
@@ -303,7 +287,7 @@ class ContainerBackend:
         *,
         image: str | None = None,
     ) -> str:
-        """@brief Provision the selected image without running preparation implicitly."""
+        """Provision the selected image without running preparation implicitly."""
         resumed = name in self._pending_resume
         if resumed or name in self._blocked:
             self._admit_command(name, self._pending_resume.get(name))
@@ -319,26 +303,27 @@ class ContainerBackend:
     def bind(self, name: str, env: dict[str, str], expected: dict | None = None,
              *, secrets: Sequence[str] = ()) -> ExecutionTarget:
         """
-        @brief      Bind this adapter's command and target-path contract.
-        @param[in]  name Container name.
-        @param[in]  env Exec-time environment of every command on the target.
-        @param[in]  expected Pinned resource identity.
-        @param[in]  secrets Values that exist only for this binding (a ChatGPT
+        Bind this adapter's command and target-path contract.
+        name: Container name.
+        env: Exec-time environment of every command on the target.
+        expected: Pinned resource identity.
+        secrets: Values that exist only for this binding (a ChatGPT
                     stage token) and are masked in the launch evidence.
-        @return     The bound target.
+        Returns: The bound target.
         """
         return BoundTarget(self, name, env, expected, secrets)
 
     def verify_required_tools(
         self, name: str, checks: Sequence[str], *, env: dict[str, str]
     ) -> None:
-        """@brief Retain declared image-tool readiness without any setup effects."""
+        """Retain declared image-tool readiness without any setup effects."""
         self.manager.verify_required_tools(name, checks, env=env)
 
     def authorize_system_packages(self, name: str, *, expected: dict) -> None:
-        """@brief Grant package-manager sudo only on the verified owned container.
-        @param[in] name Run container name.
-        @param[in] expected Persisted container and image identities.
+        """
+        Grant package-manager sudo only on the verified owned container.
+        name: Run container name.
+        expected: Persisted container and image identities.
         """
         self.verify_identity(name, expected, running=True)
         # Address the immutable ID, so a name replacement between inspect and
@@ -346,15 +331,15 @@ class ContainerBackend:
         self.manager.authorize_system_packages(expected["container_id"])
 
     def resource_identity(self, name: str) -> dict[str, str]:
-        """@brief Return authoritative container/image IDs and current status."""
+        """Return authoritative container/image IDs and current status."""
         return self.manager.resource_identity(name)
 
     def image_identity(self, image: str) -> str:
-        """@brief Resolve a local image without changing it."""
+        """Resolve a local image without changing it."""
         return self.manager.image_identity(image)
 
     def verify_identity(self, name: str, expected: dict | None, *, running: bool = False) -> None:
-        """@brief Refuse stale IDs before issuing commands or resource controls."""
+        """Refuse stale IDs before issuing commands or resource controls."""
         if expected:
             if (expected.get("kind") == "local"
                     or not {"container_id", "image_id"} <= expected.keys()):
@@ -372,21 +357,21 @@ class ContainerBackend:
                 )
 
     def stop(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Stop the verified run target, retaining its container filesystem."""
+        """Stop the verified run target, retaining its container filesystem."""
         self._operator_parked.add(name)
         self._pending_resume.pop(name, None)
         observed = self._checked_identity(name, expected, status=None)
         self.manager.stop(observed["container_id"])
 
     def interrupt(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Interrupt only the verified active run target."""
+        """Interrupt only the verified active run target."""
         self._operator_parked.add(name)
         self._pending_resume.pop(name, None)
         observed = self._checked_identity(name, expected, status=None)
         self.manager.interrupt(observed["container_id"])
 
     def remove(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Remove the immutable executor; path-bound companion release stays separate."""
+        """Remove the immutable executor; path-bound companion release stays separate."""
         self._operator_parked.add(name)
         self._pending_resume.pop(name, None)
         if expected and (expected.get("kind") == "local"
@@ -404,10 +389,10 @@ class ContainerBackend:
 
 def redact_output(text: str, secrets: dict[str, str]) -> str:
     """
-    @brief Bound and redact retained external output, including configured values.
-    @param[in] text External command output.
-    @param[in] secrets In-memory credential values; never written to evidence.
-    @return Bounded redacted text.
+    Bound and redact retained external output, including configured values.
+    text: External command output.
+    secrets: In-memory credential values; never written to evidence.
+    Returns: Bounded redacted text.
     """
     for value in sorted((v for v in secrets.values() if v), key=len, reverse=True):
         text = text.replace(value, "[REDACTED]")
@@ -426,16 +411,16 @@ def run_preparation_step(
     secrets: dict[str, str],
 ) -> dict:
     """
-    @brief Execute one pinned script through bounded files and return its evidence.
-    @param[in] target Verified backend-bound command target.
-    @param[in] io_dir Host exchange directory.
-    @param[in] attempt Monotonic operator-authorized preparation attempt.
-    @param[in] index Zero-based step index.
-    @param[in] step Normalized name/run mapping.
-    @param[in] timeout Remaining bounded wall time.
-    @param[in] secrets In-memory values used for output redaction.
-    @return Closed timestamped outcome with authoritative exit/timeout evidence.
-    @exception IsolationError For missing or malformed file-protocol evidence.
+    Execute one pinned script through bounded files and return its evidence.
+    target: Verified backend-bound command target.
+    io_dir: Host exchange directory.
+    attempt: Monotonic operator-authorized preparation attempt.
+    index: Zero-based step index.
+    step: Normalized name/run mapping.
+    timeout: Remaining bounded wall time.
+    secrets: In-memory values used for output redaction.
+    Returns: Closed timestamped outcome with authoritative exit/timeout evidence.
+    Raises IsolationError: For missing or malformed file-protocol evidence.
     """
     relative = f"preparation/attempt-{attempt}/step-{index + 1}"
     directory = io_dir / relative
@@ -516,6 +501,3 @@ def run_preparation_step(
         except (OSError, ValueError, TypeError, AttributeError) as exc:
             raise PreparationResultError(outcome) from exc
     return outcome
-
-
-# END OF FILE

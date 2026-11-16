@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_web_supervisor.py
-@brief   Independent local process supervision contracts.
-@details Offline helpers and injected boundaries never run a forge or executor.
-"""
+"""Independent local process supervision contracts."""
 
-# IMPORTS
 from dataclasses import replace
 import json
 import os
@@ -38,9 +24,8 @@ from tests.execution_records import execution_record
 from tests.supervisor_helper import offline_engine
 
 
-# LOCAL HELPERS
 def eventually(predicate, *, timeout=12):
-    """@brief Await only bounded local observations, surfacing process errors in assertions."""
+    """Await only bounded local observations, surfacing process errors in assertions."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if predicate():
@@ -50,7 +35,7 @@ def eventually(predicate, *, timeout=12):
 
 
 def project(profiles, name, limit=1):
-    """@brief Prepare an isolated valid config and independent state/work paths."""
+    """Prepare an isolated valid config and independent state/work paths."""
     root = profiles.home / (name + "-resources")
     root.mkdir(parents=True)
     (root / "clone").mkdir()
@@ -75,14 +60,14 @@ def project(profiles, name, limit=1):
 
 
 def reserve(profiles, name, iid):
-    """@brief Exercise real atomic product admission without an external forge."""
+    """Exercise real atomic product admission without an external forge."""
     engine, forge, *_ = offline_engine(profiles, name)
     forge.ticket = replace(forge.ticket, iid=iid)
     return engine.poll_once(ticket_iid=iid, admit_only=True)
 
 
 def run_factory(argv, environment):
-    """@brief Replace only external collaborators, keeping actual dispatcher processes."""
+    """Replace only external collaborators, keeping actual dispatcher processes."""
     role = argv[argv.index("--role") + 1]
     assert role == "run", argv
     def value(flag):
@@ -93,15 +78,14 @@ def run_factory(argv, environment):
 
 
 def start_project(profiles, web, profile):
-    """@brief Bind an independently schedulable project to the production dispatcher."""
+    """Bind an independently schedulable project to the production dispatcher."""
     worker = ProjectWorker(profiles, web, profile.project_id, spawn=run_factory)
     worker.owner = web.register_worker("project", project_id=profile.project_id)
     return worker
 
 
-# PUBLIC API
 def test_worker_entry_uses_process_supervisor(tmp_path, monkeypatch):
-    """@brief The installed entry launches the process owner rather than a serial loop."""
+    """The installed entry launches the process owner rather than a serial loop."""
     seen = []
     monkeypatch.setitem(sys.modules, "adore.web.supervisor", SimpleNamespace(
         Supervisor=lambda profiles, web: SimpleNamespace(
@@ -114,7 +98,7 @@ def test_worker_entry_uses_process_supervisor(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("limits", [(1, 1), (2, 1)])
 def test_actual_project_and_pool_overlap(tmp_path, limits):
-    """@brief Independent real conductors enter fake executors together; N+1 waits."""
+    """Independent real conductors enter fake executors together; N+1 waits."""
     profiles = ProfileStore(tmp_path / "home")
     alpha, beta = project(profiles, "alpha", limits[0]), project(profiles, "beta", limits[1])
     web = WebStore(profiles.home / "web.db")
@@ -156,7 +140,7 @@ def test_actual_project_and_pool_overlap(tmp_path, limits):
 
 
 def test_process_tree_reports_exit_and_contains_blocked_descendants(tmp_path):
-    """@brief A bounded Stop kills a real grandchild, with actual exit codes preserved."""
+    """A bounded Stop kills a real grandchild, with actual exit codes preserved."""
     done = ProcessTree([sys.executable, "-c", "print('observed'); raise SystemExit(7)"],
                        dict(os.environ))
     try:
@@ -188,7 +172,7 @@ def test_process_tree_reports_exit_and_contains_blocked_descendants(tmp_path):
 @pytest.mark.parametrize("raw", ['[]', '{}', '[{"pid":true,"birth":"x"}]',
                                  '[{"pid":1,"birth":"reused"}]', '{bad'])
 def test_unproven_ancestry_refuses_effects(monkeypatch, raw):
-    """@brief Malformed, missing and reused process evidence cannot authorize writes."""
+    """Malformed, missing and reused process evidence cannot authorize writes."""
     monkeypatch.setenv("ADORE_WORKER_ANCESTRY", raw)
     with pytest.raises(OwnershipError):
         assert_ancestry()
@@ -197,7 +181,7 @@ def test_unproven_ancestry_refuses_effects(monkeypatch, raw):
 
 
 def test_unknown_ancestor_probe_is_refused(monkeypatch):
-    """@brief Unavailable process evidence is not interpreted as authorizing a child."""
+    """Unavailable process evidence is not interpreted as authorizing a child."""
     def unavailable(pid):
         raise OSError("inspection unavailable")
     monkeypatch.setattr("adore.web.processes.process_birth", unavailable)
@@ -206,7 +190,7 @@ def test_unknown_ancestor_probe_is_refused(monkeypatch):
 
 
 def test_duplicate_supervisor_refused_without_disturbing_owner(tmp_path):
-    """@brief A home lock admits exactly one supervisor and Stop releases readiness."""
+    """A home lock admits exactly one supervisor and Stop releases readiness."""
     profiles = ProfileStore(tmp_path)
     web = WebStore(tmp_path / "web.db")
     stop = Event()
@@ -234,7 +218,7 @@ def test_duplicate_supervisor_refused_without_disturbing_owner(tmp_path):
 
 
 def test_supervisor_starts_distinct_project_and_configuration_processes(tmp_path):
-    """@brief Production discovery owns separate real workers, including paused projects."""
+    """Production discovery owns separate real workers, including paused projects."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = profiles.create("alpha")
     beta = profiles.create("beta")
@@ -270,7 +254,7 @@ def test_supervisor_starts_distinct_project_and_configuration_processes(tmp_path
 
 
 def test_corrupt_dispatch_or_state_blocks_process_launch(tmp_path):
-    """@brief Persisted corruption never becomes implicit restart authority."""
+    """Persisted corruption never becomes implicit restart authority."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = project(profiles, "alpha")
     admitted = reserve(profiles, "alpha", 7)
@@ -294,7 +278,7 @@ def test_corrupt_dispatch_or_state_blocks_process_launch(tmp_path):
 
 
 def test_project_paused_start_admits_only_and_full_pool_defers_queue(tmp_path):
-    """@brief Start remains explicit in pause; N+1 stays pending until space exists."""
+    """Start remains explicit in pause; N+1 stays pending until space exists."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = project(profiles, "alpha")
     web = WebStore(profiles.home / "web.db")
@@ -332,7 +316,7 @@ def test_project_paused_start_admits_only_and_full_pool_defers_queue(tmp_path):
 
 
 def test_parent_crash_quiesces_tree_and_preserves_uncertain_claim(tmp_path):
-    """@brief Crashing an actual owner cannot leave a conductor able to resume effects."""
+    """Crashing an actual owner cannot leave a conductor able to resume effects."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = project(profiles, "alpha")
     web = WebStore(profiles.home / "web.db")
@@ -376,7 +360,7 @@ def test_parent_crash_quiesces_tree_and_preserves_uncertain_claim(tmp_path):
 
 
 def test_discovery_restore_rename_archive_delete_preserves_project_identity(tmp_path):
-    """@brief Name recycling cannot transfer a worker or its immutable queued request."""
+    """Name recycling cannot transfer a worker or its immutable queued request."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = profiles.create("alpha")
     web = WebStore(profiles.home / "web.db")
@@ -384,7 +368,7 @@ def test_discovery_restore_rename_archive_delete_preserves_project_identity(tmp_
     request = web.enqueue(admin["id"], "alpha", "start", "7", "renamed-request")
 
     class Child:
-        """@brief Nonblocking process-boundary fake for identity discovery events."""
+        """Nonblocking process-boundary fake for identity discovery events."""
         def __init__(self):
             self.code = None
             self.stopped = False
@@ -433,7 +417,7 @@ def test_discovery_restore_rename_archive_delete_preserves_project_identity(tmp_
 
 
 def test_project_cadence_backoff_and_quiet_hours_keep_explicit_commands(tmp_path, monkeypatch):
-    """@brief The independent scheduler backs off after completion and keeps quiet Start."""
+    """The independent scheduler backs off after completion and keeps quiet Start."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = project(profiles, "alpha")
     state = StateStore(alpha.store_root)
@@ -443,7 +427,7 @@ def test_project_cadence_backoff_and_quiet_hours_keep_explicit_commands(tmp_path
     polls = []
 
     class Child:
-        """@brief A bounded, controllable external poll completion."""
+        """A bounded, controllable external poll completion."""
         code = None
         def poll(self):
             return self.code
@@ -485,7 +469,7 @@ def test_project_cadence_backoff_and_quiet_hours_keep_explicit_commands(tmp_path
 
 
 def test_linux_session_gate_and_owned_group_kill(monkeypatch):
-    """@brief The Linux adapter releases argv only after creating a private session."""
+    """The Linux adapter releases argv only after creating a private session."""
     import io
 
     import adore.web.processes as module
@@ -493,7 +477,7 @@ def test_linux_session_gate_and_owned_group_kill(monkeypatch):
     calls = []
 
     class Pipe(io.BytesIO):
-        """@brief Retain the launch gate observation after handle cleanup."""
+        """Retain the launch gate observation after handle cleanup."""
         def close(self):
             pass
 
@@ -535,7 +519,7 @@ def test_linux_session_gate_and_owned_group_kill(monkeypatch):
 
 
 def test_lost_ancestor_fences_conductor_state_write(tmp_path, monkeypatch):
-    """@brief Parent loss cannot resume a bound engine write after a blocked executor."""
+    """Parent loss cannot resume a bound engine write after a blocked executor."""
     from adore.web.worker_context import WorkerContext
 
     profiles = ProfileStore(tmp_path / "home")
@@ -551,7 +535,7 @@ def test_lost_ancestor_fences_conductor_state_write(tmp_path, monkeypatch):
 
 
 def test_process_capture_is_bounded_under_large_output():
-    """@brief Long-lived worker output cannot grow memory/disk without bound."""
+    """Long-lived worker output cannot grow memory/disk without bound."""
     child = ProcessTree([sys.executable, "-c", "print('x'*3000000)"], dict(os.environ))
     try:
         eventually(lambda: child.poll() is not None)
@@ -564,7 +548,7 @@ def test_process_capture_is_bounded_under_large_output():
 
 
 def test_configuration_worker_reports_busy_during_command(tmp_path, monkeypatch):
-    """@brief Durable configuration work reports busy from its independent process loop."""
+    """Durable configuration work reports busy from its independent process loop."""
     import adore.web.app as app_module
     from adore.web.app import create_app
     import adore.web.supervisor as module
@@ -615,7 +599,7 @@ def test_configuration_worker_reports_busy_during_command(tmp_path, monkeypatch)
 
 @pytest.mark.parametrize("crash", [False, True])
 def test_transient_command_drains_cancel_or_recovers_after_death(tmp_path, crash):
-    """@brief A live scheduler cannot retain a dead command's Retry/Cancel claims."""
+    """A live scheduler cannot retain a dead command's Retry/Cancel claims."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = project(profiles, "alpha")
     state = StateStore(alpha.store_root)
@@ -654,7 +638,7 @@ def test_transient_command_drains_cancel_or_recovers_after_death(tmp_path, crash
 
 
 def test_command_ownership_cannot_poll_or_consume_configuration(tmp_path):
-    """@brief A transient execution command is not a project/configuration scheduler."""
+    """A transient execution command is not a project/configuration scheduler."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = project(profiles, "alpha")
     web = WebStore(profiles.home / "web.db")
@@ -666,7 +650,7 @@ def test_command_ownership_cannot_poll_or_consume_configuration(tmp_path):
 
 
 def test_wrapper_root_crash_does_not_leave_live_descendants(tmp_path):
-    """@brief Root-only death drains the original scope before Linux reaps its leader."""
+    """Root-only death drains the original scope before Linux reaps its leader."""
     marker = tmp_path / "descendants.json"
     script = (
         "import json,os,sys,subprocess,time; from pathlib import Path; "
@@ -689,11 +673,11 @@ def test_wrapper_root_crash_does_not_leave_live_descendants(tmp_path):
 
 
 def test_shutdown_attempts_every_scope_despite_control_failure():
-    """@brief One unconfirmed kill/drain retains evidence without skipping other trees."""
+    """One unconfirmed kill/drain retains evidence without skipping other trees."""
     calls = []
 
     class Child:
-        """@brief Fail one scope at each boundary and observe all subsequent attempts."""
+        """Fail one scope at each boundary and observe all subsequent attempts."""
         def __init__(self, name, fail=False):
             self.name, self.fail = name, fail
             self.process = SimpleNamespace(wait=self.wait)
@@ -717,13 +701,13 @@ def test_shutdown_attempts_every_scope_despite_control_failure():
 
 
 def test_failed_project_scope_cleanup_preserves_other_worker_processes(tmp_path):
-    """@brief A cleanup refusal quarantines A instead of restarting B/configuration."""
+    """A cleanup refusal quarantines A instead of restarting B/configuration."""
     profiles = ProfileStore(tmp_path / "home")
     alpha, beta = profiles.create("alpha"), profiles.create("beta")
     web = WebStore(profiles.home / "web.db")
 
     class Child:
-        """@brief Scope-control failure fake with independently visible process identity."""
+        """Scope-control failure fake with independently visible process identity."""
         code = None
         def poll(self):
             return self.code
@@ -740,6 +724,3 @@ def test_failed_project_scope_cleanup_preserves_other_worker_processes(tmp_path)
     assert alpha.project_id in supervisor.retiring
     assert supervisor.children[beta.project_id] is before[beta.project_id]
     assert supervisor.children["configuration"] is before["configuration"]
-
-
-# END OF FILE

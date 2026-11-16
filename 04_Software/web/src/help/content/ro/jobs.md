@@ -160,3 +160,11 @@ O limită redusă pregătită oprește deja pornirile și reluările noi până 
 ## Alegerea fluxului de lucru {#workflow-choice}
 
 În **Acțiuni job**, alegeți **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** pentru un job nou, apoi acceptați confirmarea scurtă a browserului privind ștergerea lucrului existent. Lipsa AEGIS dezactivează acea acțiune. Tichetele păstrează selectorul **Flux de lucru** înainte de **Pornește**. Reîncercarea, continuarea și corecțiile de review păstrează fluxul salvat și aceeași conversație Pi.
+
+## Repornirea joburilor anulate {#restart-cancelled}
+
+Pentru cel mai recent job anulat, alege **Repornește jobul** în Tichete, selectează fluxul și confirmă, sau alege **Repornește jobul cu AEGIS** / **Repornește jobul fără AEGIS** din acțiunile jobului. ADORE aplică setările curente și verificările normale de admitere; monitorizarea pauzată rămâne pauzată.
+
+Execuția nouă are identitate, resurse de lucru, conversație și bugete distincte. Jobul anulat, activitatea, sesiunile salvate și rezultatul rămân accesibile. **Jobul anterior** și **Jobul nou** leagă execuțiile; un job vechi deja repornit nu poate crea un duplicat. Confirmarea deschide jobul nou după admiterea durabilă.
+
+Istoricul nu expiră automat. Operatorul poate șterge o execuție veche selectată prin `adore delete RUN_ID --force`. Retenția auditului nu șterge istoricul joburilor.

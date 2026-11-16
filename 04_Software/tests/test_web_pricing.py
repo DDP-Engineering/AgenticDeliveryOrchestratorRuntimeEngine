@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_pricing.py
-@brief Administrator-owned dated estimated price contracts.
-@details Verifies migration, role boundaries, immutable dates and separate
-         reported/estimated usage valuation with offline journals.
-"""
+"""Administrator-owned dated estimated price contracts."""
 
 import sqlite3
 
@@ -28,7 +14,7 @@ from tests.usage_events import versioned_usage
 
 
 def test_prices_follow_project_identity_across_rename_and_name_reuse(tmp_path):
-    """@brief A rate follows its profile ID and never attaches to a replacement."""
+    """A rate follows its profile ID and never attaches to a replacement."""
     profiles = ProfileStore(tmp_path)
     profiles.create("alpha")
     web = WebStore(tmp_path / "web.db")
@@ -43,7 +29,7 @@ def test_prices_follow_project_identity_across_rename_and_name_reuse(tmp_path):
 
 
 def test_admin_prices_are_immutable_and_developer_cannot_read(tmp_path):
-    """@brief Only admins create/read dated rates; bad rates fail closed."""
+    """Only admins create/read dated rates; bad rates fail closed."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     app = create_app(profiles.home)
@@ -80,7 +66,7 @@ def test_admin_prices_are_immutable_and_developer_cannot_read(tmp_path):
 
 
 def test_estimates_use_effective_rate_without_double_counting_reported_cost(tmp_path):
-    """@brief Dated token-only estimates and reported money stay separate."""
+    """Dated token-only estimates and reported money stay separate."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -127,7 +113,7 @@ def test_estimates_use_effective_rate_without_double_counting_reported_cost(tmp_
 
 
 def test_corrupt_stored_price_fails_closed(tmp_path):
-    """@brief A damaged rate is an explicit error, never a made-up estimate."""
+    """A damaged rate is an explicit error, never a made-up estimate."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     app = create_app(profiles.home)
@@ -159,7 +145,7 @@ def test_corrupt_stored_price_fails_closed(tmp_path):
 
 
 def test_nonfinite_journal_cost_is_not_exposed(tmp_path):
-    """@brief A malformed usage event cannot become a monetary total."""
+    """A malformed usage event cannot become a monetary total."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)

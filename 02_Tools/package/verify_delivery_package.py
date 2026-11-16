@@ -1,23 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       verify_delivery_package.py
-@brief      Test an actual extracted portable distribution on its native host.
-@details    Uses isolated user data and an empty PATH, no forge/container/model
-            calls, a fake browser, and bounded startup/shutdown. Temporary files
-            are removed on exit; results go to the console only.
-"""
+"""Test an actual extracted portable distribution on its native host."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 from contextlib import ExitStack
 import json
@@ -40,14 +25,12 @@ import zipfile
 
 from release_checks.check_release_consistency import check_package
 
-# CONSTANTS
 REPO = Path(__file__).resolve().parents[2]
 WINDOWS = sys.platform == "win32"
 
 
-# PUBLIC API
 def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
-    """@brief Verify a complete archive using its actual public entrypoints."""
+    """Verify a complete archive using its actual public entrypoints."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path, nargs="?",
                         help="Archive to verify; defaults to this host's current release")
@@ -73,14 +56,14 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
     checks = []
 
     def check(condition: bool, message: str) -> None:
-        """@brief Report each proven contract to the console and stop on failure."""
+        """Report each proven contract to the console and stop on failure."""
         if not condition:
             raise RuntimeError(message)
         checks.append(message)
         print("PASS " + message, flush=True)
 
     def safe_name(name: str) -> None:
-        """@brief Reject archive paths escaping the owned extraction directory."""
+        """Reject archive paths escaping the owned extraction directory."""
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts or "\\" in name or ":" in name:
             raise RuntimeError("unsafe archive member: " + name)
@@ -124,7 +107,7 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
         env.pop(name, None)
 
     def command(script: str, arguments: list[str]) -> list[str] | str:
-        """@brief Use only the OS shell and included Python; no host PATH tools."""
+        """Use only the OS shell and included Python; no host PATH tools."""
         if WINDOWS:
             shell = os.environ.get("COMSPEC")
             if not shell or not Path(shell).is_file():
@@ -134,7 +117,7 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
         return [str(bundle / script), *arguments]
 
     def run(script: str, arguments: list[str]) -> subprocess.CompletedProcess[str]:
-        """@brief Run one public wrapper with a finite timeout and captured output."""
+        """Run one public wrapper with a finite timeout and captured output."""
         return subprocess.run(command(script, arguments), cwd=work, env=env,
                               capture_output=True, text=True, timeout=180, check=False)
 
@@ -190,6 +173,7 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
     tools_directory = Path(resources.enter_context(
         tempfile.TemporaryDirectory(prefix="adore-installed-executor-check-")))
     executor_fixture = tools_directory / ("pi.exe" if WINDOWS else "pi")
+    # REUSE-IgnoreStart
     executor_fixture.write_text(
         "# Copyright (c) 2026 DDP Engineering\n"
         "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
@@ -197,6 +181,7 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
         "# See the LICENSE.txt file for full license details. "
         "SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n"
         "This inert discovery fixture must never execute.\n", encoding="utf-8")
+    # REUSE-IgnoreEnd
     executor_fixture.chmod(0o755)
     node_fixture = tools_directory / ("node.exe" if WINDOWS else "node")
     node_fixture.write_bytes(executor_fixture.read_bytes())
@@ -318,9 +303,10 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief Own and clean temporary native runtime storage without delivery files.
-    @param[in] argv Optional command arguments.
-    @return Zero after all archive acceptance checks pass.
+    """
+    Own and clean temporary native runtime storage without delivery files.
+    argv: Optional command arguments.
+    Returns: Zero after all archive acceptance checks pass.
     """
     with ExitStack() as resources:
         return test_archive(argv, resources)
@@ -332,5 +318,3 @@ if __name__ == "__main__":
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
         print(f"Package verification failed: {error}", file=sys.stderr)
         raise SystemExit(1) from error
-
-# END OF FILE

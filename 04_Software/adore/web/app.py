@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file app.py
-@brief Authenticated same-origin HTTP API and bundled ADORE dashboard.
-@details Routes select an explicit profile, enforce project grants before
-         reading runtime state, and keep financial data on administrator routes.
-"""
+"""Authenticated same-origin HTTP API and bundled ADORE dashboard."""
 
-# IMPORTS
 import base64
 import binascii
 from collections.abc import Callable
@@ -178,7 +163,6 @@ from adore.web.tickets import (
 )
 from adore.wizard import ScriptedAsker, WizardError, WizardSetup, run_wizard
 
-# CONSTANTS
 _PROFILE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 _SETTING_KEY_RE = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 # Configuration sections whose single values the web may edit.
@@ -234,9 +218,8 @@ _TERMINAL_RUN_LIFECYCLES = ("done", "failed", "cancelled", "handed-off")
 _DELETABLE_RUN_LIFECYCLES = (*_TERMINAL_RUN_LIFECYCLES, "handoff-pending")
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class InstructionInput(BaseModel):
-    """@brief Strict literal instruction request using the existing mutation grants."""
+    """Strict literal instruction request using the existing mutation grants."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
     text: str = Field(min_length=1, max_length=4000)
@@ -245,7 +228,7 @@ class InstructionInput(BaseModel):
     @field_validator("text")
     @classmethod
     def instruction_text(cls, value: str) -> str:
-        """@brief Reject NUL and invalid Unicode without trimming the operator's text."""
+        """Reject NUL and invalid Unicode without trimming the operator's text."""
         try:
             validate_instruction(value, "now")
         except InstructionError as exc:
@@ -254,14 +237,14 @@ class InstructionInput(BaseModel):
 
 
 class Credentials(BaseModel):
-    """@brief Browser username/password input."""
+    """Browser username/password input."""
 
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
 
 
 class ExecutorCredentialInput(BaseModel):
-    """@brief Exact revision-bound private provider key request."""
+    """Exact revision-bound private provider key request."""
     model_config = ConfigDict(extra="forbid", strict=True)
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
     variable: str = Field(min_length=1, max_length=64)
@@ -269,7 +252,7 @@ class ExecutorCredentialInput(BaseModel):
 
 
 class ChatGptRedirectInput(BaseModel):
-    """@brief The browser's redirect address of a pending Sign in with ChatGPT."""
+    """The browser's redirect address of a pending Sign in with ChatGPT."""
     model_config = ConfigDict(extra="forbid", strict=True)
     redirect_url: str = Field(min_length=1, max_length=8192)
 
@@ -294,13 +277,13 @@ _CHATGPT_STATUS = {"redirect-invalid": 400, "state-mismatch": 400, "not-pending"
 
 
 class NewUser(Credentials):
-    """@brief Administrator account creation input."""
+    """Administrator account creation input."""
 
     role: str = "developer"
 
 
 class UserWithAccess(Credentials):
-    """@brief Explicit reviewed account and immutable project grants."""
+    """Explicit reviewed account and immutable project grants."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
     role: Literal["admin", "developer"]
@@ -309,20 +292,20 @@ class UserWithAccess(Credentials):
 
 
 class PasswordChange(BaseModel):
-    """@brief Authenticated own-password change input."""
+    """Authenticated own-password change input."""
 
     current: str
     replacement: str
 
 
 class PasswordReset(BaseModel):
-    """@brief Administrator recovery password input."""
+    """Administrator recovery password input."""
 
     replacement: str = Field(min_length=8, max_length=1024)
 
 
 class RepositoryConnectionInput(BaseModel):
-    """@brief Explicit memory-only browser credential request."""
+    """Explicit memory-only browser credential request."""
     model_config = ConfigDict(extra="forbid", strict=True)
     server: str = Field(min_length=1, max_length=512)
     token: str = Field(min_length=1, max_length=4096, repr=False)
@@ -330,8 +313,9 @@ class RepositoryConnectionInput(BaseModel):
 
 
 class PreferenceInput(BaseModel):
-    """@brief Partial account-scoped presentation preferences.
-    @details Omission preserves a field. Explicit null is not a ticket mode.
+    """
+    Partial account-scoped presentation preferences.
+    Omission preserves a field. Explicit null is not a ticket mode.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -342,26 +326,26 @@ class PreferenceInput(BaseModel):
     @field_validator("ticket_body_mode")
     @classmethod
     def supplied_ticket_body_mode(cls, value: str | None) -> str:
-        """@brief Reject explicit null; omitted defaults are not validated."""
+        """Reject explicit null; omitted defaults are not validated."""
         if value is None:
             raise ValueError("ticket body mode must be rendered or source")
         return value
 
 
 class Memberships(BaseModel):
-    """@brief Replacement project assignments."""
+    """Replacement project assignments."""
 
     projects: list[str]
 
 
 class AccessChange(BaseModel):
-    """@brief Grant or remove one developer's access to one project."""
+    """Grant or remove one developer's access to one project."""
 
     granted: bool
 
 
 class AuditPolicyInput(BaseModel):
-    """@brief Administrator-configured independent audit retention bounds."""
+    """Administrator-configured independent audit retention bounds."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
     retention_days: int | None = Field(default=None, ge=1, le=36500)
@@ -369,7 +353,7 @@ class AuditPolicyInput(BaseModel):
 
 
 class ProjectInput(BaseModel):
-    """@brief Guided project setup input."""
+    """Guided project setup input."""
 
     model_config = ConfigDict(extra="forbid")
     name: str
@@ -406,21 +390,21 @@ class ProjectInput(BaseModel):
 
 
 class RepositorySourceInput(BaseModel):
-    """@brief A repository address to read before enrollment."""
+    """A repository address to read before enrollment."""
 
     model_config = ConfigDict(extra="forbid")
     url: str = Field(max_length=512)
 
 
 class ReviewedProjectInput(ProjectInput):
-    """@brief Exact reviewed draft revision for explicit probe or guarded creation."""
+    """Exact reviewed draft revision for explicit probe or guarded creation."""
 
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
     evidence_token: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class TransferSourceInput(BaseModel):
-    """@brief Exact portable bytes or an immutable source-project identity."""
+    """Exact portable bytes or an immutable source-project identity."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
     method: Literal["file", "project"]
@@ -429,7 +413,7 @@ class TransferSourceInput(BaseModel):
 
 
 class TransferInput(TransferSourceInput):
-    """@brief Source-bound fresh target answers and explicit reference reconfirmation."""
+    """Source-bound fresh target answers and explicit reference reconfirmation."""
 
     target: ProjectInput
     source_revision: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -437,28 +421,28 @@ class TransferInput(TransferSourceInput):
 
 
 class ReviewedTransferInput(TransferInput):
-    """@brief Exact reviewed portable target candidate for probe or publication."""
+    """Exact reviewed portable target candidate for probe or publication."""
 
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
     evidence_token: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class ProfileIDInput(BaseModel):
-    """@brief Administrator advisory ID availability input."""
+    """Administrator advisory ID availability input."""
 
     model_config = ConfigDict(extra="forbid")
     name: str
 
 
 class DisplayIdentityInput(BaseModel):
-    """@brief Human display identity only; operational IDs remain unchanged."""
+    """Human display identity only; operational IDs remain unchanged."""
 
     model_config = ConfigDict(extra="forbid")
     display_name: str
 
 
 class ProjectImportInput(BaseModel):
-    """@brief A browser-provided TOML document and its reviewed revision."""
+    """A browser-provided TOML document and its reviewed revision."""
 
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=64)
@@ -469,13 +453,13 @@ class ProjectImportInput(BaseModel):
 
 
 class ProjectImportPreviewInput(ProjectImportInput):
-    """@brief A raw import preview may ask the server to suggest the project ID."""
+    """A raw import preview may ask the server to suggest the project ID."""
 
     name: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class ProjectBundleImportInput(BaseModel):
-    """@brief Exact exported ZIP bytes and the identity accepted during preview."""
+    """Exact exported ZIP bytes and the identity accepted during preview."""
 
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=64)
@@ -486,13 +470,13 @@ class ProjectBundleImportInput(BaseModel):
 
 
 class ProjectBundlePreviewInput(ProjectBundleImportInput):
-    """@brief Optional identity allows the current import naming rules to suggest one."""
+    """Optional identity allows the current import naming rules to suggest one."""
 
     name: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class ConfigEdit(BaseModel):
-    """@brief One validated scalar or complete settings-batch edit."""
+    """One validated scalar or complete settings-batch edit."""
 
     key: str
     value: str
@@ -501,7 +485,7 @@ class ConfigEdit(BaseModel):
 
 
 class RecipeInput(BaseModel):
-    """@brief Bounded source attachment bound to the project and image association."""
+    """Bounded source attachment bound to the project and image association."""
 
     model_config = ConfigDict(extra="forbid")
     image: str = Field(min_length=1, max_length=255)
@@ -511,7 +495,7 @@ class RecipeInput(BaseModel):
 
 
 class BranchPreview(BaseModel):
-    """@brief Closed no-write branch template/rule draft tied to a config revision."""
+    """Closed no-write branch template/rule draft tied to a config revision."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
     template: str = Field(max_length=512)
@@ -520,14 +504,14 @@ class BranchPreview(BaseModel):
 
 
 class ConfigApply(BaseModel):
-    """@brief Exact pending candidate the administrator reviewed."""
+    """Exact pending candidate the administrator reviewed."""
 
     candidate_revision: str = Field(min_length=64, max_length=64)
     base_revision: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
 
 
 class PriceInput(BaseModel):
-    """@brief Dated USD-per-million-token estimate configuration."""
+    """Dated USD-per-million-token estimate configuration."""
 
     executor: str
     model: str
@@ -537,7 +521,7 @@ class PriceInput(BaseModel):
 
 
 class ProjectDeleteInput(BaseModel):
-    """@brief Typed-name confirmation for deleting an archived project."""
+    """Typed-name confirmation for deleting an archived project."""
 
     confirm_name: str = Field(min_length=1, max_length=64)
     idempotency_key: str = Field(min_length=8, max_length=128)
@@ -545,7 +529,7 @@ class ProjectDeleteInput(BaseModel):
 
 
 class TicketStartInput(BaseModel):
-    """@brief A ticket start request: idempotency key and an optional priority label."""
+    """A ticket start request: idempotency key and an optional priority label."""
 
     idempotency_key: str = Field(min_length=8, max_length=128)
     priority: str = Field(default="", max_length=128)
@@ -553,14 +537,14 @@ class TicketStartInput(BaseModel):
 
 
 class TicketStopInput(BaseModel):
-    """@brief A ticket stop request including an idempotency key."""
+    """A ticket stop request including an idempotency key."""
 
     confirmed: bool = Field(default=False, strict=True)
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
 class OperationInput(BaseModel):
-    """@brief A job operation including an idempotency key."""
+    """A job operation including an idempotency key."""
 
     ticket_iid: int | None = None
     run_id: str = ""
@@ -570,14 +554,13 @@ class OperationInput(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
-# HELPER FUNCTIONS
 def _error(status: int, code: str, message: str | None = None) -> HTTPException:
     """
-    @brief Build a client error with a stable code and optional diagnostic text.
-    @param[in] status HTTP status code.
-    @param[in] code Lowercase snake_case identifier the browser localizes.
-    @param[in] message Optional English diagnostic shown after the localized text.
-    @return Exception for FastAPI to render as {"detail": {...}}.
+    Build a client error with a stable code and optional diagnostic text.
+    status: HTTP status code.
+    code: Lowercase snake_case identifier the browser localizes.
+    message: Optional English diagnostic shown after the localized text.
+    Returns: Exception for FastAPI to render as {"detail": {...}}.
     """
     detail = {"code": code}
     if message:
@@ -586,7 +569,7 @@ def _error(status: int, code: str, message: str | None = None) -> HTTPException:
 
 
 def _store_error(status: int, exc: Exception) -> HTTPException:
-    """@brief Translate a store sentence into its stable code, keeping unknown text."""
+    """Translate a store sentence into its stable code, keeping unknown text."""
     text = str(exc)
     if text == "audit row is corrupt":
         return _error(503, "web_store_corrupt")
@@ -595,7 +578,7 @@ def _store_error(status: int, exc: Exception) -> HTTPException:
 
 
 def _validation_message(exc: RequestValidationError) -> str:
-    """@brief Summarize failing request fields without echoing submitted values."""
+    """Summarize failing request fields without echoing submitted values."""
     reasons = []
     for item in exc.errors():
         location = [str(part) for part in item.get("loc", ())]
@@ -614,19 +597,19 @@ def _profile_name(name: str) -> str:
 
 
 def _finding(code: str, field: str, remediation: str) -> dict:
-    """@brief Construct a stable actionable finding without external values."""
+    """Construct a stable actionable finding without external values."""
     return {"code": code, "field": field, "remediation": remediation}
 
 
 def _contract_rejection(code: str, field: str, remediation: str) -> HTTPException:
-    """@brief Keep localized HTTP codes while exposing an exact backend finding."""
+    """Keep localized HTTP codes while exposing an exact backend finding."""
     return HTTPException(status_code=409 if code == "state_root_already_owned" else 503,
                          detail={"code": _SETUP_ERROR_CODES[code], "message": remediation,
                                  "issues": [_finding(code, field, remediation)]})
 
 
 def _identity_error(exc: ProfileError) -> HTTPException:
-    """@brief Map identity rejection to a value-free public contract."""
+    """Map identity rejection to a value-free public contract."""
     issue = _finding(exc.code, exc.field,
                      "Choose an available portable ID." if exc.field == "name" else
                      "Use 1-120 trimmed printable characters for the display name.")
@@ -636,7 +619,7 @@ def _identity_error(exc: ProfileError) -> HTTPException:
 
 
 def _config_from_bytes(raw: bytes):
-    """@brief Parse the exact configuration snapshot, independent of later edits."""
+    """Parse the exact configuration snapshot, independent of later edits."""
     with tempfile.TemporaryDirectory(prefix="adore-config-snapshot-") as temporary:
         path = Path(temporary) / "config.toml"
         path.write_bytes(raw)
@@ -644,7 +627,7 @@ def _config_from_bytes(raw: bytes):
 
 
 def _config_findings(config) -> list[dict]:
-    """@brief Return field-addressable structural issues without config values."""
+    """Return field-addressable structural issues without config values."""
     secrets_found = _secret_config_keys(config.raw)
     if secrets_found:
         return [_finding("secret_value", key,
@@ -668,7 +651,7 @@ def _config_findings(config) -> list[dict]:
 
 
 def _readiness_host() -> str:
-    """@brief Bind evidence to the actual machine and service account, without exposing it."""
+    """Bind evidence to the actual machine and service account, without exposing it."""
     from adore.local_process import LocalExecutionError, native_context
 
     try:
@@ -681,16 +664,17 @@ def _readiness_host() -> str:
 
 
 def _readiness_binding(profiles: ProfileStore, name: str, config) -> str:
-    """@brief Privately fingerprint effective auth inputs without returning their contents.
+    """
+    Privately fingerprint effective auth inputs without returning their contents.
 
-    @details Owned credentials and the ChatGPT credential are hashed as bytes.
+    Owned credentials and the ChatGPT credential are hashed as bytes.
              External CLI configuration and relevant environment values are hashed,
              never returned or logged.
-    @param[in] profiles Server profile store.
-    @param[in] name Project profile name, including a not-yet-published draft.
-    @param[in] config Exact candidate configuration.
-    @return SHA-256 context fingerprint.
-    @exception HTTPException When a relevant source cannot be inspected safely.
+    profiles: Server profile store.
+    name: Project profile name, including a not-yet-published draft.
+    config: Exact candidate configuration.
+    Returns: SHA-256 context fingerprint.
+    Raises HTTPException: When a relevant source cannot be inspected safely.
     """
     env_names = (
         "GH_TOKEN",
@@ -763,7 +747,7 @@ def _readiness_binding(profiles: ProfileStore, name: str, config) -> str:
 
 
 def _required_readiness_checks(config) -> set[str]:
-    """@brief Return exactly the prerequisite checks required by this configuration."""
+    """Return exactly the prerequisite checks required by this configuration."""
     required = {
         "git",
         "forge_cli",
@@ -781,7 +765,7 @@ def _required_readiness_checks(config) -> set[str]:
 
 
 def _readiness_auth_bound(profiles: ProfileStore, name: str, config) -> bool:
-    """@brief Only a project-scoped credential gives an observable forge identity source."""
+    """Only a project-scoped credential gives an observable forge identity source."""
     try:
         return load_connection(profiles.profile_dir(name), config) is not None
     except RepositoryAuthError as exc:
@@ -789,11 +773,12 @@ def _readiness_auth_bound(profiles: ProfileStore, name: str, config) -> bool:
 
 
 def _workflow_observation(config) -> str:
-    """@brief Describe file presence without running or modifying repository code.
+    """
+    Describe file presence without running or modifying repository code.
 
-    @param[in] config Configuration containing the selected clone path.
-    @return Direct for an explicit Direct default; otherwise presence or not-inspected.
-    @exception HTTPException File inspection failed rather than proving absence.
+    config: Configuration containing the selected clone path.
+    Returns: Direct for an explicit Direct default; otherwise presence or not-inspected.
+    Raises HTTPException: File inspection failed rather than proving absence.
     """
     if config.workflow.mode == "direct":
         return "direct"
@@ -807,12 +792,12 @@ def _workflow_observation(config) -> str:
 
 
 def _valid_workflow(value: object) -> bool:
-    """@brief Validate the closed descriptive workflow domain at evidence boundaries."""
+    """Validate the closed descriptive workflow domain at evidence boundaries."""
     return isinstance(value, str) and value in {"aegis", "direct", "not-inspected"}
 
 
 def _valid_readiness_checks(checks: object, config) -> bool:
-    """@brief Fail closed on malformed probe results before any evidence publication."""
+    """Fail closed on malformed probe results before any evidence publication."""
     if not isinstance(checks, dict) or set(checks) != _required_readiness_checks(config):
         return False
     return all(
@@ -824,7 +809,7 @@ def _valid_readiness_checks(checks: object, config) -> bool:
 
 
 def _verification_view(profiles: ProfileStore, profile, revision: str | None) -> dict:
-    """@brief Strictly load revision-bound evidence; absent and stale remain distinct."""
+    """Strictly load revision-bound evidence; absent and stale remain distinct."""
     path = profiles.profile_dir(profile.name) / "readiness.json"
     if not path.exists():
         return {"status": "unverified", "revision": None, "checked_at": None}
@@ -930,16 +915,16 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
 
 def _internet_checks(config, runner: CommandRunner, env_file: Path | None) -> dict:
     """
-    @brief      Readiness checks that follow the internet switch.
-    @details    A container project with internet off runs behind the per-run
+    Readiness checks that follow the internet switch.
+    A container project with internet off runs behind the per-run
                 egress proxy, so its image must be present (never pulled); a
                 project with internet on that searches with Brave or Tavily
                 needs that key in the server environment or the project's
                 credential store. Values are never returned.
-    @param[in]  config Validated configuration snapshot.
-    @param[in]  runner Bounded command runner.
-    @param[in]  env_file The project's credential store.
-    @return     `{"egress_proxy": bool}`, `{"web_search_key": bool}`, both or neither.
+    config: Validated configuration snapshot.
+    runner: Bounded command runner.
+    env_file: The project's credential store.
+    Returns: `{"egress_proxy": bool}`, `{"web_search_key": bool}`, both or neither.
     """
     checks: dict[str, bool] = {}
     policy = egress_policy(config)
@@ -958,13 +943,13 @@ def _internet_checks(config, runner: CommandRunner, env_file: Path | None) -> di
 
 
 def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
-    """@brief Distinguish omitted legacy-compatible input from explicit invalid null."""
+    """Distinguish omitted legacy-compatible input from explicit invalid null."""
     return validate_display_name(body.display_name if "display_name" in body.model_fields_set
                                  else body.name)
 
 
 def _container_probe(runner: CommandRunner, argv: list[str]) -> bool:
-    """@brief Check bounded container prerequisites without exposing command output."""
+    """Check bounded container prerequisites without exposing command output."""
     try:
         result = runner(argv, timeout=8)
     except (OSError, TimeoutError):
@@ -976,23 +961,24 @@ def _container_probe(runner: CommandRunner, argv: list[str]) -> bool:
 
 def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None,
                  chatgpt_dir: Path | None = None, *, external_auth: bool = True) -> dict:
-    """@brief Run bounded redacted prerequisites for an explicit config snapshot.
+    """
+    Run bounded redacted prerequisites for an explicit config snapshot.
 
-    @param[in] config Validated configuration snapshot.
-    @param[in] probe_runner Injectable external command boundary.
-    @param[in] env_file Existing approved provider values for native checks.
-    @param[in] external_auth Discover external auth; False when project_runner owns credentials.
-    @param[in] chatgpt_dir The server's ChatGPT credential directory; a ChatGPT
+    config: Validated configuration snapshot.
+    probe_runner: Injectable external command boundary.
+    env_file: Existing approved provider values for native checks.
+    external_auth: Discover external auth; False when project_runner owns credentials.
+    chatgpt_dir: The server's ChatGPT credential directory; a ChatGPT
                project gets the check `executor_sign_in`, read from its files.
-    @return Typed prerequisites, separate read-only workflow and optional native diagnostics.
-    @exception HTTPException A prerequisite command fails to produce usable evidence.
+    Returns: Typed prerequisites, separate read-only workflow and optional native diagnostics.
+    Raises HTTPException: A prerequisite command fails to produce usable evidence.
     """
     deadline = monotonic() + 30
     auth_runner = (portable_tea_runner(probe_runner, login=config.platform.login)
                    if config.platform.kind == "gitea" and external_auth else probe_runner)
 
     def bounded_runner(argv, *, cwd=None, timeout=None, env=None):
-        """@brief Keep a doctor subprocess below one request's probe bound."""
+        """Keep a doctor subprocess below one request's probe bound."""
         remaining = deadline - monotonic()
         if remaining <= 0:
             raise TimeoutError("host readiness deadline")
@@ -1015,7 +1001,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
             identity_valid = False
             statuses = re.findall(r"HTTP/\S+\s+(\d{3})", result.stderr)
             def unique_fields(pairs):
-                """@brief Reject duplicate identity fields from the forge boundary."""
+                """Reject duplicate identity fields from the forge boundary."""
                 value = {}
                 for key, item in pairs:
                     if key in value:
@@ -1046,7 +1032,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
                 )
 
                 def config_present(root, suffix):
-                    """@brief Observe config presence without opening credential contents."""
+                    """Observe config presence without opening credential contents."""
                     if not root:
                         return "unset"
                     try:
@@ -1130,7 +1116,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
 
 
 def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, WizardSetup | None]:
-    """@brief Validate explicit web answers without persistence or live probes."""
+    """Validate explicit web answers without persistence or live probes."""
     try:
         available = profiles.id_availability(body.name)
         display = _setup_display(body)
@@ -1276,7 +1262,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         preview["defaults"] = _preview_defaults(candidate.document)
         # Normalize the Windows spelling for display only; preserve POSIX path case and identity.
         def shown_path(value: str) -> str:
-            """@brief Present one host path consistently without changing the configuration."""
+            """Present one host path consistently without changing the configuration."""
             return str(Path(value).resolve()) if os.name == "nt" else value
 
         preview["review"] = {
@@ -1314,9 +1300,9 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
 
 def _preview_defaults(document: str) -> list[dict]:
     """
-    @brief      Editable settings of a candidate that stay at ADORE's default.
-    @param[in]  document Candidate configuration TOML (after every copied rule).
-    @return     [{key, value}] shown read-only on Review and create.
+    Editable settings of a candidate that stay at ADORE's default.
+    document: Candidate configuration TOML (after every copied rule).
+    Returns: [{key, value}] shown read-only on Review and create.
     """
     try:
         effective = _redact_config(_config_from_bytes(document.encode("utf-8")).to_dict())
@@ -1334,12 +1320,12 @@ def _preview_defaults(document: str) -> list[dict]:
 
 def _transfer_paths(profiles: ProfileStore, config, name: str, *, own_target: bool = False) -> None:
     """
-    @brief      Reject occupied, aliased or overlapping fresh target ownership.
-    @param[in]  profiles Authoritative profile/config store.
-    @param[in]  config Validated target snapshot with allocated absolute paths.
-    @param[in]  name Fresh target directory identity.
-    @param[in]  own_target Publication already owns its new directory/state lock.
-    @exception  HTTPException Ambiguous/corrupt ownership fails closed without values.
+    Reject occupied, aliased or overlapping fresh target ownership.
+    profiles: Authoritative profile/config store.
+    config: Validated target snapshot with allocated absolute paths.
+    name: Fresh target directory identity.
+    own_target: Publication already owns its new directory/state lock.
+    Raises HTTPException: Ambiguous/corrupt ownership fails closed without values.
     """
     directory = profiles.profile_dir(name).absolute()
     trees = Path(config.worktree.root).absolute()
@@ -1389,12 +1375,12 @@ def _transfer_paths(profiles: ProfileStore, config, name: str, *, own_target: bo
 def _prepare_transfer(profiles: ProfileStore, body: TransferInput,
                       settings: dict) -> tuple[dict, WizardSetup | None]:
     """
-    @brief      Project complete portable rules onto an independently prepared target.
-    @param[in]  profiles Target host profile store.
-    @param[in]  body Explicit new target answers and reconfirmation.
-    @param[in]  settings Complete strict parser output.
-    @return     Canonical mapping/review and exact validated candidate or findings.
-    @exception  HTTPException Invalid/ambiguous storage or ownership fails closed.
+    Project complete portable rules onto an independently prepared target.
+    profiles: Target host profile store.
+    body: Explicit new target answers and reconfirmation.
+    settings: Complete strict parser output.
+    Returns: Canonical mapping/review and exact validated candidate or findings.
+    Raises HTTPException: Invalid/ambiguous storage or ownership fails closed.
     """
     # Guided limits need not constrain the already validated portable numeric domain.
     # Prepare target nonportable fields with defaults, then project all portable fields.
@@ -1444,7 +1430,7 @@ def _prepare_transfer(profiles: ProfileStore, body: TransferInput,
 
 
 def _cloning_marker(dest: Path) -> Path:
-    """@brief Sibling marker that keeps a clone in progress from looking reusable."""
+    """Sibling marker that keeps a clone in progress from looking reusable."""
     return dest.parent / f".{dest.name}.adore-cloning"
 
 
@@ -1452,7 +1438,7 @@ _STALE_CLONING_SECONDS = 15 * 60  # Longer than a clone may run; left behind by 
 
 
 def _cloning_active(marker: Path) -> bool:
-    """@brief True for a marker younger than the clone bound (an older one outlived its request)."""
+    """True for a marker younger than the clone bound (an older one outlived its request)."""
     try:
         age = datetime.now(UTC).timestamp() - marker.stat().st_mtime
         return -60 <= age < _STALE_CLONING_SECONDS  # A future time is stale too (clock moved).
@@ -1461,24 +1447,24 @@ def _cloning_active(marker: Path) -> bool:
 
 
 def _pending_clone(body: ProjectInput) -> bool:
-    """@brief True when an enrollment from a repository URL still has to make its clone."""
+    """True when an enrollment from a repository URL still has to make its clone."""
     return bool(body.clone_url) and not Path(body.repo_path).exists()
 
 
 def _clone_rejection(status: int, code: str, field: str, remediation: str) -> HTTPException:
-    """@brief A coded clone failure with one field finding."""
+    """A coded clone failure with one field finding."""
     return HTTPException(status_code=status, detail={
         "code": code, "message": remediation, "issues": [_finding(code, field, remediation)]})
 
 
 def _materialize_clone(body: ProjectInput, runner: CommandRunner, home: Path) -> Path | None:
     """
-    @brief      Make a pending clone just before publication and verify it.
-    @param[in]  body Reviewed answers whose clone location was validated by preview.
-    @param[in]  runner Injectable command boundary.
-    @param[in]  home ADORE home; parent folders are created only under its repos folder.
-    @return     The fresh clone (the caller removes it if publication fails), or None.
-    @exception  HTTPException The clone failed or lacks the target branch (removed).
+    Make a pending clone just before publication and verify it.
+    body: Reviewed answers whose clone location was validated by preview.
+    runner: Injectable command boundary.
+    home: ADORE home; parent folders are created only under its repos folder.
+    Returns: The fresh clone (the caller removes it if publication fails), or None.
+    Raises HTTPException: The clone failed or lacks the target branch (removed).
     """
     if not _pending_clone(body):
         return None
@@ -1511,7 +1497,7 @@ def _materialize_clone(body: ProjectInput, runner: CommandRunner, home: Path) ->
 
 def _publish_with_clone(body: ProjectInput, runner: CommandRunner, home: Path,
                         publish: Callable[[], dict]) -> dict:
-    """@brief Clone a pending repository, publish, and remove a fresh clone if publication fails."""
+    """Clone a pending repository, publish, and remove a fresh clone if publication fails."""
     if not _pending_clone(body):
         return publish()
     marker = _cloning_marker(Path(body.repo_path))
@@ -1562,7 +1548,7 @@ def _publish_paused(
     base_revision: str | None = None,
     readiness: dict | None = None,
 ) -> dict:
-    """@brief Keep lock, filesystem and parsing failures typed at the enrollment boundary."""
+    """Keep lock, filesystem and parsing failures typed at the enrollment boundary."""
     try:
         return _publish_paused_locked(
             profiles,
@@ -1599,7 +1585,7 @@ def _publish_paused_locked(
     base_revision: str | None = None,
     readiness: dict | None = None,
 ) -> dict:
-    """@brief Publish metadata after pause, holding ownership and conductor locks."""
+    """Publish metadata after pause, holding ownership and conductor locks."""
     with ExitStack() as enrollment:
         enrollment.enter_context(
             _web_config_edit_lock(profiles.home / "web-enrollment" / "config.toml"))
@@ -1721,7 +1707,7 @@ def _publish_paused_locked(
 
 @contextmanager
 def _web_config_edit_lock(path: Path):
-    """@brief Map shared edit-lock contention to an HTTP conflict."""
+    """Map shared edit-lock contention to an HTTP conflict."""
     effect_guard()
     try:
         with config_edit_lock(path):
@@ -1737,11 +1723,11 @@ def _store_for(profiles: ProfileStore, profile) -> StateStore:
 
 def _removed_agent_environment(path: str) -> bool:
     """
-    @brief      Whether a dotted key is an environment variable of a removed coding agent.
-    @details    Validation refuses such a configuration, but the configuration view still
+    Whether a dotted key is an environment variable of a removed coding agent.
+    Validation refuses such a configuration, but the configuration view still
                 renders it; its value (for example an inline provider JSON) is never shown.
-    @param[in]  path Dotted configuration key.
-    @return     True for `container.runtime_env.*` / `local.environment.*` removed-agent names.
+    path: Dotted configuration key.
+    Returns: True for `container.runtime_env.*` / `local.environment.*` removed-agent names.
     """
     for section in ("container.runtime_env.", "local.environment."):
         if path.startswith(section):
@@ -1751,14 +1737,14 @@ def _removed_agent_environment(path: str) -> bool:
 
 def _redact_config(value, prefix: str = ""):
     """
-    @brief      Drop credential-looking values before rendering host config.
-    @details    Expects `Config.to_dict()` output. Each key is judged by its
+    Drop credential-looking values before rendering host config.
+    Expects `Config.to_dict()` output. Each key is judged by its
                 full dotted name (_is_secret_key); an exempt name stays hidden
                 unless its value is a boolean, so a secret pasted there by hand
                 never shows.
-    @param[in]  value Configuration mapping (or a value inside it).
-    @param[in]  prefix Dotted path of `value`.
-    @return     The mapping without secret-named keys.
+    value: Configuration mapping (or a value inside it).
+    prefix: Dotted path of `value`.
+    Returns: The mapping without secret-named keys.
     """
     if isinstance(value, dict):
         shown = {}
@@ -1783,7 +1769,7 @@ def _redact_config(value, prefix: str = ""):
 
 
 def _csv_text(value: str) -> str:
-    """@brief Keep external profile labels from becoming spreadsheet formulas."""
+    """Keep external profile labels from becoming spreadsheet formulas."""
     if value and value.lstrip().startswith(("=", "+", "-", "@")):
         return "'" + value
     return value
@@ -1791,11 +1777,11 @@ def _csv_text(value: str) -> str:
 
 def _profile_view(profiles: ProfileStore, profile, *, overview: bool = False) -> dict:
     """
-    @brief Project profile metadata and verified job activity.
-    @param[in] profiles Profile storage.
-    @param[in] profile Authorized profile.
-    @param[in] overview Keep the profile available when a job has invalid activity.
-    @return Project metadata with only verified activity and run counts.
+    Project profile metadata and verified job activity.
+    profiles: Profile storage.
+    profile: Authorized profile.
+    overview: Keep the profile available when a job has invalid activity.
+    Returns: Project metadata with only verified activity and run counts.
     """
     if any(not isinstance(value, str) for value in (
         profile.name, profile.description, profile.platform, profile.repo,
@@ -1875,10 +1861,10 @@ def _profile_view(profiles: ProfileStore, profile, *, overview: bool = False) ->
 
 def _valid_candidate_scalar(key: str, proposed: object, backend: str = "container") -> bool:
     """
-    @brief Enforce scalar types and the dedicated reviewer-list type for pending edits.
-    @param[in] key TOML file key of the single candidate edit.
-    @param[in] proposed Parsed candidate value.
-    @return True for a declared scalar type or an exact approved collection.
+    Enforce scalar types and the dedicated reviewer-list type for pending edits.
+    key: TOML file key of the single candidate edit.
+    proposed: Parsed candidate value.
+    Returns: True for a declared scalar type or an exact approved collection.
     """
     if key == BATCH_KEY:
         return (isinstance(proposed, dict) and 1 <= len(proposed) <= 100
@@ -1910,12 +1896,12 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
 
 def _set_candidate_value(text: str, key: str, value: str) -> str:
     """
-    @brief Write a scalar or the closed reviewer-list edit, retaining unrelated TOML.
-    @param[in] text Active TOML text.
-    @param[in] key Authorized candidate key.
-    @param[in] value Scalar wire value or JSON reviewer list.
-    @return Candidate text, preserving unrelated keys and line endings.
-    @exception ValueError When collection input or existing key spelling is unsupported.
+    Write a scalar or the closed reviewer-list edit, retaining unrelated TOML.
+    text: Active TOML text.
+    key: Authorized candidate key.
+    value: Scalar wire value or JSON reviewer list.
+    Returns: Candidate text, preserving unrelated keys and line endings.
+    Raises ValueError: When collection input or existing key spelling is unsupported.
     """
     if key == BATCH_KEY:
         for member, wire in parse_batch(value):
@@ -1967,14 +1953,14 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
 
 
 def _candidate_value(tree: dict, key: str, wire: str = ""):
-    """@brief Read one scalar or collection value, or the complete connection review."""
+    """Read one scalar or collection value, or the complete connection review."""
     if key == BATCH_KEY:
         return {member: _candidate_value(tree, member) for member, _ in parse_batch(wire)}
     return connection_value(tree) if key == CONNECTION_KEY else _value_at(tree, key)
 
 
 def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
-    """@brief Produce one validated scalar or reviewer-list edit without changing live TOML."""
+    """Produce one validated scalar or reviewer-list edit without changing live TOML."""
     if not _editable_setting_key(body.key):
         raise _error(400, "setting_not_editable")
     try:
@@ -2006,12 +1992,13 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
 
 def _prepare_config_candidate(path: Path, body: ConfigEdit,
                               runner: CommandRunner) -> tuple[bytes, str, dict]:
-    """@brief Build one canonical candidate for no-write preview or preparation.
-    @param[in] path Active project configuration.
-    @param[in] body Exact scalar or batch edit and inspected base revision.
-    @param[in] runner Injectable read-only execution-plan command boundary.
-    @return Active bytes, candidate TOML and current-format candidate record.
-    @exception HTTPException Invalid edits, stale source or unavailable plan.
+    """
+    Build one canonical candidate for no-write preview or preparation.
+    path: Active project configuration.
+    body: Exact scalar or batch edit and inspected base revision.
+    runner: Injectable read-only execution-plan command boundary.
+    Returns: Active bytes, candidate TOML and current-format candidate record.
+    Raises HTTPException: Invalid edits, stale source or unavailable plan.
     """
     raw, changed = _candidate_config_edit(path, body)
     if sha256(path.read_bytes()).digest() != sha256(raw).digest():
@@ -2040,7 +2027,7 @@ def _prepare_config_candidate(path: Path, body: ConfigEdit,
 
 
 def _read_pending_config(path: Path) -> dict | None:
-    """@brief Read and verify a durable staged edit, failing closed on corruption."""
+    """Read and verify a durable staged edit, failing closed on corruption."""
     if path.is_symlink():
         raise _error(503, "pending_config_corrupt")
     if not path.is_file():
@@ -2072,7 +2059,7 @@ def _read_pending_config(path: Path) -> dict | None:
 
 
 def _public_pending_config(value: dict, *, active_text: str | None = None) -> dict:
-    """@brief Return review metadata without exposing the full TOML document."""
+    """Return review metadata without exposing the full TOML document."""
     # Only an earlier build could stage an image binding or an operator-owned key.
     if "image_build" in value or (
             isinstance(value.get("key"), str) and _external_environment_key(value["key"])):
@@ -2129,7 +2116,7 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
 
 
 def _restart_required(key: str, wire: str = "") -> bool:
-    """@brief Classify edits that change project identity or runtime wiring."""
+    """Classify edits that change project identity or runtime wiring."""
     if key == BATCH_KEY:
         return any(_restart_required(member) for member, _ in parse_batch(wire))
     return key.startswith(("agent.", "platform.", "worktree.",
@@ -2150,7 +2137,7 @@ _RUNTIME_COMMAND = re.compile(r"(?:wsl(?: -[A-Za-z] [A-Za-z0-9._-]+)* -- )?(?:do
 
 
 def _valid_environment_value(key: str, value: object) -> bool:
-    """@brief Web-written image and runtime values; other keys are not checked here."""
+    """Web-written image and runtime values; other keys are not checked here."""
     if key == "container.image":
         return isinstance(value, str) and bool(_IMAGE_REFERENCE.fullmatch(value))
     if key == "container.runtime":
@@ -2162,9 +2149,10 @@ def _valid_environment_value(key: str, value: object) -> bool:
 
 
 def _external_environment_key(key: str) -> bool:
-    """@brief Identify externally owned environment keys at web mutation boundaries.
-    @param[in] key Dotted configuration key.
-    @return True for operator-owned environment settings.
+    """
+    Identify externally owned environment keys at web mutation boundaries.
+    key: Dotted configuration key.
+    Returns: True for operator-owned environment settings.
     """
     return (key not in {"worktree.branch_template", "worktree.branch_rule"}
             and key not in _CHOSEN_ENVIRONMENT_KEYS
@@ -2174,11 +2162,11 @@ def _external_environment_key(key: str) -> bool:
 
 def _editable_setting_key(key: str) -> bool:
     """
-    @brief      The one rule for which configuration keys the web may edit.
-    @details    Used by the edit endpoints and by the per-setting metadata the
+    The one rule for which configuration keys the web may edit.
+    Used by the edit endpoints and by the per-setting metadata the
                 configuration view returns, so the two always agree.
-    @param[in]  key Dotted TOML key.
-    @return     True when the key may be staged from the browser.
+    key: Dotted TOML key.
+    Returns: True when the key may be staged from the browser.
     """
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
                "workflow.aegis_python", "workflow.verify_command"}:
@@ -2199,12 +2187,12 @@ def _editable_setting_key(key: str) -> bool:
 
 def _toml_leaves(value, prefix: str = "") -> list[tuple[str, object]]:
     """
-    @brief      Dotted keys and values of the leaves of a nested mapping.
-    @details    A non-empty mapping is walked; an empty mapping, a list or a
+    Dotted keys and values of the leaves of a nested mapping.
+    A non-empty mapping is walked; an empty mapping, a list or a
                 scalar is a leaf.
-    @param[in]  value Mapping (or leaf value).
-    @param[in]  prefix Dotted path of `value`.
-    @return     (dotted key, value) pairs in mapping order.
+    value: Mapping (or leaf value).
+    prefix: Dotted path of `value`.
+    Returns: (dotted key, value) pairs in mapping order.
     """
     if isinstance(value, dict) and value:
         return [leaf for key, child in value.items()
@@ -2214,10 +2202,10 @@ def _toml_leaves(value, prefix: str = "") -> list[tuple[str, object]]:
 
 def _value_at(tree: dict, key: str):
     """
-    @brief      Value at a dotted key of a nested mapping, leaf or sub-table.
-    @param[in]  tree Nested mapping.
-    @param[in]  key Dotted path.
-    @return     The value, or None when the path does not exist.
+    Value at a dotted key of a nested mapping, leaf or sub-table.
+    tree: Nested mapping.
+    key: Dotted path.
+    Returns: The value, or None when the path does not exist.
     """
     node = tree
     for part in key.split("."):
@@ -2229,13 +2217,13 @@ def _value_at(tree: dict, key: str):
 
 def _setting_domain(key: str, value: object, config: dict, declared: object) -> dict:
     """
-    @brief Project the current configuration validation domain for a setting.
-    @param[in] key Effective dotted configuration key.
-    @param[in] value Redacted effective value; establishes scalar/list/map type.
-    @param[in] config Redacted configuration; provider names and presets supply choices.
-    @param[in] declared Built-in model default supplying the declared type.
-    @return Type, allowed choices and inclusive numeric bounds for browser guidance.
-    @note Full configuration validation remains authoritative for dependent rules.
+    Project the current configuration validation domain for a setting.
+    key: Effective dotted configuration key.
+    value: Redacted effective value; establishes scalar/list/map type.
+    config: Redacted configuration; provider names and presets supply choices.
+    declared: Built-in model default supplying the declared type.
+    Returns: Type, allowed choices and inclusive numeric bounds for browser guidance.
+    Note: Full configuration validation remains authoritative for dependent rules.
     """
     expected = declared
     if key.startswith("workflow.stage_timeout_overrides."):
@@ -2295,8 +2283,8 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
 
 def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
     """
-    @brief      Source, editability and restart need of every effective setting.
-    @details    `config` is the redacted effective configuration; `raw` the
+    Source, editability and restart need of every effective setting.
+    `config` is the redacted effective configuration; `raw` the
                 project's TOML file. A setting is from the
                 project when its key is a leaf of the file, whatever its
                 value; it is editable when the shared key rule accepts the
@@ -2305,10 +2293,10 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
                 configuration (names derived, redacted) - the whole built-in
                 map for a map the project emptied - or None when that
                 configuration has no such key.
-    @param[in]  config Redacted effective configuration mapping.
-    @param[in]  raw Project configuration file bytes.
-    @return     One entry per setting, sorted by key.
-    @exception  tomllib.TOMLDecodeError When the file is not valid TOML.
+    config: Redacted effective configuration mapping.
+    raw: Project configuration file bytes.
+    Returns: One entry per setting, sorted by key.
+    Raises tomllib.TOMLDecodeError: When the file is not valid TOML.
     """
     in_file = {key for key, _ in _toml_leaves(tomllib.loads(raw.decode("utf-8")))}
     defaults = _redact_config(default_config().to_dict())
@@ -2340,7 +2328,7 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
 
 
 def _sync_profile_config_identity(profiles: ProfileStore, item, path: Path) -> None:
-    """@brief Keep profile directory labels aligned with the committed TOML."""
+    """Keep profile directory labels aligned with the committed TOML."""
     config = load_config(path)
     item = profiles.load(item.name)
     item.platform = config.platform.kind
@@ -2350,7 +2338,7 @@ def _sync_profile_config_identity(profiles: ProfileStore, item, path: Path) -> N
 
 
 def _write_pending_config(path: Path, value: dict) -> None:
-    """@brief Replace one staged JSON record atomically."""
+    """Replace one staged JSON record atomically."""
     effect_guard()
     descriptor, candidate_name = tempfile.mkstemp(prefix="pending-config-", dir=path.parent)
     candidate = Path(candidate_name)
@@ -2366,7 +2354,7 @@ def _write_pending_config(path: Path, value: dict) -> None:
 
 
 def _secret_config_keys(value: object, prefix: str = "") -> list[str]:
-    """@brief Find embedded secret values without returning their contents."""
+    """Find embedded secret values without returning their contents."""
     if isinstance(value, list):
         return [key for child in value for key in _secret_config_keys(child, prefix)]
     if not isinstance(value, dict):
@@ -2393,11 +2381,12 @@ def _secret_config_keys(value: object, prefix: str = "") -> list[str]:
 
 def _import_preview_identity(profiles: ProfileStore,
                              body: ProjectImportPreviewInput) -> ProjectImportInput:
-    """@brief Resolve an optional preview ID without changing the submitted TOML.
-    @param[in] profiles Current ownership store.
-    @param[in] body Preview text and optional identity overrides.
-    @return Exact preview input with an explicit project identity.
-    @exception HTTPException Invalid encoding, oversized text or unavailable identity.
+    """
+    Resolve an optional preview ID without changing the submitted TOML.
+    profiles: Current ownership store.
+    body: Preview text and optional identity overrides.
+    Returns: Exact preview input with an explicit project identity.
+    Raises HTTPException: Invalid encoding, oversized text or unavailable identity.
     """
     if body.name is not None:
         return body
@@ -2417,7 +2406,7 @@ def _import_preview_identity(profiles: ProfileStore,
              else "project")
 
     def available(name: str) -> bool:
-        """@brief Skip reserved ID spellings and propagate ownership errors."""
+        """Skip reserved ID spellings and propagate ownership errors."""
         try:
             return profiles.id_availability(name)
         except ProfileError as exc:
@@ -2450,13 +2439,14 @@ def _import_preview_identity(profiles: ProfileStore,
 def _inspect_project_import(
     profiles: ProfileStore, body: ProjectImportInput, *, own_state_lock: bool = False,
 ) -> tuple[dict, object]:
-    """@brief Inspect exact TOML, safe review and current ownership/state evidence.
+    """
+    Inspect exact TOML, safe review and current ownership/state evidence.
 
-    @param[in] profiles Server profile ownership store.
-    @param[in] body Exact UTF-8 text and declared display identity.
-    @param[in] own_state_lock Publication already owns this candidate conductor lock.
-    @return Field-addressable findings, bound revisions and safe review/config.
-    @exception HTTPException Corrupt ownership or inaccessible inspection fails closed.
+    profiles: Server profile ownership store.
+    body: Exact UTF-8 text and declared display identity.
+    own_state_lock: Publication already owns this candidate conductor lock.
+    Returns: Field-addressable findings, bound revisions and safe review/config.
+    Raises HTTPException: Corrupt ownership or inaccessible inspection fails closed.
     """
     try:
         name = validate_profile_id(body.name)
@@ -2568,13 +2558,13 @@ def _inspect_project_import(
 def _inspect_bundle_import(profiles: ProfileStore, body: ProjectBundlePreviewInput,
                            runner: CommandRunner):
     """
-    @brief Bind exact ZIP bytes to native import inspection and image associations.
-    @param[in] profiles Current project and source ownership store.
-    @param[in] body Untrusted bounded base64 source and optional identity.
-    @param[in] runner Existing bounded Git reader for preparation-selected images.
-    @return Preview, native import input, complete bundle and association revisions.
-    @exception RecipeError Invalid archive, mismatched image or corrupt/conflicting sources.
-    @exception HTTPException Invalid configuration or ownership inspection failure.
+    Bind exact ZIP bytes to native import inspection and image associations.
+    profiles: Current project and source ownership store.
+    body: Untrusted bounded base64 source and optional identity.
+    runner: Existing bounded Git reader for preparation-selected images.
+    Returns: Preview, native import input, complete bundle and association revisions.
+    Raises RecipeError: Invalid archive, mismatched image or corrupt/conflicting sources.
+    Raises HTTPException: Invalid configuration or ownership inspection failure.
     """
     try:
         source = base64.b64decode(body.source, validate=True)
@@ -2600,13 +2590,14 @@ def _inspect_bundle_import(profiles: ProfileStore, body: ProjectBundlePreviewInp
 
 def _reviewed_import(profiles: ProfileStore, body: ProjectImportInput,
                      *, own_state_lock: bool = False) -> tuple[dict, object]:
-    """@brief Reject a stale or invalid import at each publication/probe boundary.
+    """
+    Reject a stale or invalid import at each publication/probe boundary.
 
-    @param[in] profiles Current ownership store.
-    @param[in] body Reviewed candidate and revision.
-    @param[in] own_state_lock Ignore only the publication's own conductor lock.
-    @return Current valid preview/config.
-    @exception HTTPException Stale revision or invalid candidate is rejected.
+    profiles: Current ownership store.
+    body: Reviewed candidate and revision.
+    own_state_lock: Ignore only the publication's own conductor lock.
+    Returns: Current valid preview/config.
+    Raises HTTPException: Stale revision or invalid candidate is rejected.
     """
     preview, config = _inspect_project_import(profiles, body, own_state_lock=own_state_lock)
     if (not re.fullmatch(r"[0-9a-f]{64}", body.revision)
@@ -2623,7 +2614,7 @@ def _reviewed_import(profiles: ProfileStore, body: ProjectImportInput,
 
 
 def _check_reporting_scope(day_from, day_to, timezone, granularity, executor=None, model=None):
-    """@brief Validate global scope even when no project contributes data."""
+    """Validate global scope even when no project contributes data."""
     try:
         scope = analytics.Scope.create(day_from, day_to, timezone, granularity)
         analytics.usage_report([], "", scope, [], False, executor, model)
@@ -2632,7 +2623,7 @@ def _check_reporting_scope(day_from, day_to, timezone, granularity, executor=Non
 
 
 def _analytics_sources(profiles, profile, web, admin):
-    """@brief Strictly inspect authorized evidence and preserve projection cursors."""
+    """Strictly inspect authorized evidence and preserve projection cursors."""
     store = _store_for(profiles, profile)
     sources = analytics.read_sources(store)
     try:
@@ -2654,7 +2645,7 @@ def _usage_view(profiles: ProfileStore, profile, admin: bool, web: WebStore,
                 executor: str | None, model: str | None,
                 timezone: str = "UTC",
                 granularity: Literal["day", "week", "month"] = "day") -> dict:
-    """@brief Return shared scoped, nullable consumption with composite jobs."""
+    """Return shared scoped, nullable consumption with composite jobs."""
     try:
         scope = analytics.Scope.create(day_from, day_to, timezone, granularity)
         analytics.usage_report([], "", scope, [], False, executor, model)
@@ -2676,7 +2667,7 @@ def _usage_view(profiles: ProfileStore, profile, admin: bool, web: WebStore,
 def _analytical_csv(views: list[tuple[object, dict]], admin: bool,
                     global_view: bool, kind: str,
                     empty_scope: analytics.Scope | None = None) -> Response:
-    """@brief Export selected rows with scope, source coverage and financial RBAC."""
+    """Export selected rows with scope, source coverage and financial RBAC."""
     output = StringIO(newline="")
     writer = csv.writer(output)
     scope_columns = ["project_id", "timezone", "granularity", "scope_mode",
@@ -2731,7 +2722,7 @@ def _analytical_csv(views: list[tuple[object, dict]], admin: bool,
 
 def _usage_csv(views: list[tuple[object, dict]], admin: bool, global_view: bool,
                empty_scope: analytics.Scope | None = None) -> Response:
-    """@brief Export attributed consumption using the common scope formatter."""
+    """Export attributed consumption using the common scope formatter."""
     return _analytical_csv(views, admin, global_view, "usage", empty_scope)
 
 
@@ -2739,13 +2730,13 @@ def _configured_summaries(
     profiles: ProfileStore, profile, store: StateStore,
 ) -> list[metrics.RunSummary]:
     """
-    @brief      Read analytical summaries from the same configured path as CLI.
-    @param[in]  profiles Profile configuration owner.
-    @param[in]  profile Authorized project identity.
-    @param[in]  store Historical state owner for metadata-only profiles.
-    @return     Validated summaries without creating or modifying the database.
-    @exception  metrics.MetricsError Unreadable or malformed configuration/evidence.
-    @note       Relative paths use the process working folder, matching CLI.
+    Read analytical summaries from the same configured path as CLI.
+    profiles: Profile configuration owner.
+    profile: Authorized project identity.
+    store: Historical state owner for metadata-only profiles.
+    Returns: Validated summaries without creating or modifying the database.
+    Raises metrics.MetricsError: Unreadable or malformed configuration/evidence.
+    Note: Relative paths use the process working folder, matching CLI.
                 Metadata-only profiles retain their existing state-root history.
     """
     path = profiles.config_path(profile.name)
@@ -2770,7 +2761,7 @@ def _metric_view(profiles: ProfileStore, profile, admin: bool,
                  web: WebStore, day_from: date | None = None,
                  day_to: date | None = None, timezone: str = "UTC",
                  granularity: Literal["day", "week", "month"] = "day") -> dict:
-    """@brief Return one authorized half-open analytical scope and current stock."""
+    """Return one authorized half-open analytical scope and current stock."""
     try:
         scope = analytics.Scope.create(day_from, day_to, timezone, granularity)
         store, sources, prices = _analytics_sources(profiles, profile, web, admin)
@@ -2801,23 +2792,22 @@ def _run_view(run) -> dict:
     }
 
 
-# PUBLIC API
 def create_app(home: str | Path | None = None,
                *, probe_runner: CommandRunner = run_command,
                environment_runner: CommandRunner | None = None,
                chatgpt_popen: Callable[..., subprocess.Popen] = subprocess.Popen) -> FastAPI:
     """
-    @brief Construct the optional web service for a profile home.
-    @param[in] home ADORE_HOME override used by tests and deployment.
-    @param[in] probe_runner Injectable runner for explicit readiness probes.
-    @param[in] environment_runner Optional separate boundary for shared image preparation.
-    @param[in] chatgpt_popen Process factory of the ChatGPT sign-in helper.
-    @return Configured FastAPI application.
+    Construct the optional web service for a profile home.
+    home: ADORE_HOME override used by tests and deployment.
+    probe_runner: Injectable runner for explicit readiness probes.
+    environment_runner: Optional separate boundary for shared image preparation.
+    chatgpt_popen: Process factory of the ChatGPT sign-in helper.
+    Returns: Configured FastAPI application.
     """
     def guarded_runner(original):
-        """@brief Fence each external command using the current task's authority and budget."""
+        """Fence each external command using the current task's authority and budget."""
         def run(*args, **kwargs):
-            """@brief Authorize and bound the command, then recheck before retaining its result."""
+            """Authorize and bound the command, then recheck before retaining its result."""
             effect_guard()
             kwargs["timeout"] = probe_timeout(kwargs.get("timeout"))
             result = original(*args, **kwargs)
@@ -2839,7 +2829,7 @@ def create_app(home: str | Path | None = None,
     def issue_evidence(
         actor: int, draft_revision: str, config_revision: str, evidence: dict
     ) -> str:
-        """@brief Retain bounded, expiring server-owned evidence for one creation."""
+        """Retain bounded, expiring server-owned evidence for one creation."""
         with enrollment_lock:
             now = monotonic()
             for key in [key for key, value in enrollment_evidence.items() if value[3] < now]:
@@ -2860,7 +2850,7 @@ def create_app(home: str | Path | None = None,
         token: str | None, actor: int, draft_revision: str, config_revision: str,
         name: str, config,
     ) -> dict | None:
-        """@brief Refuse unissued, expired, replayed or differently bound evidence."""
+        """Refuse unissued, expired, replayed or differently bound evidence."""
         if token is None:
             return None
         with enrollment_lock:
@@ -2887,18 +2877,18 @@ def create_app(home: str | Path | None = None,
 
     @app.exception_handler(WebStoreError)
     async def web_store_failure(_request: Request, _exc: WebStoreError) -> JSONResponse:
-        """@brief Expose corrupt identity/grant evidence as a typed service error."""
+        """Expose corrupt identity/grant evidence as a typed service error."""
         return JSONResponse(status_code=503,
                             content={"detail": {"code": "web_store_corrupt"}})
 
     @app.exception_handler(JobReadError)
     async def job_read_failure(_request: Request, exc: JobReadError) -> JSONResponse:
-        """@brief Return typed job failures without exposing source values or partial totals."""
+        """Return typed job failures without exposing source values or partial totals."""
         return JSONResponse(status_code=exc.status, content={"detail": {"code": exc.code}})
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, exc: RequestValidationError) -> JSONResponse:
-        """@brief Report schema failures with one code and field-level reasons."""
+        """Report schema failures with one code and field-level reasons."""
         issues = [_finding("invalid_request_field",
                            ".".join(str(part) for part in item.get("loc", ())[1:]),
                            "Supply this field using its documented type and allowed values.")
@@ -2919,7 +2909,7 @@ def create_app(home: str | Path | None = None,
 
     @app.exception_handler(StarletteHTTPException)
     async def coded_http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
-        """@brief Keep coded errors and give framework text errors a stable code."""
+        """Keep coded errors and give framework text errors a stable code."""
         detail = exc.detail
         if not (isinstance(detail, dict) and isinstance(detail.get("code"), str)):
             detail = {"code": _HTTP_ERROR_CODES.get(exc.status_code, _HTTP_FALLBACK_CODE),
@@ -2928,14 +2918,14 @@ def create_app(home: str | Path | None = None,
                             headers=getattr(exc, "headers", None))
 
     def account_principal(request: Request) -> dict:
-        """@brief Resolve the session for routes that manage the account itself."""
+        """Resolve the session for routes that manage the account itself."""
         user = web.session_user(request.cookies.get(_COOKIE, ""))
         if user is None:
             raise _error(401, "authentication_required")
         return user
 
     def principal(user: Annotated[dict, Depends(account_principal)]) -> dict:
-        """@brief Admit an account that has no outstanding required password change."""
+        """Admit an account that has no outstanding required password change."""
         if user["password_change_required"]:
             raise _error(403, "password_change_required")
         return user
@@ -2948,7 +2938,7 @@ def create_app(home: str | Path | None = None,
 
     def account_mutation(request: Request,
                          user: Annotated[dict, Depends(account_principal)]) -> dict:
-        """@brief CSRF-protected change to the signed-in account itself."""
+        """CSRF-protected change to the signed-in account itself."""
         return _require_csrf(request, user)
 
     def mutation(request: Request, user: Annotated[dict, Depends(principal)]) -> dict:
@@ -2983,7 +2973,7 @@ def create_app(home: str | Path | None = None,
 
     @contextmanager
     def guard_direct_config_apply(item, path: Path, key: str):
-        """@brief Keep direct API edits behind the conductor's safe boundary."""
+        """Keep direct API edits behind the conductor's safe boundary."""
         try:
             current = load_config(path)
         except (OSError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
@@ -3013,12 +3003,12 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/health")
     def health() -> dict:
-        """@brief Report that the API process is serving HTTP requests."""
+        """Report that the API process is serving HTTP requests."""
         return {"status": "alive"}
 
     @app.get("/api/v1/ready")
     def ready() -> dict:
-        """@brief Name unavailable server components; project failures remain scoped."""
+        """Name unavailable server components; project failures remain scoped."""
         rows = (web.worker_heartbeats(role="supervisor", project_id="")
                 + web.worker_heartbeats(role="configuration", project_id=""))
         components = {role: worker_status(rows, role) for role in ("supervisor", "configuration")}
@@ -3031,7 +3021,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/system/workers")
     def system_workers(_user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief Separate server roles and each project's workers without process identifiers."""
+        """Separate server roles and each project's workers without process identifiers."""
         rows = web.worker_heartbeats()
         result = [worker_status(rows, role) for role in ("supervisor", "configuration")]
         for item in profiles.list_profiles():
@@ -3044,9 +3034,9 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/system/storage")
     def storage_status(_user: Annotated[dict, Depends(administrator)]) -> dict:
         """
-        @brief Report low free space on the home and project-state volumes.
-        @return Administrator-only volume measurements and alert status.
-        @exception HTTPException When profile or disk evidence cannot be read.
+        Report low free space on the home and project-state volumes.
+        Returns: Administrator-only volume measurements and alert status.
+        Raises HTTPException: When profile or disk evidence cannot be read.
         """
         try:
             if profiles.invalid_profiles():
@@ -3125,7 +3115,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/me/preferences")
     def get_preferences(user: Annotated[dict, Depends(account_principal)]) -> dict:
-        """@brief Return saved preferences for the authenticated account."""
+        """Return saved preferences for the authenticated account."""
         try:
             return web.preferences(user["id"])
         except WebStoreError as exc:
@@ -3134,7 +3124,7 @@ def create_app(home: str | Path | None = None,
     @app.patch("/api/v1/me/preferences")
     def update_preferences(body: PreferenceInput,
                            user: Annotated[dict, Depends(account_mutation)]) -> dict:
-        """@brief Save supplied presentation preferences for the current account."""
+        """Save supplied presentation preferences for the current account."""
         try:
             return web.set_preferences(user["id"], body.model_dump(exclude_unset=True))
         except WebStoreError as exc:
@@ -3186,7 +3176,7 @@ def create_app(home: str | Path | None = None,
         from_time: Annotated[str | None, Query(alias="from")] = None,
         to_time: Annotated[str | None, Query(alias="to")] = None,
     ) -> dict:
-        """@brief Filter/count authorized stable-project evidence before SQL paging."""
+        """Filter/count authorized stable-project evidence before SQL paging."""
         if user["role"] != "admin":
             if project_id is None:
                 raise _error(403, "admin_required")
@@ -3223,21 +3213,21 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/audit-policy")
     def get_audit_policy(_user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief Return persisted audit limits; null means unlimited."""
+        """Return persisted audit limits; null means unlimited."""
         return web.audit_policy()
 
     @app.put("/api/v1/audit-policy")
     def update_audit_policy(
         body: AuditPolicyInput, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Apply administrator limits and record the policy change."""
+        """Apply administrator limits and record the policy change."""
         result = web.set_audit_policy(body.retention_days, body.max_bytes, actor_id=user["id"])
         return result
 
     @app.post("/api/v1/users/with-access")
     def add_user_with_access(body: UserWithAccess,
                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Create exactly the reviewed account/grants in one transaction."""
+        """Create exactly the reviewed account/grants in one transaction."""
         try:
             return web.create_user_with_access(
                 body.username, body.password, body.role, body.project_ids,
@@ -3287,7 +3277,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/access")
     def project_access(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief Every developer account and whether it can access the project."""
+        """Every developer account and whether it can access the project."""
         item = project(name, user)
         try:
             members = web.project_members(item.name)
@@ -3303,7 +3293,7 @@ def create_app(home: str | Path | None = None,
     def change_project_access(
         name: str, user_id: int, body: AccessChange, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Grant or remove one developer's access to this project only."""
+        """Grant or remove one developer's access to this project only."""
         item = project(name, user)
         account = web.user_by_id(user_id)
         if account is None:
@@ -3378,7 +3368,7 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/id-availability")
     def id_availability(body: ProfileIDInput,
                         _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Check a portable ID without reserving or creating a project."""
+        """Check a portable ID without reserving or creating a project."""
         try:
             available = profiles.id_availability(body.name)
         except ProfileError as exc:
@@ -3392,8 +3382,8 @@ def create_app(home: str | Path | None = None,
     def ensure_project_labels(name: str,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """
-        @brief Create the project's missing ADORE labels in its repository.
-        @details Reads the repository's labels once and creates only the missing ones;
+        Create the project's missing ADORE labels in its repository.
+        Reads the repository's labels once and creates only the missing ones;
                  existing labels are never changed. Per-label failures are reported.
         """
         item = project(name, user)
@@ -3410,7 +3400,7 @@ def create_app(home: str | Path | None = None,
     def host_folders(response: Response,
                      _user: Annotated[dict, Depends(administrator)],
                      path: Annotated[str | None, Query(max_length=4096)] = None) -> dict:
-        """@brief List bounded directory metadata on the host for administrator clone selection."""
+        """List bounded directory metadata on the host for administrator clone selection."""
         from adore.web.host_folders import HostFolderError, list_host_folders
 
         response.headers["Cache-Control"] = "no-store"
@@ -3422,7 +3412,7 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/local-executors")
     def local_executors(response: Response,
                         _user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief Read native host executor suggestions without executing any CLI."""
+        """Read native host executor suggestions without executing any CLI."""
         from adore.executor_discovery import discover_executors
         from adore.local_process import LocalExecutionError
 
@@ -3435,7 +3425,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/pi-providers")
     def pi_providers(_user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Pi's API-key providers and models (pinned catalog) plus chatgpt/custom."""
+        """Pi's API-key providers and models (pinned catalog) plus chatgpt/custom."""
         try:
             return public_catalog()
         except ValueError as exc:
@@ -3444,7 +3434,7 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/executor-runtimes")
     def executor_runtimes(response: Response,
                           _user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief List bounded host container CLI suggestions for administrators."""
+        """List bounded host container CLI suggestions for administrators."""
         response.headers["Cache-Control"] = "no-store"
         return {"commands": doctor.discover_container_commands(probe_runner)}
 
@@ -3452,8 +3442,8 @@ def create_app(home: str | Path | None = None,
     def executor_images(runtime: Annotated[str, Query(max_length=160)],
                         _user: Annotated[dict, Depends(administrator)]) -> dict:
         """
-        @brief Tagged container images on the ADORE server, for image suggestions.
-        @details Read-only and bounded; a runtime that cannot be queried is reported
+        Tagged container images on the ADORE server, for image suggestions.
+        Read-only and bounded; a runtime that cannot be queried is reported
                  as unavailable rather than as an error.
         """
         prefix = doctor.inventory_runtime_argv(runtime)
@@ -3472,11 +3462,11 @@ def create_app(home: str | Path | None = None,
     def repository_source(body: RepositorySourceInput,
                           _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """
-        @brief      Read a repository address: forge, repository, branch, ID and clone location.
-        @param[in]  body Repository URL typed by the administrator.
-        @param[in]  _user Authorized administrator after CSRF validation.
-        @return     Detected values for confirmation; nothing is written on the server.
-        @exception  HTTPException Unsupported address, unreachable remote or no free ID.
+        Read a repository address: forge, repository, branch, ID and clone location.
+        body: Repository URL typed by the administrator.
+        _user: Authorized administrator after CSRF validation.
+        Returns: Detected values for confirmation; nothing is written on the server.
+        Raises HTTPException: Unsupported address, unreachable remote or no free ID.
         """
         try:
             parsed = parse_repository_url(body.url)
@@ -3522,7 +3512,7 @@ def create_app(home: str | Path | None = None,
     def preview_project_setup(
         body: ProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Preview exact setup and separate direct-only file hints, without probes."""
+        """Preview exact setup and separate direct-only file hints, without probes."""
         preview, _candidate = _prepare_project(profiles, body)
         web.audit(
             _user["id"],
@@ -3537,11 +3527,11 @@ def create_app(home: str | Path | None = None,
 
     def transfer_source(body: TransferSourceInput, request: Request) -> dict:
         """
-        @brief      Reauthorize and strictly read exact file or active project bytes.
-        @param[in]  body Closed source selection; project input uses immutable identity.
-        @param[in]  request Session/CSRF authority rechecked at every boundary.
-        @return     Allowlisted rules and exact source revision only.
-        @exception  HTTPException Missing, changed, incompatible or corrupt source.
+        Reauthorize and strictly read exact file or active project bytes.
+        body: Closed source selection; project input uses immutable identity.
+        request: Session/CSRF authority rechecked at every boundary.
+        Returns: Allowlisted rules and exact source revision only.
+        Raises HTTPException: Missing, changed, incompatible or corrupt source.
         """
         user = admin_mutation(mutation(request, principal(account_principal(request))))
         if ((body.method == "file" and (body.file_text is None or body.source_id is not None))
@@ -3572,11 +3562,11 @@ def create_app(home: str | Path | None = None,
     def preview_transfer_source(
         body: TransferSourceInput, request: Request, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Review only recognized portable rules without target writes or probes."""
+        """Review only recognized portable rules without target writes or probes."""
         return transfer_source(body, request)
 
     def prepare_transfer(body: TransferInput, request: Request):
-        """@brief Bind an exact source to freshly supplied independent target setup."""
+        """Bind an exact source to freshly supplied independent target setup."""
         source = transfer_source(body, request)
         if not secrets.compare_digest(body.source_revision, source["source_revision"]):
             raise _error(409, "portable_settings_changed")
@@ -3587,7 +3577,7 @@ def create_app(home: str | Path | None = None,
     def preview_transfer(
         body: TransferInput, request: Request, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Return target rules/mapping and canonical validated review without writes."""
+        """Return target rules/mapping and canonical validated review without writes."""
         preview, _candidate = prepare_transfer(body, request)
         web.audit(
             _user["id"],
@@ -3602,7 +3592,7 @@ def create_app(home: str | Path | None = None,
         return preview
 
     def reviewed_transfer(body: ReviewedTransferInput, request: Request):
-        """@brief Reject invalid, duplicate or changed source/target confirmation."""
+        """Reject invalid, duplicate or changed source/target confirmation."""
         preview, candidate = prepare_transfer(body, request)
         if not preview["structural_valid"] or candidate is None:
             duplicate = any(issue["code"] == "project_exists" for issue in preview["issues"])
@@ -3624,7 +3614,7 @@ def create_app(home: str | Path | None = None,
         request: Request,
         _user: Annotated[dict, Depends(admin_mutation)],
     ) -> dict:
-        """@brief Explicitly probe exact target; reread authorization/source after probes."""
+        """Explicitly probe exact target; reread authorization/source after probes."""
         preview, candidate = reviewed_transfer(body, request)
         host = _readiness_host()
         config = _config_from_bytes(candidate.document.encode())
@@ -3713,7 +3703,7 @@ def create_app(home: str | Path | None = None,
         request: Request,
         user: Annotated[dict, Depends(admin_mutation)],
     ) -> dict:
-        """@brief Atomically publish fresh stopped target with source/role rechecks."""
+        """Atomically publish fresh stopped target with source/role rechecks."""
         _preview, candidate = reviewed_transfer(body, request)
         config = _config_from_bytes(candidate.document.encode())
         readiness = consume_evidence(
@@ -3726,7 +3716,7 @@ def create_app(home: str | Path | None = None,
         )
 
         def recheck() -> None:
-            """@brief Reauthorize/reinspect source and independent ownership before visibility."""
+            """Reauthorize/reinspect source and independent ownership before visibility."""
             source = transfer_source(body, request)
             if not secrets.compare_digest(body.source_revision, source["source_revision"]):
                 raise _error(409, "portable_settings_changed")
@@ -3756,11 +3746,12 @@ def create_app(home: str | Path | None = None,
         return _publish_with_clone(body.target, probe_runner, profiles.home, locked)
 
     def reviewed_setup(body: ReviewedProjectInput):
-        """@brief Rebuild and compare an exact memory draft before acting on it.
+        """
+        Rebuild and compare an exact memory draft before acting on it.
 
-        @param[in] body Secret-free reviewed answers and candidate revision.
-        @return Structurally valid preview and exact wizard candidate.
-        @exception HTTPException Invalid, duplicate or stale setup fails closed.
+        body: Secret-free reviewed answers and candidate revision.
+        Returns: Structurally valid preview and exact wizard candidate.
+        Raises HTTPException: Invalid, duplicate or stale setup fails closed.
         """
         preview, candidate = _prepare_project(profiles, body)
         if not preview["structural_valid"] or candidate is None:
@@ -3789,12 +3780,13 @@ def create_app(home: str | Path | None = None,
     def check_project_setup(
         body: ReviewedProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Explicitly probe a reviewed draft without storing or publishing it.
+        """
+        Explicitly probe a reviewed draft without storing or publishing it.
 
-        @param[in] body Reviewed answers and candidate revision.
-        @param[in] _user Authorized administrator after CSRF validation.
-        @return Redacted checks, status, time and exact draft/config revisions.
-        @exception HTTPException Setup or probe failure is returned deterministically.
+        body: Reviewed answers and candidate revision.
+        _user: Authorized administrator after CSRF validation.
+        Returns: Redacted checks, status, time and exact draft/config revisions.
+        Raises HTTPException: Setup or probe failure is returned deterministically.
         """
         preview, candidate = reviewed_setup(body)
         config = _config_from_bytes(candidate.document.encode("utf-8"))
@@ -3852,12 +3844,13 @@ def create_app(home: str | Path | None = None,
     def create_reviewed_project(
         body: ReviewedProjectInput, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Publish only the exact reviewed configuration with pickup stopped.
+        """
+        Publish only the exact reviewed configuration with pickup stopped.
 
-        @param[in] body Reviewed answers and candidate revision.
-        @param[in] user Authorized administrator recorded in the audit.
-        @return Complete project whose pickup is already stopped.
-        @exception HTTPException Invalid, stale or conflicting setup is rejected.
+        body: Reviewed answers and candidate revision.
+        user: Authorized administrator recorded in the audit.
+        Returns: Complete project whose pickup is already stopped.
+        Raises HTTPException: Invalid, stale or conflicting setup is rejected.
         """
         _preview, candidate = reviewed_setup(body)
         config = _config_from_bytes(candidate.document.encode("utf-8"))
@@ -3889,7 +3882,7 @@ def create_app(home: str | Path | None = None,
         body: ProjectImportPreviewInput,
         _user: Annotated[dict, Depends(admin_mutation)],
     ) -> dict:
-        """@brief Review an unchanged TOML import before saving it."""
+        """Review an unchanged TOML import before saving it."""
         candidate = _import_preview_identity(profiles, body)
         preview, _config = _inspect_project_import(profiles, candidate)
         web.audit(
@@ -3930,7 +3923,7 @@ def create_app(home: str | Path | None = None,
     @configuration.route(scope="global", lane="long", resource="enrollment")
     def preview_project_bundle(body: ProjectBundlePreviewInput,
                                user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Automatically validate the exact complete ZIP without retaining sources."""
+        """Automatically validate the exact complete ZIP without retaining sources."""
         try:
             preview, native, _bundle, _revisions = _inspect_bundle_import(
                 profiles, body, probe_runner)
@@ -3945,7 +3938,7 @@ def create_app(home: str | Path | None = None,
     @configuration.route(scope="global", lane="long", resource="enrollment")
     def import_project_bundle(body: ProjectBundleImportInput,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Publish exact project configuration and retained image sources together."""
+        """Publish exact project configuration and retained image sources together."""
         try:
             preview, native, bundle, revisions = _inspect_bundle_import(
                 profiles, body, probe_runner)
@@ -3955,7 +3948,7 @@ def create_app(home: str | Path | None = None,
             _native_preview, config = _reviewed_import(profiles, native)
 
             def publish():
-                """@brief Keep the existing profile, pause, ownership and failure boundaries."""
+                """Keep the existing profile, pause, ownership and failure boundaries."""
                 return _publish_paused(profiles, web, user["id"], native.name, bundle.config_raw, {
                     "display_name": preview["display_name"], "description": body.description,
                     "platform": config.platform.kind, "repo": config.platform.repo,
@@ -3973,12 +3966,13 @@ def create_app(home: str | Path | None = None,
     @configuration.route(scope="global", lane="long", resource="enrollment")
     def check_project_import(body: ProjectImportInput,
                              _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Explicitly probe the exact reviewed import without publishing.
+        """
+        Explicitly probe the exact reviewed import without publishing.
 
-        @param[in] body Exact reviewed TOML, identity and revision.
-        @param[in] _user Administrator authenticated after CSRF validation.
-        @return Ephemeral redacted revision/time-bound prerequisite evidence.
-        @exception HTTPException Invalid/stale input or unusable probe fails closed.
+        body: Exact reviewed TOML, identity and revision.
+        _user: Administrator authenticated after CSRF validation.
+        Returns: Ephemeral redacted revision/time-bound prerequisite evidence.
+        Raises HTTPException: Invalid/stale input or unusable probe fails closed.
         """
         preview, config = _reviewed_import(profiles, body)
         auth_bound = _readiness_auth_bound(profiles, body.name, config)
@@ -4006,7 +4000,7 @@ def create_app(home: str | Path | None = None,
         body: ProjectImportInput,
         user: Annotated[dict, Depends(admin_mutation)],
     ) -> dict:
-        """@brief Import reviewed TOML with pickup paused and history intact."""
+        """Import reviewed TOML with pickup paused and history intact."""
         preview, config = _reviewed_import(profiles, body)
         return _publish_paused(profiles, web, user["id"], body.name,
                                body.config_text.encode("utf-8"), {
@@ -4022,7 +4016,7 @@ def create_app(home: str | Path | None = None,
     @app.put("/api/v1/projects/{name}/identity")
     def update_identity(name: str, body: DisplayIdentityInput,
                         user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Change only the human label while retaining every operational identity."""
+        """Change only the human label while retaining every operational identity."""
         item = project(name, user)
         try:
             display = validate_display_name(body.display_name)
@@ -4041,13 +4035,13 @@ def create_app(home: str | Path | None = None,
     def portable_settings(name: str, user: Annotated[dict, Depends(administrator)],
                           download: bool = False, checksum: str | None = None) -> Response:
         """
-        @brief      Export validated active portable rules after Admin authorization.
-        @param[in]  name Current project name or immutable ID.
-        @param[in]  user Administrator resolved before project/config access.
-        @param[in]  download Add the fixed attachment filename.
-        @param[in]  checksum Optional portable preview binding.
-        @return     Canonical JSON bytes, never pending or redacted read data.
-        @exception  HTTPException Invalid source or changed preview fails closed.
+        Export validated active portable rules after Admin authorization.
+        name: Current project name or immutable ID.
+        user: Administrator resolved before project/config access.
+        download: Add the fixed attachment filename.
+        checksum: Optional portable preview binding.
+        Returns: Canonical JSON bytes, never pending or redacted read data.
+        Raises HTTPException: Invalid source or changed preview fails closed.
         """
         item = project(name, user)
         try:
@@ -4071,7 +4065,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/capacity")
     def project_capacity(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Read current scoped slots, queue causes and the caller's durable feedback."""
+        """Read current scoped slots, queue causes and the caller's durable feedback."""
         item = project(name, user)
         try:
             config = load_config(profiles.config_path(item.name))
@@ -4120,7 +4114,7 @@ def create_app(home: str | Path | None = None,
     @configuration.route(lane="long")
     def connect_repository(name: str, body: RepositoryConnectionInput,
                            user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Verify scoped forge credentials before protected idle publication."""
+        """Verify scoped forge credentials before protected idle publication."""
         item = project(name, user)
         if item.archived:
             raise _error(409, "project_archived")
@@ -4163,7 +4157,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/executor-credentials")
     def executor_credentials_read(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief Expose private key source/presence without returning credential values."""
+        """Expose private key source/presence without returning credential values."""
         item = project(name, user)
         path = profiles.config_path(item.name)
         try:
@@ -4181,7 +4175,7 @@ def create_app(home: str | Path | None = None,
     @configuration.route(lane="fast")
     def executor_credentials_write(name: str, body: ExecutorCredentialInput, request: Request,
                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Atomically save/remove an approved key while the project is idle."""
+        """Atomically save/remove an approved key while the project is idle."""
         deleting = request.method == "DELETE"
         if (deleting and body.token is not None or not deleting and body.token is None):
             raise _error(400, "executor_credential_invalid")
@@ -4220,7 +4214,7 @@ def create_app(home: str | Path | None = None,
             raise _error(503, "executor_credentials_corrupt") from exc
 
     def chatgpt_view() -> dict:
-        """@brief The server's sign-in status and whether a sign-in waits (lock held)."""
+        """The server's sign-in status and whether a sign-in waits (lock held)."""
         session = chatgpt_pending["session"]
         if session is not None and not session.pending:
             session.cancel()
@@ -4228,7 +4222,7 @@ def create_app(home: str | Path | None = None,
         return {"status": chatgpt.status(chatgpt_dir), "pending": session is not None}
 
     def chatgpt_failure(user: dict, exc: chatgpt.ChatGptError, project_name: str = "") -> None:
-        """@brief Audit a sign-in failure by cause code only and raise its API error."""
+        """Audit a sign-in failure by cause code only and raise its API error."""
         code = _CHATGPT_CODES.get(exc.code, "chatgpt_sign_in_refused")
         status = _CHATGPT_STATUS.get(exc.code, 502)
         if exc.code not in {"redirect-invalid", "state-mismatch", "not-pending"}:
@@ -4238,7 +4232,7 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/chatgpt-sign-in")
     @configuration.route(scope="global", lane="global", resource="chatgpt")
     def chatgpt_sign_in_read(user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief Report the server's ChatGPT sign-in without starting Pi."""
+        """Report the server's ChatGPT sign-in without starting Pi."""
         with chatgpt_lock:
             effect_guard()
             chatgpt_view()  # Expire an abandoned attempt before reading its pipe.
@@ -4258,7 +4252,7 @@ def create_app(home: str | Path | None = None,
     @configuration.route(lane="long")
     def chatgpt_sign_in_start(name: str,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Start Sign in with ChatGPT with this project's runtime and image."""
+        """Start Sign in with ChatGPT with this project's runtime and image."""
         item = project(name, user)
         if item.archived:
             raise _error(409, "project_archived")
@@ -4306,7 +4300,7 @@ def create_app(home: str | Path | None = None,
     @configuration.route(scope="global", lane="global", resource="chatgpt")
     def chatgpt_sign_in_complete(body: ChatGptRedirectInput,
                                  user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Pass the pasted redirect address to the waiting sign-in."""
+        """Pass the pasted redirect address to the waiting sign-in."""
         with chatgpt_lock:
             effect_guard()
             chatgpt_view()
@@ -4327,7 +4321,7 @@ def create_app(home: str | Path | None = None,
     @app.delete("/api/v1/chatgpt-sign-in/pending")
     @configuration.route(scope="global", lane="global", resource="chatgpt")
     def chatgpt_sign_in_cancel(user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief End a waiting sign-in; the stored credential stays."""
+        """End a waiting sign-in; the stored credential stays."""
         with chatgpt_lock:
             effect_guard()
             session = chatgpt_pending["session"]
@@ -4340,7 +4334,7 @@ def create_app(home: str | Path | None = None,
     @app.delete("/api/v1/chatgpt-sign-in")
     @configuration.route(scope="global", lane="global", resource="chatgpt")
     def chatgpt_disconnect(user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Delete the server's ChatGPT credential and end a waiting sign-in."""
+        """Delete the server's ChatGPT credential and end a waiting sign-in."""
         with chatgpt_lock:
             effect_guard()
             session = chatgpt_pending["session"]
@@ -4358,7 +4352,7 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/{name}/model-connection-test")
     @configuration.route(lane="long")
     def model_connection_test(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Test the configured model explicitly and persist scoped access evidence."""
+        """Test the configured model explicitly and persist scoped access evidence."""
         item = project(name, user)
         if item.archived:
             raise _error(409, "project_archived")
@@ -4410,7 +4404,7 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/{name}/readiness-check")
     @configuration.route(lane="long")
     def readiness_check(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Probe selected host prerequisites on explicit admin request."""
+        """Probe selected host prerequisites on explicit admin request."""
         item = project(name, user)
         try:
             raw = profiles.config_path(item.name).read_bytes()
@@ -4495,7 +4489,7 @@ def create_app(home: str | Path | None = None,
 
     @app.post("/api/v1/projects/{name}/archive")
     def archive_project(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Stop pickup while retaining project configuration and history."""
+        """Stop pickup while retaining project configuration and history."""
         item = project(name, user)
         if not item.archived:
             state = _store_for(profiles, item)
@@ -4517,7 +4511,7 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/{name}/restore")
     def restore_project(name: str,
                         user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Re-enable project pickup without changing retained history."""
+        """Re-enable project pickup without changing retained history."""
         item = project(name, user)
         if item.archived:
             if web.has_unfinished_operations(item.name):
@@ -4528,7 +4522,7 @@ def create_app(home: str | Path | None = None,
         return _profile_view(profiles, item)
 
     def clone_view(item) -> dict:
-        """@brief The removal decision for an archived project's local clone."""
+        """The removal decision for an archived project's local clone."""
         try:
             config = load_config(profiles.config_path(item.name))
             runs = _store_for(profiles, item).list_runs()
@@ -4539,7 +4533,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/delete-preview")
     def delete_preview(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief What Delete project would do with the local clone of an archived project."""
+        """What Delete project would do with the local clone of an archived project."""
         item = project(name, user)
         if not item.archived:
             raise _error(409, "project_not_archived")
@@ -4549,8 +4543,8 @@ def create_app(home: str | Path | None = None,
     def delete_project(name: str, body: ProjectDeleteInput,
                        user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """
-        @brief Queue deletion of a confirmed, archived and idle project.
-        @details The command worker rechecks role, archive state and identity,
+        Queue deletion of a confirmed, archived and idle project.
+        The command worker rechecks role, archive state and identity,
                  then runs `adore profile delete <name> --force --remove-resources`
                  (plus `--remove-clone` when chosen and the clone is removable now).
         """
@@ -4583,7 +4577,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/config")
     def config_view(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Return redacted effective settings for an authorized project."""
+        """Return redacted effective settings for an authorized project."""
         item = project(name, user)
         path = profiles.config_path(item.name)
         try:
@@ -4633,12 +4627,12 @@ def create_app(home: str | Path | None = None,
     def branch_preview(name: str, body: BranchPreview,
                        user: Annotated[dict, Depends(mutation)]) -> dict:
         """
-        @brief Preview naming for an authorized current profile without writes.
-        @param[in] name Selected profile name or immutable project identity.
-        @param[in] body Bounded template/rule pair and the displayed revision.
-        @param[in] user Scoped authenticated user with same-origin CSRF proof.
-        @return Sample and Python rule findings bound to the inspected revision.
-        @exception HTTPException Stale, corrupt or unauthorized source fails closed.
+        Preview naming for an authorized current profile without writes.
+        name: Selected profile name or immutable project identity.
+        body: Bounded template/rule pair and the displayed revision.
+        user: Scoped authenticated user with same-origin CSRF proof.
+        Returns: Sample and Python rule findings bound to the inspected revision.
+        Raises HTTPException: Stale, corrupt or unauthorized source fails closed.
         """
         # Coordinate source/profile reads with atomic config application, also
         # on Windows where an open reader can prevent replacing the source.
@@ -4657,7 +4651,7 @@ def create_app(home: str | Path | None = None,
         return {**result, "revision": body.revision}
 
     def recipe_failure(exc):
-        """@brief Translate closed recipe metadata without exposing uploaded file contents."""
+        """Translate closed recipe metadata without exposing uploaded file contents."""
         if isinstance(exc, BuildBundleError):
             return _error(400, exc.code)
         status = (503 if exc.code in {"recipe_store_corrupt", "recipe_builtin_unavailable",
@@ -4667,7 +4661,7 @@ def create_app(home: str | Path | None = None,
                                       "recovery": exc.recovery})
 
     def recipe_source_bytes(path):
-        """@brief Bound every recipe config read and translate unsafe/missing sources."""
+        """Bound every recipe config read and translate unsafe/missing sources."""
         try:
             if path.is_symlink() or not path.is_file():
                 raise ValueError("invalid project source")
@@ -4680,7 +4674,7 @@ def create_app(home: str | Path | None = None,
             raise _error(503, "config_corrupt") from exc
 
     def recipe_config(name, user):
-        """@brief Read one authorized source snapshot before consulting recipe metadata."""
+        """Read one authorized source snapshot before consulting recipe metadata."""
         item = project(name, user)
         path = profiles.config_path(item.name)
         try:
@@ -4697,7 +4691,7 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/projects/{name}/executor-recipe")
     @configuration.route(lane="long")
     def executor_recipe(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief Read image-shared definition availability without changing project or jobs."""
+        """Read image-shared definition availability without changing project or jobs."""
         _, path, raw, config = recipe_config(name, user)
         try:
             result = recipe_status(config, home=profiles.home, runner=probe_runner)
@@ -4708,7 +4702,7 @@ def create_app(home: str | Path | None = None,
         return {**result, "revision": sha256(raw).hexdigest()}
 
     def inspect_recipe(name, body, user):
-        """@brief Validate one selected/root-or-missing-base attachment before retention."""
+        """Validate one selected/root-or-missing-base attachment before retention."""
         item, path, raw, config = recipe_config(name, user)
         if sha256(raw).hexdigest() != body.revision:
             raise _error(409, "stale_config_revision")
@@ -4743,7 +4737,7 @@ def create_app(home: str | Path | None = None,
     @configuration.route(lane="long")
     def preview_executor_recipe(name: str, body: RecipeInput,
                                 user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Check the selected source and graph in memory; no catalog writes occur."""
+        """Check the selected source and graph in memory; no catalog writes occur."""
         _, _, _, _, result = inspect_recipe(name, body, user)
         return result
 
@@ -4751,7 +4745,7 @@ def create_app(home: str | Path | None = None,
     @configuration.route(lane="long")
     def save_executor_recipe(name: str, body: RecipeInput,
                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Save source metadata with image/config binding, independent of job admission."""
+        """Save source metadata with image/config binding, independent of job admission."""
         item = project(name, user)
         path, raw, config, document, _ = inspect_recipe(name, body, user)
         try:
@@ -4774,14 +4768,14 @@ def create_app(home: str | Path | None = None,
     def raw_config(name: str, user: Annotated[dict, Depends(administrator)],
                    download: bool = False, include_build: bool = False) -> Response:
         """
-        @brief      Read the administrator's original saved TOML without redaction.
-        @param[in]  name Authorized profile name or immutable project ID.
-        @param[in]  user Administrator resolved before any config read.
-        @param[in]  download Return the fixed config.toml attachment filename.
-        @param[in]  include_build Download the reviewed Docker build bundle.
-        @return     Exact saved UTF-8 bytes, including comments and inline secrets.
-        @exception  HTTPException Corrupt, unreadable or changed source fails closed.
-        @note       External credential files and environment values are not read.
+        Read the administrator's original saved TOML without redaction.
+        name: Authorized profile name or immutable project ID.
+        user: Administrator resolved before any config read.
+        download: Return the fixed config.toml attachment filename.
+        include_build: Download the reviewed Docker build bundle.
+        Returns: Exact saved UTF-8 bytes, including comments and inline secrets.
+        Raises HTTPException: Corrupt, unreadable or changed source fails closed.
+        Note: External credential files and environment values are not read.
         """
         item = project(name, user)
         path = profiles.config_path(item.name)
@@ -4898,7 +4892,7 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/projects/{name}/config/pending")
     def pending_config(name: str,
                        user: Annotated[dict, Depends(administrator)]) -> dict | None:
-        """@brief Show a saved candidate without returning its full TOML text."""
+        """Show a saved candidate without returning its full TOML text."""
         item = project(name, user)
         value = _read_pending_config(profiles.profile_dir(item.name) / "pending_config.json")
         if value is None:
@@ -4914,7 +4908,7 @@ def create_app(home: str | Path | None = None,
     def preview_config(
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Validate effects without publishing active or pending settings."""
+        """Validate effects without publishing active or pending settings."""
         item = project(name, user)
         if _external_environment_key(body.key):
             raise _error(400, "environment_managed_externally")
@@ -4928,7 +4922,7 @@ def create_app(home: str | Path | None = None,
     def stage_config(
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Save a validated candidate revision while live config stays put."""
+        """Save a validated candidate revision while live config stays put."""
         item = project(name, user)
         if _external_environment_key(body.key):
             raise _error(400, "environment_managed_externally")
@@ -4987,7 +4981,7 @@ def create_app(home: str | Path | None = None,
     def apply_config(
         name: str, body: ConfigApply, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Apply the reviewed candidate only at a quiescent boundary."""
+        """Apply the reviewed candidate only at a quiescent boundary."""
         item = project(name, user)
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
@@ -5132,7 +5126,7 @@ def create_app(home: str | Path | None = None,
     @app.delete("/api/v1/projects/{name}/config/pending")
     @configuration.route(lane="fast")
     def discard_config(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Explicitly discard a staged candidate, including corrupt ones."""
+        """Explicitly discard a staged candidate, including corrupt ones."""
         item = project(name, user)
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
@@ -5156,10 +5150,10 @@ def create_app(home: str | Path | None = None,
 
     def job_projects(user: dict, project_id: str | None = None) -> list:
         """
-        @brief Select authorized history profiles before accessing run evidence.
-        @param[in] user Current authenticated principal.
-        @param[in] project_id Optional immutable single-project selector.
-        @return All authorized selected current and archived profiles.
+        Select authorized history profiles before accessing run evidence.
+        user: Current authenticated principal.
+        project_id: Optional immutable single-project selector.
+        Returns: All authorized selected current and archived profiles.
         """
         try:
             if project_id is not None:
@@ -5178,12 +5172,12 @@ def create_app(home: str | Path | None = None,
         user: dict, project_id: str | None = None, *, overview: bool = False,
     ) -> tuple[list, str, list[str]]:
         """
-        @brief Recheck authorization/profile identity after the complete local read.
-        @param[in] user Current authenticated principal.
-        @param[in] project_id Optional immutable single-project selector.
-        @param[in] overview Isolate projects with unreadable job state for Overview.
-        @return Authorized rows, optimistic source revision and unreadable project IDs.
-        @exception JobReadError For corrupt or changed authorized source evidence.
+        Recheck authorization/profile identity after the complete local read.
+        user: Current authenticated principal.
+        project_id: Optional immutable single-project selector.
+        overview: Isolate projects with unreadable job state for Overview.
+        Returns: Authorized rows, optimistic source revision and unreadable project IDs.
+        Raises JobReadError: For corrupt or changed authorized source evidence.
         """
         selected = job_projects(user, project_id)
         if overview:
@@ -5210,19 +5204,19 @@ def create_app(home: str | Path | None = None,
         order: Literal["asc", "desc"] | None = None,
     ) -> dict:
         """
-        @brief Globally search/order/page complete authorized local job evidence.
-        @param[in] user Current authenticated principal.
-        @param[in] project_id Optional immutable authorized project scope.
-        @param[in] q Optional bounded case-insensitive search text.
-        @param[in] status_group Optional lifecycle group.
-        @param[in] attention Select jobs awaiting intervention or recovery.
-        @param[in] overview Include verified projects and report unreadable ones.
-        @param[in] limit Bounded page size or all.
-        @param[in] offset Nonnegative matched-row offset.
-        @param[in] snapshot Optional expected source-content revision.
-        @param[in] sort Column ordering every matched job before paging.
-        @param[in] order Direction; newest activity first, otherwise ascending, by default.
-        @return Matched page, verified counts, source revision and any unreadable projects.
+        Globally search/order/page complete authorized local job evidence.
+        user: Current authenticated principal.
+        project_id: Optional immutable authorized project scope.
+        q: Optional bounded case-insensitive search text.
+        status_group: Optional lifecycle group.
+        attention: Select jobs awaiting intervention or recovery.
+        overview: Include verified projects and report unreadable ones.
+        limit: Bounded page size or all.
+        offset: Nonnegative matched-row offset.
+        snapshot: Optional expected source-content revision.
+        sort: Column ordering every matched job before paging.
+        order: Direction; newest activity first, otherwise ascending, by default.
+        Returns: Matched page, verified counts, source revision and any unreadable projects.
         """
         if limit != "all" and (len(limit) > 3 or not limit.isascii() or not limit.isdecimal()
                                or not 1 <= int(limit) <= 100):
@@ -5263,11 +5257,11 @@ def create_app(home: str | Path | None = None,
     def job_detail(project_id: str, run_id: str,
                    user: Annotated[dict, Depends(principal)]) -> dict:
         """
-        @brief Resolve composite job identity with authorization before source reads.
-        @param[in] project_id Immutable owning project identity.
-        @param[in] run_id Safe run identity within that project.
-        @param[in] user Current authenticated principal.
-        @return One strict safe evidence model and selected-project revision.
+        Resolve composite job identity with authorization before source reads.
+        project_id: Immutable owning project identity.
+        run_id: Safe run identity within that project.
+        user: Current authenticated principal.
+        Returns: One strict safe evidence model and selected-project revision.
         """
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
             raise _error(404, "run_not_found")
@@ -5285,7 +5279,7 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/jobs/{project_id}/{run_id}/executor-output")
     def job_executor_output(project_id: str, run_id: str,
                             user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Read only authorized journal-bound operational executor evidence."""
+        """Read only authorized journal-bound operational executor evidence."""
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
             raise _error(404, "run_not_found")
         rows, revision, _ = job_snapshot(user, project_id)
@@ -5300,7 +5294,7 @@ def create_app(home: str | Path | None = None,
         return result
 
     def session_run(project_id: str, run_id: str, user: dict):
-        """@brief Resolve session ownership through the existing strict job snapshot."""
+        """Resolve session ownership through the existing strict job snapshot."""
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
             raise _error(404, "run_not_found")
         rows, _, _ = job_snapshot(user, project_id)
@@ -5314,7 +5308,7 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/jobs/{project_id}/{run_id}/instructions")
     def job_instructions(project_id: str, run_id: str,
                          user: Annotated[dict, Depends(principal)]) -> JSONResponse:
-        """@brief Read literal instructions for one authorized composite job identity."""
+        """Read literal instructions for one authorized composite job identity."""
         item, root = session_run(project_id, run_id, user)
         try:
             rows, notices = InstructionInbox(root).read()
@@ -5329,7 +5323,7 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/jobs/{project_id}/{run_id}/instructions")
     def send_job_instruction(project_id: str, run_id: str, body: InstructionInput,
                              user: Annotated[dict, Depends(mutation)]) -> JSONResponse:
-        """@brief Queue text atomically using the same project grants as job cancellation."""
+        """Queue text atomically using the same project grants as job cancellation."""
         item = project(project_id, user)
         if item.project_id != project_id or not re.fullmatch(
                 r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
@@ -5358,7 +5352,7 @@ def create_app(home: str | Path | None = None,
     @app.get("/api/v1/jobs/{project_id}/{run_id}/sessions")
     def job_sessions(project_id: str, run_id: str,
                      user: Annotated[dict, Depends(principal)]) -> JSONResponse:
-        """@brief List completed sessions for an authenticated job reader."""
+        """List completed sessions for an authenticated job reader."""
         item, root = session_run(project_id, run_id, user)
         result = list_sessions(root)
         if item not in job_projects(user, project_id):
@@ -5373,7 +5367,7 @@ def create_app(home: str | Path | None = None,
                     continuity: Annotated[str | None, Query(max_length=64)] = None,
                     archive_id: Annotated[str | None, Query(max_length=160)] = None,
                     ) -> JSONResponse:
-        """@brief Return literal recorded session text with role-bound usage."""
+        """Return literal recorded session text with role-bound usage."""
         item, root = session_run(project_id, run_id, user)
         result = read_session(root, attempt_id, cursor, limit, include_cost=user["role"] == "admin",
                               continuity=continuity, archive_id=archive_id)
@@ -5406,7 +5400,7 @@ def create_app(home: str | Path | None = None,
         outcome: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
         executor: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
     ) -> dict:
-        """@brief Return a bounded run page with scoped lifecycle and text filters."""
+        """Return a bounded run page with scoped lifecycle and text filters."""
         item = project(name, user)
         if limit != "all" and (len(limit) > 3 or not limit.isascii() or not limit.isdecimal()
                                or not 1 <= int(limit) <= 100):
@@ -5515,7 +5509,7 @@ def create_app(home: str | Path | None = None,
         timezone: Annotated[str, Query(max_length=64)] = "UTC",
         granularity: Literal["day", "week", "month"] = "day",
     ) -> dict:
-        """@brief Return project-scoped dated usage with observed model identity."""
+        """Return project-scoped dated usage with observed model identity."""
         return _usage_view(profiles, project(name, user), user["role"] == "admin",
                            web, day_from, day_to, executor, model,
                            timezone, granularity)
@@ -5529,7 +5523,7 @@ def create_app(home: str | Path | None = None,
         timezone: Annotated[str, Query(max_length=64)] = "UTC",
         granularity: Literal["day", "week", "month"] = "day",
     ) -> Response:
-        """@brief Export the same attributed usage and role boundary as JSON."""
+        """Export the same attributed usage and role boundary as JSON."""
         item = project(name, user)
         admin = user["role"] == "admin"
         return _usage_csv([(item, _usage_view(profiles, item, admin, web,
@@ -5584,7 +5578,7 @@ def create_app(home: str | Path | None = None,
         timezone: Annotated[str, Query(max_length=64)] = "UTC",
         granularity: Literal["day", "week", "month"] = "day",
     ) -> Response:
-        """@brief Export administrator daily costs with project provenance."""
+        """Export administrator daily costs with project provenance."""
         _check_reporting_scope(day_from, day_to, timezone, granularity)
         if profiles.invalid_profiles():
             raise _error(503, "project_corrupt")
@@ -5616,7 +5610,7 @@ def create_app(home: str | Path | None = None,
         timezone: Annotated[str, Query(max_length=64)] = "UTC",
         granularity: Literal["day", "week", "month"] = "day",
     ) -> dict:
-        """@brief Return attributed usage for every project to administrators."""
+        """Return attributed usage for every project to administrators."""
         _check_reporting_scope(day_from, day_to, timezone, granularity, executor, model)
         if profiles.invalid_profiles():
             raise _error(503, "project_corrupt")
@@ -5633,7 +5627,7 @@ def create_app(home: str | Path | None = None,
         timezone: Annotated[str, Query(max_length=64)] = "UTC",
         granularity: Literal["day", "week", "month"] = "day",
     ) -> Response:
-        """@brief Export administrator usage with project provenance."""
+        """Export administrator usage with project provenance."""
         _check_reporting_scope(day_from, day_to, timezone, granularity, executor, model)
         if profiles.invalid_profiles():
             raise _error(503, "project_corrupt")
@@ -5652,7 +5646,7 @@ def create_app(home: str | Path | None = None,
         timezone: Annotated[str, Query(max_length=64)] = "UTC",
         granularity: Literal["day", "week", "month"] = "day",
     ) -> Response:
-        """@brief Export composite job lifetime and selected-period measurements."""
+        """Export composite job lifetime and selected-period measurements."""
         item = project(name, user)
         admin = user["role"] == "admin"
         view = _usage_view(profiles, item, admin, web, day_from, day_to,
@@ -5668,7 +5662,7 @@ def create_app(home: str | Path | None = None,
         timezone: Annotated[str, Query(max_length=64)] = "UTC",
         granularity: Literal["day", "week", "month"] = "day",
     ) -> Response:
-        """@brief Export Admin job consumption with project provenance."""
+        """Export Admin job consumption with project provenance."""
         _check_reporting_scope(day_from, day_to, timezone, granularity, executor, model)
         if profiles.invalid_profiles():
             raise _error(503, "project_corrupt")
@@ -5683,7 +5677,7 @@ def create_app(home: str | Path | None = None,
     def rebuild_usage_projection(
         user: Annotated[dict, Depends(admin_mutation)],
     ) -> dict:
-        """@brief Reconstruct append-only usage from retained journals."""
+        """Reconstruct append-only usage from retained journals."""
         if profiles.invalid_profiles():
             raise _error(503, "project_corrupt")
         projects = runs = events = 0
@@ -5755,7 +5749,8 @@ def create_app(home: str | Path | None = None,
                     raw = (state.run_dir(body.run_id) / "state.json").read_bytes()
                 except OSError as exc:
                     raise _error(409, "job_snapshot_changed") from exc
-                if run.lifecycle != "failed" or sha256(raw).hexdigest() != body.state_revision:
+                if (run.lifecycle not in {"failed", "cancelled"}
+                        or sha256(raw).hexdigest() != body.state_revision):
                     raise _error(409, "job_snapshot_changed")
         else:
             if body.ticket_iid is not None or body.run_id:
@@ -5769,7 +5764,7 @@ def create_app(home: str | Path | None = None,
         return {"id": operation["id"], "status": operation["status"]}
 
     def ticket_config(item):
-        """@brief Load a project's validated config for one ticket request."""
+        """Load a project's validated config for one ticket request."""
         try:
             config = _config_from_bytes(profiles.config_path(item.name).read_bytes())
         except (OSError, AttributeError, UnicodeError, TypeError, ValueError,
@@ -5780,7 +5775,7 @@ def create_app(home: str | Path | None = None,
         return config
 
     def ticket_forge(item, config):
-        """@brief Build the project's bounded, credential-scoped forge for one request."""
+        """Build the project's bounded, credential-scoped forge for one request."""
         try:
             runner = project_runner(profiles.profile_dir(item.name), config, probe_runner)
             return open_forge(config, runner)
@@ -5790,7 +5785,7 @@ def create_app(home: str | Path | None = None,
             raise _error(503, "forge_read_failed") from exc
 
     def ticket_read(read):
-        """@brief Run one forge read, mapping failures to typed API errors."""
+        """Run one forge read, mapping failures to typed API errors."""
         try:
             return read()
         except GiteaAuthError as exc:
@@ -5806,7 +5801,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/workflow-selection")
     def workflow_selection(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Offer a new-job default and payload presence; admission probes usability."""
+        """Offer a new-job default and payload presence; admission probes usability."""
         item = project(name, user)
         config = ticket_config(item)
         mode = requested_workflow(config.workflow.mode)
@@ -5819,7 +5814,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/tickets")
     def project_tickets(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Read a project's open forge tickets with pickup eligibility on request."""
+        """Read a project's open forge tickets with pickup eligibility on request."""
         item = project(name, user)
         config = ticket_config(item)
         forge = ticket_forge(item, config)
@@ -5828,7 +5823,7 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/tickets/{iid}/comments")
     def ticket_comments(name: str, iid: int, user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Read one ticket's human comments on explicit request."""
+        """Read one ticket's human comments on explicit request."""
         item = project(name, user)
         if iid < 1:
             raise _error(404, "ticket_not_found")
@@ -5841,8 +5836,9 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/{name}/tickets/{iid}/start")
     def start_ticket(name: str, iid: int, body: TicketStartInput,
                      user: Annotated[dict, Depends(mutation)]) -> dict:
-        """@brief Add a ticket's missing ready/priority labels, then queue its start.
-        @details Manual admission preserves stopped automatic monitoring and other gates.
+        """
+        Add a ticket's missing ready/priority labels, then queue its start.
+        Manual admission preserves stopped automatic monitoring and other gates.
         """
         item = project(name, user)
         if item.archived:
@@ -5875,7 +5871,7 @@ def create_app(home: str | Path | None = None,
                 raise _error(400, "priority_required")
             added.append(body.priority)
         def uncertain() -> None:
-            """@brief Record a start whose forge labels may have changed without a queued job."""
+            """Record a start whose forge labels may have changed without a queued job."""
             web.audit(user["id"], "ticket-start-prepared", item.name, f"#{iid}",
                       resource_type="operation", resource_id=str(iid), result="uncertain")
 
@@ -5903,7 +5899,7 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/{name}/tickets/{iid}/stop")
     def stop_ticket(name: str, iid: int, body: TicketStopInput,
                     user: Annotated[dict, Depends(mutation)]) -> dict:
-        """@brief Cancel a ticket's unfinished job and remove its ready label from the forge."""
+        """Cancel a ticket's unfinished job and remove its ready label from the forge."""
         item = project(name, user)
         if item.archived:
             raise _error(409, "project_archived")
@@ -5989,6 +5985,3 @@ def create_app(home: str | Path | None = None,
         return FileResponse(_STATIC / "index.html")
 
     return app
-
-
-# END OF FILE

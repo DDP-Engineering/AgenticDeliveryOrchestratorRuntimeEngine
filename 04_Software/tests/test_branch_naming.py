@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_branch_naming.py
-@brief   Shared branch naming preview and configuration boundary tests.
-@details Exercises public Python formatting, regex and bounded process results offline.
-"""
+"""Shared branch naming preview and configuration boundary tests."""
 
-# IMPORTS
 from dataclasses import replace
 import subprocess
 
@@ -21,9 +7,8 @@ from adore.config import branch_naming_preview, default_config, validate_config
 import pytest
 
 
-# PUBLIC API
 def test_branch_naming_preview_matches_python_and_empty_rule():
-    """@brief Examples carry explicit identity and Python regex semantics."""
+    """Examples carry explicit identity and Python regex semantics."""
     for rule in ("", r"^(?P<prefix>feature)/adore-\d+$"):
         result = branch_naming_preview("feature/{slug}-{iid}", rule, "adore")
         assert result == {"template": "feature/{slug}-{iid}", "rule": rule,
@@ -55,7 +40,7 @@ def test_branch_naming_preview_matches_python_and_empty_rule():
     ("feature/{iid}", "x" * 513, "too_long"),
 ])
 def test_branch_naming_bad_input_is_reported_in_preview_and_config(template, rule, issue):
-    """@brief Invalid configuration reports deterministic findings before a run."""
+    """Invalid configuration reports deterministic findings before a run."""
     result = branch_naming_preview(template, rule, "adore")
     assert result["valid"] is False and issue in result["issues"]
     config = default_config()
@@ -66,9 +51,9 @@ def test_branch_naming_bad_input_is_reported_in_preview_and_config(template, rul
 
 @pytest.mark.parametrize("failure", ["timeout", "exit", "json", "type", "missing"])
 def test_branch_rule_process_boundary_fails_closed(monkeypatch, failure):
-    """@brief Regex timeout, unavailable process and corrupt output cannot validate."""
+    """Regex timeout, unavailable process and corrupt output cannot validate."""
     def run(*args, **kwargs):
-        """@brief Simulate the regex evaluation process boundary."""
+        """Simulate the regex evaluation process boundary."""
         assert kwargs["timeout"] == 1
         assert "shell" not in kwargs
         if failure == "timeout":
@@ -82,5 +67,3 @@ def test_branch_rule_process_boundary_fails_closed(monkeypatch, failure):
     assert result["valid"] is False
     assert result["rule_matches"] is None
     assert result["issues"] == ["rule_timeout" if failure == "timeout" else "rule_check_failed"]
-
-# END OF FILE

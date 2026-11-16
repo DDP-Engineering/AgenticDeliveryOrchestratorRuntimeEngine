@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_rbac.py
-@brief Public API project-scope and financial privacy tests.
-@details Uses the ASGI application with local profile and state fixtures.
-"""
+"""Public API project-scope and financial privacy tests."""
 
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -27,7 +14,7 @@ from tests.execution_records import execution_record
 
 
 def test_developer_project_scope_and_cost_privacy(tmp_path):
-    """@brief A developer sees only assigned project data without money fields."""
+    """A developer sees only assigned project data without money fields."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", repo="org/alpha")
     profiles.create("beta", repo="org/beta")
@@ -54,7 +41,7 @@ def test_developer_project_scope_and_cost_privacy(tmp_path):
 
 
 def test_account_preferences_require_session_csrf_and_allowed_values(tmp_path):
-    """@brief Preferences are account-scoped and validated at the HTTP boundary."""
+    """Preferences are account-scoped and validated at the HTTP boundary."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
@@ -98,7 +85,7 @@ def test_account_preferences_require_session_csrf_and_allowed_values(tmp_path):
 
 
 def test_ticket_body_mode_api_round_trip_is_account_scoped(tmp_path):
-    """@brief Saved modes survive fresh sessions and cannot target another account."""
+    """Saved modes survive fresh sessions and cannot target another account."""
     home = tmp_path / "home"
     app = create_app(home)
     dev = app.state.web_store.create_user("dev", "longer-password", "developer")
@@ -129,7 +116,7 @@ def test_ticket_body_mode_api_round_trip_is_account_scoped(tmp_path):
 
 @pytest.mark.parametrize("mode", ["invalid", "", None, 1, True, [], {}])
 def test_ticket_body_mode_api_rejects_invalid_values_without_writes(tmp_path, mode):
-    """@brief Closed mode validation rejects bad input before even a partial write."""
+    """Closed mode validation rejects bad input before even a partial write."""
     app = create_app(tmp_path / "home")
     with TestClient(app) as client:
         login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
@@ -145,7 +132,7 @@ def test_ticket_body_mode_api_rejects_invalid_values_without_writes(tmp_path, mo
 
 
 def test_ticket_body_mode_api_refuses_corrupt_preferences(tmp_path):
-    """@brief Corrupt saved content produces a value-free error without repair."""
+    """Corrupt saved content produces a value-free error without repair."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     with TestClient(app) as client:
@@ -166,7 +153,7 @@ def test_ticket_body_mode_api_refuses_corrupt_preferences(tmp_path):
 
 
 def test_untrusted_mr_link_is_not_sent_to_browser(tmp_path):
-    """@brief A persisted non-HTTP link cannot become a clickable draft link."""
+    """A persisted non-HTTP link cannot become a clickable draft link."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -180,7 +167,7 @@ def test_untrusted_mr_link_is_not_sent_to_browser(tmp_path):
 
 
 def test_run_query_pages_filters_and_enforces_project_scope(tmp_path):
-    """@brief A developer pages only assigned runs and invalid bounds fail."""
+    """A developer pages only assigned runs and invalid bounds fail."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = profiles.create("alpha", store_root=str(tmp_path / "alpha-state"))
     profiles.create("beta", store_root=str(tmp_path / "beta-state"))
@@ -259,7 +246,7 @@ def test_run_query_pages_filters_and_enforces_project_scope(tmp_path):
 
 
 def test_run_page_date_filter_uses_utc_and_rejects_corrupt_timestamp(tmp_path):
-    """@brief Last-update dates cross offsets and malformed state fails closed."""
+    """Last-update dates cross offsets and malformed state fails closed."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -281,7 +268,7 @@ def test_run_page_date_filter_uses_utc_and_rejects_corrupt_timestamp(tmp_path):
 
 
 def test_run_page_outcome_filter_rejects_corrupt_persisted_outcome(tmp_path):
-    """@brief A non-text outcome cannot be searched as if it were valid state."""
+    """A non-text outcome cannot be searched as if it were valid state."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -299,7 +286,7 @@ def test_run_page_outcome_filter_rejects_corrupt_persisted_outcome(tmp_path):
 
 
 def test_run_page_filters_observed_executor_and_rejects_bad_identity(tmp_path):
-    """@brief Executor filter uses observed journal identity and fails closed."""
+    """Executor filter uses observed journal identity and fails closed."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -321,7 +308,7 @@ def test_run_page_filters_observed_executor_and_rejects_bad_identity(tmp_path):
 
 
 def test_admin_can_reset_password_and_journal_is_sanitized(tmp_path):
-    """@brief Reset requires an admin; no arbitrary journal fields cross the API."""
+    """Reset requires an admin; no arbitrary journal fields cross the API."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -354,7 +341,7 @@ def test_admin_can_reset_password_and_journal_is_sanitized(tmp_path):
 
 
 def test_audit_history_is_administrator_only(tmp_path):
-    """@brief Audited actions are inspectable without developer access."""
+    """Audited actions are inspectable without developer access."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
@@ -375,7 +362,7 @@ def test_audit_history_is_administrator_only(tmp_path):
 
 
 def test_audit_policy_retains_history_until_admin_sets_limits(tmp_path):
-    """@brief Admin-configured age and byte limits prune oldest audit events."""
+    """Admin-configured age and byte limits prune oldest audit events."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     for index in range(12):
@@ -397,7 +384,7 @@ def test_audit_policy_retains_history_until_admin_sets_limits(tmp_path):
 
 
 def test_audit_policy_rejects_bad_values_and_forbidden_access(tmp_path):
-    """@brief Invalid policies and unauthorized writes cannot change retention."""
+    """Invalid policies and unauthorized writes cannot change retention."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     web.create_user("dev", "longer-password", "developer")
@@ -422,7 +409,7 @@ def test_audit_policy_rejects_bad_values_and_forbidden_access(tmp_path):
 
 
 def test_audit_policy_rejects_corrupt_persisted_state(tmp_path):
-    """@brief Bad policy or audit timestamps fail closed after a restart."""
+    """Bad policy or audit timestamps fail closed after a restart."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     web.set_audit_policy(1, None)
@@ -443,7 +430,7 @@ def test_audit_policy_rejects_corrupt_persisted_state(tmp_path):
 
 
 def test_audit_retention_age_and_unlimited_read_integrity(tmp_path):
-    """@brief An old event is pruned; malformed dates never reach the browser."""
+    """An old event is pruned; malformed dates never reach the browser."""
     from adore.web.store import WebStoreError
 
     app = create_app(tmp_path / "home")
@@ -466,7 +453,7 @@ def test_audit_retention_age_and_unlimited_read_integrity(tmp_path):
 
 
 def test_ten_users_twenty_projects_keep_concurrent_project_scopes(tmp_path):
-    """@brief First-release account/project target retains independent grants."""
+    """First-release account/project target retains independent grants."""
     profiles = ProfileStore(tmp_path / "home")
     for index in range(20):
         profiles.create(f"project-{index:02d}")
@@ -496,7 +483,7 @@ def test_ten_users_twenty_projects_keep_concurrent_project_scopes(tmp_path):
 
 
 def test_membership_does_not_transfer_to_replaced_profile(tmp_path):
-    """@brief A reused project name cannot inherit an earlier grant."""
+    """A reused project name cannot inherit an earlier grant."""
     profiles = ProfileStore(tmp_path / "home")
     first = profiles.create("alpha")
     first.created_at = "2026-01-01T00:00:00+00:00"
@@ -517,7 +504,7 @@ def test_membership_does_not_transfer_to_replaced_profile(tmp_path):
 
 
 def test_project_id_route_survives_rename_and_reused_name(tmp_path):
-    """@brief Stable API project references retain grants across a relabel."""
+    """Stable API project references retain grants across a relabel."""
     profiles = ProfileStore(tmp_path / "home")
     original = profiles.create("alpha")
     app = create_app(profiles.home)
@@ -540,7 +527,7 @@ def test_project_id_route_survives_rename_and_reused_name(tmp_path):
 
 
 def test_corrupt_persisted_membership_returns_typed_error(tmp_path):
-    """@brief A damaged project grant cannot disclose other project data."""
+    """A damaged project grant cannot disclose other project data."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     app = create_app(profiles.home)

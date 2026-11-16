@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    executor_evidence.py
-@brief   Bounded operational projections of untrusted executor archives.
-@details The caller supplies authorized profiles. Reads use existing schema-1
-         archives without exposing transcripts, reasoning, credentials or costs.
-         Only closed protocol facts and diagnostic classes reach the browser.
-"""
+"""Bounded operational projections of untrusted executor archives."""
 
-# IMPORTS
 from hashlib import sha256
 import os
 from pathlib import Path
@@ -27,14 +11,12 @@ from adore.profiles import Profile, ProfileStore
 from adore.state import StateError
 from adore.web.jobs import JobReadError, _event_stage, _journal, _object, _stamp
 
-# CONSTANTS
 _SNAPSHOT_BYTES = 150 * 1024
 _JOURNAL_BYTES = 32 * 1024 * 1024
 
 
-# LOCAL HELPERS
 def _identity(path: Path, *, directory: bool = False):
-    """@brief Refuse links, reparse points and nonregular or multiply linked files."""
+    """Refuse links, reparse points and nonregular or multiply linked files."""
     info = path.lstat()
     if (path.is_symlink() or getattr(info, "st_file_attributes", 0) & 0x400
             or (not stat.S_ISDIR(info.st_mode) if directory else
@@ -44,12 +26,12 @@ def _identity(path: Path, *, directory: bool = False):
 
 
 def _signature(info):
-    """@brief Bind file identity and contents across a bounded read."""
+    """Bind file identity and contents across a bounded read."""
     return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns
 
 
 def _read(path: Path, limit: int) -> bytes:
-    """@brief Read a stable unlinked file without accepting growth beyond its limit."""
+    """Read a stable unlinked file without accepting growth beyond its limit."""
     before = _identity(path)
     if before.st_size > limit:
         raise JobReadError("job_evidence_corrupt")
@@ -63,18 +45,17 @@ def _read(path: Path, limit: int) -> bytes:
     return raw
 
 
-# PUBLIC API
 def read_executor_output(profiles: ProfileStore, item: Profile, run_id: str,
                          state_revision: str) -> dict:
     """
-    @brief Read the latest journal-bound host-normalized executor diagnostics.
-    @param[in] profiles Profile owner supplying the default state root.
-    @param[in] item Already authorized immutable project identity.
-    @param[in] run_id Selected validated run identity.
-    @param[in] state_revision Exact state bytes inspected by the job endpoint.
-    @return Concrete operational stdout/stderr or explicit missing provenance.
-    @exception JobReadError Unsafe, corrupt, oversized or changing evidence.
-    @note Raw executor IO, scripts, prompts, transcripts and configuration are never read.
+    Read the latest journal-bound host-normalized executor diagnostics.
+    profiles: Profile owner supplying the default state root.
+    item: Already authorized immutable project identity.
+    run_id: Selected validated run identity.
+    state_revision: Exact state bytes inspected by the job endpoint.
+    Returns: Concrete operational stdout/stderr or explicit missing provenance.
+    Raises JobReadError: Unsafe, corrupt, oversized or changing evidence.
+    Note: Raw executor IO, scripts, prompts, transcripts and configuration are never read.
     """
     root = Path(item.store_root or profiles.default_store_root(item.name)) / "runs" / run_id
     missing = {"project_id": item.project_id, "run_id": run_id, "availability": "missing",
@@ -151,6 +132,3 @@ def read_executor_output(profiles: ProfileStore, item: Profile, run_id: str,
     except (OSError, UnicodeError, ValueError, TypeError, KeyError, StateError,
             RecursionError) as exc:
         raise JobReadError("job_evidence_corrupt") from exc
-
-
-# END OF FILE

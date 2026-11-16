@@ -98,3 +98,9 @@ Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens a
 Dans **Actions du travail**, choisissez **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** pour un nouveau travail, puis acceptez la courte confirmation du navigateur qui supprime le travail existant. AEGIS absent désactive son action. Tickets conserve le sélecteur **Workflow** avant **Démarrer**. Réessayer, la continuation et les corrections de revue conservent le workflow enregistré et la même conversation Pi.
 
 Dans Tickets, Workflow, Priorité si nécessaire, Ajouter les étiquettes et démarrer et Annuler partagent une ligne compacte sur grand écran et passent à la ligne sur petit écran.
+
+## Redémarrer les travaux annulés {#restart-cancelled}
+
+Un ticket annulé propose **Redémarrer le travail**. Sélectionnez le workflow dans la ligne de confirmation compacte et confirmez une nouvelle exécution. L’historique annulé reste accessible ; capacité, admissibilité et autorisation restent contrôlées.
+
+Consultez [Redémarrer les travaux annulés](/help/jobs#restart-cancelled) pour la navigation historique et le nettoyage explicite.

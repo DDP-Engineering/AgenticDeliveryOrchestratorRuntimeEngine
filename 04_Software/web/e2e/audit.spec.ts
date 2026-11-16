@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { auditCopy } from "../src/auditCopy";
 import type { Locale } from "../src/i18n";
 import { test, expect } from "@playwright/test";
@@ -15,6 +9,19 @@ test.beforeEach(async ({ context, page }) => {
   await page.getByLabel("Password", { exact: false }).fill("admin");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("navigation", { name: "Primary navigation", exact: true })).toBeVisible();
+});
+
+// Cleanup has its own budget even if a multi-locale scenario reaches its timeout.
+test.afterEach(async ({ page }) => {
+  const response = await page.request.get("/api/v1/me", { timeout: 5_000 });
+  if (response.status() === 401) return;
+  expect(response.ok()).toBeTruthy();
+  const session = await response.json();
+  const restored = await page.request.patch("/api/v1/me/preferences", {
+    headers: { "X-CSRF-Token": session.csrf },
+    data: { language: "en", theme: "light" }, timeout: 5_000,
+  });
+  expect(restored.ok()).toBeTruthy();
 });
 
 test("change evidence is scannable, server filtered and retention stays in administration", async ({ page }) => {
@@ -41,8 +48,8 @@ test("change evidence is scannable, server filtered and retention stays in admin
   await expect(limits.locator("div").filter({ has: page.getByText("Keep for days", { exact: true }) })).toContainText("Unlimited");
   await expect(limits.locator("div").filter({ has: page.getByText("Audit data limit (MiB)", { exact: true }) })).toContainText("Unlimited");
   await expect(page.locator(".audit-policy-form input[name=retention_days]")).toHaveValue("0");
-  // Worker and storage are compact indicators in one row; one shared volume is one line.
-  const row = page.locator(".system-status-row");
+  // Storage label, status and capacity stay together below the worker list.
+  const row = page.locator(".system-storage-status");
   await expect(page.getByRole("heading", { name: "Workers", exact: true })).toBeVisible();
   const roles=page.locator(".worker-roles");
   await expect(roles).toContainText("Supervisor");
@@ -221,6 +228,7 @@ test("Dev reads only assigned project changes and cannot enter administrator his
 });
 
 test("localized change evidence remains usable at 390px in both themes", async ({ page }) => {
+  test.setTimeout(90_000); // Eight locale/theme journeys through the real API.
   await page.setViewportSize({ width: 390, height: 844 });
   const me = await (await page.request.get("/api/v1/me")).json();
   const originalPreferences = await (await page.request.get("/api/v1/me/preferences")).json();
@@ -249,6 +257,7 @@ test("localized change evidence remains usable at 390px in both themes", async (
 
 
 test("typed History targets and outcomes appear in four locales", async ({ page }) => {
+  test.setTimeout(60_000); // Four locale journeys through the real API.
   const me = await (await page.request.get("/api/v1/me")).json();
   const original = await (await page.request.get("/api/v1/me/preferences")).json();
   await page.route("**/api/v1/audit-page?*", async route => {

@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_portable_settings.py
-@brief   Portable working-rule public contract tests.
-@details Offline source, deterministic roundtrip and hostile JSON boundaries.
-"""
+"""Portable working-rule public contract tests."""
 
-# IMPORTS
 from hashlib import sha256
 from importlib import import_module, util
 import json
@@ -22,14 +8,13 @@ from pathlib import Path
 from adore import __version__
 import pytest
 
-# CONSTANTS
 EXAMPLE = Path(__file__).resolve().parents[1] / "config.example.toml"
 
 # PUBLIC API / TESTS
 
 
 def test_portable_public_export_exists_and_roundtrips():
-    """@brief Export provides deterministic values, not identity or host data."""
+    """Export provides deterministic values, not identity or host data."""
     assert util.find_spec("adore.portable_settings") is not None, "public portable export missing"
     portable = import_module("adore.portable_settings")
     raw = EXAMPLE.read_bytes()
@@ -64,7 +49,7 @@ def test_portable_public_export_exists_and_roundtrips():
 
 
 def test_portable_omits_recognized_nested_secrets_and_rejects_unknown_source():
-    """@brief Known excluded data never leaks; unknown source structure rejects."""
+    """Known excluded data never leaks; unknown source structure rejects."""
     portable = import_module("adore.portable_settings")
     raw = EXAMPLE.read_bytes()
     secret = b"SECRET-SENTINEL"
@@ -103,7 +88,7 @@ def test_portable_omits_recognized_nested_secrets_and_rejects_unknown_source():
     ],
 )
 def test_portable_rejects_envelope_corruption(change):
-    """@brief Schema, type, checksum and unknown envelope data reject atomically."""
+    """Schema, type, checksum and unknown envelope data reject atomically."""
     portable = import_module("adore.portable_settings")
     package = json.loads(portable.export_settings(EXAMPLE.read_bytes()))
     package[change[0]] = change[1]
@@ -134,7 +119,7 @@ def test_portable_rejects_envelope_corruption(change):
     ],
 )
 def test_portable_rejects_malformed_values_with_recomputed_checksum(section, key, value):
-    """@brief A checksum cannot authorize malformed or secret-bearing payloads."""
+    """A checksum cannot authorize malformed or secret-bearing payloads."""
     portable = import_module("adore.portable_settings")
     package = json.loads(portable.export_settings(EXAMPLE.read_bytes()))
     package["settings"][section][key] = value
@@ -148,7 +133,7 @@ def test_portable_rejects_malformed_values_with_recomputed_checksum(section, key
 
 
 def test_portable_requires_exact_compatible_source_and_complete_fields():
-    """@brief Consumers reject unsupported source/fields rather than guessing."""
+    """Consumers reject unsupported source/fields rather than guessing."""
     portable = import_module("adore.portable_settings")
     for alter in (
         lambda p: p["source"].update(version="999.0.0"),
@@ -192,7 +177,7 @@ def test_portable_requires_exact_compatible_source_and_complete_fields():
     ],
 )
 def test_portable_parser_rejects_bad_json(raw):
-    """@brief Size, encoding, duplicates, nonfinite and nesting failures are typed."""
+    """Size, encoding, duplicates, nonfinite and nesting failures are typed."""
     portable = import_module("adore.portable_settings")
     with pytest.raises(portable.PortableSettingsError):
         portable.parse_settings(raw)
@@ -204,14 +189,14 @@ def test_portable_parser_rejects_bad_json(raw):
     ids=["empty", "encoding", "syntax", "oversize", "boolean-limit"],
 )
 def test_portable_source_rejects_invalid_configuration(raw):
-    """@brief Invalid authoritative sources never produce best-effort exports."""
+    """Invalid authoritative sources never produce best-effort exports."""
     portable = import_module("adore.portable_settings")
     with pytest.raises(portable.PortableSettingsError):
         portable.export_settings(raw)
 
 
 def test_portable_rejects_duplicates_in_otherwise_valid_package():
-    """@brief Duplicate identical allowed fields cannot hide behind a valid checksum."""
+    """Duplicate identical allowed fields cannot hide behind a valid checksum."""
     portable = import_module("adore.portable_settings")
     encoded = portable.export_settings(EXAMPLE.read_bytes())
     for original, duplicate in (
@@ -227,7 +212,7 @@ def test_portable_rejects_duplicates_in_otherwise_valid_package():
 
 
 def test_portable_valid_zero_cap_and_false_rules_reproduce():
-    """@brief Working-rule boundary values remain explicit rather than defaulted."""
+    """Working-rule boundary values remain explicit rather than defaulted."""
     portable = import_module("adore.portable_settings")
     source = EXAMPLE.read_bytes().replace(b"max_cost_usd = 5.0", b"max_cost_usd = 0")
     source = source.replace(b"poll_backoff = true", b"poll_backoff = false")
@@ -255,7 +240,7 @@ def test_portable_valid_zero_cap_and_false_rules_reproduce():
     ],
 )
 def test_portable_rejects_malformed_known_source_values(original, replacement):
-    """@brief Recognized nested maps and scalar domains also reject corrupt input."""
+    """Recognized nested maps and scalar domains also reject corrupt input."""
     portable = import_module("adore.portable_settings")
     source = EXAMPLE.read_bytes()
     if original not in source:
@@ -267,6 +252,3 @@ def test_portable_rejects_malformed_known_source_values(original, replacement):
         source = source.replace(original, replacement)
     with pytest.raises(portable.PortableSettingsError):
         portable.export_settings(source)
-
-
-# END OF FILE

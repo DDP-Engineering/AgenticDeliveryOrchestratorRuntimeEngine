@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_forge_labels.py
-@brief Creating a project's missing ADORE labels in its forge.
-@details ADORE reads the repository's labels once and creates only the missing
-         ones named by the project's settings; existing labels are untouched.
-"""
+"""Creating a project's missing ADORE labels in its forge."""
 
 from __future__ import annotations
 
-# IMPORTS
 import json
 from pathlib import Path
 
@@ -35,13 +20,12 @@ from tests.configuration_client import TestClient
 from tests.test_forge import FakeRunner
 
 
-# LOCAL HELPERS
 def _ok(stdout: str = "", stderr: str = "") -> CommandResult:
     return CommandResult(exit_code=0, stdout=stdout, stderr=stderr)
 
 
 class LabelForge:
-    """@brief A forge double holding repository labels."""
+    """A forge double holding repository labels."""
 
     def __init__(self, names: list[str], fail_create: str = "", fail_list: bool = False) -> None:
         self.names, self.fail_create, self.fail_list = list(names), fail_create, fail_list
@@ -61,7 +45,7 @@ class LabelForge:
 
 # TESTS
 def test_project_labels_come_from_the_settings():
-    """@brief Every label the settings name, once, each with a colour and description."""
+    """Every label the settings name, once, each with a colour and description."""
     specs = project_labels(default_config())
     names = [spec.name for spec in specs]
     for name in (
@@ -87,7 +71,7 @@ def test_project_labels_come_from_the_settings():
 
 
 def test_only_missing_labels_are_created():
-    """@brief Existing labels (any case) are kept; the rest are created."""
+    """Existing labels (any case) are kept; the rest are created."""
     specs = project_labels(default_config())
     forge = LabelForge(["Agent-Ready", "P1", "unrelated"])
     report = ensure_labels(forge, specs)
@@ -103,7 +87,7 @@ def test_only_missing_labels_are_created():
 
 
 def test_a_failed_create_is_reported_and_the_others_continue():
-    """@brief One refused label does not stop the rest."""
+    """One refused label does not stop the rest."""
     specs = project_labels(default_config())
     forge = LabelForge([], fail_create="agent-done")
     report = ensure_labels(forge, specs)
@@ -112,7 +96,7 @@ def test_a_failed_create_is_reported_and_the_others_continue():
 
 
 def test_a_failed_listing_creates_nothing():
-    """@brief Without the existing labels nothing is created."""
+    """Without the existing labels nothing is created."""
     forge = LabelForge([], fail_list=True)
     with pytest.raises(ForgeError):
         ensure_labels(forge, project_labels(default_config()))
@@ -120,7 +104,7 @@ def test_a_failed_listing_creates_nothing():
 
 
 def test_github_lists_and_creates_through_the_api():
-    """@brief Labels are read page by page and created with a colour without #."""
+    """Labels are read page by page and created with a colour without #."""
     runner = FakeRunner(_ok(json.dumps([{"name": "bug"}, {"name": "agent-ready"}])), _ok("{}"))
     forge = GitHubForge("owner/repo", runner=runner)
     assert forge.list_labels() == ["bug", "agent-ready"]
@@ -142,7 +126,7 @@ def test_github_lists_and_creates_through_the_api():
 
 
 def test_gitlab_lists_and_creates_through_the_api():
-    """@brief GitLab takes the colour with #."""
+    """GitLab takes the colour with #."""
     runner = FakeRunner(_ok(json.dumps([{"name": "P1"}])), _ok("{}"))
     forge = GitLabForge("group/project", runner=runner)
     assert forge.list_labels() == ["P1"]
@@ -164,7 +148,7 @@ def test_gitlab_lists_and_creates_through_the_api():
 
 
 def test_gitea_lists_and_creates_through_the_api():
-    """@brief Gitea goes through `tea api` with its HTTP status check."""
+    """Gitea goes through `tea api` with its HTTP status check."""
     runner = FakeRunner(
         _ok(json.dumps([{"name": "agent-hold"}]), "HTTP/1.1 200 OK\n"),
         _ok("{}", "HTTP/1.1 201 Created\n"),
@@ -185,7 +169,7 @@ def test_gitea_lists_and_creates_through_the_api():
 
 
 class GlabLabels:
-    """@brief The web boundary: glab label listing and creation for the example project."""
+    """The web boundary: glab label listing and creation for the example project."""
 
     def __init__(self) -> None:
         self.calls: list[list[str]] = []
@@ -212,7 +196,7 @@ def _profile(tmp_path: Path) -> ProfileStore:
 
 
 def test_administrators_create_missing_labels_through_the_api(tmp_path):
-    """@brief The endpoint reports created and existing labels and audits the action."""
+    """The endpoint reports created and existing labels and audits the action."""
     profiles = _profile(tmp_path)
     runner = GlabLabels()
     app = create_app(profiles.home, probe_runner=runner)
@@ -240,7 +224,7 @@ def test_administrators_create_missing_labels_through_the_api(tmp_path):
 
 
 def test_a_failure_reason_keeps_the_forge_cause_not_the_command_line():
-    """@brief The reason shows the forge's answer even when the argv is long."""
+    """The reason shows the forge's answer even when the argv is long."""
     from adore.forge_labels import failure_reason
 
     error = ForgeError(
@@ -261,7 +245,7 @@ def test_a_failure_reason_keeps_the_forge_cause_not_the_command_line():
 
 
 class FailingListing(GlabLabels):
-    """@brief A forge whose label listing fails."""
+    """A forge whose label listing fails."""
 
     def __call__(self, argv, **kwargs) -> CommandResult:
         argv = [str(part) for part in argv]
@@ -271,7 +255,7 @@ class FailingListing(GlabLabels):
 
 
 def test_an_unreadable_label_list_is_a_typed_error(tmp_path):
-    """@brief Nothing is created and the API answers 503 forge_read_failed."""
+    """Nothing is created and the API answers 503 forge_read_failed."""
     profiles = _profile(tmp_path)
     runner = FailingListing()
     with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
@@ -284,6 +268,3 @@ def test_an_unreadable_label_list_is_a_typed_error(tmp_path):
         assert response.status_code == 503, response.text
         assert response.json()["detail"]["code"] == "forge_read_failed"
     assert not any("--method" in call for call in runner.calls)
-
-
-# END OF FILE

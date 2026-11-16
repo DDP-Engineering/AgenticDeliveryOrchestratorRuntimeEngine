@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_instructions.py
-@brief   Durable instruction inbox and acknowledgement trust-boundary contracts.
-@details Isolated files, synthetic users and shipped prompts require no providers.
-"""
+"""Durable instruction inbox and acknowledgement trust-boundary contracts."""
 
-# IMPORTS
 import importlib
 import importlib.util
 import json
@@ -24,11 +10,9 @@ import pytest
 
 from tests.execution_records import execution_record
 
-# LOCAL HELPERS
-
 
 def api():
-    """@brief Require the inbox surface before importing the implementation."""
+    """Require the inbox surface before importing the implementation."""
     assert importlib.util.find_spec("adore.instructions") is not None, (
         "durable instruction inbox missing"
     )
@@ -36,17 +20,14 @@ def api():
 
 
 def inbox(tmp_path):
-    """@brief Construct an inbox inside an existing isolated run directory."""
+    """Construct an inbox inside an existing isolated run directory."""
     root = tmp_path / "runs" / "run-one"
     root.mkdir(parents=True)
     return api().InstructionInbox(root)
 
 
-# PUBLIC API
-
-
 def test_atomic_inbox_reopens_literal_text_and_ack_receipt(tmp_path):
-    """@brief Enqueue and acknowledgement survive process-local object replacement."""
+    """Enqueue and acknowledgement survive process-local object replacement."""
     box = inbox(tmp_path)
     text = "  $name\n<script>password=SYNTHETIC</script> 🙂\n"
     row = box.enqueue({"id": 7, "username": "operator"}, text, "now")
@@ -74,7 +55,7 @@ def test_atomic_inbox_reopens_literal_text_and_ack_receipt(tmp_path):
     ],
 )
 def test_invalid_instruction_never_writes(tmp_path, text, mode):
-    """@brief Bad human text is rejected without an inbox side effect."""
+    """Bad human text is rejected without an inbox side effect."""
     box = inbox(tmp_path)
     with pytest.raises(api().InstructionError):
         box.enqueue({"id": 7, "username": "operator"}, text, mode)
@@ -86,7 +67,7 @@ def test_invalid_instruction_never_writes(tmp_path, text, mode):
     ["json", "schema", "id", "oversize", "hardlink", "author-surrogate", "duplicate-key"],
 )
 def test_corrupt_record_is_preserved_and_valid_neighbor_remains_sendable(tmp_path, mutation):
-    """@brief Untrusted files produce value-free notices and never pending commands."""
+    """Untrusted files produce value-free notices and never pending commands."""
     box = inbox(tmp_path)
     row = box.enqueue({"id": 7, "username": "operator"}, "PRIVATE_INVALID", "now")
     path = box.directory / (row["id"] + ".json")
@@ -117,7 +98,7 @@ def test_corrupt_record_is_preserved_and_valid_neighbor_remains_sendable(tmp_pat
 
 
 def test_inbox_capacity_and_atomic_write_failure_preserve_records(tmp_path, monkeypatch):
-    """@brief Capacity and replacement failure never publish a partial instruction."""
+    """Capacity and replacement failure never publish a partial instruction."""
     box = inbox(tmp_path)
     monkeypatch.setattr(api(), "MAX_INSTRUCTIONS", 1)
     row = box.enqueue({"id": 7, "username": "operator"}, "one", "now")
@@ -135,7 +116,7 @@ def test_inbox_capacity_and_atomic_write_failure_preserve_records(tmp_path, monk
 
 
 def test_delivery_snapshot_and_live_commands_require_matching_acknowledgements(tmp_path):
-    """@brief Prompt snapshot and live arrivals use literal wrappers and real receipts."""
+    """Prompt snapshot and live arrivals use literal wrappers and real receipts."""
     from adore.prompts import PromptCatalog
 
     box = inbox(tmp_path)
@@ -166,7 +147,7 @@ def test_delivery_snapshot_and_live_commands_require_matching_acknowledgements(t
 
 @pytest.mark.parametrize("location", ["ancestor", "inbox", "lock-directory", "lock-file"])
 def test_inbox_refuses_reparse_ancestors_and_lock_paths(tmp_path, monkeypatch, location):
-    """@brief Public writes refuse reparse points before publishing instruction files."""
+    """Public writes refuse reparse points before publishing instruction files."""
     box = inbox(tmp_path)
     box.directory.mkdir()
     box.store.locks_root.mkdir()
@@ -176,7 +157,7 @@ def test_inbox_refuses_reparse_ancestors_and_lock_paths(tmp_path, monkeypatch, l
               "lock-directory": box.store.locks_root, "lock-file": lock}[location]
     original = Path.lstat
     class Reparse:
-        """@brief Inject the Windows reparse attribute at the filesystem boundary."""
+        """Inject the Windows reparse attribute at the filesystem boundary."""
         st_file_attributes = 0x400
         def __init__(self, info):
             self.info = info
@@ -192,7 +173,7 @@ def test_inbox_refuses_reparse_ancestors_and_lock_paths(tmp_path, monkeypatch, l
 
 
 def test_inbox_refuses_hardlinked_lock_without_mutating_it(tmp_path):
-    """@brief A foreign lock inode cannot be used as an instruction writer lock."""
+    """A foreign lock inode cannot be used as an instruction writer lock."""
     box = inbox(tmp_path)
     box.store.locks_root.mkdir()
     lock = box.store.locks_root / "run-instruction-inbox.lock"
@@ -204,7 +185,7 @@ def test_inbox_refuses_hardlinked_lock_without_mutating_it(tmp_path):
 
 
 def test_profile_owned_inbox_uses_shared_lock_directory_with_all_ancestors(tmp_path):
-    """@brief The normal profile layout creates guarded external lock storage without setup."""
+    """The normal profile layout creates guarded external lock storage without setup."""
     from adore.profiles import ProfileStore
     from adore.state import RunState, StateStore
 
@@ -218,6 +199,3 @@ def test_profile_owned_inbox_uses_shared_lock_directory_with_all_ancestors(tmp_p
     assert box.read()[0] == [row]
     assert box.store.locks_root.is_dir()
     assert box.store.locks_root != box.run_dir / "locks"
-
-
-# END OF FILE

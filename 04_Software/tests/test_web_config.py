@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_config.py
-@brief Web project config edit boundary tests.
-@details A complete local example config is edited through authenticated HTTP.
-"""
+"""Web project config edit boundary tests."""
 
 import json
 from pathlib import Path
@@ -29,7 +16,7 @@ from tests.configuration_client import TestClient
 
 @pytest.mark.parametrize("multiline", [False, True])
 def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_path, multiline):
-    """@brief Admin reviews a reviewer list and changes only that complete TOML value."""
+    """Admin reviews a reviewer list and changes only that complete TOML value."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", store_root=str(tmp_path / "state"))
     path = profiles.config_path("alpha")
@@ -65,9 +52,8 @@ def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_pat
     assert b"\r\n" in path.read_bytes()
 
 
-
 def test_approval_policy_review_and_apply(tmp_path):
-    """@brief An admin can review and save only the selected project's approval policy."""
+    """An admin can review and save only the selected project's approval policy."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", store_root=str(tmp_path / "state"))
     path = profiles.config_path("alpha")
@@ -95,10 +81,9 @@ def test_approval_policy_review_and_apply(tmp_path):
     assert load_config(path).delivery.require_human_approval is False
 
 
-
 @pytest.mark.parametrize("value", ["maybe", "1", "null", ""])
 def test_approval_policy_rejects_invalid_web_values(tmp_path, value):
-    """@brief Invalid policy input cannot produce a pending reviewed candidate."""
+    """Invalid policy input cannot produce a pending reviewed candidate."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -117,7 +102,7 @@ def test_approval_policy_rejects_invalid_web_values(tmp_path, value):
 
 
 def test_reviewer_list_accepts_an_empty_list(tmp_path):
-    """@brief An empty reviewer list is a valid candidate: the MR/PR requests no review."""
+    """An empty reviewer list is a valid candidate: the MR/PR requests no review."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -136,7 +121,7 @@ def test_reviewer_list_accepts_an_empty_list(tmp_path):
                                  '[""]', '["two names"]', '["--repo"]',
                                  '["alice\\nother"]', '["' + "a" * 256 + '"]'])
 def test_reviewer_list_rejects_invalid_input(tmp_path, value):
-    """@brief Human list input fails closed without writing active or pending configuration."""
+    """Human list input fails closed without writing active or pending configuration."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -156,7 +141,7 @@ def test_reviewer_list_rejects_invalid_input(tmp_path, value):
 
 @pytest.mark.parametrize("claimed", ['["other"]', '"alice"', '[1]'])
 def test_reviewer_pending_list_rejects_forged_value(tmp_path, claimed):
-    """@brief Persisted list metadata must agree exactly with the prepared candidate."""
+    """Persisted list metadata must agree exactly with the prepared candidate."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -181,7 +166,7 @@ def test_reviewer_pending_list_rejects_forged_value(tmp_path, claimed):
 
 
 def test_cli_and_web_config_edits_share_process_lock(tmp_path, capsys):
-    """@brief Concurrent ADORE editors reject a held project config lock."""
+    """Concurrent ADORE editors reject a held project config lock."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -212,7 +197,7 @@ def test_cli_and_web_config_edits_share_process_lock(tmp_path, capsys):
 
 
 def test_developer_reads_assigned_config_but_cannot_edit_or_read_other_project(tmp_path):
-    """@brief Scoped redacted reads stay separate from administrator edits."""
+    """Scoped redacted reads stay separate from administrator edits."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     profiles.create("beta")
@@ -240,7 +225,7 @@ def test_developer_reads_assigned_config_but_cannot_edit_or_read_other_project(t
 
 
 def test_config_view_redacts_accidental_secret_values(tmp_path):
-    """@brief A config file with misplaced credentials never sends them to UI."""
+    """A config file with misplaced credentials never sends them to UI."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -264,8 +249,6 @@ def test_config_view_redacts_accidental_secret_values(tmp_path):
         response = client.get("/api/v1/projects/alpha/config")
         assert response.status_code == 200
         assert "private-value" not in response.text
-
-
 
 
 _PARTIAL_CONFIG = """
@@ -292,7 +275,7 @@ runtime_env = { UV_LINK_MODE = "copy", API_KEY = "private-value" }
 
 
 def _leaves(value, prefix=""):
-    """@brief Dotted keys of the leaves of a nested mapping (non-empty mappings are walked)."""
+    """Dotted keys of the leaves of a nested mapping (non-empty mappings are walked)."""
     if isinstance(value, dict) and value:
         return [leaf for key, child in value.items()
                 for leaf in _leaves(child, f"{prefix}.{key}" if prefix else key)]
@@ -300,7 +283,7 @@ def _leaves(value, prefix=""):
 
 
 def test_progress_publication_explicit_false_is_retained_in_gui(tmp_path):
-    """@brief A saved false overrides the enabled GUI default without rewriting TOML."""
+    """A saved false overrides the enabled GUI default without rewriting TOML."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -319,7 +302,7 @@ def test_progress_publication_explicit_false_is_retained_in_gui(tmp_path):
 
 @pytest.mark.parametrize("explicit", [False, True])
 def test_pickup_review_defaults_and_supported_catalog(tmp_path, explicit):
-    """@brief GUI uses shared defaults, retains overrides and omits inactive fields."""
+    """GUI uses shared defaults, retains overrides and omits inactive fields."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -343,7 +326,7 @@ def test_pickup_review_defaults_and_supported_catalog(tmp_path, explicit):
 
 
 def test_cli_shows_shared_defaults_without_component_setting(tmp_path, capsys):
-    """@brief CLI JSON exposes the same supported defaults as the GUI catalog."""
+    """CLI JSON exposes the same supported defaults as the GUI catalog."""
     path = tmp_path / "config.toml"
     path.write_text(_PARTIAL_CONFIG, encoding="utf-8")
     assert main(["--config", str(path), "config", "show"]) == EXIT_OK
@@ -353,7 +336,7 @@ def test_cli_shows_shared_defaults_without_component_setting(tmp_path, capsys):
 
 
 def test_statistics_storage_settings_are_external_and_cannot_prepare(tmp_path):
-    """@brief Informational statistics paths retain TOML values without web write authority."""
+    """Informational statistics paths retain TOML values without web write authority."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -375,7 +358,7 @@ def test_statistics_storage_settings_are_external_and_cannot_prepare(tmp_path):
 
 
 def test_installation_settings_are_external_and_cannot_be_mutated(tmp_path):
-    """@brief Installation values are readable while direct and staged writes are refused."""
+    """Installation values are readable while direct and staged writes are refused."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -403,7 +386,7 @@ def test_installation_settings_are_external_and_cannot_be_mutated(tmp_path):
 
 def test_config_view_reports_each_settings_source_and_editability(tmp_path):
     """
-    @brief   Every effective setting says whether the project's file sets it,
+    Every effective setting says whether the project's file sets it,
              whether the browser can edit it (by the same rule the staging
              endpoint applies), its file key, and whether a change restarts.
     """
@@ -495,7 +478,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
 
 def test_config_view_default_of_an_emptied_map_is_the_built_in_map(tmp_path):
     """
-    @brief   A project that empties a map setting sees ADORE's built-in map as
+    A project that empties a map setting sees ADORE's built-in map as
              that row's default, not "none".
     """
     profiles = ProfileStore(tmp_path / "home")

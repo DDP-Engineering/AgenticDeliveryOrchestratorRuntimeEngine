@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    recipe_sources.py
-@brief   Validate and serialize bounded, portable executor build definitions.
-@details Sources are bytes, never extracted or executed. Static Dockerfile checks
-         establish declared contexts and image dependencies, not build success.
-"""
+"""Validate and serialize bounded, portable executor build definitions."""
 
-# IMPORTS
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from io import BytesIO
@@ -26,13 +11,13 @@ import stat
 from zipfile import ZIP_DEFLATED, ZIP_STORED, BadZipFile, ZipFile, ZipInfo
 import zlib
 
-# CONSTANTS
 MAX_FILES = 128
 MAX_FILE_BYTES = 4 * 1024 * 1024
 MAX_INPUT_BYTES = 16 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 18 * 1024 * 1024
 MAX_DEFINITIONS = 32
 MAX_METADATA_BYTES = 65536
+# REUSE-IgnoreStart
 LEGAL_HEADER = (
     "# Copyright (c) 2026 DDP Engineering\n"
     "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
@@ -40,6 +25,7 @@ LEGAL_HEADER = (
     "# See the LICENSE.txt file for full license details. "
     "SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n"
 )
+# REUSE-IgnoreEnd
 PRIVATE_KEY = re.compile(rb"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----")
 _DEVICE = re.compile(r"(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?", re.I)
 _IMAGE_COMPONENT = r"[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*"
@@ -96,12 +82,11 @@ _OPCODES = frozenset(
 _SECRET_NAME = re.compile(r"(?:token|password|secret|credential|api.?key)", re.I)
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class RecipeError(ValueError):
-    """@brief Safe typed refusal with optional missing images and operator recovery."""
+    """Safe typed refusal with optional missing images and operator recovery."""
 
     def __init__(self, code="recipe_invalid", *, missing=(), recovery=""):
-        """@brief Retain closed metadata without including untrusted source contents."""
+        """Retain closed metadata without including untrusted source contents."""
         super().__init__(code)
         self.code = code
         self.missing = tuple(missing)
@@ -110,7 +95,7 @@ class RecipeError(ValueError):
 
 @dataclass(frozen=True)
 class Definition:
-    """@brief One image's Dockerfile, complete selected context and non-secret inputs."""
+    """One image's Dockerfile, complete selected context and non-secret inputs."""
 
     image: str
     dockerfile: str
@@ -122,7 +107,7 @@ class Definition:
 
 @dataclass(frozen=True)
 class Recipe:
-    """@brief A selected image and its explicitly supplied image definitions."""
+    """A selected image and its explicitly supplied image definitions."""
 
     image: str
     definitions: dict[str, Definition]
@@ -130,9 +115,8 @@ class Recipe:
     revision: str | None = None
 
 
-# LOCAL HELPERS
 def source_path(value: object, *, max_length: int = 240) -> str:
-    """@brief Require a portable regular-source path and exclude credential locations."""
+    """Require a portable regular-source path and exclude credential locations."""
     if not isinstance(value, str) or not 1 <= len(value) <= max_length:
         raise RecipeError()
     parts = value.split("/")
@@ -173,7 +157,7 @@ def source_path(value: object, *, max_length: int = 240) -> str:
 
 
 def image_reference(value: object, *, tagged=False) -> str:
-    """@brief Accept a bounded image reference; persisted outputs require an explicit tag."""
+    """Accept a bounded image reference; persisted outputs require an explicit tag."""
     if not isinstance(value, str) or not 1 <= len(value) <= 255:
         raise RecipeError()
     if "@" in value:
@@ -196,7 +180,7 @@ def image_reference(value: object, *, tagged=False) -> str:
 
 
 def public_image(value: str) -> bool:
-    """@brief Identify explicit registries and standard Docker Hub library prerequisites."""
+    """Identify explicit registries and standard Docker Hub library prerequisites."""
     name = value.partition("@")[0]
     first = name.split("/", 1)[0]
     if "/" in name and ("." in first or ":" in first):
@@ -206,13 +190,13 @@ def public_image(value: str) -> bool:
 
 
 def canonical_image(value: str) -> str:
-    """@brief Apply Docker's implicit latest tag without changing an explicit tag/digest."""
+    """Apply Docker's implicit latest tag without changing an explicit tag/digest."""
     image_reference(value)
     return value if "@" in value or ":" in value.rsplit("/", 1)[-1] else value + ":latest"
 
 
 def _unique(pairs):
-    """@brief Refuse duplicate JSON keys rather than selecting one definition."""
+    """Refuse duplicate JSON keys rather than selecting one definition."""
     value = dict(pairs)
     if len(value) != len(pairs):
         raise RecipeError()
@@ -220,17 +204,17 @@ def _unique(pairs):
 
 
 def _json(raw):
-    """@brief Parse bounded, duplicate-free current recipe metadata."""
+    """Parse bounded, duplicate-free current recipe metadata."""
     if len(raw) > MAX_METADATA_BYTES:
         raise RecipeError()
     return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique)
 
 
 def _expand(value, arguments):
-    """@brief Resolve supported Dockerfile variables without guessing missing values."""
+    """Resolve supported Dockerfile variables without guessing missing values."""
 
     def replace(match):
-        """@brief Replace exactly one known argument."""
+        """Replace exactly one known argument."""
         key = match[1] or match[2]
         if key not in arguments or arguments[key] is None:
             raise RecipeError("recipe_dockerfile_unsupported")
@@ -243,7 +227,7 @@ def _expand(value, arguments):
 
 
 def _instructions(raw):
-    """@brief Read the supported newline/backslash Dockerfile instruction syntax."""
+    """Read the supported newline/backslash Dockerfile instruction syntax."""
     pending = ""
     for line in raw.decode("utf-8").splitlines():
         stripped = line.strip()
@@ -265,7 +249,7 @@ def _instructions(raw):
 
 
 def _copy_operands(argument):
-    """@brief Separate supported COPY/ADD flags from shell or JSON source operands."""
+    """Separate supported COPY/ADD flags from shell or JSON source operands."""
     origin = None
     while argument.startswith("--"):
         token, _, remainder = argument.partition(" ")
@@ -292,13 +276,12 @@ def _copy_operands(argument):
     return origin, operands[:-1]
 
 
-# PUBLIC API
 def image_dependencies(definition: Definition) -> tuple[str, ...]:
     """
-    @brief Validate Dockerfile source references and return external-to-stage images.
-    @param[in] definition Reviewed bytes and explicit non-secret build inputs.
-    @return Stable unique image references, including local bases requiring recipes.
-    @exception RecipeError For unsupported syntax, unresolved variables or missing files.
+    Validate Dockerfile source references and return external-to-stage images.
+    definition: Reviewed bytes and explicit non-secret build inputs.
+    Returns: Stable unique image references, including local bases requiring recipes.
+    Raises RecipeError: For unsupported syntax, unresolved variables or missing files.
     """
     arguments = {}
     global_arguments = {}
@@ -311,11 +294,11 @@ def image_dependencies(definition: Definition) -> tuple[str, ...]:
     current_alias = None
 
     def variables():
-        """@brief Apply Docker's stage ENV precedence over declared ARG values."""
+        """Apply Docker's stage ENV precedence over declared ARG values."""
         return {**arguments, **environment}
 
     def context_source(operand, *, patterns=True):
-        """@brief Require a declared local context source without reading host files."""
+        """Require a declared local context source without reading host files."""
         name = _expand(operand, variables()).removeprefix("./").rstrip("/")
         if name == ".":
             return
@@ -328,7 +311,7 @@ def image_dependencies(definition: Definition) -> tuple[str, ...]:
             raise RecipeError("recipe_context_incomplete")
 
     def origin(value, *, new_stage=False):
-        """@brief Record one image reference after excluding an existing stage."""
+        """Record one image reference after excluding an existing stage."""
         value = _expand(value, global_arguments if new_stage else variables())
         if not new_stage and (
             value.lower() == current_alias or value.isdecimal() and int(value) == stages - 1
@@ -463,7 +446,7 @@ def image_dependencies(definition: Definition) -> tuple[str, ...]:
 
 
 def _definition(data, entries):
-    """@brief Validate one current-format image definition against exact archive bytes."""
+    """Validate one current-format image definition against exact archive bytes."""
     required = {"image", "context", "dockerfile", "files"}
     if (
         not isinstance(data, dict)
@@ -515,11 +498,11 @@ def _definition(data, entries):
 
 def parse_recipe(source: bytes, image: str | None) -> Recipe:
     """
-    @brief Read a selected Dockerfile, context ZIP or complete exported recipe ZIP.
-    @param[in] source Bounded untrusted source bytes.
-    @param[in] image Output tag, or None to read a stored ZIP's declared root.
-    @return Validated definitions; unresolved local bases are resolved separately.
-    @exception RecipeError Before retention for invalid, unsafe or unsupported input.
+    Read a selected Dockerfile, context ZIP or complete exported recipe ZIP.
+    source: Bounded untrusted source bytes.
+    image: Output tag, or None to read a stored ZIP's declared root.
+    Returns: Validated definitions; unresolved local bases are resolved separately.
+    Raises RecipeError: Before retention for invalid, unsafe or unsupported input.
     """
     if image is not None:
         image_reference(image, tagged=True)
@@ -627,7 +610,7 @@ def parse_recipe(source: bytes, image: str | None) -> Recipe:
         visiting = set()
 
         def visit(name):
-            """@brief Reject cyclic or unrelated embedded definitions before retention."""
+            """Reject cyclic or unrelated embedded definitions before retention."""
             if name in visiting:
                 raise RecipeError("recipe_cycle")
             if name in reached:
@@ -661,7 +644,7 @@ def parse_recipe(source: bytes, image: str | None) -> Recipe:
 
 
 def _locations(recipe):
-    """@brief Assign non-colliding portable context and Compose service names."""
+    """Assign non-colliding portable context and Compose service names."""
     others = sorted(set(recipe.definitions) - {recipe.image})
     return {
         recipe.image: ("context", "executor"),
@@ -672,7 +655,7 @@ def _locations(recipe):
 
 
 def recipe_compose(recipe: Recipe) -> dict:
-    """@brief Describe the exact source graph as explicit Compose build dependencies."""
+    """Describe the exact source graph as explicit Compose build dependencies."""
     locations = _locations(recipe)
     services = {}
     for image, definition in recipe.definitions.items():
@@ -695,10 +678,10 @@ def recipe_compose(recipe: Recipe) -> dict:
 
 def recipe_archive(recipe: Recipe, *, config_raw: bytes | None = None) -> bytes:
     """
-    @brief Package retained definitions or a complete source-only project export.
-    @param[in] recipe Validated source graph; callers resolve local dependencies for export.
-    @param[in] config_raw Exact saved project TOML when making a project export.
-    @return Deterministic ZIP bytes retaining regular-file executable permissions.
+    Package retained definitions or a complete source-only project export.
+    recipe: Validated source graph; callers resolve local dependencies for export.
+    config_raw: Exact saved project TOML when making a project export.
+    Returns: Deterministic ZIP bytes retaining regular-file executable permissions.
     """
     locations = _locations(recipe)
     definitions = []
@@ -763,6 +746,3 @@ def recipe_archive(recipe: Recipe, *, config_raw: bytes | None = None) -> bytes:
     if len(buffer.getvalue()) > MAX_ARCHIVE_BYTES:
         raise RecipeError()
     return buffer.getvalue()
-
-
-# END OF FILE

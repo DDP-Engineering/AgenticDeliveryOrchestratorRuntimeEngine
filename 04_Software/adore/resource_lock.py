@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    resource_lock.py
-@brief   Bounded crash-released locks for shared host resource mutations.
-@details Stable lock files are never unlinked. Separate resource keys permit
-         unrelated jobs to progress. Reentrancy belongs to the calling thread.
-"""
+"""Bounded crash-released locks for shared host resource mutations."""
 
-# IMPORTS
 from collections.abc import Iterator
 from contextlib import contextmanager
 import errno
@@ -26,25 +11,23 @@ import tempfile
 from threading import local
 from time import monotonic, sleep
 
-# CONSTANTS
 _HELD = local()
 
 
-# DATA MODELS / TYPEDEFINITIONS
 
 
 class ResourceLockError(RuntimeError):
-    """@brief A shared resource is busy or its lock storage is unsafe."""
+    """A shared resource is busy or its lock storage is unsafe."""
 
 
-# PUBLIC API
 @contextmanager
 def resource_lock(path: Path, *, timeout: float = 10) -> Iterator[None]:
-    """@brief Serialize one resource mutation with bounded kernel contention.
-    @param[in] path Stable lock filename, independent of mutable output files.
-    @param[in] timeout Maximum wait in seconds; zero attempts once.
-    @exception ResourceLockError Busy, aliased or unavailable lock storage.
-    @note The caller owns operation timeouts; this bound covers acquisition.
+    """
+    Serialize one resource mutation with bounded kernel contention.
+    path: Stable lock filename, independent of mutable output files.
+    timeout: Maximum wait in seconds; zero attempts once.
+    Raises ResourceLockError: Busy, aliased or unavailable lock storage.
+    Note: The caller owns operation timeouts; this bound covers acquisition.
     """
     path = Path(path).absolute()
     try:
@@ -119,10 +102,11 @@ def resource_lock(path: Path, *, timeout: float = 10) -> Iterator[None]:
 
 
 def atomic_write(path: Path, data: str) -> None:
-    """@brief Publish complete UTF-8 output using an exclusively owned sibling.
-    @param[in] path Destination whose caller already owns the mutation scope.
-    @param[in] data Complete text to publish.
-    @exception OSError Failed write or replacement; existing output is retained.
+    """
+    Publish complete UTF-8 output using an exclusively owned sibling.
+    path: Destination whose caller already owns the mutation scope.
+    data: Complete text to publish.
+    Raises OSError: Failed write or replacement; existing output is retained.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix="." + path.name + "-", dir=path.parent)
@@ -134,6 +118,3 @@ def atomic_write(path: Path, data: str) -> None:
         os.replace(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)
-
-
-# END OF FILE

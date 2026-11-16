@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_import.py
-@brief Existing configuration import through the web trust boundary.
-@details Preview and save preserve source bytes and start with pickup paused.
-"""
+"""Existing configuration import through the web trust boundary."""
 
-# IMPORTS
 from hashlib import sha256
 from pathlib import Path
 import re
@@ -30,9 +16,8 @@ from tests.configuration_client import TestClient
 from tests.execution_records import execution_record
 
 
-# LOCAL HELPERS
 def _document(tmp_path):
-    """@brief Adapt the sample config to unambiguous absolute local paths."""
+    """Adapt the sample config to unambiguous absolute local paths."""
     example = Path(__file__).resolve().parents[1] / "config.example.toml"
     text = example.read_text(encoding="utf-8")
     paths = {
@@ -53,14 +38,14 @@ def _document(tmp_path):
 
 
 def _csrf(client):
-    """@brief Authenticate the bootstrap administrator."""
+    """Authenticate the bootstrap administrator."""
     return client.post("/api/v1/session", json={
         "username": "admin", "password": "admin"}).json()["csrf"]
 
 
 # PUBLIC API / CONTRACT TESTS
 def test_import_explicit_null_display_name_is_refused(tmp_path):
-    """@brief Transport preserves explicit null instead of converting it to an omitted field."""
+    """Transport preserves explicit null instead of converting it to an omitted field."""
     home = tmp_path / "home"
     with TestClient(create_app(home)) as client:
         headers = {"X-CSRF-Token": _csrf(client)}
@@ -72,7 +57,7 @@ def test_import_explicit_null_display_name_is_refused(tmp_path):
 
 
 def test_raw_import_preview_derives_identity_and_binds_exact_file(tmp_path):
-    """@brief Preview without an ID and publish only the reviewed raw TOML."""
+    """Preview without an ID and publish only the reviewed raw TOML."""
     home = tmp_path / "home"
     text = _document(tmp_path).replace("group/subgroup/project", "group/Raw-Import")
     with TestClient(create_app(home)) as client:
@@ -103,7 +88,7 @@ def test_raw_import_preview_derives_identity_and_binds_exact_file(tmp_path):
 
 
 def test_raw_import_preview_never_derives_an_identity_from_secret_url(tmp_path):
-    """@brief A malformed repository URL cannot expose credentials as an identity."""
+    """A malformed repository URL cannot expose credentials as an identity."""
     private = "fixture-private-value"
     text = _document(tmp_path).replace("group/subgroup/project",
                                        f"https://user:{private}@example.test")
@@ -119,7 +104,7 @@ def test_raw_import_preview_never_derives_an_identity_from_secret_url(tmp_path):
 
 @pytest.mark.parametrize("revision", ["é", "", "0" * 65])
 def test_import_confirmation_rejects_malformed_revision_as_typed_conflict(tmp_path, revision):
-    """@brief Unicode and malformed untrusted revisions produce a safe conflict."""
+    """Unicode and malformed untrusted revisions produce a safe conflict."""
     with TestClient(create_app(tmp_path / "home")) as client:
         headers = {"X-CSRF-Token": _csrf(client)}
         body = {"name": "alpha", "config_text": _document(tmp_path), "revision": revision}
@@ -130,7 +115,7 @@ def test_import_confirmation_rejects_malformed_revision_as_typed_conflict(tmp_pa
 
 
 def test_exact_import_rejects_invalid_utf8_description_without_server_error(tmp_path):
-    """@brief Malformed JSON identity text fails closed before digest/probe/publication."""
+    """Malformed JSON identity text fails closed before digest/probe/publication."""
     import json
     with TestClient(create_app(tmp_path / "home")) as client:
         headers = {"X-CSRF-Token": _csrf(client), "Content-Type": "application/json"}
@@ -146,9 +131,9 @@ def test_exact_import_rejects_invalid_utf8_description_without_server_error(tmp_
 
 @pytest.mark.parametrize("route", ["import-preview", "import-check", "import"])
 def test_exact_routes_enforce_admin_and_csrf_before_input_or_probes(tmp_path, route):
-    """@brief Direct routes reject anonymous/Dev/missing/invalid CSRF consistently."""
+    """Direct routes reject anonymous/Dev/missing/invalid CSRF consistently."""
     def runner(argv, **kwargs):
-        """@brief Unauthorized callers must never reach an external command."""
+        """Unauthorized callers must never reach an external command."""
         raise AssertionError("unexpected command")
 
     app = create_app(tmp_path / "home", probe_runner=runner)
@@ -170,7 +155,7 @@ def test_exact_routes_enforce_admin_and_csrf_before_input_or_probes(tmp_path, ro
 @pytest.mark.parametrize("condition", ["corrupt", "active", "lock", "duplicate", "equal",
                                       "ancestor", "descendant", "corrupt-profile"])
 def test_exact_import_rejects_state_and_ownership_boundaries(tmp_path, condition):
-    """@brief Source inspection and confirmation fail closed on unsafe persisted data."""
+    """Source inspection and confirmation fail closed on unsafe persisted data."""
     profiles = ProfileStore(tmp_path / "home")
     state = StateStore(tmp_path / "state")
     if condition == "corrupt":
@@ -210,14 +195,14 @@ def test_exact_import_rejects_state_and_ownership_boundaries(tmp_path, condition
 def test_exact_confirmation_reinspects_mutations_at_publication_lock(
     tmp_path, monkeypatch, mutation,
 ):
-    """@brief Changes between route inspection and locked publication cannot enroll."""
+    """Changes between route inspection and locked publication cannot enroll."""
     profiles = ProfileStore(tmp_path / "home")
     body = {"name": "alpha", "config_text": _document(tmp_path)}
     acquire = StateStore.acquire_lock
     changed = False
 
     def changed_acquire(state):
-        """@brief Simulate an external mutation at the conductor lock boundary."""
+        """Simulate an external mutation at the conductor lock boundary."""
         nonlocal changed
         if not changed and state.root == tmp_path / "state":
             changed = True
@@ -252,13 +237,13 @@ def test_exact_confirmation_reinspects_mutations_at_publication_lock(
 
 
 def test_changed_physical_server_location_rejects_unchanged_text(tmp_path, monkeypatch):
-    """@brief Simulated symlink resolution changes invalidate the public review digest."""
+    """Simulated symlink resolution changes invalidate the public review digest."""
     body = {"name": "alpha", "config_text": _document(tmp_path)}
     original = Path.resolve
     changed = False
 
     def resolve(path, *args, **kwargs):
-        """@brief Simulate a changed external path target without platform symlink privileges."""
+        """Simulate a changed external path target without platform symlink privileges."""
         if changed and path == tmp_path / "state":
             return tmp_path / "new-state"
         return original(path, *args, **kwargs)
@@ -277,7 +262,7 @@ def test_changed_physical_server_location_rejects_unchanged_text(tmp_path, monke
 
 @pytest.mark.parametrize("bad", ["malformed", "secret", "url", "inline", "oversize", "surrogate"])
 def test_exact_inspection_never_echoes_secret_or_invalid_input(tmp_path, bad):
-    """@brief Bad encoding, sizes, secret keys and secret URLs have no review or echo."""
+    """Bad encoding, sizes, secret keys and secret URLs have no review or echo."""
     private = "fixture-private-value"
     document = _document(tmp_path)
     if bad == "malformed":
@@ -316,13 +301,13 @@ def test_exact_inspection_never_echoes_secret_or_invalid_input(tmp_path, bad):
 
 @pytest.mark.parametrize("mode", ["partial", "verified", "exception", "mutation"])
 def test_explicit_import_probe_outcomes_reinspect_and_redact(tmp_path, monkeypatch, mode):
-    """@brief Partial/error evidence and concurrent mutations cannot claim success."""
+    """Partial/error evidence and concurrent mutations cannot claim success."""
     profiles = ProfileStore(tmp_path / "home")
     document = _document(tmp_path)
     called = False
 
     def runner(argv, **kwargs):
-        """@brief Simulate commands and an ownership change during an explicit probe."""
+        """Simulate commands and an ownership change during an explicit probe."""
         nonlocal called
         if mode == "exception":
             raise TimeoutError("fixture-private-value")
@@ -360,7 +345,7 @@ def test_explicit_import_probe_outcomes_reinspect_and_redact(tmp_path, monkeypat
 
 
 def test_admin_previews_then_imports_exact_config_paused(tmp_path):
-    """@brief Import copies validated TOML and retains external state path."""
+    """Import copies validated TOML and retains external state path."""
     profiles = ProfileStore(tmp_path / "home")
     document = _document(tmp_path)
     existing_state = StateStore(tmp_path / "state")
@@ -388,7 +373,7 @@ def test_admin_previews_then_imports_exact_config_paused(tmp_path):
 
 
 def test_import_reviews_all_locations_and_binds_declared_identity(tmp_path):
-    """@brief Review exact bytes and consequential safe settings, bind identity too."""
+    """Review exact bytes and consequential safe settings, bind identity too."""
     profiles = ProfileStore(tmp_path / "home")
     document = _document(tmp_path).replace("\n", "\r\n") + "# café\r\n"
     body = {"name": "alpha", "display_name": "Service", "description": "Exact",
@@ -419,11 +404,11 @@ def test_import_reviews_all_locations_and_binds_declared_identity(tmp_path):
 
 
 def test_import_explicit_check_is_ephemeral_failed_and_revision_bound(tmp_path):
-    """@brief Fake probes preserve failed evidence and reject stale before commands."""
+    """Fake probes preserve failed evidence and reject stale before commands."""
     calls = []
 
     def runner(argv, **kwargs):
-        """@brief Simulate unavailable tools within the existing deadline."""
+        """Simulate unavailable tools within the existing deadline."""
         calls.append((argv, kwargs))
         return CommandResult(argv=argv, exit_code=127, stdout="", stderr="offline")
 
@@ -453,7 +438,7 @@ def test_import_explicit_check_is_ephemeral_failed_and_revision_bound(tmp_path):
 @pytest.mark.parametrize("path", ["state.store_root", "worktree.repo_path", "worktree.root",
                                   "metrics.db_path", "metrics.export_jsonl", "metrics.html_out"])
 def test_import_rejects_each_relative_or_volume_root_location(tmp_path, path):
-    """@brief Every consequential host location has an absolute non-root boundary."""
+    """Every consequential host location has an absolute non-root boundary."""
     profiles = ProfileStore(tmp_path / "home")
     document = _document(tmp_path)
     section, key = path.split(".")
@@ -475,7 +460,7 @@ def test_import_rejects_each_relative_or_volume_root_location(tmp_path, path):
 
 
 def test_import_rejects_invalid_secret_relative_and_stale_input(tmp_path):
-    """@brief Unreviewed or ambiguous input cannot create a profile."""
+    """Unreviewed or ambiguous input cannot create a profile."""
     profiles = ProfileStore(tmp_path / "home")
     document = _document(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
@@ -501,7 +486,7 @@ def test_import_rejects_invalid_secret_relative_and_stale_input(tmp_path):
 
 
 def test_import_requires_admin_csrf_and_unique_state_root(tmp_path):
-    """@brief Developers and duplicate state owners cannot import."""
+    """Developers and duplicate state owners cannot import."""
     profiles = ProfileStore(tmp_path / "home")
     document = _document(tmp_path)
     web = WebStore(profiles.home / "web.db")
@@ -530,7 +515,7 @@ def test_import_requires_admin_csrf_and_unique_state_root(tmp_path):
 
 
 def test_import_rejects_active_state_and_conductor_lock(tmp_path):
-    """@brief Existing active work must finish before ownership is imported."""
+    """Existing active work must finish before ownership is imported."""
     profiles = ProfileStore(tmp_path / "home")
     document = _document(tmp_path)
     state = StateStore(tmp_path / "state")
@@ -557,7 +542,7 @@ def test_import_rejects_active_state_and_conductor_lock(tmp_path):
 
 @pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}, "checks"])
 def test_import_probe_rejects_invalid_workflow(tmp_path, monkeypatch, bad):
-    """@brief Exact import also validates workflow/checks before releasing evidence."""
+    """Exact import also validates workflow/checks before releasing evidence."""
     import adore.web.app as web_app
 
     evidence = {"checks": dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
@@ -585,7 +570,7 @@ def test_import_probe_rejects_invalid_workflow(tmp_path, monkeypatch, bad):
 @pytest.mark.parametrize("workflow", ["aegis", "direct", "not-inspected"])
 @pytest.mark.parametrize("bound", [True, False])
 def test_import_workflow_is_independent_of_auth_verdict(tmp_path, monkeypatch, workflow, bound):
-    """@brief Exact import uses the prerequisite and authentication verdict, not workflow."""
+    """Exact import uses the prerequisite and authentication verdict, not workflow."""
     import adore.web.app as web_app
 
     checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
@@ -605,6 +590,3 @@ def test_import_workflow_is_independent_of_auth_verdict(tmp_path, monkeypatch, w
         assert result.json()["workflow"] == workflow
         assert result.json()["auth_bound"] is bound
         assert result.json()["required_checks"] == sorted(checks)
-
-
-# END OF FILE

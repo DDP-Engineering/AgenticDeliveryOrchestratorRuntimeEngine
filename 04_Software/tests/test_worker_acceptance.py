@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_worker_acceptance.py
-@brief   Integrated worker contracts at real controlled executor barriers.
-@details Reuses focused supervisor/configuration fixtures; only forge, Git and
-         executor boundaries are simulated. No target repository checks run.
-"""
+"""Integrated worker contracts at real controlled executor barriers."""
 
-# IMPORTS
 from adore.config import load_config
 from adore.profiles import ProfileStore
 from adore.state import StateError, StateStore
@@ -37,7 +22,7 @@ from tests.test_web_supervisor import eventually, project, reserve, start_projec
 def test_blocked_executor_keeps_scoped_settings_and_peer_execution_independent(
     tmp_path, monkeypatch, workflow,
 ):
-    """@brief Real A/B executors overlap while B/global apply and A stages safely."""
+    """Real A/B executors overlap while B/global apply and A stages safely."""
     import json
 
     profiles = ProfileStore(tmp_path / "home")
@@ -135,7 +120,7 @@ def test_blocked_executor_keeps_scoped_settings_and_peer_execution_independent(
 
 
 def test_cancel_at_full_real_pool_preserves_peer_and_deduplicates_request(tmp_path):
-    """@brief Cancel needs no free executor and one request cannot stop its peer."""
+    """Cancel needs no free executor and one request cannot stop its peer."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = project(profiles, "alpha", limit=2)
     app = create_app(profiles.home)
@@ -155,7 +140,7 @@ def test_cancel_at_full_real_pool_preserves_peer_and_deduplicates_request(tmp_pa
         queued = web.enqueue(admin["id"], "alpha", "start", "9", "wait-for-slot")
 
         def cancel(argv, environment):
-            """@brief Simulate only CLI transport; use the real cross-process cancel API."""
+            """Simulate only CLI transport; use the real cross-process cancel API."""
             peer, *_ = offline_engine(profiles, "alpha")
             assert peer.cancel(runs[0])
             eventually(lambda: state.load(runs[0]).lifecycle == "cancelled")
@@ -164,7 +149,7 @@ def test_cancel_at_full_real_pool_preserves_peer_and_deduplicates_request(tmp_pa
         launches = []
 
         def command_transport(argv, environment):
-            """@brief Keep the scheduler decision real, injecting only child/CLI transport."""
+            """Keep the scheduler decision real, injecting only child/CLI transport."""
             from types import SimpleNamespace
 
             launches.append(argv)
@@ -200,7 +185,7 @@ def test_cancel_at_full_real_pool_preserves_peer_and_deduplicates_request(tmp_pa
 
 
 def test_admission_refuses_storage_loss_between_capacity_scans(tmp_path, monkeypatch):
-    """@brief A pending slot unavailable only on the second scan still fences N+1."""
+    """A pending slot unavailable only on the second scan still fences N+1."""
     from dataclasses import replace
     from pathlib import Path
 
@@ -229,6 +214,3 @@ def test_admission_refuses_storage_loss_between_capacity_scans(tmp_path, monkeyp
     assert len(reads) == 7
     assert not engine.store.exists(engine._run_id(8))
     assert path.read_bytes() == before
-
-
-# END OF FILE

@@ -1,25 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    conversation.py
-@brief   Bind Pi's own persistent session to one private job exchange directory.
-@details Pi writes and compacts its transcript. This module checks ownership and
-         current-format evidence before a process may resume it; it never repairs
-         or imports a transcript. Callers retain the existing job execution lock.
-"""
+"""Bind Pi's own persistent session to one private job exchange directory."""
 
 from __future__ import annotations
 
 import math
-
-# IMPORTS
 import os
 from pathlib import Path
 import stat
@@ -28,7 +11,6 @@ from adore.execution import ExecutionRecoveryError
 from adore.local_process import atomic_record, read_record
 from adore.util import strict_json_loads
 
-# CONSTANTS
 CONVERSATION_DIR = "pi-conversation"
 SESSION_FILE = "session.jsonl"
 _RECORD_BYTES = 16 * 1024 * 1024
@@ -38,9 +20,8 @@ _ENTRY_TYPES = {
 }
 
 
-# LOCAL HELPERS
 def _checked(path: Path, *, directory: bool = False) -> os.stat_result:
-    """@brief Refuse symlink, reparse, hardlink and unexpected file types."""
+    """Refuse symlink, reparse, hardlink and unexpected file types."""
     info = path.lstat()
     if (path.is_symlink() or getattr(info, "st_file_attributes", 0) & 0x400
             or not (stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode))
@@ -49,20 +30,19 @@ def _checked(path: Path, *, directory: bool = False) -> os.stat_result:
     return info
 
 
-# PUBLIC API
 class PiConversation:
-    """@brief Exact host/backend session binding; no personal-session discovery."""
+    """Exact host/backend session binding; no personal-session discovery."""
 
     def __init__(self, io_dir: Path, worktree: Path, paths, *, required: bool = False,
                  context_key: str = "") -> None:
         """
-        @brief Validate or initialize one job's private conversation binding.
-        @param[in] io_dir Owned host exchange path, outside the worktree.
-        @param[in] worktree Host worktree, used only for containment checks.
-        @param[in] paths Existing backend-native IO and worktree paths.
-        @param[in] required Refuse an absent binding for a previously launched job.
-        @param[in] context_key Current ticket fingerprint, acknowledged with the prompt.
-        @exception ExecutionRecoveryError Unsafe, foreign, missing or corrupt evidence.
+        Validate or initialize one job's private conversation binding.
+        io_dir: Owned host exchange path, outside the worktree.
+        worktree: Host worktree, used only for containment checks.
+        paths: Existing backend-native IO and worktree paths.
+        required: Refuse an absent binding for a previously launched job.
+        context_key: Current ticket fingerprint, acknowledged with the prompt.
+        Raises ExecutionRecoveryError: Unsafe, foreign, missing or corrupt evidence.
         """
         self.directory = Path(io_dir).absolute() / CONVERSATION_DIR
         self.path = self.directory / SESSION_FILE
@@ -112,7 +92,7 @@ class PiConversation:
             ) from exc
 
     def _save(self) -> None:
-        """@brief Atomically persist non-secret ownership under private job permissions."""
+        """Atomically persist non-secret ownership under private job permissions."""
         try:
             for directory in (self.directory, *self.directory.parents):
                 _checked(directory, directory=True)
@@ -124,7 +104,7 @@ class PiConversation:
             raise ExecutionRecoveryError("Pi job conversation binding could not be saved") from exc
 
     def _validate_file(self) -> None:
-        """@brief Stream strict current Pi JSONL; refuse data Pi could silently discard."""
+        """Stream strict current Pi JSONL; refuse data Pi could silently discard."""
         before = _checked(self.path)
         parents: dict[str, str | None] = {}
         has_user = False
@@ -186,10 +166,10 @@ class PiConversation:
 
     def bind(self, session_id: object, session_file: object) -> None:
         """
-        @brief Pin the RPC identity before sending any model prompt.
-        @param[in] session_id Pi get_state sessionId.
-        @param[in] session_file Pi get_state sessionFile in backend path spelling.
-        @exception ExecutionRecoveryError Missing or unexpected RPC session identity.
+        Pin the RPC identity before sending any model prompt.
+        session_id: Pi get_state sessionId.
+        session_file: Pi get_state sessionFile in backend path spelling.
+        Raises ExecutionRecoveryError: Missing or unexpected RPC session identity.
         """
         # Native Windows Pi normalizes separators; container paths stay POSIX.
         if (not isinstance(session_id, str) or not session_id
@@ -201,10 +181,7 @@ class PiConversation:
         self._save()
 
     def accepted(self) -> None:
-        """@brief Make history mandatory once Pi acknowledges the job prompt."""
+        """Make history mandatory once Pi acknowledges the job prompt."""
         self.record["required"] = True
         self.record["context_key"] = self.context_key
         self._save()
-
-
-# END OF FILE

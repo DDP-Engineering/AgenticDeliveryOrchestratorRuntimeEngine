@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_prompts.py
-@brief   File-backed prompt contracts and pre-extraction byte oracles.
-@details Offline resources and fake conductors exercise eager failure, literal
-         data insertion and unchanged selection/whitespace. Baseline expectations
-         were captured from original code before extracting any prompt literals.
-"""
+"""File-backed prompt contracts and pre-extraction byte oracles."""
 
-# IMPORTS
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import replace
@@ -43,38 +27,36 @@ from tests.test_orchestrator import (
 )
 from tests.test_pi_rpc import FakePi, SpawnTarget
 
-# CONSTANTS
 BASELINE = json.loads((Path(__file__).parent / "fixtures/prompts/baseline.json").read_text(
     encoding="utf-8"))
 NETWORK_BASELINE = json.loads((Path(__file__).parent / "fixtures/prompts/network-baseline.json")
                               .read_text(encoding="utf-8"))
 
 
-# HELPER FUNCTIONS
 @pytest.fixture
 def prompts():
-    """@brief Require the catalog behavior before importing the new module."""
+    """Require the catalog behavior before importing the new module."""
     assert importlib.util.find_spec("adore.prompts") is not None, "prompt catalog is missing"
     return importlib.import_module("adore.prompts")
 
 
 @pytest.fixture
 def resources(tmp_path, monkeypatch, prompts):
-    """@brief Copy all shipped files and redirect only the test resource seam."""
+    """Copy all shipped files and redirect only the test resource seam."""
     root = tmp_path / "prompts"
     shutil.copytree(prompts.PROMPT_ROOT, root)
     monkeypatch.setattr(prompts, "PROMPT_ROOT", root)
     return root
 
 
-# PUBLIC API
 @pytest.mark.parametrize("case", BASELINE["cases"], ids=lambda c: (
     f"{c['stage']}-{c['quick']}-{c['packages']}-{c['mode']}-{c['extra']}"))
 @pytest.mark.parametrize("continuing", [False, True])
 def test_stage_bytes(tmp_path, case, continuing):
-    """@brief Preserve historical captures; mode here is requested, not effective.
+    """
+    Preserve historical captures; mode here is requested, not effective.
 
-    @note All historical container captures used internet=False, hence the
+    Note: All historical container captures used internet=False, hence the
           allowlist proxy. The supplemental matrix proves effective policies.
     """
     engine, forge, *_ = make_engine(tmp_path)
@@ -103,7 +85,7 @@ def test_stage_bytes(tmp_path, case, continuing):
 
 
 def test_network_oracle_covers_effective_policies():
-    """@brief Captures distinguish reachable policies, native and injected none."""
+    """Captures distinguish reachable policies, native and injected none."""
     cases = NETWORK_BASELINE["cases"]
     assert Counter(case["effective_mode"] for case in cases) == {
         "open": 6, "allowlist-proxy": 6, "native": 2, "none": 2,
@@ -128,7 +110,7 @@ def test_network_oracle_covers_effective_policies():
     f"{c['requested_mode']}-internet-{c['internet']}-packages-{c['packages']}"
     f"-injected-{c['injected_none']}"))
 def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
-    """@brief Real effective policies match original bytes; none is composition-only."""
+    """Real effective policies match original bytes; none is composition-only."""
     engine, forge, *_ = make_engine(tmp_path)
     values = BASELINE["values"]
     forge.ticket.title = values["title"]
@@ -155,7 +137,7 @@ def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
 
 
 def test_all_shipped_fragments_match_original_bytes(prompts):
-    """@brief Inventory, placeholder completeness and original bodies are proven together."""
+    """Inventory, placeholder completeness and original bodies are proven together."""
     catalog = prompts.PromptCatalog()
     inventory = {p.relative_to(prompts.PROMPT_ROOT).as_posix()
                  for p in prompts.PROMPT_ROOT.rglob("*.md")}
@@ -175,7 +157,7 @@ def test_all_shipped_fragments_match_original_bytes(prompts):
 @pytest.mark.parametrize("bad", [None, b"\xff", b"$9", b"missing license"])
 @pytest.mark.parametrize("fragment", ["direct/implementation.md", "live/instruction.md"])
 def test_direct_resource_is_eagerly_required(resources, prompts, tmp_path, bad, fragment):
-    """@brief Direct and live fragments are eagerly required for every conductor."""
+    """Direct and live fragments are eagerly required for every conductor."""
     path = resources / fragment
     path.parent.mkdir(exist_ok=True)
     if bad is None:
@@ -191,7 +173,7 @@ def test_direct_resource_is_eagerly_required(resources, prompts, tmp_path, bad, 
 def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
     tmp_path, monkeypatch, case,
 ):
-    """@brief Direct composition reuses the exact shared notice without AEGIS procedure."""
+    """Direct composition reuses the exact shared notice without AEGIS procedure."""
     engine, forge, *_ = make_engine(tmp_path)
     run = make_run(engine)
     native = case["requested_mode"] == "native"
@@ -219,7 +201,7 @@ def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
 
 
 def test_template_semantics_and_literal_data(resources, prompts):
-    """@brief Values are substituted once, dollars escape and ordinary braces remain data."""
+    """Values are substituted once, dollars escape and ordinary braces remain data."""
     fragment = "stage/ticket.md"
     body = "$name / ${name} / $$ / {x} / $empty"
     (resources / fragment).write_bytes((prompts.LEGAL_PREFIX + body).encode())
@@ -234,7 +216,7 @@ def test_template_semantics_and_literal_data(resources, prompts):
 
 
 def test_header_removal_preserves_body_bytes(resources, prompts):
-    """@brief Only the exact leading legal prefix is removed, not body comments/whitespace."""
+    """Only the exact leading legal prefix is removed, not body comments/whitespace."""
     fragment = "stage/intro.md"
     body = " \n  é <!-- body comment -->\r\nend  \n"
     (resources / fragment).write_bytes((prompts.LEGAL_PREFIX + body).encode())
@@ -243,7 +225,7 @@ def test_header_removal_preserves_body_bytes(resources, prompts):
 
 @pytest.mark.parametrize("bad", [b"\xff", b"$", b"$9", b"${unclosed", b"no legal header"])
 def test_bad_resource_refused_eagerly(resources, prompts, bad):
-    """@brief Unused malformed UTF-8, template syntax and legal prefixes fail closed."""
+    """Unused malformed UTF-8, template syntax and legal prefixes fail closed."""
     fragment = "system/server-internet.md"
     prefix = b"" if bad == b"no legal header" else prompts.LEGAL_PREFIX.encode()
     (resources / fragment).write_bytes(prefix + bad)
@@ -252,7 +234,7 @@ def test_bad_resource_refused_eagerly(resources, prompts, bad):
 
 
 def test_missing_unused_file_refuses_conductor(resources, prompts, tmp_path):
-    """@brief Missing unused resources refuse construction, not only their later render."""
+    """Missing unused resources refuse construction, not only their later render."""
     fragment = "system/server-internet.md"
     (resources / fragment).unlink()
     with pytest.raises(prompts.PromptError, match=fragment):
@@ -260,7 +242,7 @@ def test_missing_unused_file_refuses_conductor(resources, prompts, tmp_path):
 
 
 def test_unreadable_file_refused(resources, prompts, monkeypatch):
-    """@brief OS read errors are typed even when the test account could bypass chmod."""
+    """OS read errors are typed even when the test account could bypass chmod."""
     fragment = "stage/frame.md"
     original = Path.read_bytes
 
@@ -275,13 +257,13 @@ def test_unreadable_file_refused(resources, prompts, monkeypatch):
 
 
 def test_unknown_fragment_refused(prompts):
-    """@brief No implicit path access or fallback is available at render time."""
+    """No implicit path access or fallback is available at render time."""
     with pytest.raises(prompts.PromptError, match="unknown.md"):
         prompts.PromptCatalog().render("../unknown.md")
 
 
 def test_catalog_is_eager_and_render_never_rereads(prompts, monkeypatch, tmp_path):
-    """@brief Conductor construction reads the complete inventory exactly once."""
+    """Conductor construction reads the complete inventory exactly once."""
     reads = []
     original = Path.read_bytes
 
@@ -301,7 +283,7 @@ def test_catalog_is_eager_and_render_never_rereads(prompts, monkeypatch, tmp_pat
 
 
 def test_shipped_placeholder_sets_are_complete(prompts):
-    """@brief Every shipped placeholder has an exact captured caller value."""
+    """Every shipped placeholder has an exact captured caller value."""
     for fragment in prompts.FRAGMENTS:
         body = (prompts.PROMPT_ROOT / fragment).read_bytes().decode()[len(prompts.LEGAL_PREFIX):]
         expected = ({"user", "text"} if fragment == "live/instruction.md"
@@ -310,7 +292,7 @@ def test_shipped_placeholder_sets_are_complete(prompts):
 
 
 def test_production_factory_shares_one_eager_catalog(prompts, monkeypatch, tmp_path):
-    """@brief Production conductor and Pi launcher share one complete resource read."""
+    """Production conductor and Pi launcher share one complete resource read."""
     reads = []
     original = Path.read_bytes
 
@@ -333,7 +315,7 @@ def test_production_factory_shares_one_eager_catalog(prompts, monkeypatch, tmp_p
     "revalidation-route", "integration-conflict", "continuation", "no-progress",
 ])
 def test_recovery_callers_preserve_original_context(tmp_path, monkeypatch, scenario):
-    """@brief Every recovery branch passes complete original context to its launch."""
+    """Every recovery branch passes complete original context to its launch."""
     engine, forge, worktrees, *_ = make_engine(tmp_path)
     run = make_run(engine)
     evidence = BASELINE["values"]["evidence"]
@@ -369,18 +351,18 @@ def test_recovery_callers_preserve_original_context(tmp_path, monkeypatch, scena
 @pytest.mark.parametrize("native,internet", [(False, False), (False, True),
                                              (True, False), (True, True)])
 def test_notice_bytes_reach_pi(tmp_path, native, internet):
-    """@brief Actual native/container launch branches send the captured notice bytes."""
+    """Actual native/container launch branches send the captured notice bytes."""
     worktree = tmp_path / "work"
     worktree.mkdir()
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
 
     class NativeTarget:
-        """@brief Minimal owned native-session seam, backed by offline fake Pi."""
+        """Minimal owned native-session seam, backed by offline fake Pi."""
         pi_argv = staticmethod(pi_rpc_argv)
 
         @contextmanager
         def pi_session(self, argv, placements):
-            """@brief Lend fake process pipes; the RPC client owns shutdown."""
+            """Lend fake process pipes; the RPC client owns shutdown."""
             yield fake(argv, {})
 
         def read_output(self, path, *, optional=False):
@@ -399,7 +381,7 @@ def test_notice_bytes_reach_pi(tmp_path, native, internet):
 
 
 def test_review_callers_preserve_original_bytes(tmp_path, monkeypatch):
-    """@brief Review brief and changed-ticket thread use the original text."""
+    """Review brief and changed-ticket thread use the original text."""
     engine, forge, *_ = make_engine(tmp_path)
     assert engine._pipeline_brief().encode() == BASELINE["fragments"]["review/pipeline.md"].encode()
     run = make_run(engine)
@@ -417,13 +399,12 @@ def test_review_callers_preserve_original_bytes(tmp_path, monkeypatch):
     assert threads and threads[0].endswith(note)
 
 
-# END OF FILE
 
 
 
 @pytest.mark.parametrize("workflow", ["aegis", "direct"])
 def test_instruction_fallback_follows_literal_human_thread(tmp_path, workflow):
-    """@brief Both prompt contracts place pending wrappers after the human discussion."""
+    """Both prompt contracts place pending wrappers after the human discussion."""
     from adore.instructions import InstructionDelivery, InstructionInbox
 
     engine, forge, *_ = make_engine(tmp_path)

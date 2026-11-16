@@ -1,24 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_isolation.py
-@brief Tests for the worktree and container isolation layer.
-@details No real git or docker is invoked; a fake runner records every argv
-         (and the env kwarg) and replays canned results, so command
-         construction, idempotency, and fail-closed behavior are verified
-         offline. Worktree-on-disk states are simulated with tmp_path files.
-"""
+"""Tests for the worktree and container isolation layer."""
 
 from __future__ import annotations
 
-# IMPORTS
 import hashlib
 import os
 from pathlib import Path
@@ -39,13 +22,11 @@ from adore.isolation import (
 from adore.util import DEFAULT_COMMAND_TIMEOUT, CommandResult
 import pytest
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 class FakeRunner:
     """
-    @brief   Command runner double: records argv + kwargs, replays results.
-    @details The `timeout` default mirrors the real `run_command`, not the
+    Command runner double: records argv + kwargs, replays results.
+    The `timeout` default mirrors the real `run_command`, not the
              looser `CommandRunner` protocol, so a recorded `None` means a
              caller explicitly asked for an UNBOUNDED subprocess rather than
              simply omitting the keyword. That distinction is what the
@@ -54,8 +35,8 @@ class FakeRunner:
 
     def __init__(self, *results: CommandResult) -> None:
         """
-        @brief      Queue the results to replay in order.
-        @param[in]  results CommandResults returned call by call.
+        Queue the results to replay in order.
+        results: CommandResults returned call by call.
         """
         self.results = list(results)
         self.calls: list[list[str]] = []
@@ -71,13 +52,13 @@ class FakeRunner:
         env: dict[str, str] | None = None,
     ) -> CommandResult:
         """
-        @brief      Record the call and pop the next canned result.
-        @param[in]  argv Command vector.
-        @param[in]  cwd Ignored.
-        @param[in]  timeout Recorded; `None` means the caller forwarded an
+        Record the call and pop the next canned result.
+        argv: Command vector.
+        cwd: Ignored.
+        timeout: Recorded; `None` means the caller forwarded an
                             explicit "no bound".
-        @param[in]  env Recorded for secret-handling assertions.
-        @return     The next queued CommandResult.
+        env: Recorded for secret-handling assertions.
+        Returns: The next queued CommandResult.
         """
         self.calls.append([str(part) for part in argv])
         self.envs.append(env)
@@ -85,11 +66,8 @@ class FakeRunner:
         return self.results.pop(0)
 
 
-# HELPER FUNCTIONS
-
-
 def owned_container_receipt(manager, name, repo, worktree, io):
-    """@brief Complete fake runtime ownership for warm provisioning."""
+    """Complete fake runtime ownership for warm provisioning."""
     import json
     return _ok(json.dumps([{"Id": "a" * 64, "Image": "sha256:" + "b" * 64,
                           "Name": "/" + name, "State": {"Status": "running"},
@@ -103,28 +81,28 @@ def owned_container_receipt(manager, name, repo, worktree, io):
 
 def _ok(stdout: str = "") -> CommandResult:
     """
-    @brief      A successful canned result.
-    @param[in]  stdout Canned stdout.
-    @return     CommandResult with exit code 0.
+    A successful canned result.
+    stdout: Canned stdout.
+    Returns: CommandResult with exit code 0.
     """
     return CommandResult(exit_code=0, stdout=stdout)
 
 
 def _fail(stderr: str, exit_code: int = 1) -> CommandResult:
     """
-    @brief      A failing canned result.
-    @param[in]  stderr Canned stderr.
-    @param[in]  exit_code Non-zero exit code.
-    @return     The failing CommandResult.
+    A failing canned result.
+    stderr: Canned stderr.
+    exit_code: Non-zero exit code.
+    Returns: The failing CommandResult.
     """
     return CommandResult(exit_code=exit_code, stderr=stderr)
 
 
 def _manager(runner: FakeRunner) -> ContainerManager:
     """
-    @brief      A ContainerManager with test wiring.
-    @param[in]  runner The fake runner.
-    @return     The manager (docker, test image, test volumes).
+    A ContainerManager with test wiring.
+    runner: The fake runner.
+    Returns: The manager (docker, test image, test volumes).
     """
     return ContainerManager("docker", "adore-executor-base:1.0.0", "uv-cache",
                             "npm-cache", runner)
@@ -132,10 +110,10 @@ def _manager(runner: FakeRunner) -> ContainerManager:
 
 def _bounded(name: str, limit: int) -> str:
     """
-    @brief      Expected per-run name part for a runtime-safe executor name.
-    @param[in]  name Executor container name (already runtime-safe).
-    @param[in]  limit Maximum length of the part.
-    @return     The name itself when it fits, else its start plus a 10-hex
+    Expected per-run name part for a runtime-safe executor name.
+    name: Executor container name (already runtime-safe).
+    limit: Maximum length of the part.
+    Returns: The name itself when it fits, else its start plus a 10-hex
                 SHA-256 suffix of the full name.
     """
     if len(name) <= limit:
@@ -146,10 +124,10 @@ def _bounded(name: str, limit: int) -> str:
 
 def _provisioned_egress(tmp_path: Path, name: str) -> tuple[str, str]:
     """
-    @brief      Provision one allowlist-proxy run on a fresh fake runtime.
-    @param[in]  tmp_path pytest tmp dir.
-    @param[in]  name Executor container name.
-    @return     (egress network, proxy container) names the runtime was given;
+    Provision one allowlist-proxy run on a fresh fake runtime.
+    tmp_path: pytest tmp dir.
+    name: Executor container name.
+    Returns: (egress network, proxy container) names the runtime was given;
                 the executor joins that network and the proxy is connected to it.
     """
     runner = FakeRunner(
@@ -176,11 +154,11 @@ def _provisioned_egress(tmp_path: Path, name: str) -> tuple[str, str]:
 
 def _fake_worktree(tmp_path: Path, run_id: str, gitdir: str) -> WorktreeManager:
     """
-    @brief      A WorktreeManager whose worktree exists on disk with a pointer.
-    @param[in]  tmp_path pytest tmp dir.
-    @param[in]  run_id Run identifier.
-    @param[in]  gitdir Content of the gitdir line in the .git pointer file.
-    @return     The manager rooted in tmp_path.
+    A WorktreeManager whose worktree exists on disk with a pointer.
+    tmp_path: pytest tmp dir.
+    run_id: Run identifier.
+    gitdir: Content of the gitdir line in the .git pointer file.
+    Returns: The manager rooted in tmp_path.
     """
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", FakeRunner())
     wt = manager.path_for(run_id)
@@ -193,9 +171,7 @@ def _fake_worktree(tmp_path: Path, run_id: str, gitdir: str) -> WorktreeManager:
 
 
 def test_worktree_create_new_branch(tmp_path: Path) -> None:
-    """
-    @brief   A fresh run gets `worktree add -b <branch> <path> <base_ref>`.
-    """
+    """A fresh run gets `worktree add -b <branch> <path> <base_ref>`."""
     runner = FakeRunner(_fail("", exit_code=1), _ok())  # branch missing, add ok
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     path = manager.create("run-1", "adore/run-1", "origin/develop")
@@ -209,7 +185,7 @@ def test_worktree_create_new_branch(tmp_path: Path) -> None:
 
 def test_worktree_create_reattaches_existing_branch(tmp_path: Path) -> None:
     """
-    @brief   When the branch survives but the worktree is gone (resume after
+    When the branch survives but the worktree is gone (resume after
              cleanup), the branch is re-attached without -b.
     """
     runner = FakeRunner(_ok("abc123"), _ok())  # branch exists, add ok
@@ -221,9 +197,7 @@ def test_worktree_create_reattaches_existing_branch(tmp_path: Path) -> None:
 
 
 def test_worktree_create_is_idempotent(tmp_path: Path) -> None:
-    """
-    @brief   An existing worktree is reused; git is not called at all.
-    """
+    """An existing worktree is reused; git is not called at all."""
     manager = _fake_worktree(tmp_path, "run-1", "/repo/.git/worktrees/run-1")
     path = manager.create("run-1", "adore/run-1", "origin/develop")
     assert path == manager.path_for("run-1")
@@ -231,9 +205,7 @@ def test_worktree_create_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_worktree_create_fails_closed_on_git_error(tmp_path: Path) -> None:
-    """
-    @brief   A git failure raises IsolationError with command context.
-    """
+    """A git failure raises IsolationError with command context."""
     runner = FakeRunner(_fail("", exit_code=1), _fail("fatal: base ref not found"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(IsolationError) as excinfo:
@@ -243,7 +215,7 @@ def test_worktree_create_fails_closed_on_git_error(tmp_path: Path) -> None:
 
 def test_changed_files_counts_renames_and_quoted_paths_once(tmp_path: Path) -> None:
     """
-    @brief   The files-touched budget counts a rename as ONE file (its
+    The files-touched budget counts a rename as ONE file (its
              destination), strips git's quotes, and de-dups paths appearing in
              both the committed diff and the pending status.
     """
@@ -256,9 +228,7 @@ def test_changed_files_counts_renames_and_quoted_paths_once(tmp_path: Path) -> N
 
 
 def test_worktree_remove_missing_is_not_an_error(tmp_path: Path) -> None:
-    """
-    @brief   Removing an already-gone worktree only prunes (idempotent).
-    """
+    """Removing an already-gone worktree only prunes (idempotent)."""
     runner = FakeRunner(_ok())  # prune only
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     manager.remove("run-1")
@@ -267,7 +237,7 @@ def test_worktree_remove_missing_is_not_an_error(tmp_path: Path) -> None:
 
 def test_worktree_remove_with_branch_delete(tmp_path: Path) -> None:
     """
-    @brief   Terminal cleanup removes the worktree, prunes, and deletes the
+    Terminal cleanup removes the worktree, prunes, and deletes the
              branch only when asked.
     """
     manager = _fake_worktree(tmp_path, "run-1", "/repo/.git/worktrees/run-1")
@@ -283,7 +253,7 @@ def test_worktree_remove_with_branch_delete(tmp_path: Path) -> None:
 
 def test_worktree_remove_retries_past_the_wsl_bind_mount_race(tmp_path: Path) -> None:
     """
-    @brief   Removal that transiently fails with the WSL mount-race signature
+    Removal that transiently fails with the WSL mount-race signature
              (ENOSYS) is retried with backoff until it succeeds - no husk
              left, no manual cleanup needed (ADORE-ARCH-009: this retry now
              lives here, not in the orchestrator's core loop).
@@ -305,7 +275,7 @@ def test_worktree_remove_retries_past_the_wsl_bind_mount_race(tmp_path: Path) ->
 
 def test_worktree_remove_does_not_retry_a_real_error(tmp_path: Path) -> None:
     """
-    @brief   A non-transient removal error is NOT retried (retries must not
+    A non-transient removal error is NOT retried (retries must not
              mask real failures) and is raised on the first attempt.
     """
     manager = _fake_worktree(tmp_path, "run-1", "/repo/.git/worktrees/run-1")
@@ -323,7 +293,7 @@ def test_worktree_remove_does_not_retry_a_real_error(tmp_path: Path) -> None:
 
 def test_worktree_admin_dir_name_reads_pointer(tmp_path: Path) -> None:
     """
-    @brief   The admin dir name comes from the .git pointer file, so a
+    The admin dir name comes from the .git pointer file, so a
              collision-suffixed name is picked up correctly.
     """
     manager = _fake_worktree(tmp_path, "run-1", "D:/repos/x/.git/worktrees/run-11")
@@ -331,9 +301,7 @@ def test_worktree_admin_dir_name_reads_pointer(tmp_path: Path) -> None:
 
 
 def test_worktree_admin_dir_name_fails_closed(tmp_path: Path) -> None:
-    """
-    @brief   A missing or malformed pointer file raises IsolationError.
-    """
+    """A missing or malformed pointer file raises IsolationError."""
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", FakeRunner())
     with pytest.raises(IsolationError):
         manager.admin_dir_name("absent-run")
@@ -348,7 +316,7 @@ def test_worktree_admin_dir_name_fails_closed(tmp_path: Path) -> None:
 
 def test_build_container_env_targets_the_mounts() -> None:
     """
-    @brief   GIT_DIR/GIT_COMMON_DIR/GIT_WORK_TREE point into the fixed
+    GIT_DIR/GIT_COMMON_DIR/GIT_WORK_TREE point into the fixed
              container mounts and the bot identity fills the author fields.
     """
     env = build_container_env("run-1", "ADORE", "adore-bot@local")
@@ -362,7 +330,7 @@ def test_build_container_env_targets_the_mounts() -> None:
 
 def test_scrub_container_worktree_config_only_removes_adore_mount(tmp_path: Path) -> None:
     """
-    @brief   If a container git command persists `/adore/work` into the host
+    If a container git command persists `/adore/work` into the host
              repo config, ADORE scrubs that host-breaking value only.
     """
     repo = tmp_path / "repo"
@@ -395,7 +363,7 @@ def test_scrub_container_worktree_config_only_removes_adore_mount(tmp_path: Path
 
 def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
     """
-    @brief   An absent container is created with all four mounts, workdir,
+    An absent container is created with all four mounts, workdir,
              safe runtime env inline, secret keys without values, and sleep
              infinity; the io dir is created on demand.
     """
@@ -439,7 +407,7 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
 
 def test_container_provision_inserts_run_args(tmp_path: Path) -> None:
     """
-    @brief   [container] run_args tokens land right after `run --detach`
+    [container] run_args tokens land right after `run --detach`
              (e.g. --userns=keep-id for rootless podman - live finding
              2026-07-04). The default (no run_args) is proven clean by
              test_container_provision_creates_when_absent's argv prefix.
@@ -459,7 +427,7 @@ def test_container_provision_relabels_only_bind_mounts_for_selinux(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   selinux_relabel="shared" appends `z` to the three HOST bind
+    selinux_relabel="shared" appends `z` to the three HOST bind
              mounts, so an enforcing host lets container_t read the clone,
              worktree and io dir instead of denying every stage. The named
              cache VOLUMES keep no suffix: the runtime already labels those.
@@ -488,7 +456,7 @@ def test_container_proxy_config_mount_combines_ro_and_relabel(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   The generated squid config is a host bind mount too, so under
+    The generated squid config is a host bind mount too, so under
              selinux_relabel="shared" it carries BOTH options as `ro,z`, the
              comma form docker and podman both accept. Relabeling only the
              executor mounts would still break allowlist-proxy egress on an
@@ -519,7 +487,7 @@ def test_container_proxy_config_mount_combines_ro_and_relabel(
 
 def test_container_rejects_unknown_selinux_relabel_mode() -> None:
     """
-    @brief   An unknown relabel mode fails closed at construction. The private
+    An unknown relabel mode fails closed at construction. The private
              `Z` label is the one operators reach for by habit; accepting it
              would relabel the shared clone per container and break the next
              run, so it is refused here as well as in config validation.
@@ -531,7 +499,7 @@ def test_container_rejects_unknown_selinux_relabel_mode() -> None:
 
 def test_container_provision_none_uses_no_network(tmp_path: Path) -> None:
     """
-    @brief   [container.egress] mode none starts the executor with
+    [container.egress] mode none starts the executor with
              --network none and injects no proxy variables.
     """
     runner = FakeRunner(_fail("No such container"), _ok("cid"))
@@ -553,7 +521,7 @@ def test_container_provision_none_uses_no_network(tmp_path: Path) -> None:
 
 def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
     """
-    @brief   allowlist-proxy creates the internal network, starts the proxy,
+    allowlist-proxy creates the internal network, starts the proxy,
              connects it with the alias, and starts the executor on that
              network with proxy env inline.
     """
@@ -611,7 +579,7 @@ def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
 
 def test_proxy_config_admits_names_by_domain_and_addresses_by_dst(tmp_path: Path) -> None:
     """
-    @brief   Host names become a dstdomain rule, IP literals a dst rule, and
+    Host names become a dstdomain rule, IP literals a dst rule, and
              every other destination is denied; no address means no dst rule.
     """
     manager = ContainerManager(
@@ -637,7 +605,7 @@ def test_proxy_config_admits_names_by_domain_and_addresses_by_dst(tmp_path: Path
 
 def test_proxy_gets_the_executor_host_aliases(tmp_path: Path) -> None:
     """
-    @brief   The proxy container receives the --add-host options of run_args
+    The proxy container receives the --add-host options of run_args
              (both spellings) and none of the other run options.
     """
     runner = FakeRunner(
@@ -664,7 +632,7 @@ def test_proxy_gets_the_executor_host_aliases(tmp_path: Path) -> None:
 
 
 def test_disposable_probe_never_pulls_executor_or_egress_proxy(tmp_path: Path) -> None:
-    """@brief A local-only probe applies the no-pull policy to both images."""
+    """A local-only probe applies the no-pull policy to both images."""
     runner = FakeRunner(
         _fail("No such container: adore-probe-x"), _ok("network"),
         _fail("No such container: adore-probe-x-egress-proxy"),
@@ -683,9 +651,7 @@ def test_disposable_probe_never_pulls_executor_or_egress_proxy(tmp_path: Path) -
 
 
 def test_container_provision_allowlist_proxy_failure_raises(tmp_path: Path) -> None:
-    """
-    @brief   Proxy network/runtime failures fail closed with IsolationError.
-    """
+    """Proxy network/runtime failures fail closed with IsolationError."""
     runner = FakeRunner(_fail("No such container: adore-run-x"), _fail("daemon down"))
     manager = ContainerManager(
         "docker",
@@ -702,7 +668,7 @@ def test_container_provision_allowlist_proxy_failure_raises(tmp_path: Path) -> N
 
 def test_container_remove_allowlist_proxy_removes_proxy_and_network() -> None:
     """
-    @brief   Terminal cleanup removes executor, per-run proxy, and egress
+    Terminal cleanup removes executor, per-run proxy, and egress
              network in proxy mode.
     """
     runner = FakeRunner(_ok(), _ok(), _ok())
@@ -724,7 +690,7 @@ def test_container_remove_allowlist_proxy_removes_proxy_and_network() -> None:
 
 def test_cleanup_container_sweeps_remove_only_exact_targets() -> None:
     """
-    @brief   Executor/proxy sweeps remove only listed names derived from the
+    Executor/proxy sweeps remove only listed names derived from the
              targets: retained companions, untargeted names under the same
              prefix, absent targets and filter overmatch are left alone.
     """
@@ -758,7 +724,7 @@ def test_cleanup_container_sweeps_remove_only_exact_targets() -> None:
 
 def test_cleanup_network_sweep_survives_allowlist_mode_change() -> None:
     """
-    @brief   Open-mode cleanup still reclaims a target's networks under the
+    Open-mode cleanup still reclaims a target's networks under the
              canonical and configured prefixes and leaves every other network.
     """
     canonical = "\n".join([
@@ -797,7 +763,7 @@ def test_cleanup_network_sweep_survives_allowlist_mode_change() -> None:
 
 def test_cleanup_egress_sweeps_keep_names_shared_with_retained_runs() -> None:
     """
-    @brief   Old cut proxy/network names shared by a finished and a retained
+    Old cut proxy/network names shared by a finished and a retained
              run of one long-named project are kept; the finished run's own
              per-run names go.
     """
@@ -821,7 +787,7 @@ def test_cleanup_egress_sweeps_keep_names_shared_with_retained_runs() -> None:
 
 def test_cleanup_egress_proxy_sweep_finds_proxies_of_long_slugs() -> None:
     """
-    @brief   A per-run proxy whose bounded name no longer starts with a long
+    A per-run proxy whose bounded name no longer starts with a long
              slug's executor prefix is still found and removed.
     """
     executor = "examplex-digital-delivery-agent-prod-run-gitea-dpasare-alpha-9"
@@ -835,7 +801,7 @@ def test_cleanup_egress_proxy_sweep_finds_proxies_of_long_slugs() -> None:
 
 def test_allowlist_egress_names_are_unique_per_run(tmp_path: Path) -> None:
     """
-    @brief   Long executor names that share their first characters (two runs of
+    Long executor names that share their first characters (two runs of
              one project, another project) get their own bounded proxy and
              network names; a short name keeps today's names.
     """
@@ -861,7 +827,7 @@ def test_allowlist_egress_names_are_unique_per_run(tmp_path: Path) -> None:
 
 
 def test_remove_egress_removes_only_the_runs_own_proxy_and_network(tmp_path: Path) -> None:
-    """@brief Reaping one long-named run leaves another run's proxy and network alone."""
+    """Reaping one long-named run leaves another run's proxy and network alone."""
     stem = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-"
     network26, proxy26 = _provisioned_egress(tmp_path / "26", stem + "26")
     network27, proxy27 = _provisioned_egress(tmp_path / "27", stem + "27")
@@ -881,7 +847,7 @@ def test_remove_egress_removes_only_the_runs_own_proxy_and_network(tmp_path: Pat
 
 
 def test_cleanup_container_sweep_continues_after_one_remove_failure() -> None:
-    """@brief One orphan removal failure does not block later cleanup work."""
+    """One orphan removal failure does not block later cleanup work."""
     runner = FakeRunner(
         _ok("adore-run-stuck\nadore-run-removable\n"),
         _fail("permission denied"),
@@ -897,9 +863,7 @@ def test_cleanup_container_sweep_continues_after_one_remove_failure() -> None:
 
 
 def test_container_provision_is_idempotent(tmp_path: Path) -> None:
-    """
-    @brief   running -> no-op; exited -> start (keep-warm resume).
-    """
+    """running -> no-op; exited -> start (keep-warm resume)."""
     running = FakeRunner(_ok("running\n"))
     manager = _manager(running)
     running.results.append(owned_container_receipt(manager, "c", "r", "w", tmp_path / "io"))
@@ -915,9 +879,7 @@ def test_container_provision_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_container_status_absent_vs_error() -> None:
-    """
-    @brief   "No such container" maps to absent; other failures raise.
-    """
+    """"No such container" maps to absent; other failures raise."""
     assert _manager(FakeRunner(_fail("Error: No such container: c"))).status("c") == "absent"
     with pytest.raises(IsolationError):
         _manager(FakeRunner(_fail("Cannot connect to the Docker daemon"))).status("c")
@@ -925,7 +887,7 @@ def test_container_status_absent_vs_error() -> None:
 
 def test_container_stop_remove_idempotent_but_fail_closed() -> None:
     """
-    @brief   stop/remove of an absent container is fine; a real failure on an
+    stop/remove of an absent container is fine; a real failure on an
              existing container raises.
     """
     gone = FakeRunner(_fail("No such container: c"), _fail("No such container: c"))
@@ -937,7 +899,7 @@ def test_container_stop_remove_idempotent_but_fail_closed() -> None:
 
 
 def test_container_interrupt_is_bounded_and_fails_closed() -> None:
-    """@brief Cancel uses a short stop, and runtime failure is explicit."""
+    """Cancel uses a short stop, and runtime failure is explicit."""
     okay = FakeRunner(_ok())
     _manager(okay).interrupt("adore-run-one")
     assert okay.calls == [["docker", "stop", "--time", "2", "adore-run-one"]]
@@ -949,9 +911,7 @@ def test_container_interrupt_is_bounded_and_fails_closed() -> None:
 
 
 def test_container_ensure_volumes_and_failure() -> None:
-    """
-    @brief   Both cache volumes are created; a runtime failure raises.
-    """
+    """Both cache volumes are created; a runtime failure raises."""
     runner = FakeRunner(_ok(), _ok())
     _manager(runner).ensure_volumes()
     assert runner.calls[0] == ["docker", "volume", "create", "uv-cache"]
@@ -962,7 +922,7 @@ def test_container_ensure_volumes_and_failure() -> None:
 
 def test_container_ensure_volumes_tolerates_existing_volume() -> None:
     """
-    @brief   podman errors when a cache volume already exists (docker is
+    podman errors when a cache volume already exists (docker is
              silent); an existing volume is the success case, so that error
              is swallowed while an unrelated failure still raises.
     """
@@ -979,7 +939,7 @@ def test_container_ensure_volumes_tolerates_existing_volume() -> None:
 
 def test_container_exec_returns_result_as_data() -> None:
     """
-    @brief   exec passes the exit code through as data - a failing gate
+    exec passes the exit code through as data - a failing gate
              command is a conductor signal, not an isolation error.
     """
     runner = FakeRunner(_fail("gate failed", exit_code=3))
@@ -991,7 +951,7 @@ def test_container_exec_returns_result_as_data() -> None:
 
 def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
     """
-    @brief   Exec-time env mirrors provision: PI_CODING_AGENT_DIR is inline so Podman
+    Exec-time env mirrors provision: PI_CODING_AGENT_DIR is inline so Podman
              exec sees it; secret values stay out of argv.
     """
     runner = FakeRunner(_ok())
@@ -1016,7 +976,7 @@ def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
 
 def test_container_spawn_attaches_stdin_with_the_exec_env_contract() -> None:
     """
-    @brief   spawn starts `exec -i` with live pipes and exec's env handling:
+    spawn starts `exec -i` with live pipes and exec's env handling:
              Pi isolation values inline, secret values only in the process env.
     """
     started = {}
@@ -1044,7 +1004,7 @@ def test_container_spawn_attaches_stdin_with_the_exec_env_contract() -> None:
 
 def test_container_verify_required_tools_execs_checks() -> None:
     """
-    @brief   Required project-image tool checks are parsed without a shell and
+    Required project-image tool checks are parsed without a shell and
              executed inside the container with the provision env.
     """
     runner = FakeRunner(_ok(), _ok())
@@ -1062,8 +1022,8 @@ def test_container_verify_required_tools_execs_checks() -> None:
 
 def test_container_exec_is_never_unbounded() -> None:
     """
-    @brief   The container exec seam always bounds the subprocess.
-    @details `run_command`'s own default applies only when the caller omits
+    The container exec seam always bounds the subprocess.
+    `run_command`'s own default applies only when the caller omits
              the keyword, so forwarding `timeout=None` would reach
              `subprocess.run(timeout=None)` and hang the single-threaded poll
              loop forever. Every container command the orchestrator issues -
@@ -1092,7 +1052,7 @@ def test_container_exec_is_never_unbounded() -> None:
 
 def test_container_verify_required_tools_fails_closed() -> None:
     """
-    @brief   Malformed checks and non-zero exits raise IsolationError with
+    Malformed checks and non-zero exits raise IsolationError with
              command context.
     """
     with pytest.raises(IsolationError):
@@ -1109,7 +1069,7 @@ def test_worktree_relative_root_resolves_against_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    @brief   A relative worktrees root becomes absolute at construction:
+    A relative worktrees root becomes absolute at construction:
              `git -C <repo>` resolves relative paths against the REPO, which
              scattered worktrees into the target repository (pilot finding
              2026-07-03).
@@ -1129,7 +1089,7 @@ def test_worktree_relative_root_resolves_against_cwd(
     "ProgramData/Microsoft/Windows/Caches/\u00e9 space.db\0",
 ])
 def test_checkpoint_rejects_suspicious_new_path(tmp_path: Path, listing: str) -> None:
-    """@brief Suspicious untracked paths stop before staging and identify the path."""
+    """Suspicious untracked paths stop before staging and identify the path."""
     runner = FakeRunner(_ok("?? file\0"), _ok(listing), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(IsolationError, match="suspicious") as error:
@@ -1139,7 +1099,7 @@ def test_checkpoint_rejects_suspicious_new_path(tmp_path: Path, listing: str) ->
 
 
 def test_checkpoint_rejects_staged_suspicious_path(tmp_path: Path) -> None:
-    """@brief Already staged additions are inspected before checkpointing."""
+    """Already staged additions are inspected before checkpointing."""
     runner = FakeRunner(_ok("A  file\0"), _ok(), _ok("%TEMP%/file\0"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(IsolationError, match="suspicious"):
@@ -1149,7 +1109,7 @@ def test_checkpoint_rejects_staged_suspicious_path(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("listing", ["unterminated", "../escape\0", "a\0\0"])
 def test_checkpoint_rejects_invalid_git_path_evidence(tmp_path: Path, listing: str) -> None:
-    """@brief Malformed Git evidence fails closed before staging."""
+    """Malformed Git evidence fails closed before staging."""
     runner = FakeRunner(_ok("?? file\0"), _ok(listing), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(IsolationError, match="invalid"):
@@ -1157,9 +1117,8 @@ def test_checkpoint_rejects_invalid_git_path_evidence(tmp_path: Path, listing: s
     assert all("add" not in call and "commit" not in call for call in runner.calls)
 
 
-
 def test_checkpoint_accepts_ordinary_names(tmp_path: Path) -> None:
-    """@brief Names with spaces, Unicode, percent signs and ordinary caches remain eligible."""
+    """Names with spaces, Unicode, percent signs and ordinary caches remain eligible."""
     runner = FakeRunner(_ok("?? file\0"), _ok("docs/100% done/é.txt\0.cache/data\0"),
                         _ok(), _ok(), _ok(), _ok("A  file\0"), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
@@ -1170,20 +1129,18 @@ def test_checkpoint_accepts_ordinary_names(tmp_path: Path) -> None:
     ]
 
 
-
 def test_checkpoint_accepts_tracked_type_change(tmp_path: Path) -> None:
-    """@brief A valid Git type-change status remains checkpointable."""
+    """A valid Git type-change status remains checkpointable."""
     runner = FakeRunner(_ok(" T file\0"), _ok(), _ok(), _ok(), _ok(),
                         _ok("T  file\0"), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     assert manager.commit_all_if_dirty("run-1", "checkpoint")
 
 
-
 @pytest.mark.parametrize("status", ["?? new/nested.txt\0", "AA conflict\0",
                                     " R new\0old\0"])
 def test_checkpoint_accepts_other_valid_statuses(tmp_path: Path, status: str) -> None:
-    """@brief Nested untracked, conflict and rename statuses follow normal Git behavior."""
+    """Nested untracked, conflict and rename statuses follow normal Git behavior."""
     runner = FakeRunner(_ok(status), _ok(), _ok(), _ok(), _ok(),
                         _ok("M  file\0"), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
@@ -1191,9 +1148,8 @@ def test_checkpoint_accepts_other_valid_statuses(tmp_path: Path, status: str) ->
     assert "--untracked-files=all" in runner.calls[0]
 
 
-
 def test_checkpoint_accepts_untracked_embedded_repository(tmp_path: Path) -> None:
-    """@brief Git can list an embedded repository with a trailing slash."""
+    """Git can list an embedded repository with a trailing slash."""
     runner = FakeRunner(_ok("?? nested/\0"), _ok("nested/\0"), _ok(),
                         _ok(), _ok("nested\0"), _ok("A  nested\0"), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
@@ -1201,13 +1157,12 @@ def test_checkpoint_accepts_untracked_embedded_repository(tmp_path: Path) -> Non
 
 
 def test_checkpoint_git_listing_failure_stops(tmp_path: Path) -> None:
-    """@brief Git failure is distinct from a suspicious path and prevents commit."""
+    """Git failure is distinct from a suspicious path and prevents commit."""
     runner = FakeRunner(_ok("?? file\0"), _ok(), _fail("broken index"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(IsolationError, match="git diff failed"):
         manager.commit_all_if_dirty("run-1", "checkpoint")
     assert all("add" not in call and "commit" not in call for call in runner.calls)
-
 
 
 @pytest.mark.parametrize("result", [CommandResult(exit_code=False),
@@ -1218,7 +1173,7 @@ def test_checkpoint_git_listing_failure_stops(tmp_path: Path) -> None:
                                     _ok("TU file\0"),
                                     _ok("R  dest\0../source\0")])
 def test_checkpoint_rejects_invalid_status(tmp_path: Path, result: CommandResult) -> None:
-    """@brief Bad status evidence cannot produce a clean checkpoint."""
+    """Bad status evidence cannot produce a clean checkpoint."""
     runner = FakeRunner(result)
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(IsolationError):
@@ -1227,7 +1182,7 @@ def test_checkpoint_rejects_invalid_status(tmp_path: Path, result: CommandResult
 
 
 def test_checkpoint_rechecks_additions_before_commit(tmp_path: Path) -> None:
-    """@brief A suspicious addition discovered after staging stops the commit."""
+    """A suspicious addition discovered after staging stops the commit."""
     runner = FakeRunner(_ok("?? file\0"), _ok(), _ok(), _ok(),
                         _ok("%TEMP%/new\0"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
@@ -1236,9 +1191,8 @@ def test_checkpoint_rechecks_additions_before_commit(tmp_path: Path) -> None:
     assert all("commit" not in call for call in runner.calls)
 
 
-
 def test_checkpoint_corrupt_evidence_takes_priority_over_suspicion(tmp_path: Path) -> None:
-    """@brief Partial evidence is reported as invalid rather than as a path finding."""
+    """Partial evidence is reported as invalid rather than as a path finding."""
     runner = FakeRunner(_ok("?? file\0"), _ok("%TEMP%/file\0"), _ok("partial"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     with pytest.raises(IsolationError, match="invalid"):
@@ -1247,7 +1201,7 @@ def test_checkpoint_corrupt_evidence_takes_priority_over_suspicion(tmp_path: Pat
 
 @pytest.mark.parametrize("index", [3, 6])
 def test_checkpoint_rejects_corrupt_mutation_exit(tmp_path: Path, index: int) -> None:
-    """@brief Invalid add and commit exit evidence fails closed."""
+    """Invalid add and commit exit evidence fails closed."""
     results = [_ok("?? file\0"), _ok(), _ok(), _ok(), _ok(),
                _ok("A  file\0"), _ok()]
     results[index] = CommandResult(exit_code=False)
@@ -1259,7 +1213,7 @@ def test_checkpoint_rejects_corrupt_mutation_exit(tmp_path: Path, index: int) ->
 
 @pytest.mark.parametrize("operation", ["commit", "merge", "conflict"])
 def test_checkpoint_commit_uses_configured_git_identity(tmp_path: Path, operation: str) -> None:
-    """@brief Checkpoints and target merges use the same configured bot identity."""
+    """Checkpoints and target merges use the same configured bot identity."""
     if operation == "commit":
         results = [_ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"), _ok()]
     elif operation == "conflict":
@@ -1290,7 +1244,7 @@ def test_checkpoint_commit_uses_configured_git_identity(tmp_path: Path, operatio
 
 @pytest.mark.parametrize("operation", ["commit", "merge", "merge-timeout", "merge-evidence"])
 def test_checkpoint_commit_reports_git_failure(tmp_path: Path, operation: str) -> None:
-    """@brief Git infrastructure failures and invalid conflict evidence fail closed."""
+    """Git infrastructure failures and invalid conflict evidence fail closed."""
     results = [
         _ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"),
         _fail("commit rejected"),
@@ -1315,7 +1269,7 @@ def test_container_mount_sources_are_always_absolute(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    @brief   Relative mount sources are resolved before hitting docker - a
+    Relative mount sources are resolved before hitting docker - a
              bare relative source would be read as a NAMED VOLUME and mount
              an empty volume over the worktree.
     """
@@ -1333,9 +1287,9 @@ def test_container_mount_sources_are_always_absolute(
 
 def _wsl_manager(runner: FakeRunner) -> ContainerManager:
     """
-    @brief      A ContainerManager driving Docker Engine inside WSL2.
-    @param[in]  runner The fake runner.
-    @return     The manager with a wrapped runtime command.
+    A ContainerManager driving Docker Engine inside WSL2.
+    runner: The fake runner.
+    Returns: The manager with a wrapped runtime command.
     """
     return ContainerManager(
         "wsl -d Ubuntu-24.04 -- docker",
@@ -1348,7 +1302,7 @@ def _wsl_manager(runner: FakeRunner) -> ContainerManager:
 
 def test_wsl_mount_path_translates_drive_letters() -> None:
     """
-    @brief   Windows paths become /mnt/<drive>/ paths; POSIX paths pass
+    Windows paths become /mnt/<drive>/ paths; POSIX paths pass
              through unchanged.
     """
     assert wsl_mount_path(r"D:\TEMP\adore\worktrees\run-1") == "/mnt/d/TEMP/adore/worktrees/run-1"
@@ -1357,9 +1311,7 @@ def test_wsl_mount_path_translates_drive_letters() -> None:
 
 
 def test_wsl_runtime_prefixes_every_command() -> None:
-    """
-    @brief   A wrapped runtime string is split and prefixed onto the argv.
-    """
+    """A wrapped runtime string is split and prefixed onto the argv."""
     runner = FakeRunner(_ok("running\n"))
     manager = _wsl_manager(runner)
     assert manager.wsl_mode is True
@@ -1370,7 +1322,7 @@ def test_wsl_runtime_prefixes_every_command() -> None:
 
 def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None:
     """
-    @brief   In WSL mode mount sources are /mnt/<drive>/ paths; safe runtime
+    In WSL mode mount sources are /mnt/<drive>/ paths; safe runtime
              env values are inline, while secret env values cross via WSLENV.
     """
     runner = FakeRunner(_fail("No such container"), _ok("cid"),
@@ -1402,7 +1354,7 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
 
 def test_wsl_allowlist_proxy_prefixes_network_commands(tmp_path: Path) -> None:
     """
-    @brief   WSL-wrapped runtimes prefix proxy network/create/connect and
+    WSL-wrapped runtimes prefix proxy network/create/connect and
              executor run commands consistently.
     """
     runner = FakeRunner(
@@ -1430,9 +1382,7 @@ def test_wsl_allowlist_proxy_prefixes_network_commands(tmp_path: Path) -> None:
 
 
 def test_plain_docker_runtime_does_not_set_wslenv(tmp_path: Path) -> None:
-    """
-    @brief   Outside WSL mode, WSLENV is left exactly as the host had it.
-    """
+    """Outside WSL mode, WSLENV is left exactly as the host had it."""
     runner = FakeRunner(_fail("No such container"), _ok("cid"))
     _manager(runner).provision("c", tmp_path, tmp_path, tmp_path / "io", {"K": "v"})
     process_env = runner.envs[1]
@@ -1440,12 +1390,8 @@ def test_plain_docker_runtime_does_not_set_wslenv(tmp_path: Path) -> None:
     assert process_env.get("WSLENV", "") == os.environ.get("WSLENV", "")
 
 
-# END OF FILE
-
-
-
 def test_worktree_progress_observes_content_and_excludes_bookkeeping(tmp_path):
-    """@brief Arbitrary tracked/untracked bytes count, without text loss or a diff-size cutoff."""
+    """Arbitrary tracked/untracked bytes count, without text loss or a diff-size cutoff."""
     raw = b"diff-\xef\xbf\xbd\xff\x00\r\n" + b"x" * 4_000_000
     changed = raw.replace(b"\xff", b"\xfe")
     assert raw.decode("utf-8", "replace") == changed.decode("utf-8", "replace")
@@ -1472,7 +1418,7 @@ def test_worktree_progress_observes_content_and_excludes_bookkeeping(tmp_path):
 
 @pytest.mark.parametrize("name", ["../secret", "/absolute", "C:/outside", "missing", "dir/file"])
 def test_worktree_progress_refuses_unsafe_or_unreadable_paths(tmp_path, name):
-    """@brief Git-supplied paths cannot escape or silently ignore missing content."""
+    """Git-supplied paths cannot escape or silently ignore missing content."""
     runner = FakeRunner(_ok(), _ok(name + "\0"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     manager.path_for("run-1").mkdir(parents=True)
@@ -1485,16 +1431,15 @@ def test_worktree_progress_refuses_unsafe_or_unreadable_paths(tmp_path, name):
     (CommandResult(raw_stdout="not bytes"), "invalid Git progress evidence"),
 ])
 def test_worktree_progress_refuses_git_failure(tmp_path, result, message):
-    """@brief Failed commands and malformed byte captures cannot become empty progress."""
+    """Failed commands and malformed byte captures cannot become empty progress."""
     runner = FakeRunner(result)
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     with pytest.raises(IsolationError, match=message):
         manager.worktree_progress_fingerprint("run-1")
 
 
-
 def test_worktree_progress_hashes_links_without_following_and_rejects_link_parents(tmp_path):
-    """@brief A link target counts without external reads; linked directories are refused."""
+    """A link target counts without external reads; linked directories are refused."""
     runner = FakeRunner(_ok(), _ok("link\0"), _ok(), _ok("link\0"),
                         _ok(), _ok("directory/secret\0"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
@@ -1518,10 +1463,11 @@ def test_worktree_progress_hashes_links_without_following_and_rejects_link_paren
 
 
 def _exchange_symlink(source: Path, target: Path, *, directory: bool = False) -> None:
-    """@brief Create a boundary-test link, skipping only Windows privilege refusal.
-    @param[in] source Link path inside the fake owned worktree.
-    @param[in] target External target which must remain untouched.
-    @param[in] directory Whether the target is a directory.
+    """
+    Create a boundary-test link, skipping only Windows privilege refusal.
+    source: Link path inside the fake owned worktree.
+    target: External target which must remain untouched.
+    directory: Whether the target is a directory.
     """
     try:
         source.symlink_to(target, target_is_directory=directory)
@@ -1533,14 +1479,14 @@ def _exchange_symlink(source: Path, target: Path, *, directory: bool = False) ->
 
 @pytest.mark.parametrize("tracked", [False, True])
 def test_progress_excludes_literal_exchange_paths(tmp_path: Path, tracked: bool) -> None:
-    """@brief Exchange edits are invisible but product edits still change progress."""
+    """Exchange edits are invisible but product edits still change progress."""
     excluded = ("ADORE_SUMMARY.md", "notes/questions[1].md")
     expected = {f":(top,literal,exclude){name}" for name in excluded}
     calls = []
     product_diff = "one"
 
     def runner(argv, **kwargs):
-        """@brief Model filtered Git output and require literal exclusions on both lists."""
+        """Model filtered Git output and require literal exclusions on both lists."""
         calls.append(argv)
         if "ls-tree" in argv:
             return _ok()
@@ -1574,7 +1520,7 @@ def test_progress_excludes_literal_exchange_paths(tmp_path: Path, tracked: bool)
 @pytest.mark.parametrize("path", ["", ".", "../escape", "/absolute", "C:/outside",
                                    "a/../b", "a//b", "a\\b", ".git/config", "bad\0name", None])
 def test_exchange_exclusions_refuse_unsafe_paths(tmp_path: Path, method: str, path: str) -> None:
-    """@brief Exclusion inputs cannot escape the worktree or hide its Git administration."""
+    """Exclusion inputs cannot escape the worktree or hide its Git administration."""
     runner = FakeRunner()
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     with pytest.raises(IsolationError, match="exchange path"):
@@ -1588,7 +1534,7 @@ def test_exchange_exclusions_refuse_unsafe_paths(tmp_path: Path, method: str, pa
 @pytest.mark.parametrize("method", ["progress", "checkpoint"])
 @pytest.mark.parametrize("entry", ["ADORE_SUMMARY.md\0", "ADORE_SUMMARY.md/child\0"])
 def test_exchange_paths_refuse_source_collisions(tmp_path: Path, method: str, entry: str) -> None:
-    """@brief Existing source at an exchange path cannot be hidden or overwritten."""
+    """Existing source at an exchange path cannot be hidden or overwritten."""
     runner = FakeRunner(_ok(entry))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     manager.path_for("run-1").mkdir(parents=True)
@@ -1603,7 +1549,7 @@ def test_exchange_paths_refuse_source_collisions(tmp_path: Path, method: str, en
 
 @pytest.mark.parametrize("observed", ["incomplete", "\0", "../escape\0"])
 def test_exchange_paths_refuse_corrupt_collision_evidence(tmp_path: Path, observed: str) -> None:
-    """@brief Untrusted Git collision checks never silently enable an exclusion."""
+    """Untrusted Git collision checks never silently enable an exclusion."""
     runner = FakeRunner(_ok(observed))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     manager.path_for("run-1").mkdir(parents=True)
@@ -1612,7 +1558,7 @@ def test_exchange_paths_refuse_corrupt_collision_evidence(tmp_path: Path, observ
 
 
 def test_checkpoint_unstages_and_excludes_exchange_files(tmp_path: Path) -> None:
-    """@brief Already-staged exchange additions are restored before literal staging."""
+    """Already-staged exchange additions are restored before literal staging."""
     excluded = ("ADORE_SUMMARY.md", "notes/questions[1].md")
     runner = FakeRunner(
         _ok(),  # No source-owned exchange paths in HEAD.
@@ -1640,7 +1586,7 @@ def test_checkpoint_unstages_and_excludes_exchange_files(tmp_path: Path) -> None
 @pytest.mark.parametrize("staged", ["ADORE_SUMMARY.md\0", "notes/questions[1].md\0",
                                     "ADORE_SUMMARY.md/child\0", "incomplete", "../escape\0"])
 def test_checkpoint_rechecks_all_staged_exchange_paths(tmp_path: Path, staged: str) -> None:
-    """@brief A staged modification/deletion or race at an exchange path prevents commit."""
+    """A staged modification/deletion or race at an exchange path prevents commit."""
     runner = FakeRunner(_ok(), _ok(), _ok(" M source.py\0"), _ok(), _ok(),
                         _ok(), _ok(), _ok(staged), _ok("M  source.py\0"), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
@@ -1652,7 +1598,7 @@ def test_checkpoint_rechecks_all_staged_exchange_paths(tmp_path: Path, staged: s
 
 
 def test_checkpoint_exchange_only_is_noop(tmp_path: Path) -> None:
-    """@brief An untracked exchange file alone never authorizes an empty commit."""
+    """An untracked exchange file alone never authorizes an empty commit."""
     runner = FakeRunner(_ok(), _ok(), _ok("?? ADORE_SUMMARY.md\0"))
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     manager.path_for("run-1").mkdir(parents=True)
@@ -1664,7 +1610,7 @@ def test_checkpoint_exchange_only_is_noop(tmp_path: Path) -> None:
 @pytest.mark.parametrize("result", [_fail("cannot unstage"), CommandResult(exit_code=False),
                                     CommandResult(exit_code=0, timed_out=True)])
 def test_checkpoint_exchange_unstage_failure_stops(tmp_path: Path, result: CommandResult) -> None:
-    """@brief Failed or untrustworthy index restoration cannot reach staging or commit."""
+    """Failed or untrustworthy index restoration cannot reach staging or commit."""
     runner = FakeRunner(_ok(), result)
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     manager.path_for("run-1").mkdir(parents=True)
@@ -1680,7 +1626,7 @@ def test_checkpoint_exchange_unstage_failure_stops(tmp_path: Path, result: Comma
                                   "é" * 9000 + "\nlast checks\n"],
                          ids=["empty", "unicode", "bounded-tail"])
 def test_summary_read_then_owned_removal(tmp_path: Path, text: str) -> None:
-    """@brief Bounded UTF-8 evidence is read without mutation, then removed explicitly."""
+    """Bounded UTF-8 evidence is read without mutation, then removed explicitly."""
     runner = FakeRunner(_ok(), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     wt = manager.path_for("run-1")
@@ -1697,7 +1643,7 @@ def test_summary_read_then_owned_removal(tmp_path: Path, text: str) -> None:
 
 @pytest.mark.parametrize("changed", [False, True])
 def test_summary_compares_change_times_within_each_metadata_api(tmp_path, monkeypatch, changed):
-    """@brief Different path/descriptor clocks are valid; a changed open file is refused."""
+    """Different path/descriptor clocks are valid; a changed open file is refused."""
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok(), _ok()))
     source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
     source.parent.mkdir(parents=True)
@@ -1706,7 +1652,7 @@ def test_summary_compares_change_times_within_each_metadata_api(tmp_path, monkey
     calls = 0
 
     def descriptor_stat(fd):
-        """@brief Model Windows metadata clocks without changing any file contents."""
+        """Model Windows metadata clocks without changing any file contents."""
         nonlocal calls
         calls += 1
         info = original(fd)
@@ -1728,7 +1674,7 @@ def test_summary_compares_change_times_within_each_metadata_api(tmp_path, monkey
 
 
 def test_summary_absence_is_not_an_error(tmp_path: Path) -> None:
-    """@brief Missing requested output is allowed, never invented or created."""
+    """Missing requested output is allowed, never invented or created."""
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok()))
     manager.path_for("run-1").mkdir(parents=True)
     assert manager.read_summary("run-1", max_chars=6000) is None
@@ -1737,7 +1683,7 @@ def test_summary_absence_is_not_an_error(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("kind", ["invalid-utf8", "directory", "symlink", "hardlink"])
 def test_summary_refuses_unsafe_artifact(tmp_path: Path, kind: str) -> None:
-    """@brief Corrupt, linked and non-file executor output fails closed without deletion."""
+    """Corrupt, linked and non-file executor output fails closed without deletion."""
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok()))
     wt = manager.path_for("run-1")
     wt.mkdir(parents=True)
@@ -1762,7 +1708,7 @@ def test_summary_refuses_unsafe_artifact(tmp_path: Path, kind: str) -> None:
 @pytest.mark.parametrize("operation", ["read", "remove"])
 def test_summary_io_failure_is_typed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                      operation: str) -> None:
-    """@brief Read/unlink errors preserve the artifact and the previously captured text."""
+    """Read/unlink errors preserve the artifact and the previously captured text."""
     runner = FakeRunner(_ok(), _ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
@@ -1770,13 +1716,13 @@ def test_summary_io_failure_is_typed(tmp_path: Path, monkeypatch: pytest.MonkeyP
     source.write_text("kept evidence", encoding="utf-8")
 
     def denied(*args, **kwargs):
-        """@brief Inject a permission boundary rather than depend on the test account UID."""
+        """Inject a permission boundary rather than depend on the test account UID."""
         raise PermissionError("denied summary")
 
     if operation == "read":
         original_open = os.open
         def deny_summary(path, *args, **kwargs):
-            """@brief Inject permission denial only at the summary read boundary."""
+            """Inject permission denial only at the summary read boundary."""
             if Path(path) == source:
                 return denied()
             return original_open(path, *args, **kwargs)
@@ -1794,7 +1740,7 @@ def test_summary_io_failure_is_typed(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
 @pytest.mark.parametrize("mutation", ["replace", "edit", "missing", "symlink"])
 def test_summary_removal_rejects_changed_identity(tmp_path: Path, mutation: str) -> None:
-    """@brief A stale read cannot authorize deletion of a new or changed artifact."""
+    """A stale read cannot authorize deletion of a new or changed artifact."""
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok(), _ok()))
     source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
     source.parent.mkdir(parents=True)
@@ -1818,7 +1764,7 @@ def test_summary_removal_rejects_changed_identity(tmp_path: Path, mutation: str)
 
 
 def test_summary_refuses_a_linked_worktree(tmp_path: Path) -> None:
-    """@brief Even a missing summary behind an aliased root is not safe absence."""
+    """Even a missing summary behind an aliased root is not safe absence."""
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner())
     manager.root.mkdir(parents=True)
     outside = tmp_path / "outside"
@@ -1831,7 +1777,7 @@ def test_summary_refuses_a_linked_worktree(tmp_path: Path) -> None:
 
 
 def test_summary_source_owned_collision_is_not_consumed(tmp_path: Path) -> None:
-    """@brief A repository's existing summary-named source is never agent output."""
+    """A repository's existing summary-named source is never agent output."""
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work",
                               runner=FakeRunner(_ok("ADORE_SUMMARY.md\0")))
     source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
@@ -1844,7 +1790,7 @@ def test_summary_source_owned_collision_is_not_consumed(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("bound", [0, -1, True, None, "6000"])
 def test_summary_refuses_invalid_evidence_bound(tmp_path: Path, bound: object) -> None:
-    """@brief A malformed retention bound never reads or removes executor output."""
+    """A malformed retention bound never reads or removes executor output."""
     runner = FakeRunner()
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     with pytest.raises(IsolationError, match="summary evidence bound"):
@@ -1853,7 +1799,7 @@ def test_summary_refuses_invalid_evidence_bound(tmp_path: Path, bound: object) -
 
 
 def test_summary_removal_refuses_wrong_worktree(tmp_path: Path) -> None:
-    """@brief Text read from one run does not authorize deleting another run's summary."""
+    """Text read from one run does not authorize deleting another run's summary."""
     runner = FakeRunner(_ok())
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     for run_id in ("run-1", "run-2"):
@@ -1871,7 +1817,7 @@ def test_summary_removal_refuses_wrong_worktree(tmp_path: Path) -> None:
 def test_summary_refuses_mutation_during_observation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str,
 ) -> None:
-    """@brief Pre-read replacement and mid-read edits cannot yield a valid summary receipt."""
+    """Pre-read replacement and mid-read edits cannot yield a valid summary receipt."""
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok()))
     source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
     source.parent.mkdir(parents=True)
@@ -1880,7 +1826,7 @@ def test_summary_refuses_mutation_during_observation(
         original_open = os.open
 
         def replace_at_open(path, flags, *args, **kwargs):
-            """@brief Swap the summary only after its own first path check."""
+            """Swap the summary only after its own first path check."""
             if Path(path) != source:
                 return original_open(path, flags, *args, **kwargs)
             replacement = source.with_suffix(".new")
@@ -1894,7 +1840,7 @@ def test_summary_refuses_mutation_during_observation(
         checks = 0
 
         def mutate_after_precheck(fd):
-            """@brief Change the same inode while the summary stream is being consumed."""
+            """Change the same inode while the summary stream is being consumed."""
             nonlocal checks
             info = original_fstat(fd)
             checks += 1
@@ -1910,7 +1856,7 @@ def test_summary_refuses_mutation_during_observation(
 
 @pytest.mark.parametrize("method", ["progress", "checkpoint"])
 def test_exchange_refuses_linked_question_parent(tmp_path: Path, method: str) -> None:
-    """@brief A configured nested questions path cannot enter an external linked directory."""
+    """A configured nested questions path cannot enter an external linked directory."""
     runner = FakeRunner()
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     wt = manager.path_for("run-1")
@@ -1936,7 +1882,7 @@ def test_exchange_refuses_linked_question_parent(tmp_path: Path, method: str) ->
 @pytest.mark.parametrize("index", [0, 1, 2])
 def test_direct_progress_refuses_untrusted_git_results(tmp_path: Path, result: CommandResult,
                                                       index: int) -> None:
-    """@brief Neither collision lists, binary diffs nor untracked lists may be corrupt."""
+    """Neither collision lists, binary diffs nor untracked lists may be corrupt."""
     results = [_ok(), _ok(), _ok()]
     results[index] = result
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(*results))

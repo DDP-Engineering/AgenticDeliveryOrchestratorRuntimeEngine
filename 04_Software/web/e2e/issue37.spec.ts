@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { test, expect } from "@playwright/test";
 
 // afterEach owns a separate teardown budget even if a scenario exhausts its body timeout.
@@ -37,7 +31,7 @@ test("monitoring and responsive epic tickets in four languages", async ({ page, 
   await expect(page.getByRole("button", {name: "Activate monitoring", exact: true})).toBeVisible();
   await page.route("**/api/v1/projects/*/tickets", async route => {
     const response = await route.fetch(); const body = await response.json();
-    body.tickets[0] = {...body.tickets[0], labels: ["epic"], startable: false, reason: "epic", can_start: false, blocked_by: "epic", adds_ready_label: false, needs_priority: false};
+    body.tickets[0] = {...body.tickets[0], job: null, labels: ["epic"], startable: false, reason: "epic", can_start: false, blocked_by: "epic", adds_ready_label: false, needs_priority: false};
     await route.fulfill({response, json: body});
   });
   for (const [locale, read, details] of [["en","Read tickets","Details"],["fr","Lire les tickets","Détails"],["de","Tickets lesen","Details"],["ro","Citește tichetele","Detalii"]]) {
@@ -48,7 +42,8 @@ test("monitoring and responsive epic tickets in four languages", async ({ page, 
       await page.setViewportSize({width, height: 900});
       await page.goto(`/projects/${alpha}/tickets`);
       await page.getByRole("button", {name: read, exact:true}).click();
-      const row = page.locator(".ticket-row").first();
+      await expect(page.getByRole("button", {name: read, exact:true})).toBeEnabled();
+      const row = page.locator(".ticket-row").filter({ has: page.locator(".ticket-label").filter({ hasText: /^epic$/ }) });
       await expect(row.locator("button").first()).toBeDisabled();
       const detail = row.getByRole("button", {name:details, exact:true});
       await detail.scrollIntoViewIfNeeded(); await detail.click();

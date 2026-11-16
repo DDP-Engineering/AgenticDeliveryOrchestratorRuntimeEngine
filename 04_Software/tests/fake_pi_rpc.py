@@ -1,29 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file fake_pi_rpc.py
-@brief Fake `pi --mode rpc` process that replays recorded spike fixtures.
-@details Run as a child process by the tests (stdlib only). Each fixture line is
-         an envelope `{"t_ms", "dir", "record"}` written by the PI-01 probe. The
-         fake answers every stdin command with the recorded output that
-         followed the same command type in the fixture, so the client decides
-         when to send `abort`. Response ids are rewritten to the client's ids.
-         Options inject the failure modes the recordings do not contain.
-         `<NONCE>` and `<TOOL_NONCE>` in a recording (the Test AI connection
-         challenge) are replaced by the nonces of the prompt actually sent.
-@example python fake_pi_rpc.py fixture.jsonl --record commands.log --hang
-"""
+"""Fake `pi --mode rpc` process that replays recorded spike fixtures."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 import json
 from pathlib import Path
@@ -32,14 +10,13 @@ import sys
 import time
 from uuid import uuid4
 
-# CONSTANTS
 #: Placeholder -> value, filled from the prompt the client sent.
 NONCES: dict[str, str] = {}
 SESSION: list[dict] = []
 
 
 def _append(options, message: dict) -> None:
-    """@brief Simulate Pi-owned append-only session persistence without a model."""
+    """Simulate Pi-owned append-only session persistence without a model."""
     if options.session_file is None:
         return
     SESSION.append({"type": "message", "id": uuid4().hex,
@@ -48,14 +25,12 @@ def _append(options, message: dict) -> None:
     options.session_file.write_text(
         "".join(json.dumps(row) + "\n" for row in SESSION), encoding="utf-8")
 
-# HELPER FUNCTIONS
-
 
 def _segments(path: Path) -> tuple[list[dict], list[tuple[dict, list[dict]]], int]:
     """
-    @brief      Split a fixture into the output answering each stdin command.
-    @param[in]  path Fixture file.
-    @return     (leading envelopes, [(stdin record, following envelopes)], exit code).
+    Split a fixture into the output answering each stdin command.
+    path: Fixture file.
+    Returns: (leading envelopes, [(stdin record, following envelopes)], exit code).
     """
     leading: list[dict] = []
     segments: list[tuple[dict, list[dict]]] = []
@@ -73,9 +48,9 @@ def _segments(path: Path) -> tuple[list[dict], list[tuple[dict, list[dict]]], in
 
 def _write(record: object, key_hint: str) -> None:
     """
-    @brief      Write one protocol record as an LF-terminated JSON line.
-    @param[in]  record Record to write.
-    @param[in]  key_hint Replacement for the fixture's redacted key hint.
+    Write one protocol record as an LF-terminated JSON line.
+    record: Record to write.
+    key_hint: Replacement for the fixture's redacted key hint.
     """
     text = json.dumps(record, ensure_ascii=False)
     for placeholder, value in NONCES.items():
@@ -89,12 +64,12 @@ def _write(record: object, key_hint: str) -> None:
 def _emit(envelopes: list[dict], command: dict, options: argparse.Namespace,
           *, limit: int | None = None) -> int:
     """
-    @brief      Replay envelopes, rewriting response ids to the command's id.
-    @param[in]  envelopes Recorded output following the command.
-    @param[in]  command Command the client actually sent.
-    @param[in]  options Parsed fake options.
-    @param[in]  limit Maximum number of stdout records to write.
-    @return     Number of stdout records written.
+    Replay envelopes, rewriting response ids to the command's id.
+    envelopes: Recorded output following the command.
+    command: Command the client actually sent.
+    options: Parsed fake options.
+    limit: Maximum number of stdout records to write.
+    Returns: Number of stdout records written.
     """
     written = 0
     padded = False
@@ -143,13 +118,10 @@ def _emit(envelopes: list[dict], command: dict, options: argparse.Namespace,
     return written
 
 
-# PUBLIC API
-
-
 def main() -> int:
     """
-    @brief      Replay a fixture against the commands read from stdin.
-    @return     The recorded (or overridden) exit code.
+    Replay a fixture against the commands read from stdin.
+    Returns: The recorded (or overridden) exit code.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("fixture", type=Path)
@@ -244,5 +216,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# END OF FILE

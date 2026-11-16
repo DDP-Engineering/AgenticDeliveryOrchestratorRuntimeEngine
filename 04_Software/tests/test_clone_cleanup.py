@@ -1,20 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_clone_cleanup.py
-@brief Optional removal of the ADORE-made local clone when a project is deleted.
-@details A clone is removed only on request and only when it lies under
-         <ADORE home>/repos, is a clean git clone of the project's repository,
-         is not another project's clone and has no linked worktree; every
-         other case keeps it with a reason.
-"""
+"""Optional removal of the ADORE-made local clone when a project is deleted."""
 
 from __future__ import annotations
 
@@ -32,10 +16,8 @@ from adore.web.commands import CommandWorker
 from fastapi.testclient import TestClient
 import pytest
 
-# IMPORTS
 from tests.execution_records import execution_record
 
-# CONSTANTS
 CONFIG = """
 [platform]
 kind = "gitlab"
@@ -57,9 +39,8 @@ store_root = "{state}"
 """
 
 
-# LOCAL HELPERS
 def _clone(path: Path, origin: str = "ssh://git@forge.invalid/grp/proj.git") -> Path:
-    """@brief A real git repository at path with the given origin."""
+    """A real git repository at path with the given origin."""
     path.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init", "-q", str(path)], check=True)
     subprocess.run(["git", "-C", str(path), "remote", "add", "origin", origin], check=True)
@@ -69,7 +50,7 @@ def _clone(path: Path, origin: str = "ssh://git@forge.invalid/grp/proj.git") -> 
 def _profile(
     home: Path, name: str = "proj", repo_path: Path | str = "", archived: bool = False
 ) -> ProfileStore:
-    """@brief A profile whose config points at repo_path."""
+    """A profile whose config points at repo_path."""
     store = ProfileStore(home)
     cfg = store.config_path(name)
     cfg.parent.mkdir(parents=True, exist_ok=True)
@@ -110,7 +91,7 @@ def _login(client: TestClient) -> dict:
 
 
 def _purge_stub(monkeypatch: pytest.MonkeyPatch, effect=None) -> list[str]:
-    """@brief Replace the container/worktree sweep (no Docker in tests)."""
+    """Replace the container/worktree sweep (no Docker in tests)."""
     from adore.orchestrator import Orchestrator
 
     calls: list[str] = []
@@ -127,7 +108,7 @@ def _purge_stub(monkeypatch: pytest.MonkeyPatch, effect=None) -> list[str]:
 
 # TESTS
 def test_clean_clone_of_the_project_under_repos_is_removable(tmp_path):
-    """@brief The ADORE-made clone is removable; the decision names its path."""
+    """The ADORE-made clone is removable; the decision names its path."""
     home = tmp_path / "home"
     clone = _clone(home / "repos" / "proj")
     decision = _decide(_profile(home, repo_path=clone))
@@ -150,7 +131,7 @@ def test_clean_clone_of_the_project_under_repos_is_removable(tmp_path):
     ],
 )
 def test_unsafe_clones_are_kept_with_a_reason(tmp_path, case):
-    """@brief Every unsafe case keeps the clone and states why."""
+    """Every unsafe case keeps the clone and states why."""
     home = tmp_path / "home"
     clone = home / "repos" / "proj"
     expected = {
@@ -189,7 +170,7 @@ def test_unsafe_clones_are_kept_with_a_reason(tmp_path, case):
 
 
 def test_symlinked_clone_counts_as_outside(tmp_path):
-    """@brief A clone path reached through a symlink is never removed."""
+    """A clone path reached through a symlink is never removed."""
     home = tmp_path / "home"
     real = _clone(tmp_path / "real" / "proj")
     (home / "repos").mkdir(parents=True)
@@ -203,7 +184,7 @@ def test_symlinked_clone_counts_as_outside(tmp_path):
 
 
 def test_clone_below_a_symlinked_folder_counts_as_outside(tmp_path):
-    """@brief A symlinked folder inside repos also blocks removal, even pointing inside repos."""
+    """A symlinked folder inside repos also blocks removal, even pointing inside repos."""
     home = tmp_path / "home"
     _clone(home / "repos" / "real" / "proj")
     group = home / "repos" / "group"
@@ -216,7 +197,7 @@ def test_clone_below_a_symlinked_folder_counts_as_outside(tmp_path):
 
 
 def test_delete_preview_reports_the_clone_for_administrators(tmp_path):
-    """@brief The dialog reads the clone decision; handed-off worktrees keep the clone."""
+    """The dialog reads the clone decision; handed-off worktrees keep the clone."""
     home = tmp_path / "home"
     clone = _clone(home / "repos" / "proj")
     store = _profile(home, repo_path=clone, archived=True)
@@ -250,7 +231,7 @@ def test_delete_preview_reports_the_clone_for_administrators(tmp_path):
 
 
 def test_delete_with_clone_removal_is_rechecked_and_passed_to_the_worker(tmp_path):
-    """@brief An unsafe request is refused; a safe one queues `--remove-clone`."""
+    """An unsafe request is refused; a safe one queues `--remove-clone`."""
     home = tmp_path / "home"
     clone = _clone(home / "repos" / "proj")
     store = _profile(home, repo_path=clone, archived=True)
@@ -296,7 +277,7 @@ def test_delete_with_clone_removal_is_rechecked_and_passed_to_the_worker(tmp_pat
 
 
 def test_cli_removes_the_clone_after_the_profile(tmp_path, monkeypatch, capsys):
-    """@brief `--remove-clone` deletes the profile, then the clone, and reports it."""
+    """`--remove-clone` deletes the profile, then the clone, and reports it."""
     home = tmp_path / "home"
     monkeypatch.setenv("ADORE_HOME", str(home))
     clone = _clone(home / "repos" / "proj")
@@ -312,7 +293,7 @@ def test_cli_removes_the_clone_after_the_profile(tmp_path, monkeypatch, capsys):
 
 
 def test_cli_without_the_option_keeps_the_clone(tmp_path, monkeypatch, capsys):
-    """@brief Without the choice the clone stays."""
+    """Without the choice the clone stays."""
     home = tmp_path / "home"
     monkeypatch.setenv("ADORE_HOME", str(home))
     clone = _clone(home / "repos" / "proj")
@@ -324,7 +305,7 @@ def test_cli_without_the_option_keeps_the_clone(tmp_path, monkeypatch, capsys):
 
 
 def test_cli_refuses_an_unsafe_clone_before_deleting_anything(tmp_path, monkeypatch, capsys):
-    """@brief A clone that is not removable stops the delete before any resource goes."""
+    """A clone that is not removable stops the delete before any resource goes."""
     home = tmp_path / "home"
     monkeypatch.setenv("ADORE_HOME", str(home))
     clone = _clone(home / "repos" / "proj", "ssh://git@forge.invalid/grp/other.git")
@@ -341,7 +322,7 @@ def test_cli_refuses_an_unsafe_clone_before_deleting_anything(tmp_path, monkeypa
 
 
 def test_cli_keeps_a_clone_that_became_unsafe_during_purge(tmp_path, monkeypatch, capsys):
-    """@brief A worktree still linked after purge keeps the clone; the profile still goes."""
+    """A worktree still linked after purge keeps the clone; the profile still goes."""
     home = tmp_path / "home"
     monkeypatch.setenv("ADORE_HOME", str(home))
     clone = _clone(home / "repos" / "proj")
@@ -365,11 +346,8 @@ def test_cli_keeps_a_clone_that_became_unsafe_during_purge(tmp_path, monkeypatch
     assert report["clone_retained"] == {"path": str(clone.resolve()), "reason": "worktrees"}
 
 
-# END OF FILE
-
-
 def _commit(clone: Path) -> None:
-    """@brief One commit so `git worktree add` works."""
+    """One commit so `git worktree add` works."""
     (clone / "README.md").write_text("x\n", encoding="utf-8")
     git = ["git", "-C", str(clone), "-c", "user.name=t", "-c", "user.email=t@e.invalid"]
     subprocess.run([*git, "add", "README.md"], check=True)
@@ -377,7 +355,7 @@ def _commit(clone: Path) -> None:
 
 
 def test_own_failed_run_worktree_does_not_block_before_the_sweep(tmp_path):
-    """@brief ADORE's own worktrees are removed by the sweep, so the preview offers removal."""
+    """ADORE's own worktrees are removed by the sweep, so the preview offers removal."""
     from adore.clone_cleanup import project_clone_decision
     from adore.config import load_config
 
@@ -406,7 +384,7 @@ def test_own_failed_run_worktree_does_not_block_before_the_sweep(tmp_path):
 
 
 def test_failed_removal_is_reported_as_kept(tmp_path, monkeypatch, capsys):
-    """@brief A clone that is still there after removal is reported, never claimed removed."""
+    """A clone that is still there after removal is reported, never claimed removed."""
     import adore.cli as cli_module
 
     home = tmp_path / "home"
@@ -426,7 +404,7 @@ def test_failed_removal_is_reported_as_kept(tmp_path, monkeypatch, capsys):
 
 @pytest.mark.parametrize("other", ["relative", "nested-root"])
 def test_another_project_inside_or_relative_counts_as_shared(tmp_path, other):
-    """@brief Another project's relative clone path or worktrees inside the clone keep it."""
+    """Another project's relative clone path or worktrees inside the clone keep it."""
     home = tmp_path / "home"
     clone = _clone(home / "repos" / "proj")
     store = _profile(home, repo_path=clone)
@@ -442,7 +420,7 @@ def test_another_project_inside_or_relative_counts_as_shared(tmp_path, other):
 
 
 def test_malformed_input_is_kept_as_unknown(tmp_path):
-    """@brief A non-string clone path or repository never raises and never removes."""
+    """A non-string clone path or repository never raises and never removes."""
     home = tmp_path / "home"
     store = ProfileStore(home)
     assert clone_decision(store, "proj", 5, "grp/proj").reason == "unknown"  # type: ignore[arg-type]
@@ -451,7 +429,7 @@ def test_malformed_input_is_kept_as_unknown(tmp_path):
 
 
 def test_foreign_linked_worktree_blocks_before_the_sweep(tmp_path):
-    """@brief A worktree made by hand from the clone survives the sweep, so it keeps the clone."""
+    """A worktree made by hand from the clone survives the sweep, so it keeps the clone."""
     from adore.clone_cleanup import project_clone_decision
     from adore.config import load_config
 

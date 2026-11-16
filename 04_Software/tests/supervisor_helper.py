@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    supervisor_helper.py
-@brief   Offline real-process conductor helper with injected forge/Git/executor.
-@details Exercises product admission, conduction, durable ownership and locks;
-         its fake executor waits at an explicit file barrier for at most 30 s.
-"""
+"""Offline real-process conductor helper with injected forge/Git/executor."""
 
 from __future__ import annotations
 
-# IMPORTS
 from contextlib import nullcontext
 from dataclasses import replace
 import json
@@ -49,9 +34,8 @@ from tests.test_orchestrator import (
 )
 
 
-# PUBLIC API
 class OfflineAegis(FakeAegis):
-    """@brief Simulate agent-owned quick-stage journals, refusing independent checks."""
+    """Simulate agent-owned quick-stage journals, refusing independent checks."""
 
     def __init__(self, *args, branch="offline-admission"):
         stages = sequence("frame", "build", "validate", "done", path="quick")
@@ -66,14 +50,14 @@ class OfflineAegis(FakeAegis):
 
 
 def offline_engine(profiles: ProfileStore, name: str):
-    """@brief Construct real product behavior with offline external collaborators."""
+    """Construct real product behavior with offline external collaborators."""
     config = load_config(profiles.config_path(name))
     forge, trees, executor = FakeForge(), FakeWorktrees(), DirectExecutor()
     forge.ticket.labels = [config.labels.lifecycle.ready, "P1"]
     trees.repo_path = Path(config.worktree.repo_path)
 
     def path_for(run_id):
-        """@brief Give concurrent fake Git worktrees distinct real exchange directories."""
+        """Give concurrent fake Git worktrees distinct real exchange directories."""
         path = Path(config.worktree.root) / run_id
         path.mkdir(parents=True, exist_ok=True)
         if (trees.repo_path / ".agentic/aegis.py").is_file():
@@ -88,7 +72,7 @@ def offline_engine(profiles: ProfileStore, name: str):
 
 
 def main() -> int:
-    """@brief Conduct one real reserved job through a bounded observable fake executor."""
+    """Conduct one real reserved job through a bounded observable fake executor."""
     if sys.argv[1] == "command":
         return command_main()
     home, project_id, run_id, revision = sys.argv[1:]
@@ -105,7 +89,7 @@ def main() -> int:
     records.mkdir(exist_ok=True)
 
     def blocked(root):
-        """@brief Actual independently scheduled executor overlap is externally observable."""
+        """Actual independently scheduled executor overlap is externally observable."""
         marker = records / (project_id + "-" + run_id)
         marker.write_text(json.dumps({"pid": os.getpid(), "birth": process_birth(os.getpid()),
                                       "entered": time.monotonic()}), encoding="utf-8")
@@ -137,7 +121,7 @@ def main() -> int:
 
 
 def command_main() -> int:
-    """@brief Run the production transient command lifetime with a fake blocking engine."""
+    """Run the production transient command lifetime with a fake blocking engine."""
     from adore.web.commands import CommandOutcome, CommandWorker
     import adore.web.supervisor as module
 
@@ -146,7 +130,7 @@ def command_main() -> int:
     profile = profiles.find_by_id(project_id)
 
     def runner(argv, environment):
-        """@brief Block Retry until Cancel was claimed by the real watcher thread."""
+        """Block Retry until Cancel was claimed by the real watcher thread."""
         state = StateStore(profile.store_root)
         run = state.load("job-42")
         run.lifecycle = "working"
@@ -174,5 +158,3 @@ def command_main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# END OF FILE

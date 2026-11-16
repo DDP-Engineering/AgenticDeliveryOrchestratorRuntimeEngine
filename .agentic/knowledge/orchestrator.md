@@ -1,11 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details.
-SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Orchestrator
 
 Shared ticket eligibility excludes the configured epic type label from automatic pickup and manual admission; eligible manual Start remains available with monitoring paused.
@@ -330,3 +322,8 @@ Manual aegis/direct selection resolves before AEGIS admission probing and is pin
 ## Current contract
 
 Direct implementation, clarification resumes and corrections share the private Pi job conversation. Successful product progress records completion before conductor-owned validate/done settlement; no independent shell-verification command is configured. AEGIS follows the executor-authored current journal and candidate-bound approval. See REQ-FUNC-21ae8007 and REQ-FUNC-ff7dad34.
+
+## Cancelled job restart
+
+Only the latest confirmed cancelled execution may restart. Pending required notifications refuse restart before cleanup. Cleanup verifies the original resources but retains state, recorded sessions and metrics; the replacement reserves its own slot and uses normal manual admission, current settings and a fresh conversation/budget. Journal links connect the generations. History-write failure stops the fresh job. Failed abandonment remains destructive, and Retry retains identity/workflow/conversation.
+Failed-generation abandonment pins admission to that identity despite older retained history and restores a still-retained predecessor link.

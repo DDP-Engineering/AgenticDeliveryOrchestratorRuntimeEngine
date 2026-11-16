@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Start ADORE
 
 Extract the complete archive into a folder where you can run programs.
@@ -83,7 +76,7 @@ Container images are separate compressed archives. On a host with Docker/Podman
 already installed, import the generic executor archive:
 
 ```sh
-docker load --input adore-0.17.0-executor-base-linux-x64.tar.gz
+docker load --input adore-0.18.0-executor-base-linux-x64.tar.gz
 ```
 
 Use `podman load --input` with Podman. The command reports the imported image tag;

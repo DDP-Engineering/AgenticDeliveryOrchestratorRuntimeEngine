@@ -1,21 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_configuration_worker.py
-@brief Durable independent configuration worker contracts.
-@details Offline HTTP and deterministic worker barriers prove project/control boundaries.
-"""
+"""Durable independent configuration worker contracts."""
 
 from adore.web.app import create_app
-
-# IMPORTS
 from fastapi.testclient import TestClient
 
 from tests.execution_records import execution_record
@@ -24,7 +9,7 @@ from tests.test_web_pending_config import _headers, _project
 
 # PUBLIC API / TESTS
 def test_request_directory_failure_is_sanitized_and_publishes_nothing(tmp_path, monkeypatch):
-    """@brief Storage denial before queue publication preserves bytes and hides private errors."""
+    """Storage denial before queue publication preserves bytes and hides private errors."""
     from pathlib import Path
 
     profiles, path, _state = _project(tmp_path)
@@ -52,7 +37,7 @@ def test_request_directory_failure_is_sanitized_and_publishes_nothing(tmp_path, 
 
 
 def test_existing_save_route_returns_durable_acceptance_before_effect(tmp_path):
-    """@brief An existing settings route accepts work without publishing early."""
+    """An existing settings route accepts work without publishing early."""
     profiles, path, _ = _project(tmp_path)
     original = path.read_bytes()
     app = create_app(profiles.home)
@@ -76,7 +61,7 @@ def test_existing_save_route_returns_durable_acceptance_before_effect(tmp_path):
 
 
 def _settle(worker, operation, *, seconds=8):
-    """@brief Bound offline worker progress and return its durable operation."""
+    """Bound offline worker progress and return its durable operation."""
     import time
 
     deadline = time.monotonic() + seconds
@@ -90,7 +75,7 @@ def _settle(worker, operation, *, seconds=8):
 
 
 def test_worker_confirms_existing_save_and_stale_second_save(tmp_path):
-    """@brief Concurrent reviewed saves serialize and the stale revision fails closed."""
+    """Concurrent reviewed saves serialize and the stale revision fails closed."""
     from adore.config import load_config
     from adore.web.configuration import ConfigurationWorker
 
@@ -124,7 +109,7 @@ def test_worker_confirms_existing_save_and_stale_second_save(tmp_path):
 
 
 def _beta(profiles, path, tmp_path):
-    """@brief Add a second independent project with a distinct managed state root."""
+    """Add a second independent project with a distinct managed state root."""
     root = tmp_path / "beta-state"
     profiles.create("beta", store_root=str(root))
     beta = profiles.config_path("beta")
@@ -140,7 +125,7 @@ def _beta(profiles, path, tmp_path):
 
 
 def test_blocked_probe_preserves_fast_project_global_and_admission_control(tmp_path, monkeypatch):
-    """@brief Full long lane A cannot block B, global audit or scoped Pause/Resume."""
+    """Full long lane A cannot block B, global audit or scoped Pause/Resume."""
     import importlib
     from threading import Event
 
@@ -156,7 +141,7 @@ def test_blocked_probe_preserves_fast_project_global_and_admission_control(tmp_p
     entered, release = Event(), Event()
 
     def probe(config, *_args, **_kwargs):
-        """@brief Hold the external boundary while proving publication locks are free."""
+        """Hold the external boundary while proving publication locks are free."""
         with config_edit_lock(path):
             assert state.acquire_lock()
             state.release_lock()
@@ -209,7 +194,7 @@ def test_blocked_probe_preserves_fast_project_global_and_admission_control(tmp_p
 
 
 def test_unsafe_apply_retains_project_candidate_and_other_project_bytes(tmp_path):
-    """@brief Active A gets an explicit conflict and retains the reviewed container edit."""
+    """Active A gets an explicit conflict and retains the reviewed container edit."""
     from adore.state import RunState
     from adore.web.configuration import ConfigurationWorker
 
@@ -249,7 +234,7 @@ def test_unsafe_apply_retains_project_candidate_and_other_project_bytes(tmp_path
 
 
 def test_queued_actor_revocation_fails_without_credential_disclosure(tmp_path):
-    """@brief Queued secrets stay protected and revoked actors cannot publish them."""
+    """Queued secrets stay protected and revoked actors cannot publish them."""
     from adore.web.configuration import ConfigurationWorker
 
     profiles, path, _ = _project(tmp_path)
@@ -287,7 +272,7 @@ def test_queued_actor_revocation_fails_without_credential_disclosure(tmp_path):
 
 
 def test_corrupt_protected_request_is_a_closed_terminal_failure(tmp_path):
-    """@brief Edited persisted task data cannot retarget a queued settings write."""
+    """Edited persisted task data cannot retarget a queued settings write."""
     import json
 
     from adore.web.configuration import ConfigurationWorker
@@ -320,7 +305,7 @@ def test_corrupt_protected_request_is_a_closed_terminal_failure(tmp_path):
 
 
 def test_missing_project_scope_is_refused_before_queueing(tmp_path):
-    """@brief A project handler cannot use active-profile fallback when scope is absent."""
+    """A project handler cannot use active-profile fallback when scope is absent."""
     from fastapi import HTTPException
     import pytest
 
@@ -340,7 +325,7 @@ def test_missing_project_scope_is_refused_before_queueing(tmp_path):
 
 
 def test_actual_configuration_process_confirms_save_without_http_execution(tmp_path):
-    """@brief The installed fixed-role configuration process consumes the durable HTTP queue."""
+    """The installed fixed-role configuration process consumes the durable HTTP queue."""
     import sys
     import time
 
@@ -387,7 +372,7 @@ def test_actual_configuration_process_confirms_save_without_http_execution(tmp_p
 
 
 def test_authority_revoked_during_model_probe_prevents_evidence_publication(tmp_path, monkeypatch):
-    """@brief Claim-time authorization cannot authorize later publication after revocation."""
+    """Claim-time authorization cannot authorize later publication after revocation."""
     import importlib
     from threading import Event
 
@@ -425,7 +410,7 @@ def test_authority_revoked_during_model_probe_prevents_evidence_publication(tmp_
 
 
 def test_scope_resolver_refuses_hex_name_id_ambiguity(tmp_path):
-    """@brief A valid hexadecimal profile name cannot redirect edits to another profile ID."""
+    """A valid hexadecimal profile name cannot redirect edits to another profile ID."""
     profiles, path, _ = _project(tmp_path)
     identity = profiles.load("alpha").project_id
     profiles.create(identity, store_root=str(tmp_path / "other-state"))
@@ -446,7 +431,7 @@ def test_scope_resolver_refuses_hex_name_id_ambiguity(tmp_path):
 def test_revocation_immediately_before_settings_publication_keeps_active_bytes(
     tmp_path, monkeypatch
 ):
-    """@brief Revocation after edit-lock entry and validation still refuses the actual write."""
+    """Revocation after edit-lock entry and validation still refuses the actual write."""
     from adore.web.configuration import ConfigurationWorker
 
     profiles, path, _ = _project(tmp_path)
@@ -480,7 +465,7 @@ def test_revocation_immediately_before_settings_publication_keeps_active_bytes(
 
 
 def test_confirmation_failure_after_settings_effect_is_uncertain(tmp_path, monkeypatch):
-    """@brief A post-write audit failure cannot be presented as a rejected request."""
+    """A post-write audit failure cannot be presented as a rejected request."""
     from adore.config import load_config
     from adore.web.configuration import ConfigurationWorker
     from adore.web.store import WebStoreError
@@ -513,7 +498,7 @@ def test_confirmation_failure_after_settings_effect_is_uncertain(tmp_path, monke
 
 
 def test_corrupt_or_contradictory_private_results_return_typed_service_error(tmp_path):
-    """@brief Stored outcomes reject nonregular records and false success."""
+    """Stored outcomes reject nonregular records and false success."""
     import json
 
     from adore.web.configuration import ConfigurationWorker
@@ -552,7 +537,7 @@ def test_corrupt_or_contradictory_private_results_return_typed_service_error(tmp
 
 
 def test_slow_native_settings_plan_uses_long_lane_and_releases_edit_lock(tmp_path, monkeypatch):
-    """@brief Long stage preparation cannot consume the reserved fast settings capacity."""
+    """Long stage preparation cannot consume the reserved fast settings capacity."""
     import importlib
     from threading import Event
 
@@ -618,7 +603,7 @@ def test_slow_native_settings_plan_uses_long_lane_and_releases_edit_lock(tmp_pat
 
 
 def test_managed_image_build_is_durable_lock_free_and_independent(tmp_path, monkeypatch):
-    """@brief Actual onboarding preparation holds no edit lock and preserves B/global progress."""
+    """Actual onboarding preparation holds no edit lock and preserves B/global progress."""
     from hashlib import sha256
     import importlib
 
@@ -697,7 +682,7 @@ def test_managed_image_build_is_durable_lock_free_and_independent(tmp_path, monk
 def test_exact_claim_preserves_global_lane_when_earlier_long_request_cannot_start(
     tmp_path, monkeypatch
 ):
-    """@brief An earlier saturated global long request cannot steal a reserved auth slot."""
+    """An earlier saturated global long request cannot steal a reserved auth slot."""
     import importlib
     import json
     from threading import Event
@@ -741,7 +726,7 @@ def test_exact_claim_preserves_global_lane_when_earlier_long_request_cannot_star
 
 
 def test_malformed_execution_section_is_a_typed_submission_refusal(tmp_path):
-    """@brief Valid TOML with a corrupt section type never raises an HTTP handler exception."""
+    """Valid TOML with a corrupt section type never raises an HTTP handler exception."""
     from hashlib import sha256
     import re
 
@@ -766,7 +751,7 @@ def test_malformed_execution_section_is_a_typed_submission_refusal(tmp_path):
 
 
 def test_post_effect_deadline_crossing_is_uncertain(tmp_path):
-    """@brief A completed effect cannot become rejected merely by crossing its task deadline."""
+    """A completed effect cannot become rejected merely by crossing its task deadline."""
     import json
 
     from adore.web.configuration import ConfigurationWorker
@@ -794,7 +779,7 @@ def test_post_effect_deadline_crossing_is_uncertain(tmp_path):
 
 
 def test_settings_read_uses_only_current_cached_plan_without_probing(tmp_path, monkeypatch):
-    """@brief Read-side settings never launch a host/Git plan probe; corrupt caches fail closed."""
+    """Read-side settings never launch a host/Git plan probe; corrupt caches fail closed."""
     from hashlib import sha256
     import importlib
     import json
@@ -837,7 +822,7 @@ def test_settings_read_uses_only_current_cached_plan_without_probing(tmp_path, m
 
 
 def test_revoked_model_actor_still_cleans_its_owned_disposable_probe(tmp_path, monkeypatch):
-    """@brief Revocation refuses evidence while retaining exact worker-owned model cleanup."""
+    """Revocation refuses evidence while retaining exact worker-owned model cleanup."""
     import importlib
 
     from adore.web.configuration import ConfigurationWorker
@@ -882,7 +867,7 @@ def test_revoked_model_actor_still_cleans_its_owned_disposable_probe(tmp_path, m
 
 
 def test_project_and_global_configuration_history_is_redacted_and_strict(tmp_path):
-    """@brief Project/global configuration history is redacted and refuses corrupt references."""
+    """Project/global configuration history is redacted and refuses corrupt references."""
     from hashlib import sha256
 
     from adore.web.configuration import ConfigurationWorker
@@ -918,7 +903,7 @@ def test_project_and_global_configuration_history_is_redacted_and_strict(tmp_pat
 
 
 def test_fast_admission_control_refuses_corrupt_persisted_state_root(tmp_path):
-    """@brief Invalid metadata refuses control without a partial or global write."""
+    """Invalid metadata refuses control without a partial or global write."""
     import json
 
     from adore.web.configuration import ConfigurationWorker
@@ -950,7 +935,7 @@ def test_fast_admission_control_refuses_corrupt_persisted_state_root(tmp_path):
 
 
 def test_native_apply_refuses_foreign_plan_cache_before_config_publication(tmp_path, monkeypatch):
-    """@brief Refuse a corrupt plan cache before changing active settings."""
+    """Refuse a corrupt plan cache before changing active settings."""
     from hashlib import sha256
     import re
 

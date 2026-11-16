@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file configuration_client.py
-@brief HTTP test client that consumes durable configuration completion.
-@details Domain tests retain their outcome assertions through the actual queue/worker boundary.
-"""
+"""HTTP test client that consumes durable configuration completion."""
 
 from threading import RLock
 import time
@@ -26,12 +13,12 @@ _WORKER_LOCK = RLock()
 
 
 class TestClient(HttpClient):
-    """@brief Explicitly await accepted configuration through an offline in-process worker."""
+    """Explicitly await accepted configuration through an offline in-process worker."""
 
     __test__ = False
 
     def request(self, *args, **kwargs):
-        """@brief Preserve response codes/bodies only after real durable confirmation."""
+        """Preserve response codes/bodies only after real durable confirmation."""
         response = super().request(*args, **kwargs)
         if response.status_code != 202:
             return response

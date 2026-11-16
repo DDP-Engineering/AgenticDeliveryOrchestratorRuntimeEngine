@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_delete.py
-@brief Web project deletion contract tests.
-@details Only a confirmed, archived and idle project is queued for deletion,
-         and the worker rechecks role, archive state and identity before it
-         runs the resource-removing CLI delete.
-"""
+"""Web project deletion contract tests."""
 
-# IMPORTS
 import sys
 
 from adore.profiles import ProfileStore
@@ -27,7 +11,6 @@ from fastapi.testclient import TestClient
 from tests.execution_records import execution_record
 
 
-# LOCAL HELPERS
 def _login(client: TestClient, user: str = "admin", password: str = "admin") -> dict:
     login = client.post("/api/v1/session", json={"username": user, "password": password})
     csrf = login.json()["csrf"]
@@ -52,7 +35,7 @@ def _delete(client, headers, name="alpha", confirm="alpha", key="delete-key-1"):
 
 # TESTS
 def test_confirmed_archived_project_is_deleted_by_the_worker(tmp_path):
-    """@brief The API queues the delete; the worker runs the CLI and the project goes."""
+    """The API queues the delete; the worker runs the CLI and the project goes."""
     profiles = _archived_project(tmp_path / "home")
     app = create_app(profiles.home)
     web = app.state.web_store
@@ -86,7 +69,7 @@ def test_confirmed_archived_project_is_deleted_by_the_worker(tmp_path):
 
 
 def test_delete_is_refused_unless_archived_confirmed_and_idle(tmp_path):
-    """@brief Every unsafe request is refused with a stable code and changes nothing."""
+    """Every unsafe request is refused with a stable code and changes nothing."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
@@ -126,7 +109,7 @@ def test_delete_is_refused_unless_archived_confirmed_and_idle(tmp_path):
 
 
 def test_corrupt_run_state_blocks_deletion(tmp_path):
-    """@brief Unreadable run state is reported, never deleted through the web."""
+    """Unreadable run state is reported, never deleted through the web."""
     profiles = _archived_project(tmp_path / "home")
     broken = StateStore(profiles.default_store_root("alpha")).root / "runs" / "broken"
     broken.mkdir(parents=True)
@@ -139,7 +122,7 @@ def test_corrupt_run_state_blocks_deletion(tmp_path):
 
 
 def test_worker_refuses_delete_after_actor_or_identity_changes(tmp_path):
-    """@brief A demoted, disabled or replaced-project delete never runs."""
+    """A demoted, disabled or replaced-project delete never runs."""
     import sqlite3
 
     profiles = _archived_project(tmp_path / "home")
@@ -171,7 +154,7 @@ def test_worker_refuses_delete_after_actor_or_identity_changes(tmp_path):
 
 
 def test_worker_rechecks_archive_state_before_deleting(tmp_path):
-    """@brief A project restored after queuing is not deleted."""
+    """A project restored after queuing is not deleted."""
     profiles = _archived_project(tmp_path / "home")
     app = create_app(profiles.home)
     web = app.state.web_store
@@ -187,6 +170,3 @@ def test_worker_rechecks_archive_state_before_deleting(tmp_path):
     assert calls == []
     assert web.operation(operation["id"])["status"] == "failed"
     assert profiles.exists("alpha")
-
-
-# END OF FILE

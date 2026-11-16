@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_paging.py
-@brief Server-side paging contracts for audit history and job pages.
-@details The browser requests one bounded page at a time; these tests prove the
-         API slices, totals, bounds and role checks it relies on.
-"""
+"""Server-side paging contracts for audit history and job pages."""
 
-# IMPORTS
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
 from adore.web.app import create_app
@@ -23,14 +8,13 @@ from fastapi.testclient import TestClient
 from tests.execution_records import execution_record
 
 
-# LOCAL HELPERS
 def _admin(client: TestClient) -> None:
     client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
 
 
 # TESTS
 def test_audit_page_returns_newest_first_slice_with_total(tmp_path):
-    """@brief A page request returns only that slice and the full count."""
+    """A page request returns only that slice and the full count."""
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     for index in range(60):
@@ -61,7 +45,7 @@ def test_audit_page_returns_newest_first_slice_with_total(tmp_path):
 
 
 def test_audit_page_rejects_bad_bounds_and_non_administrators(tmp_path):
-    """@brief Paging bounds and the administrator guard fail closed."""
+    """Paging bounds and the administrator guard fail closed."""
     app = create_app(tmp_path / "home")
     app.state.web_store.create_user("dev", "longer-password", "developer")
     with TestClient(app) as client:
@@ -81,7 +65,7 @@ def test_audit_page_rejects_bad_bounds_and_non_administrators(tmp_path):
 
 
 def test_run_page_accepts_several_lifecycles(tmp_path):
-    """@brief Overview review tables combine lifecycles in one bounded request."""
+    """Overview review tables combine lifecycles in one bounded request."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -101,6 +85,3 @@ def test_run_page_accepts_several_lifecycles(tmp_path):
         invalid = client.get("/api/v1/projects/alpha/runs-page?lifecycle=failed&lifecycle=bogus")
         assert invalid.status_code == 422
         assert invalid.json()["detail"]["code"] == "invalid_request"
-
-
-# END OF FILE

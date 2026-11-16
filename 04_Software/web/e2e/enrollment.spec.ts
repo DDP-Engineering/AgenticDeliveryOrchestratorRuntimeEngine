@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { test, expect, type Page } from "@playwright/test";
 import { configurationResponse } from "./configuration";
 import { dirname, join } from "node:path";
@@ -14,9 +8,24 @@ import { enrollmentFlowCopy } from "../src/enrollmentFlowCopy";
 import { workflowCopy } from "../src/readiness";
 import { environmentCopy } from "../src/environmentPreparation";
 
+// These journeys traverse the complete wizard and its asynchronous API operations.
+test.describe.configure({ timeout: 60_000 });
+
 test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin ===
     "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
+});
+
+test.afterEach(async ({ page }) => {
+  const response = await page.request.get("/api/v1/me", { timeout: 5_000 });
+  if (response.status() === 401) return;
+  expect(response.ok()).toBeTruthy();
+  const session = await response.json();
+  const restored = await page.request.patch("/api/v1/me/preferences", {
+    headers: { "X-CSRF-Token": session.csrf },
+    data: { language: "en", theme: "light" }, timeout: 5_000,
+  });
+  expect(restored.ok()).toBeTruthy();
 });
 
 test("guided import waits for automatic environment preparation before saving", async ({page}) => {

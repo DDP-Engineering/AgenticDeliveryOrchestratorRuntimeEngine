@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_web_azure_devops.py
-@brief      Azure enrollment, settings, RBAC and prerequisite contracts offline.
-@details    The web and CLI wizard use the same validated scope and factory.
-"""
+"""Azure enrollment, settings, RBAC and prerequisite contracts offline."""
 
-# IMPORTS
 import json
 from pathlib import Path
 
@@ -25,8 +11,6 @@ from adore.wizard import ScriptedAsker, WizardSetup, run_wizard
 import pytest
 
 from tests.configuration_client import TestClient
-
-# LOCAL HELPERS
 
 
 def body(tmp_path, **changes):
@@ -171,6 +155,3 @@ def test_azure_repository_source_and_auth_checks_are_scoped_and_redacted(tmp_pat
         assert result.json()["checks"]["forge_auth"] is True
         assert result.json()["checks"]["forge_cli"] is True
         assert all("--auto-complete" not in argv for argv in calls)
-
-
-# END OF FILE

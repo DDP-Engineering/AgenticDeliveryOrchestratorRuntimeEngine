@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_gitea_auth.py
-@brief   Portable external Gitea authentication through injected CLI boundaries.
-@details Uses temporary account directories and metadata; no live credentials or CLI.
-"""
+"""Portable external Gitea authentication through injected CLI boundaries."""
 
-# IMPORTS
 import json
 import os
 import platform
@@ -24,11 +10,9 @@ from adore.repository_auth import project_runner
 from adore.util import CommandResult
 import pytest
 
-# LOCAL HELPERS
-
 
 def account(tmp_path, monkeypatch, system):
-    """@brief Replace discovery roots with a synthetic current-account environment."""
+    """Replace discovery roots with a synthetic current-account environment."""
     monkeypatch.setattr(platform, "system", lambda: system)
     for key in ("XDG_CONFIG_HOME", "HOME", "USERPROFILE", "LOCALAPPDATA", "APPDATA"):
         monkeypatch.delenv(key, raising=False)
@@ -42,12 +26,12 @@ def account(tmp_path, monkeypatch, system):
 
 
 def configured(login=""):
-    """@brief Minimal external-auth profile; scoped records remain absent."""
+    """Minimal external-auth profile; scoped records remain absent."""
     return SimpleNamespace(platform=SimpleNamespace(kind="gitea", login=login, repo="owner/repo"))
 
 
 def row(name="local", default=False):
-    """@brief Metadata may contain a CLI token field which must never escape."""
+    """Metadata may contain a CLI token field which must never escape."""
     return {
         "name": name,
         "url": "https://forge.example",
@@ -69,7 +53,7 @@ def row(name="local", default=False):
     ],
 )
 def test_portable_auth_recovers_standard_account_roots(tmp_path, monkeypatch, system, location):
-    """@brief Missing CLI auth resolves from standard Windows/Linux current-account roots."""
+    """Missing CLI auth resolves from standard Windows/Linux current-account roots."""
     home = account(tmp_path, monkeypatch, system)
     root = home / location
     (root / "tea").mkdir(parents=True)
@@ -109,7 +93,7 @@ def test_portable_auth_recovers_standard_account_roots(tmp_path, monkeypatch, sy
 def test_portable_auth_selects_named_default_or_sole_login(
     tmp_path, monkeypatch, names, login, selected
 ):
-    """@brief Explicit names win; string false does not create an accidental default."""
+    """Explicit names win; string false does not create an accidental default."""
     account(tmp_path, monkeypatch, "Linux")
     calls = []
 
@@ -147,7 +131,7 @@ def test_portable_auth_selects_named_default_or_sole_login(
     ],
 )
 def test_portable_auth_fails_closed_without_guessing(tmp_path, monkeypatch, metadata, login, code):
-    """@brief Missing/ambiguous/corrupt CLI data never selects another credential."""
+    """Missing/ambiguous/corrupt CLI data never selects another credential."""
     account(tmp_path, monkeypatch, "Linux")
 
     def runner(argv, **kwargs):
@@ -172,7 +156,7 @@ def test_portable_auth_fails_closed_without_guessing(tmp_path, monkeypatch, meta
     ids=["duplicate", "nonfinite", "invalid", "deep", "oversized"],
 )
 def test_portable_auth_rejects_ambiguous_json_without_echo(tmp_path, monkeypatch, source):
-    """@brief External JSON ambiguity and non-JSON secrets produce a value-free error."""
+    """External JSON ambiguity and non-JSON secrets produce a value-free error."""
     account(tmp_path, monkeypatch, "Linux")
 
     def runner(argv, **kwargs):
@@ -188,7 +172,7 @@ def test_portable_auth_rejects_ambiguous_json_without_echo(tmp_path, monkeypatch
 
 
 def test_portable_auth_respects_explicit_xdg_and_other_commands(tmp_path, monkeypatch):
-    """@brief An explicit account config root stays authoritative, including when empty."""
+    """An explicit account config root stays authoritative, including when empty."""
     home = account(tmp_path, monkeypatch, "Windows")
     alternate = home / "Local/tea"
     alternate.mkdir(parents=True)
@@ -226,7 +210,7 @@ def test_portable_auth_respects_explicit_xdg_and_other_commands(tmp_path, monkey
     ],
 )
 def test_portable_auth_preserves_http_failures_and_success(tmp_path, result):
-    """@brief HTTP results, timeouts and unknown failures never switch accounts."""
+    """HTTP results, timeouts and unknown failures never switch accounts."""
     calls = []
 
     def runner(argv, **kwargs):
@@ -238,7 +222,7 @@ def test_portable_auth_preserves_http_failures_and_success(tmp_path, result):
 
 
 def test_portable_gitea_doctor_checks_discovered_identity(tmp_path, monkeypatch):
-    """@brief CLI doctor shares metadata recovery and verifies the final account response."""
+    """CLI doctor shares metadata recovery and verifies the final account response."""
     from adore.doctor import auth_status
 
     account(tmp_path, monkeypatch, "Linux")
@@ -257,7 +241,7 @@ def test_portable_gitea_doctor_checks_discovered_identity(tmp_path, monkeypatch)
 
 
 def test_portable_auth_keeps_protected_credentials_authoritative(tmp_path):
-    """@brief A saved scoped account cannot fall back into another user's CLI credentials."""
+    """A saved scoped account cannot fall back into another user's CLI credentials."""
     from adore.profiles import ProfileStore
     from adore.repository_auth import save_connection
 
@@ -290,7 +274,7 @@ def test_portable_auth_keeps_protected_credentials_authoritative(tmp_path):
 
 
 def test_portable_auth_retry_is_single_and_bounded(tmp_path, monkeypatch):
-    """@brief A deadline reached during discovery prevents replaying the API operation."""
+    """A deadline reached during discovery prevents replaying the API operation."""
     account(tmp_path, monkeypatch, "Linux")
     ticks = iter([0, 1, 2, 3, 20])
     monkeypatch.setattr("adore.gitea_auth.monotonic", lambda: next(ticks))
@@ -312,13 +296,10 @@ def test_portable_auth_retry_is_single_and_bounded(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("tail", [["--login"], ["--login", ""], ["--login", "a", "--login", "b"]])
 def test_portable_auth_rejects_invalid_explicit_login_arguments(tmp_path, tail):
-    """@brief Invalid or duplicate login options cannot change the selected authority."""
+    """Invalid or duplicate login options cannot change the selected authority."""
 
     def runner(*args, **kwargs):
         raise AssertionError("untrusted argv reached CLI")
 
     with pytest.raises(ForgeError, match="gitea_auth_invalid"):
         project_runner(tmp_path, configured(), runner)(["tea", "api", "user", *tail])
-
-
-# END OF FILE

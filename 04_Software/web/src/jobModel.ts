@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { validPreparationEvidence, type PreparationEvidence } from "./executionPlan.ts";
 export const lifecycles = ["working", "publishing", "parked-clarification", "awaiting-approval", "in-review", "handoff-pending", "handed-off", "done", "failed", "cancelled", "stale"] as const;
 export const stages = ["frame", "specify", "design", "build", "validate", "done", "publishing"] as const;
@@ -20,6 +14,8 @@ export type Job = {
   workflow: Workflow;
   direct?: DirectEvidence;
   state_revision?: string;
+  previous_run_id?: string | null;
+  restarted_run_id?: string | null;
   budget?: JobBudget;
   preparation?: PreparationEvidence | null;
   project_id: string; project_name: string; project_display_name: string; project_archived: boolean;
@@ -64,6 +60,10 @@ export function readJob(value: unknown, authorized: string[]): Job {
   const revision = object(value).state_revision;
   if (revision !== undefined && (!string(revision) || !/^[a-f0-9]{64}$/.test(revision))) invalid();
   const row = object(value), waiting = object(row.waiting), coverage = object(row.coverage);
+  for (const key of ["previous_run_id", "restarted_run_id"]) {
+    if (row[key] !== undefined && row[key] !== null &&
+      (typeof row[key] !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(row[key] as string))) invalid();
+  }
   if (!string(row.project_id) || !/^[a-f0-9]{32}$/.test(row.project_id) || !authorized.includes(row.project_id) ||
     !string(row.run_id) || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(row.run_id) ||
     !string(row.project_name) || !string(row.project_display_name) || typeof row.project_archived !== "boolean" ||
@@ -177,7 +177,8 @@ export function stableExecutionDrift(job: Job): boolean {
 /** Mirror conservative existing operator controls; the API/worker rechecks authority. */
 export function commandAllowed(job: Job, action: "retry" | "cancel" | "restart"): boolean {
   if (job.project_archived) return false;
-  if (action === "restart") return job.lifecycle === "failed" && /^[a-f0-9]{64}$/.test(job.state_revision ?? "");
+  if (action === "restart") return ["failed", "cancelled"].includes(job.lifecycle) &&
+    !job.restarted_run_id && /^[a-f0-9]{64}$/.test(job.state_revision ?? "");
   return action === "retry" ? job.lifecycle === "failed" && !stableExecutionDrift(job) :
     !["done", "failed", "cancelled", "stale", "handoff-pending", "handed-off"].includes(job.lifecycle);
 }

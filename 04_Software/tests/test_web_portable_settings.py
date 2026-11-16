@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_web_portable_settings.py
-@brief   Admin-only authoritative portable export HTTP contract.
-@details Offline authorization, source corruption and preview binding tests.
-"""
+"""Admin-only authoritative portable export HTTP contract."""
 
-# IMPORTS
 from pathlib import Path
 
 from adore.portable_settings import export_settings, parse_settings
@@ -23,7 +9,6 @@ import pytest
 
 from tests.configuration_client import TestClient
 
-# CONSTANTS
 EXAMPLE = Path(__file__).resolve().parents[1] / "config.example.toml"
 URL = "/api/v1/projects/alpha/config/portable-settings"
 
@@ -31,7 +16,7 @@ URL = "/api/v1/projects/alpha/config/portable-settings"
 
 
 def test_admin_preview_download_is_active_canonical_and_bound(tmp_path):
-    """@brief Admin downloads exact active rules and stale preview fails closed."""
+    """Admin downloads exact active rules and stale preview fails closed."""
     profiles = ProfileStore(tmp_path / "home")
     item = profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -68,7 +53,7 @@ def test_admin_preview_download_is_active_canonical_and_bound(tmp_path):
 
 
 def test_export_role_and_session_denial_before_project_io(tmp_path, monkeypatch):
-    """@brief Dev and invalid sessions receive no existence/config metadata."""
+    """Dev and invalid sessions receive no existence/config metadata."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", repo="PRIVATE-METADATA")
     app = create_app(profiles.home)
@@ -103,7 +88,7 @@ def test_export_role_and_session_denial_before_project_io(tmp_path, monkeypatch)
     ],
 )
 def test_export_invalid_source_never_leaks_data(tmp_path, corruption):
-    """@brief Invalid, unknown or unreadable active config yields safe error only."""
+    """Invalid, unknown or unreadable active config yields safe error only."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -121,7 +106,7 @@ def test_export_invalid_source_never_leaks_data(tmp_path, corruption):
 
 
 def test_export_rechecks_project_identity_after_snapshot(tmp_path, monkeypatch):
-    """@brief Replaced profile ownership cannot produce a result for an old selection."""
+    """Replaced profile ownership cannot produce a result for an old selection."""
     from adore.web import app as api
 
     profiles = ProfileStore(tmp_path / "home")
@@ -130,7 +115,7 @@ def test_export_rechecks_project_identity_after_snapshot(tmp_path, monkeypatch):
     original = api.export_settings
 
     def replace_profile(raw):
-        """@brief Simulate profile replacement after a valid snapshot has been read."""
+        """Simulate profile replacement after a valid snapshot has been read."""
         encoded = original(raw)
         item = profiles.load("alpha")
         item.project_id = "b" * 32
@@ -143,6 +128,3 @@ def test_export_rechecks_project_identity_after_snapshot(tmp_path, monkeypatch):
         response = client.get(URL)
         assert response.status_code == 409
         assert response.json() == {"detail": {"code": "project_changed"}}
-
-
-# END OF FILE

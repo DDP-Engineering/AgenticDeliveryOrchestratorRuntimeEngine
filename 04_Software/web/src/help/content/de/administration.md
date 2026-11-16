@@ -56,3 +56,9 @@ Wählen Sie **Filter anwenden**; das führt zur ersten Seite zurück. Die Seite 
 Jede Zeile zeigt **Wer**, **Was**, **Wann** und **Ergebnis**: **Vorbereitet**, **Angewendet**, **Verworfen**, **Abgelehnt** oder **Ungewiss**. Vorbereitet bedeutet, dass ein Kandidat bereitgestellt, aber nicht angewendet wurde. **Ungewiss** bedeutet, dass der Host den Abschluss nicht bestätigen konnte; prüfen Sie die tatsächliche Ressource, bevor Sie wiederherstellen. **Nachweis** öffnet unter dem Ereignis eine Zeile mit **Vorher**, **Nachher / Kandidat**, dem **Vorgang** sowie, sofern aufgezeichnet, **Basisrevision** und **Kandidatenrevision**. **Vorheriger Wert nicht erfasst** bedeutet unbekannt, nicht leer. Passwörter und Umgebungswerte werden nie angezeigt.
 
 Der Änderungsverlauf wird unbegrenzt aufbewahrt, sofern Sie unter [Systemstatus](#system-status) keine Limits festlegen. Es gibt keinen Download oder Export des Änderungsverlaufs. Ein Dev sieht betriebliche Änderungen nur für zugewiesene Projekte; Konto-, Zugriffs-, Preis- und Richtlinienereignisse bleiben den Administratoren vorbehalten.
+
+## Speicherkapazität {#storage-capacity}
+
+Speicherstatus und gemessene freie/Gesamtkapazität stehen gemeinsam unter den Workern. Ein gemeinsam genutzter Datenträger wird einmal angezeigt; getrennte Datenträger stehen in der Tabelle.
+
+Audit-Aufbewahrung begrenzt administrative Ereignisse. Der Jobverlauf läuft nicht automatisch ab; seine Löschung ist eine separate Aktion.

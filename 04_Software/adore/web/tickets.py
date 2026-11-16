@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-"""
-@file    tickets.py
-@brief   Web helpers for browsing a project's forge tickets on explicit request.
-@details Builds a bounded forge adapter for one request, shapes open tickets
-         with the shared pickup eligibility and any existing run, and shapes
-         human comments. Forge output is untrusted: anything malformed raises
-         TicketReadError so the API answers with a typed error, never a partial
-         list. Callers own authorization, auditing and HTTP mapping.
-"""
+"""Web helpers for browsing a project's forge tickets on explicit request."""
 
-# IMPORTS
 
 from __future__ import annotations
 
@@ -29,8 +13,6 @@ from adore.selection import ineligibility, start_blocker, start_preparation
 from adore.state import StateError, StateStore, derive_run_id
 from adore.util import CommandRunner
 
-# CONSTANTS
-
 #: Tickets shown per read; one more is requested to detect truncation.
 TICKET_LIMIT = 500
 #: Whole-request and per-command bounds for forge CLI calls (seconds).
@@ -41,34 +23,25 @@ FINISHED_LIFECYCLES = ("done", "failed", "cancelled", "handed-off", "handoff-pen
 #: Start blocker while the project's pickup is stopped (`adore pause`).
 PICKUP_PAUSED = "pickup_paused"
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 class TicketReadError(Exception):
-    """
-    @brief   Forge output that cannot be shown safely (malformed records).
-    """
+    """Forge output that cannot be shown safely (malformed records)."""
 
 
 class RunReadError(Exception):
-    """
-    @brief   A persisted run for a listed ticket cannot be read.
-    """
-
-
-# HELPER FUNCTIONS
+    """A persisted run for a listed ticket cannot be read."""
 
 
 def _bounded(runner: CommandRunner) -> CommandRunner:
     """
-    @brief      Cap every forge command and the whole request by a deadline.
-    @param[in]  runner Credential-scoped project runner.
-    @return     A runner raising TimeoutError once the request deadline passed.
+    Cap every forge command and the whole request by a deadline.
+    runner: Credential-scoped project runner.
+    Returns: A runner raising TimeoutError once the request deadline passed.
     """
     deadline = monotonic() + REQUEST_DEADLINE
 
     def bounded(argv, *, cwd=None, timeout=None, env=None):
-        """@brief Run one forge command within the remaining request budget."""
+        """Run one forge command within the remaining request budget."""
         remaining = deadline - monotonic()
         if remaining <= 0:
             raise TimeoutError("ticket read deadline")
@@ -84,32 +57,36 @@ def _bounded(runner: CommandRunner) -> CommandRunner:
 
 def _job(state: StateStore, config: Config, iid: int) -> dict[str, str] | None:
     """
-    @brief      Describe the run ADORE holds for a ticket, if any.
-    @param[in]  state Project state store.
-    @param[in]  config Project configuration (platform identity).
-    @param[in]  iid Ticket number.
-    @return     {run_id, lifecycle}, or None when no run exists.
-    @exception  RunReadError When the persisted run cannot be read.
+    Describe the run ADORE holds for a ticket, if any.
+    state: Project state store.
+    config: Project configuration (platform identity).
+    iid: Ticket number.
+    Returns: {run_id, lifecycle}, or None when no run exists.
+    Raises RunReadError: When the persisted run cannot be read.
     """
-    run_id = derive_run_id(config.platform.kind, config.platform.repo, iid)
-    if not state.exists(run_id):
-        return None
     try:
-        return {"run_id": run_id, "lifecycle": state.load(run_id).lifecycle}
-    except (FileNotFoundError, StateError) as exc:
+        from hashlib import sha256
+
+        run_id = state.latest_run_id(derive_run_id(config.platform.kind, config.platform.repo, iid))
+        if not state.exists(run_id):
+            return None
+        run = state.load(run_id)
+        result = {"run_id": run_id, "lifecycle": run.lifecycle}
+        if run.lifecycle == "cancelled":
+            result["state_revision"] = sha256(
+                (state.run_dir(run_id) / "state.json").read_bytes()).hexdigest()
+        return result
+    except (OSError, StateError) as exc:
         raise RunReadError("run state is unreadable") from exc
-
-
-# PUBLIC API
 
 
 def open_forge(config: Config, runner: CommandRunner) -> Forge:
     """
-    @brief      Build the project's forge adapter for one bounded request.
-    @param[in]  config Validated project configuration.
-    @param[in]  runner Credential-scoped project runner.
-    @return     The adapter.
-    @exception  ForgeError When the platform identity is not usable.
+    Build the project's forge adapter for one bounded request.
+    config: Validated project configuration.
+    runner: Credential-scoped project runner.
+    Returns: The adapter.
+    Raises ForgeError: When the platform identity is not usable.
     """
     try:
         return build_forge(
@@ -127,12 +104,12 @@ def open_forge(config: Config, runner: CommandRunner) -> Forge:
 
 def ticket_view(forge: Forge, config: Config, state: StateStore) -> dict[str, Any]:
     """
-    @brief      Read open tickets with eligibility and job state.
-    @param[in]  forge Bounded project forge adapter.
-    @param[in]  config Project configuration (labels, readiness, identity).
-    @param[in]  state Project state store.
-    @return     {read_at, truncated, ready_label, tickets[]}.
-    @exception  ForgeError When the forge CLI fails; TicketReadError when output
+    Read open tickets with eligibility and job state.
+    forge: Bounded project forge adapter.
+    config: Project configuration (labels, readiness, identity).
+    state: Project state store.
+    Returns: {read_at, truncated, ready_label, tickets[]}.
+    Raises ForgeError: When the forge CLI fails; TicketReadError when output
                 is malformed; RunReadError when a run cannot be read.
     """
     try:
@@ -175,11 +152,11 @@ def ticket_view(forge: Forge, config: Config, state: StateStore) -> dict[str, An
 
 def comment_view(forge: Forge, iid: int) -> dict[str, Any] | None:
     """
-    @brief      Read one ticket's human comments in forge order.
-    @param[in]  forge Bounded project forge adapter.
-    @param[in]  iid Ticket number.
-    @return     {iid, comments[]}, or None when the ticket does not exist.
-    @exception  ForgeError When the forge CLI fails; TicketReadError when a
+    Read one ticket's human comments in forge order.
+    forge: Bounded project forge adapter.
+    iid: Ticket number.
+    Returns: {iid, comments[]}, or None when the ticket does not exist.
+    Raises ForgeError: When the forge CLI fails; TicketReadError when a
                 comment record is malformed.
     """
     try:
@@ -203,23 +180,23 @@ def comment_view(forge: Forge, iid: int) -> dict[str, Any] | None:
 
 def existing_job(state: StateStore, config: Config, iid: int) -> dict[str, str] | None:
     """
-    @brief      Describe the run ADORE holds for a ticket, if any.
-    @param[in]  state Project state store.
-    @param[in]  config Project configuration.
-    @param[in]  iid Ticket number.
-    @return     {run_id, lifecycle}, or None when no run exists.
-    @exception  RunReadError When the persisted run cannot be read.
+    Describe the run ADORE holds for a ticket, if any.
+    state: Project state store.
+    config: Project configuration.
+    iid: Ticket number.
+    Returns: {run_id, lifecycle}, or None when no run exists.
+    Raises RunReadError: When the persisted run cannot be read.
     """
     return _job(state, config, iid)
 
 
 def read_ticket(forge: Forge, iid: int) -> Ticket | None:
     """
-    @brief      Read one ticket, failing closed on a malformed record.
-    @param[in]  forge Bounded project forge adapter.
-    @param[in]  iid Ticket number.
-    @return     The ticket, or None when it does not exist.
-    @exception  ForgeError When the CLI fails; ForgeResponseError when malformed.
+    Read one ticket, failing closed on a malformed record.
+    forge: Bounded project forge adapter.
+    iid: Ticket number.
+    Returns: The ticket, or None when it does not exist.
+    Raises ForgeError: When the CLI fails; ForgeResponseError when malformed.
     """
     try:
         return forge.get_ticket(iid)
@@ -229,12 +206,12 @@ def read_ticket(forge: Forge, iid: int) -> Ticket | None:
 
 def unfinished_run(state: StateStore, config: Config, iid: int) -> str | None:
     """
-    @brief      Return the run id of a ticket's job that can still be cancelled.
-    @param[in]  state Project state store.
-    @param[in]  config Project configuration.
-    @param[in]  iid Ticket number.
-    @return     The run id, or None when there is no unfinished job.
-    @exception  RunReadError When the persisted run cannot be read.
+    Return the run id of a ticket's job that can still be cancelled.
+    state: Project state store.
+    config: Project configuration.
+    iid: Ticket number.
+    Returns: The run id, or None when there is no unfinished job.
+    Raises RunReadError: When the persisted run cannot be read.
     """
     job = _job(state, config, iid)
     return job["run_id"] if job and job["lifecycle"] not in FINISHED_LIFECYCLES else None
@@ -242,12 +219,12 @@ def unfinished_run(state: StateStore, config: Config, iid: int) -> str | None:
 
 def remove_ready_label(forge: Forge, config: Config, iid: int) -> tuple[Ticket | None, bool]:
     """
-    @brief      Remove the configured ready label from a ticket when present.
-    @param[in]  forge Bounded project forge adapter.
-    @param[in]  config Project configuration (ready label).
-    @param[in]  iid Ticket number.
-    @return     (ticket or None when missing, whether the label was removed).
-    @exception  ForgeError When reading or writing the ticket fails; its subclass
+    Remove the configured ready label from a ticket when present.
+    forge: Bounded project forge adapter.
+    config: Project configuration (ready label).
+    iid: Ticket number.
+    Returns: (ticket or None when missing, whether the label was removed).
+    Raises ForgeError: When reading or writing the ticket fails; its subclass
                 ForgeResponseError when the ticket record is malformed.
     """
     ticket = read_ticket(forge, iid)
@@ -256,6 +233,3 @@ def remove_ready_label(forge: Forge, config: Config, iid: int) -> tuple[Ticket |
         return ticket, False
     forge.remove_labels(iid, [ready])
     return ticket, True
-
-
-# END OF FILE

@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_web_scoped_metrics.py
-@brief   Analytical fixtures for consistent scoped web metrics.
-@details Hand-calculated local-midnight, lifecycle and consumption boundaries;
-         all sources and authorization are local and offline.
-"""
+"""Analytical fixtures for consistent scoped web metrics."""
 
-# IMPORTS
 import csv
 from hashlib import sha256
 from io import StringIO
@@ -33,12 +18,11 @@ from tests.execution_records import execution_record
 from tests.usage_events import versioned_usage
 
 
-# PUBLIC API
 @pytest.mark.parametrize("relative", [False, True])
 def test_configured_statistics_database_drives_project_global_and_exports(
     tmp_path, monkeypatch, relative,
 ):
-    """@brief Configured summaries drive authorized reports, never a default-path decoy."""
+    """Configured summaries drive authorized reports, never a default-path decoy."""
     monkeypatch.chdir(tmp_path)
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
@@ -88,7 +72,7 @@ def test_configured_statistics_database_drives_project_global_and_exports(
 def test_configured_statistics_database_missing_or_invalid_never_uses_default(
     tmp_path, monkeypatch, content,
 ):
-    """@brief Missing configured files stay absent; invalid config/database fails closed."""
+    """Missing configured files stay absent; invalid config/database fails closed."""
     monkeypatch.chdir(tmp_path)
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
@@ -125,7 +109,7 @@ def test_configured_statistics_database_missing_or_invalid_never_uses_default(
     ],
 )
 def test_scope_uses_half_open_local_midnights_and_own_events(tmp_path, day, start, end, hours):
-    """@brief Both DST days include their lower boundary and exclude their upper."""
+    """Both DST days include their lower boundary and exclude their upper."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -161,7 +145,7 @@ def test_scope_uses_half_open_local_midnights_and_own_events(tmp_path, day, star
 
 
 def test_jobs_keep_lifetime_period_unallocated_and_composite_identity(tmp_path):
-    """@brief Cross-period job evidence is separate from undated summary-only runs."""
+    """Cross-period job evidence is separate from undated summary-only runs."""
     profiles = ProfileStore(tmp_path / "home")
     identities = []
     for name, amount in (("alpha", 5), ("beta", 13)):
@@ -250,7 +234,7 @@ def test_jobs_keep_lifetime_period_unallocated_and_composite_identity(tmp_path):
     ],
 )
 def test_corrupt_sources_fail_before_filtering_and_preserve_bytes(tmp_path, raw):
-    """@brief Unselected malformed evidence never hides behind an empty interval."""
+    """Unselected malformed evidence never hides behind an empty interval."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -281,7 +265,7 @@ def test_corrupt_sources_fail_before_filtering_and_preserve_bytes(tmp_path, raw)
     ],
 )
 def test_invalid_scope_and_filters_return_typed_errors(tmp_path, query):
-    """@brief Scope validation is independent of whether a project has jobs."""
+    """Scope validation is independent of whether a project has jobs."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     with TestClient(create_app(profiles.home)) as client:
@@ -295,7 +279,7 @@ def test_invalid_scope_and_filters_return_typed_errors(tmp_path, query):
 
 
 def test_replay_includes_timestamp_and_schema_is_strict(tmp_path):
-    """@brief Replayed versioned consumption cannot move into another period."""
+    """Replayed versioned consumption cannot move into another period."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -335,7 +319,7 @@ def test_replay_includes_timestamp_and_schema_is_strict(tmp_path):
 
 
 def test_server_samples_and_quality_cohorts_are_scoped(tmp_path):
-    """@brief Hand-calculated first-event cohorts and terminal spans agree."""
+    """Hand-calculated first-event cohorts and terminal spans agree."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -378,7 +362,7 @@ def test_server_samples_and_quality_cohorts_are_scoped(tmp_path):
 
 
 def test_price_history_uses_consumption_utc_day_and_filtered_job_csv(tmp_path):
-    """@brief Local-day reporting keeps UTC pricing and separate measured zero."""
+    """Local-day reporting keeps UTC pricing and separate measured zero."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -423,7 +407,7 @@ def test_price_history_uses_consumption_utc_day_and_filtered_job_csv(tmp_path):
 
 @pytest.mark.parametrize("columns", ["run_id TEXT PRIMARY KEY, tokens_in INTEGER", "extra"])
 def test_summary_table_of_another_build_fails_closed_untouched(tmp_path, columns):
-    """@brief Missing or extra summary columns fail closed; reads never change the file."""
+    """Missing or extra summary columns fail closed; reads never change the file."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -446,7 +430,7 @@ def test_summary_table_of_another_build_fails_closed_untouched(tmp_path, columns
 
 @pytest.mark.parametrize("stamp", [None, "", "2026-01-01", "2026-01-01T00:00:00", "invalid"])
 def test_usage_without_an_aware_timestamp_fails_closed(tmp_path, stamp):
-    """@brief The current writer stamps every usage event in UTC; anything else is corrupt."""
+    """The current writer stamps every usage event in UTC; anything else is corrupt."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -460,12 +444,9 @@ def test_usage_without_an_aware_timestamp_fails_closed(tmp_path, stamp):
         assert response.json()["detail"]["code"] in ("usage_corrupt", "metrics_corrupt")
 
 
-# END OF FILE
-
-
 @pytest.mark.parametrize("fault", ["sum-overflow", "versioned-time", "estimate-overflow"])
 def test_numeric_boundaries_fail_before_filtering(tmp_path, fault):
-    """@brief Overflow and unsupported dated versioned evidence fail safely."""
+    """Overflow and unsupported dated versioned evidence fail safely."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -507,7 +488,7 @@ def test_numeric_boundaries_fail_before_filtering(tmp_path, fault):
 
 
 def test_summary_without_runtime_state_keeps_historical_evidence(tmp_path):
-    """@brief Removed runtime jobs retain measured summary history, never current stock."""
+    """Removed runtime jobs retain measured summary history, never current stock."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     metrics.record_summary(
@@ -535,7 +516,7 @@ def test_summary_without_runtime_state_keeps_historical_evidence(tmp_path):
 
 
 def test_quality_only_activity_selects_period_job_without_new_start(tmp_path):
-    """@brief Earlier jobs entering review in scope retain honest lifecycle counters."""
+    """Earlier jobs entering review in scope retain honest lifecycle counters."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -558,7 +539,7 @@ def test_quality_only_activity_selects_period_job_without_new_start(tmp_path):
 
 @pytest.mark.parametrize("event", ["usage", "revision-started"])
 def test_unrepresentable_local_event_timestamp_fails_typed(tmp_path, event):
-    """@brief Valid ISO extremes cannot overflow silently during local grouping."""
+    """Valid ISO extremes cannot overflow silently during local grouping."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -573,7 +554,7 @@ def test_unrepresentable_local_event_timestamp_fails_typed(tmp_path, event):
 
 
 def test_empty_global_csv_still_describes_requested_scope(tmp_path):
-    """@brief Empty authorized project sets preserve canonical export parameters."""
+    """Empty authorized project sets preserve canonical export parameters."""
     with TestClient(create_app(tmp_path / "home")) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         for route in ("metrics.csv", "usage.csv", "jobs-usage.csv"):

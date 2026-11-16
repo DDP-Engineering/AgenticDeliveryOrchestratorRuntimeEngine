@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Security And Credentials
 
 Azure DevOps Services credentials are external host/service-account credentials:
@@ -104,7 +97,7 @@ refused as an unknown key.
 ```toml
 [executor]
 provider = "openai"
-model = "gpt-5.5"
+model = "gpt-6.1-terra"
 ```
 
 Save the key in **Settings → Agent and model → Provider API key**, which writes
@@ -361,7 +354,7 @@ The agent installs dependencies directly, reads command outputs and exits, diagn
 system_packages = true
 [executor]
 provider = "openai"
-model = "gpt-5.5"
+model = "gpt-6.1-terra"
 internet = false
 ```
 

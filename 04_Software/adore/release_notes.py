@@ -1,34 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file release_notes.py
-@brief Four-locale user-facing release notes shown in the web What's new window.
-@details The packaged `release_notes.toml` holds one `[[release]]` per release,
-         the unreleased one first, each with `[[release.entry]]` items carrying
-         a category (new, improved, fixed) and a topic and text in every
-         supported locale. `parse_release_notes` enforces the document shape the
-         web API serves; `contract_issues` enforces the authoring contract that
-         `02_Tools/package/release_checks/check_release_notes.py` applies in the test suite.
-@example
-    releases = load_release_notes()
-    assert not contract_issues(releases)
-"""
+"""Four-locale user-facing release notes shown in the web What's new window."""
 
 from __future__ import annotations
 
-# IMPORTS
 from pathlib import Path
 import re
 import tomllib
-
-# CONSTANTS
 
 RELEASE_NOTES_PATH = Path(__file__).with_name("release_notes.toml")
 SCHEMA = 1
@@ -56,21 +32,17 @@ _TECHNICAL = (
 _CAMEL = re.compile(r"\b(?:[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+|[a-z]+[A-Z][A-Za-z0-9]*)\b")
 
 
-# DATA MODELS / TYPEDEFINITIONS
-
 class ReleaseNotesError(ValueError):
-    """@brief The release notes document does not have the served shape."""
+    """The release notes document does not have the served shape."""
 
-
-# LOCAL HELPERS
 
 def _texts(value: object, where: str) -> dict[str, str]:
     """
-    @brief      Validate a locale-to-text table.
-    @param[in]  value Parsed TOML value.
-    @param[in]  where Location used in error messages.
-    @return     The table as a plain dict.
-    @exception ReleaseNotesError Value is not a table of strings.
+    Validate a locale-to-text table.
+    value: Parsed TOML value.
+    where: Location used in error messages.
+    Returns: The table as a plain dict.
+    Raises ReleaseNotesError: Value is not a table of strings.
     """
     if not isinstance(value, dict) or \
             not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
@@ -80,9 +52,9 @@ def _texts(value: object, where: str) -> dict[str, str]:
 
 def _technical(text: str) -> bool:
     """
-    @brief      Detect file names, paths, endpoints, ids and code identifiers.
-    @param[in]  text One locale text.
-    @return     True when the text names something only developers know.
+    Detect file names, paths, endpoints, ids and code identifiers.
+    text: One locale text.
+    Returns: True when the text names something only developers know.
     """
     if any(pattern.search(text) for pattern in _TECHNICAL):
         return True
@@ -90,18 +62,16 @@ def _technical(text: str) -> bool:
 
 
 def _version_key(version: str) -> tuple[int, ...]:
-    """@brief Numeric sort key of a released version."""
+    """Numeric sort key of a released version."""
     return tuple(int(part) for part in version.split("."))
 
 
-# PUBLIC API
-
 def parse_release_notes(text: str) -> list[dict]:
     """
-    @brief      Parse release notes into the shape the web API serves.
-    @param[in]  text TOML document text.
-    @return     Releases as dicts with version, date (or None) and entries.
-    @exception ReleaseNotesError The document is not valid TOML of the expected shape.
+    Parse release notes into the shape the web API serves.
+    text: TOML document text.
+    Returns: Releases as dicts with version, date (or None) and entries.
+    Raises ReleaseNotesError: The document is not valid TOML of the expected shape.
     """
     try:
         data = tomllib.loads(text)
@@ -139,20 +109,20 @@ def parse_release_notes(text: str) -> list[dict]:
 
 def load_release_notes(path: Path = RELEASE_NOTES_PATH) -> list[dict]:
     """
-    @brief      Read and parse the packaged release notes.
-    @param[in]  path Release notes file; defaults to the packaged one.
-    @return     Parsed releases.
-    @exception OSError The file cannot be read.
-    @exception ReleaseNotesError The document has the wrong shape.
+    Read and parse the packaged release notes.
+    path: Release notes file; defaults to the packaged one.
+    Returns: Parsed releases.
+    Raises OSError: The file cannot be read.
+    Raises ReleaseNotesError: The document has the wrong shape.
     """
     return parse_release_notes(path.read_text(encoding="utf-8"))
 
 
 def contract_issues(releases: list[dict]) -> list[str]:
     """
-    @brief      Check parsed releases against the release notes authoring contract.
-    @param[in]  releases Output of parse_release_notes.
-    @return     Human-readable issues; empty when the notes meet the contract.
+    Check parsed releases against the release notes authoring contract.
+    releases: Output of parse_release_notes.
+    Returns: Human-readable issues; empty when the notes meet the contract.
     """
     issues: list[str] = []
     released: list[str] = []
@@ -199,5 +169,3 @@ def contract_issues(releases: list[dict]) -> list[str]:
                 issues.append(f"release {version}: more than {MAX_PER_CATEGORY} {category} "
                               f"entries ({count}); merge related notes")
     return issues
-
-# END OF FILE

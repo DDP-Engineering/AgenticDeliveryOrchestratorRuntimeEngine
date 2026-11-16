@@ -1,11 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt in the .agentic folder for full license details.
-SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Web interface
 
 ## Routing
@@ -1290,3 +1282,7 @@ Start in both ticket scopes and revision-bound Restart use WorkflowChoice and an
 ## Current contract
 
 Current job details have Activity, Agent sessions and Job details, with vertical budgets beside the main pane. Failed-job actions provide Retry and explicit AEGIS/Direct abandon-and-restart buttons with short confirmation. Retry pins workflow. Web storage uses fixed pre-release schema 1 plus current-structure validation; it never migrates or resets automatically.
+
+## Cancelled restart and storage
+
+Jobs and Tickets expose confirmed workflow-aware Restart for cancelled jobs. The worker acknowledges durable admission with admitted_run_id and the UI opens that execution; validated history links preserve navigation. CSRF, project grants, idempotency and exact-state confirmation remain mandatory. Storage label/status/capacity share an adjacent block below Workers. Retained job history is independent of administrative audit retention.

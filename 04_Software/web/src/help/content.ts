@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 /// <reference types="vite/client" />
 // Bundled help documents (Vite inlines the Markdown at build time), parsed once per locale and topic.
 import { parseHelp, type HelpDoc } from "./markdown.ts";

@@ -1,22 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       launch.py
-@brief      Run an extracted ADORE distribution without host Python or setup.
-@details    Checks package metadata at startup, verifies all media on request,
-            owns one API/worker pair per user home and supports bounded shutdown.
-"""
+"""Run an extracted ADORE distribution without host Python or setup."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import errno
@@ -40,22 +26,20 @@ import urllib.request
 from uuid import uuid4
 import webbrowser
 
-# CONSTANTS
 BUNDLE = Path(__file__).resolve().parent
 LOG = logging.getLogger("adore.launcher")
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class DeliveryError(RuntimeError):
-    """@brief Report corrupt media or unavailable ownership without guessing."""
+    """Report corrupt media or unavailable ownership without guessing."""
 
 
-# PUBLIC API
 def read_manifest(bundle: Path = BUNDLE) -> dict:
-    """@brief Check bounded package metadata without scanning installed files.
-    @param[in] bundle Extracted delivery directory.
-    @return Validated manifest.
-    @exception DeliveryError The manifest or host fails the delivery contract.
+    """
+    Check bounded package metadata without scanning installed files.
+    bundle: Extracted delivery directory.
+    Returns: Validated manifest.
+    Raises DeliveryError: The manifest or host fails the delivery contract.
     """
     try:
         manifest_path = bundle / "manifest.json"
@@ -92,10 +76,11 @@ def read_manifest(bundle: Path = BUNDLE) -> dict:
 
 
 def verify(bundle: Path = BUNDLE) -> dict:
-    """@brief Verify host metadata and every packaged file's digest on request.
-    @param[in] bundle Extracted delivery directory.
-    @return Fully verified manifest.
-    @exception DeliveryError A file, manifest or host fails the delivery contract.
+    """
+    Verify host metadata and every packaged file's digest on request.
+    bundle: Extracted delivery directory.
+    Returns: Fully verified manifest.
+    Raises DeliveryError: A file, manifest or host fails the delivery contract.
     """
     manifest = read_manifest(bundle)
     manifest_path, files = bundle / "manifest.json", manifest["files"]
@@ -131,9 +116,10 @@ def verify(bundle: Path = BUNDLE) -> dict:
             raise DeliveryError("package contains missing or unlisted files")
 
         def check_file(item: tuple[str, str]) -> None:
-            """@brief Hash one validated regular file with bounded buffering.
-            @param[in] item Inventory path and required digest.
-            @exception DeliveryError The file differs from the inventory.
+            """
+            Hash one validated regular file with bounded buffering.
+            item: Inventory path and required digest.
+            Raises DeliveryError: The file differs from the inventory.
             """
             relative, digest = item
             checksum = hashlib.sha256()
@@ -154,9 +140,8 @@ def verify(bundle: Path = BUNDLE) -> dict:
         raise DeliveryError(f"cannot verify package: {error}") from error
 
 
-# LOCAL HELPERS
 def _atomic_json(path: Path, data: dict) -> None:
-    """@brief Replace one complete owner/stop record on the same filesystem."""
+    """Replace one complete owner/stop record on the same filesystem."""
     temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
     try:
         temporary.write_text(json.dumps(data), encoding="utf-8")
@@ -166,7 +151,7 @@ def _atomic_json(path: Path, data: dict) -> None:
 
 
 def _record(path: Path, home: Path) -> dict:
-    """@brief Validate a live owner's record before opening or stopping it."""
+    """Validate a live owner's record before opening or stopping it."""
     try:
         if path.stat().st_size > 8192:
             raise DeliveryError("launcher record is too large")
@@ -183,7 +168,7 @@ def _record(path: Path, home: Path) -> dict:
 
 
 def _lock(handle) -> bool:
-    """@brief Acquire a nonblocking process-lifetime lock on both hosts."""
+    """Acquire a nonblocking process-lifetime lock on both hosts."""
     handle.seek(0)
     try:
         if os.name == "nt":
@@ -200,9 +185,9 @@ def _lock(handle) -> bool:
 
 
 def _ready(port: int) -> bool:
-    """@brief Require bounded, non-proxied local worker-readiness JSON."""
+    """Require bounded, non-proxied local worker-readiness JSON."""
     class NoRedirect(urllib.request.HTTPRedirectHandler):
-        """@brief Keep readiness probes strictly on the requested loopback URL."""
+        """Keep readiness probes strictly on the requested loopback URL."""
 
         def redirect_request(self, *_args, **_kwargs):
             return None
@@ -218,7 +203,7 @@ def _ready(port: int) -> bool:
 
 
 def _open_ui(port: int, disabled: bool) -> None:
-    """@brief Always display the URL; open a browser only on a desktop."""
+    """Always display the URL; open a browser only on a desktop."""
     url = f"http://127.0.0.1:{port}/"
     print(f"ADORE is ready: {url}", flush=True)
     desktop = os.name == "nt" or any(os.environ.get(key)
@@ -231,7 +216,7 @@ def _open_ui(port: int, disabled: bool) -> None:
 
 
 def _child_logs(process, role: str) -> None:
-    """@brief Drain service output into bounded rotating launcher logs."""
+    """Drain service output into bounded rotating launcher logs."""
     try:
         for line in iter(lambda: process.stdout.readline(65536), ""):
             LOG.info("%s: %s", role, line.rstrip())
@@ -240,7 +225,7 @@ def _child_logs(process, role: str) -> None:
 
 
 def _stop(children: list, service_stop: Path) -> None:
-    """@brief Signal both owned service groups, then apply a finite kill timeout."""
+    """Signal both owned service groups, then apply a finite kill timeout."""
     deadline = time.monotonic() + 15
     service_stop.touch()
     grace = time.monotonic() + 3
@@ -267,13 +252,13 @@ def _stop(children: list, service_stop: Path) -> None:
 
 
 def _service(role: str, home: Path, port: int, service_stop: Path) -> int:
-    """@brief Adapt native stop signals to existing API/worker shutdown hooks."""
+    """Adapt native stop signals to existing API/worker shutdown hooks."""
     from adore.web.processes import assert_ancestry
 
     stop, done = Event(), Event()
 
     def watch_stop() -> None:
-        """@brief Deliver the owner's stop request even without a Windows console."""
+        """Deliver the owner's stop request even without a Windows console."""
         while not done.wait(0.1):
             try:
                 assert_ancestry()
@@ -305,7 +290,7 @@ def _service(role: str, home: Path, port: int, service_stop: Path) -> int:
                                                proxy_headers=False))
 
         def request_exit() -> None:
-            """@brief Translate the portable stop event into Uvicorn's exit hook."""
+            """Translate the portable stop event into Uvicorn's exit hook."""
             while not done.wait(0.1):
                 if stop.is_set():
                     server.should_exit = True
@@ -322,10 +307,11 @@ def _service(role: str, home: Path, port: int, service_stop: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief Verify, start, reopen or stop one portable ADORE installation.
-    @param[in] argv Optional command arguments.
-    @return Zero after verification, reopening, stop request or graceful shutdown.
-    @exception DeliveryError Media, ownership or bounded service startup fails.
+    """
+    Verify, start, reopen or stop one portable ADORE installation.
+    argv: Optional command arguments.
+    Returns: Zero after verification, reopening, stop request or graceful shutdown.
+    Raises DeliveryError: Media, ownership or bounded service startup fails.
     """
     parser = argparse.ArgumentParser(description="ADORE — start the web interface and worker")
     parser.add_argument("--home", type=Path, help="override the normal user data directory")
@@ -515,5 +501,3 @@ if __name__ == "__main__":
     except (DeliveryError, OSError, ValueError) as error:
         print(f"ADORE startup failed: {error}", file=sys.stderr, flush=True)
         raise SystemExit(1) from error
-
-# END OF FILE

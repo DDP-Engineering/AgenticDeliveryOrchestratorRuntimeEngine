@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       implementation_settings.py
-@brief      Exact verification text and closed Implementation candidate values.
-@details    Preserves unrelated human TOML and verifies the exact semantic edit.
-"""
+"""Exact verification text and closed Implementation candidate values."""
 
-# IMPORTS
 from copy import deepcopy
 import json
 import re
@@ -23,7 +9,6 @@ from adore.cli import _newline
 from adore.util import strict_json_loads
 from adore.web.executor_settings import PROVIDER_KEYS
 
-# CONSTANTS
 COLLECTION_KEYS = frozenset({"platform.work_item_types", "platform.closed_states",
                              "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides",
                              "executor.env_keys"})
@@ -33,17 +18,15 @@ STAGES = ("frame", "specify", "design", "build", "validate")
 MAX_SAFE_INTEGER = 9007199254740991
 
 
-# PUBLIC API
-
-
 def valid_collection(key: str, value: object) -> bool:
-    """@brief Check the exact supported collection type and its bounded domain.
-    @param[in] key Complete configuration key.
-    @param[in] value Parsed human or persisted input.
-    @return True for a nonempty retry list, closed timeout map or names-only provider list.
+    """
+    Check the exact supported collection type and its bounded domain.
+    key: Complete configuration key.
+    value: Parsed human or persisted input.
+    Returns: True for a nonempty retry list, closed timeout map or names-only provider list.
     """
     def integer(item: object, minimum: int) -> bool:
-        """@brief Reject booleans, fractions and integers beyond browser precision."""
+        """Reject booleans, fractions and integers beyond browser precision."""
         return type(item) is int and minimum <= item <= MAX_SAFE_INTEGER
 
     if key in {"platform.work_item_types", "platform.closed_states"}:
@@ -66,12 +49,13 @@ def valid_collection(key: str, value: object) -> bool:
 
 
 def set_collection(text: str, key: str, wire_value: str) -> str:
-    """@brief Replace one approved complete collection in human TOML.
-    @param[in] text Current TOML with comments and original line endings.
-    @param[in] key One of the supported collection keys.
-    @param[in] wire_value Strict JSON string of the complete proposed value.
-    @return TOML whose parsed meaning differs only at the requested key.
-    @exception ValueError Malformed value or unsupported human TOML spelling.
+    """
+    Replace one approved complete collection in human TOML.
+    text: Current TOML with comments and original line endings.
+    key: One of the supported collection keys.
+    wire_value: Strict JSON string of the complete proposed value.
+    Returns: TOML whose parsed meaning differs only at the requested key.
+    Raises ValueError: Malformed value or unsupported human TOML spelling.
     """
     if key not in COLLECTION_KEYS or len(wire_value) > 32768:
         raise ValueError("unsupported collection")
@@ -92,7 +76,7 @@ def set_collection(text: str, key: str, wire_value: str) -> str:
     lines = text.splitlines(keepends=True)
 
     def header(line: str) -> dict | None:
-        """@brief Parse only a complete table-header line, including its comment."""
+        """Parse only a complete table-header line, including its comment."""
         if not re.match(r"^\s*\[", line):
             return None
         try:
@@ -142,6 +126,3 @@ def set_collection(text: str, key: str, wire_value: str) -> str:
     if tomllib.loads(changed) != expected:
         raise ValueError("collection edit changed other settings")
     return changed
-
-
-# END OF FILE

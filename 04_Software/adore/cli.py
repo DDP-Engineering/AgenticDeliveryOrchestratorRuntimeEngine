@@ -1,28 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file cli.py
-@brief Command-line interface over the ADORE runtime package.
-@details Defines the `adore` command surface (lifecycle, operations, statistics,
-         config) using only the standard library (argparse). `config set`
-         edits one scalar key in the resolved config file, preserving comments,
-         and refuses to write unless the resulting config still validates.
-         Destructive commands (delete, reset) require --force per design 8c.
-         `adore init` runs the assisted-config wizard to create a
-         runtime-project profile; `adore profile ...` manages profiles (with
-         run statistics).
-"""
+"""Command-line interface over the ADORE runtime package."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 from collections.abc import Iterator
 import contextlib
@@ -52,8 +31,6 @@ from adore.state import StateError, StateStore
 from adore.util import force_rmtree, parse_duration, run_command
 from adore.wizard import ConsoleAsker, ScriptedAsker, WizardError, run_wizard
 
-# CONSTANTS
-
 EXIT_OK = 0
 EXIT_ERROR = 1
 
@@ -70,17 +47,14 @@ _NOT_SECRET_KEYS = frozenset({"metrics.capture_tokens"})
 
 
 def _is_secret_key(dotted_key: str) -> bool:
-    """@brief Whether a dotted config key names a secret (see _SECRET_KEY_RE)."""
+    """Whether a dotted config key names a secret (see _SECRET_KEY_RE)."""
     return dotted_key not in _NOT_SECRET_KEYS and bool(_SECRET_KEY_RE.search(dotted_key))
-
-
-# HELPER FUNCTIONS
 
 
 def _build_parser() -> argparse.ArgumentParser:
     """
-    @brief   Build the top-level argument parser and subcommands.
-    @return  Configured argparse.ArgumentParser.
+    Build the top-level argument parser and subcommands.
+    Returns: Configured argparse.ArgumentParser.
     """
     parser = argparse.ArgumentParser(prog=PACKAGE_NAME, description=PRODUCT_NAME)
     parser.add_argument(
@@ -132,11 +106,13 @@ def _build_parser() -> argparse.ArgumentParser:
     delete.add_argument("--force", action="store_true")
     delete.add_argument("--owned-resources", action="store_true",
                         help="Release proven owned native resources despite settings drift")
-    restart = sub.add_parser("restart", help="Abandon a confirmed failed run and start its ticket")
+    restart = sub.add_parser("restart", help="Restart a confirmed failed or cancelled job")
     restart.add_argument("run_id")
     restart.add_argument("--workflow", choices=("aegis", "direct"),
                          help="Workflow for the new job; otherwise use the project default")
     restart.add_argument("--force", action="store_true")
+    restart.add_argument("--admit-only", action="store_true",
+                         help="Return after durable admission for the web run worker")
     restart.add_argument("--expected-revision", required=True,
                          help="SHA-256 of the confirmed failed run state")
 
@@ -198,13 +174,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _load(args: argparse.Namespace) -> Config | None:
     """
-    @brief      Resolve and load the config (explicit -c > --profile > active
+    Resolve and load the config (explicit -c > --profile > active
                 profile > ./config.toml) and load it.
-    @details    Sets args.config to the resolved path so handlers display it,
+    Sets args.config to the resolved path so handlers display it,
                 and records a use on the resolved profile (use_count /
                 last_used_at). Resolution and load errors print a readable hint.
-    @param[in]  args Parsed arguments (args.config, args.profile).
-    @return     The Config, or None after printing a readable error.
+    args: Parsed arguments (args.config, args.profile).
+    Returns: The Config, or None after printing a readable error.
     """
     store = ProfileStore()
     try:
@@ -243,9 +219,9 @@ def _load(args: argparse.Namespace) -> Config | None:
 
 def _store(config: Config) -> StateStore:
     """
-    @brief      Build the state store from config.
-    @param[in]  config Loaded configuration.
-    @return     The StateStore for this deployment.
+    Build the state store from config.
+    config: Loaded configuration.
+    Returns: The StateStore for this deployment.
     """
     store = StateStore(config.state.store_root, config.agent.slug)
     from adore.web.worker_context import current_context
@@ -258,12 +234,12 @@ def _store(config: Config) -> StateStore:
 
 def _env_file_for_config(config_path: str | Path) -> Path:
     """
-    @brief      Resolve the secret file used for an engine command.
-    @details    Prefer `.env` beside the resolved config/profile. If it is not
+    Resolve the secret file used for an engine command.
+    Prefer `.env` beside the resolved config/profile. If it is not
                 present, use cwd `.env`; `Orchestrator.from_config` still gives
                 the process environment final precedence.
-    @param[in]  config_path Resolved config path selected by `_load`.
-    @return     Preferred existing path, or the cwd fallback path.
+    config_path: Resolved config path selected by `_load`.
+    Returns: Preferred existing path, or the cwd fallback path.
     """
     beside_config = Path(config_path).expanduser().resolve().parent / ".env"
     cwd_fallback = Path.cwd() / ".env"
@@ -276,9 +252,9 @@ _DELETABLE_RUN_LIFECYCLES = {"done", "failed", "cancelled", "handed-off", "hando
 @contextlib.contextmanager
 def _operator_lock(store: StateStore) -> Iterator[None]:
     """
-    @brief      Hold the single-conductor lock around an operator mutation.
-    @param[in]  store State store whose lock protects the selected profile.
-    @exception  LockHeldError When a live or unknown holder owns the lock.
+    Hold the single-conductor lock around an operator mutation.
+    store: State store whose lock protects the selected profile.
+    Raises LockHeldError: When a live or unknown holder owns the lock.
     """
     if not store.acquire_lock():
         info = store.lock_info()
@@ -300,14 +276,14 @@ def _operator_lock(store: StateStore) -> Iterator[None]:
 
 def _toml_scalar_literal(value: str) -> str:
     """
-    @brief      Render a CLI value string as a TOML scalar literal.
-    @details    Inference order: `true`/`false` -> bool; an integer -> int; a
+    Render a CLI value string as a TOML scalar literal.
+    Inference order: `true`/`false` -> bool; an integer -> int; a
                 number with a decimal point or exponent -> float; anything else
                 -> a quoted basic string (so version-like `1.2.3` stays a
                 string). Callers document that the type is inferred from the
                 value text.
-    @param[in]  value Raw value from the command line.
-    @return     A TOML literal safe to splice into the config text.
+    value: Raw value from the command line.
+    Returns: A TOML literal safe to splice into the config text.
     """
     text = value.strip()
     if text in ("true", "false"):
@@ -327,12 +303,12 @@ def _toml_scalar_literal(value: str) -> str:
 
 def _inline_comment(line: str) -> str:
     """
-    @brief      Return a line's trailing `# ...` comment, or "" if none.
-    @details    Quote-aware so a `#` inside a string value is not mistaken for a
+    Return a line's trailing `# ...` comment, or "" if none.
+    Quote-aware so a `#` inside a string value is not mistaken for a
                 comment. Basic heuristic (enough for scalar config lines); it
                 never splits inside single- or double-quoted text.
-    @param[in]  line A config line.
-    @return     The comment substring starting at `#`, or "".
+    line: A config line.
+    Returns: The comment substring starting at `#`, or "".
     """
     quote = ""
     for index, char in enumerate(line):
@@ -347,14 +323,14 @@ def _inline_comment(line: str) -> str:
 
 
 def _newline(text: str) -> str:
-    """@brief A config text's line ending: CR LF when it has one, else LF."""
+    """A config text's line ending: CR LF when it has one, else LF."""
     return "\r\n" if "\r\n" in text else "\n"
 
 
 def _set_toml_scalar(text: str, dotted_key: str, value: str, *, literal: str | None = None) -> str:
     """
-    @brief      Set one scalar key in TOML text, preserving comments/other lines.
-    @details    `dotted_key` is `<table...>.<name>` (for example
+    Set one scalar key in TOML text, preserving comments/other lines.
+    `dotted_key` is `<table...>.<name>` (for example
                 `budgets.max_iterations` or `labels.lifecycle.ready`). An
                 existing key's value is replaced in place (its indentation
                 kept); a key absent from an existing table is inserted just
@@ -363,13 +339,13 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str, *, literal: str | N
                 untouched, byte for byte. A replaced line keeps its own line
                 ending and an added line takes the text's (see _newline). Only
                 scalars are supported.
-    @param[in]  text Current config file text.
-    @param[in]  dotted_key Dotted table+key path.
-    @param[in]  value Raw value (type inferred by _toml_scalar_literal).
-    @param[in]  literal Exact TOML literal to write instead of inferring one
+    text: Current config file text.
+    dotted_key: Dotted table+key path.
+    value: Raw value (type inferred by _toml_scalar_literal).
+    literal: Exact TOML literal to write instead of inferring one
                 (callers pass a validated, already quoted string).
-    @return     The updated config text.
-    @exception  ValueError When the key is not a `<table>.<name>` path.
+    Returns: The updated config text.
+    Raises ValueError: When the key is not a `<table>.<name>` path.
     """
     parts = [part for part in dotted_key.split(".") if part]
     if len(parts) < 2:
@@ -417,14 +393,14 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str, *, literal: str | N
 
 def _config_set(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore config set <section.key> <value>`.
-    @details    Resolves the config file with the same precedence as every other
+    Handle `adore config set <section.key> <value>`.
+    Resolves the config file with the same precedence as every other
                 command (explicit -c > --profile > active profile > ./config.toml),
                 refuses secret-looking keys (they belong in .env), edits one
                 scalar preserving comments, then writes ONLY when the whole
                 resulting config still loads and validates. The write is atomic.
-    @param[in]  args Parsed arguments (key, value, config, profile).
-    @return     Process exit code.
+    args: Parsed arguments (key, value, config, profile).
+    Returns: Process exit code.
     """
     if not args.key or args.value is None:
         print("usage: adore config set <section.key> <value>")
@@ -450,7 +426,7 @@ def _config_set(args: argparse.Namespace) -> int:
 
 
 def _config_set_locked(args: argparse.Namespace, path: Path) -> int:
-    """@brief Validate and atomically write one scalar under the edit lock."""
+    """Validate and atomically write one scalar under the edit lock."""
     args.config = str(path)
     try:
         original = path.read_bytes().decode("utf-8")  # bytes: keep line endings
@@ -503,9 +479,9 @@ def _config_set_locked(args: argparse.Namespace, path: Path) -> int:
 
 def _cmd_config(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore config show|validate|set`.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    Handle `adore config show|validate|set`.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     if args.action == "set":
         return _config_set(args)
@@ -536,9 +512,9 @@ def _cmd_config(args: argparse.Namespace) -> int:
 
 def _cmd_status(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore status`: config health, lock, pause, run counts.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    Handle `adore status`: config health, lock, pause, run counts.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     config = _load(args)
     if config is None:
@@ -567,9 +543,9 @@ def _cmd_status(args: argparse.Namespace) -> int:
 
 def _cmd_runs(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore runs`: list persisted runs as a table.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    Handle `adore runs`: list persisted runs as a table.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     config = _load(args)
     if config is None:
@@ -595,10 +571,10 @@ def _cmd_runs(args: argparse.Namespace) -> int:
 
 def _cmd_pause(args: argparse.Namespace, *, paused: bool) -> int:
     """
-    @brief      Handle `adore pause` / `adore resume`.
-    @param[in]  args Parsed arguments.
-    @param[in]  paused True to pause, False to resume.
-    @return     Process exit code.
+    Handle `adore pause` / `adore resume`.
+    args: Parsed arguments.
+    paused: True to pause, False to resume.
+    Returns: Process exit code.
     """
     config = _load(args)
     if config is None:
@@ -615,11 +591,11 @@ def _cmd_pause(args: argparse.Namespace, *, paused: bool) -> int:
 
 def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
     """
-    @brief      Load + validate config, then build the engine.
-    @details    Engine commands refuse to start on an invalid config -
+    Load + validate config, then build the engine.
+    Engine commands refuse to start on an invalid config -
                 `validate at startup` is the design contract (12a).
-    @param[in]  args Parsed arguments.
-    @return     (config, orchestrator), or None after a printed error.
+    args: Parsed arguments.
+    Returns: (config, orchestrator), or None after a printed error.
     """
     config = _load(args)
     if config is None:
@@ -641,7 +617,7 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
     if len(matches) == 1:
         bound_profile = matches[0]
         def admission_guard() -> None:
-            """@brief Recheck the exact profile under admission after archive/delete barriers."""
+            """Recheck the exact profile under admission after archive/delete barriers."""
             try:
                 current = profiles.load(bound_profile.name)
             except (ProfileError, OSError) as exc:
@@ -657,7 +633,7 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
         project_id = matches[0].project_id
 
         def run_available(run_id: str) -> bool:
-            """@brief Preserve live or uncertain web owners for standalone operators."""
+            """Preserve live or uncertain web owners for standalone operators."""
             web.recover_interrupted(project_id=project_id, role="run")
             return not web.worker_heartbeats(role="run", project_id=project_id,
                                              run_id=run_id)
@@ -676,9 +652,9 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
 
 def _not_started_code(summary: dict) -> str:
     """
-    @brief      Name the stable reason a single-ticket pass started no job.
-    @param[in]  summary Poll summary whose `picked` is None.
-    @return     pickup_paused, at_capacity, aegis_probe_failed or not_eligible.
+    Name the stable reason a single-ticket pass started no job.
+    summary: Poll summary whose `picked` is None.
+    Returns: pickup_paused, at_capacity, aegis_probe_failed or not_eligible.
     """
     if summary.get("paused"):
         return "pickup_paused"
@@ -691,16 +667,16 @@ def _not_started_code(summary: dict) -> str:
 
 def _cmd_run(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore run [--loop|--once|--dry-run]`.
-    @details    Default mode comes from [polling] mode; flags override. A
+    Handle `adore run [--loop|--once|--dry-run]`.
+    Default mode comes from [polling] mode; flags override. A
                 `--once --ticket N` pass that starts no job ends with the line
                 `error: ticket #N not started: <code>`, which the web worker
                 reads as the operation's reason.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     def finish(code: int, reason: str) -> int:
-        """@brief Append secret-free terminal evidence for a manual worker request."""
+        """Append secret-free terminal evidence for a manual worker request."""
         if args.ticket is not None and not args.dry_run:
             emit_start_result(args.ticket, code, reason)
         return code
@@ -780,9 +756,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 
 def _cmd_conduct(args: argparse.Namespace) -> int:
-    """@brief Build a fresh conductor/executor/backend for one revision-bound run.
-    @param[in] args Parsed run identity and exact configuration revision.
-    @return Zero for an owned handled run; one for refused or unavailable authority.
+    """
+    Build a fresh conductor/executor/backend for one revision-bound run.
+    args: Parsed run identity and exact configuration revision.
+    Returns: Zero for an owned handled run; one for refused or unavailable authority.
     """
     if not re.fullmatch(r"[a-f0-9]{64}", args.config_revision):
         print("error: invalid configuration revision")
@@ -803,13 +780,13 @@ def _cmd_conduct(args: argparse.Namespace) -> int:
 
 def _cmd_run_op(args: argparse.Namespace) -> int:
     """
-    @brief      Handle per-run operations: cancel, retry, logs, delete.
-    @param[in]  args Parsed arguments (args.run_id set).
-    @return     Process exit code.
+    Handle per-run operations: cancel, retry, logs, delete.
+    args: Parsed arguments (args.run_id set).
+    Returns: Process exit code.
     """
     def finish(code: int, reason: str, picked: int | None = None,
                retained: bool = False) -> int:
-        """@brief Bind Retry and Restart outcomes to the requested job."""
+        """Bind Retry and Restart outcomes to the requested job."""
         if args.command == "retry":
             emit_retry_result(args.run_id, code, reason)
         elif args.command == "restart":
@@ -916,7 +893,8 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             return finish(EXIT_OK, "retried")
         if args.command == "restart":
             summary = engine.restart(args.run_id, args.expected_revision,
-                                     **({"workflow": args.workflow} if args.workflow else {}))
+                                   **({"workflow": args.workflow} if args.workflow else {}),
+                                   **({"admit_only": True} if args.admit_only else {}))
             print(json.dumps(summary))
             picked = summary.get("picked")
             code = EXIT_OK if picked is not None else EXIT_ERROR
@@ -995,9 +973,9 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
 
 def _cmd_stats(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore stats [--since] [--by] [--html] [--rebuild]`.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    Handle `adore stats [--since] [--by] [--html] [--rebuild]`.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     config = _load(args)
     if config is None:
@@ -1049,9 +1027,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
 
 def _cmd_report(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore report <run-id>`: live summary from the journal.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    Handle `adore report <run-id>`: live summary from the journal.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     config = _load(args)
     if config is None:
@@ -1071,9 +1049,9 @@ def _cmd_report(args: argparse.Namespace) -> int:
 
 def _cmd_export(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore export --csv`: CSV of all summaries to stdout.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    Handle `adore export --csv`: CSV of all summaries to stdout.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     config = _load(args)
     if config is None:
@@ -1085,12 +1063,12 @@ def _cmd_export(args: argparse.Namespace) -> int:
 
 def _cmd_init(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore init [name] [--force] [--answers FILE]`.
-    @details    Runs the assisted-config wizard (interactive by default, or
+    Handle `adore init [name] [--force] [--answers FILE]`.
+    Runs the assisted-config wizard (interactive by default, or
                 non-interactive from a TOML answers file) and saves a validated
                 runtime-project profile under the ADORE config home.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     store = ProfileStore()
     if args.answers:
@@ -1116,9 +1094,9 @@ def _cmd_init(args: argparse.Namespace) -> int:
 
 def _cmd_profile(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore profile list|show|use|rename|delete|path`.
-    @param[in]  args Parsed arguments (args.profile_action + operands).
-    @return     Process exit code.
+    Handle `adore profile list|show|use|rename|delete|path`.
+    args: Parsed arguments (args.profile_action + operands).
+    Returns: Process exit code.
     """
     store = ProfileStore()
     action = args.profile_action
@@ -1182,8 +1160,8 @@ def _cmd_profile(args: argparse.Namespace) -> int:
 
 def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace) -> int:
     """
-    @brief      Remove a project's ADORE resources, then delete its profile.
-    @details    Human-owned worktrees/containers and a state folder outside the
+    Remove a project's ADORE resources, then delete its profile.
+    Human-owned worktrees/containers and a state folder outside the
                 profile directory are kept and reported. Nothing is deleted when
                 the configuration is invalid, the conductor lock is held, run
                 state is corrupt or any run is unfinished. With --remove-clone
@@ -1191,9 +1169,9 @@ def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace
                 nothing), rechecked after the purge, and removed after the
                 profile; a clone that became unsafe or cannot be removed is
                 kept and reported.
-    @param[in]  store Profile store holding the profile.
-    @param[in]  args Parsed `profile delete` arguments.
-    @return     Process exit code.
+    store: Profile store holding the profile.
+    args: Parsed `profile delete` arguments.
+    Returns: Process exit code.
     """
     engine_args = argparse.Namespace(**{**vars(args), "config": None, "profile": args.name})
     built = _engine(engine_args)
@@ -1256,12 +1234,12 @@ def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace
 
 def _profile_metrics(profile) -> dict:
     """
-    @brief      One profile's run statistics from its metrics DB.
-    @details    Honors a custom `[metrics] db_path`; falls back to
+    One profile's run statistics from its metrics DB.
+    Honors a custom `[metrics] db_path`; falls back to
                 `<store_root>/metrics.db`. A missing DB or an unreadable config
                 yields zero-stats (never an error) so `list`/`show` stay robust.
-    @param[in]  profile The Profile.
-    @return     The stats mapping from `metrics.profile_stats`.
+    profile: The Profile.
+    Returns: The stats mapping from `metrics.profile_stats`.
     """
     db_path = ""
     try:
@@ -1275,9 +1253,9 @@ def _profile_metrics(profile) -> dict:
 
 def _profile_list(store: ProfileStore) -> int:
     """
-    @brief      Handle `adore profile list`: a table of profiles + run stats.
-    @param[in]  store The profile store.
-    @return     Process exit code.
+    Handle `adore profile list`: a table of profiles + run stats.
+    store: The profile store.
+    Returns: Process exit code.
     """
     profiles = store.list_profiles()
     invalid = store.invalid_profiles()
@@ -1301,10 +1279,10 @@ def _profile_list(store: ProfileStore) -> int:
 
 def _profile_show(store: ProfileStore, name: str) -> int:
     """
-    @brief      Handle `adore profile show <name>`: metadata + config path.
-    @param[in]  store The profile store.
-    @param[in]  name Profile name.
-    @return     Process exit code.
+    Handle `adore profile show <name>`: metadata + config path.
+    store: The profile store.
+    name: Profile name.
+    Returns: Process exit code.
     """
     try:
         profile = store.load(name)
@@ -1327,13 +1305,13 @@ def _profile_show(store: ProfileStore, name: str) -> int:
 
 def _cmd_reset(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore reset <run-id> --to <stage> --force`.
-    @details    Destructive (re-runs completed work), so it requires --force
+    Handle `adore reset <run-id> --to <stage> --force`.
+    Destructive (re-runs completed work), so it requires --force
                 per the design 8c guardrail. The run is left retry-able. It
                 moves ADORE's own pointer only: AEGIS still owns the governed
                 run's stage, and conduction re-reads the active task journal.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     if not args.force:
         print("reset discards progress and re-runs completed work "
@@ -1360,15 +1338,15 @@ def _cmd_reset(args: argparse.Namespace) -> int:
 
 def _cmd_cleanup(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore cleanup`: stale lock + this project's run resources.
-    @details    Works only on the selected project's runs. Active and failed
+    Handle `adore cleanup`: stale lock + this project's run resources.
+    Works only on the selected project's runs. Active and failed
                 runs stay for resume/retry, human-owned runs stay with their
                 owner, and corrupt runs keep their resources and are reported,
                 never deleted. Done, cancelled, stale and state-less runs of
                 this project lose their containers, proxies, networks and
                 worktrees.
-    @param[in]  args Parsed arguments.
-    @return     Process exit code.
+    args: Parsed arguments.
+    Returns: Process exit code.
     """
     built = _engine(args)
     if built is None:
@@ -1382,14 +1360,11 @@ def _cmd_cleanup(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-# PUBLIC API
-
-
 def _main(argv: list[str] | None = None) -> int:
     """
-    @brief      Program entry point for the `adore` command.
-    @param[in]  argv Optional argument vector (defaults to sys.argv).
-    @return     Process exit code (0 = success, 1 = error).
+    Program entry point for the `adore` command.
+    argv: Optional argument vector (defaults to sys.argv).
+    Returns: Process exit code (0 = success, 1 = error).
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -1446,7 +1421,7 @@ def _main(argv: list[str] | None = None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief Dispatch standalone CLI or attach an explicit web-worker claim first."""
+    """Dispatch standalone CLI or attach an explicit web-worker claim first."""
     from adore.web.ownership import WebStoreError
     from adore.web.worker_context import attached_context
 
@@ -1456,6 +1431,3 @@ def main(argv: list[str] | None = None) -> int:
     except WebStoreError:
         print("error: worker ownership lost or request authority revoked", file=sys.stderr)
         return EXIT_ERROR
-
-
-# END OF FILE

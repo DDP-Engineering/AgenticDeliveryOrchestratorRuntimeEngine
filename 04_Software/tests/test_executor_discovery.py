@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_executor_discovery.py
-@brief   Installed native executor discovery and HTTP authority boundaries.
-@details Offline filesystem fixtures exercise host installations without running
-         a CLI, reading credentials or using external services.
-"""
+"""Installed native executor discovery and HTTP authority boundaries."""
 
 from __future__ import annotations
 
-# IMPORTS
 import os
 from pathlib import Path
 
@@ -25,9 +10,8 @@ from fastapi.testclient import TestClient
 import pytest
 
 
-# LOCAL HELPERS
 def installed(path: Path) -> Path:
-    """@brief Create an executable fixture that must never be run."""
+    """Create an executable fixture that must never be run."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("DO NOT EXECUTE", encoding="utf-8")
     path.chmod(0o755)
@@ -36,7 +20,7 @@ def installed(path: Path) -> Path:
 
 # PUBLIC CONTRACT TESTS
 def test_detected_account_uses_process_identity_not_environment(tmp_path, monkeypatch):
-    """@brief The displayed account identifies the process, not a shell environment label."""
+    """The displayed account identifies the process, not a shell environment label."""
     from adore.executor_discovery import discover_executors
     from adore.local_process import native_context
 
@@ -49,7 +33,7 @@ def test_detected_account_uses_process_identity_not_environment(tmp_path, monkey
 
 
 def test_admin_discovers_host_executors_without_running_commands(tmp_path, monkeypatch):
-    """@brief A native PATH installation becomes an absolute launch suggestion."""
+    """A native PATH installation becomes an absolute launch suggestion."""
     executable = installed(tmp_path / "bin" / ("pi.exe" if os.name == "nt" else "pi"))
     monkeypatch.setenv("PATH", str(executable.parent))
     monkeypatch.setenv("HOME", str(tmp_path / "account"))
@@ -76,7 +60,7 @@ def test_admin_discovers_host_executors_without_running_commands(tmp_path, monke
 
 
 def test_executor_discovery_requires_administrator(tmp_path):
-    """@brief Filesystem paths are unavailable to anonymous users or developers."""
+    """Filesystem paths are unavailable to anonymous users or developers."""
     app = create_app(tmp_path / "home")
     app.state.web_store.create_user("dev", "longer-password", "developer")
     with TestClient(app) as client:
@@ -86,7 +70,7 @@ def test_executor_discovery_requires_administrator(tmp_path):
 
 
 def test_unavailable_native_identity_does_not_guess_an_account(tmp_path, monkeypatch):
-    """@brief An unreadable native identity returns explicit unavailable detection."""
+    """An unreadable native identity returns explicit unavailable detection."""
     from adore.local_process import LocalExecutionError
 
     def unavailable():
@@ -102,7 +86,7 @@ def test_unavailable_native_identity_does_not_guess_an_account(tmp_path, monkeyp
 
 @pytest.mark.parametrize("system", ["Windows", "Linux"])
 def test_native_and_npm_installations_are_detected_and_deduplicated(tmp_path, system):
-    """@brief Native and Node/JS choices use existing files with normal arguments."""
+    """Native and Node/JS choices use existing files with normal arguments."""
     from adore.executor_discovery import discover_executors
 
     if system == "Linux" and os.name == "nt":
@@ -127,7 +111,7 @@ def test_native_and_npm_installations_are_detected_and_deduplicated(tmp_path, sy
 
 
 def test_windows_npm_pi_uses_node_and_not_shell_shims(tmp_path):
-    """@brief Only native Node plus a known Pi script becomes launch authority."""
+    """Only native Node plus a known Pi script becomes launch authority."""
     from adore.executor_discovery import discover_executors
 
     root = tmp_path / "npm"
@@ -145,7 +129,7 @@ def test_windows_npm_pi_uses_node_and_not_shell_shims(tmp_path):
 
 @pytest.mark.parametrize("case", ["relative", "excluded", "checkout", "missing", "unsafe_name"])
 def test_unsafe_or_unavailable_installations_are_omitted(tmp_path, monkeypatch, case):
-    """@brief Only installed native files outside project trees may be proposed."""
+    """Only installed native files outside project trees may be proposed."""
     from adore.executor_discovery import discover_executors
 
     directory = tmp_path / ('bad"name' if case == "unsafe_name" and os.name != "nt" else "bin")
@@ -167,7 +151,7 @@ def test_unsafe_or_unavailable_installations_are_omitted(tmp_path, monkeypatch, 
 
 
 def test_non_executable_linux_files_and_missing_node_are_omitted(tmp_path):
-    """@brief A JS file alone and a non-executable Unix binary are not installations."""
+    """A JS file alone and a non-executable Unix binary are not installations."""
     from adore.executor_discovery import discover_executors
 
     root = tmp_path / "bin"
@@ -185,7 +169,7 @@ def test_non_executable_linux_files_and_missing_node_are_omitted(tmp_path):
 
 
 def test_discovery_is_bounded_and_does_not_export_environment_values(tmp_path):
-    """@brief Oversized PATH and provider variables never escape the bounded listing."""
+    """Oversized PATH and provider variables never escape the bounded listing."""
     from adore.executor_discovery import discover_executors
 
     roots = [installed(tmp_path / str(index) / "pi.exe").parent for index in range(75)]
@@ -201,7 +185,7 @@ def test_discovery_is_bounded_and_does_not_export_environment_values(tmp_path):
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX symlinks tested natively on Linux")
 def test_project_symlink_and_shell_alias_are_not_discovered(tmp_path):
-    """@brief Resolving a link cannot turn a project PATH entry into installed authority."""
+    """Resolving a link cannot turn a project PATH entry into installed authority."""
     from adore.executor_discovery import discover_executors
 
     actual = installed(tmp_path / "installed/pi")
@@ -218,6 +202,3 @@ def test_project_symlink_and_shell_alias_are_not_discovered(tmp_path):
     result = discover_executors(system="Linux", environment={"PATH": str(alias.parent)},
                                 home=tmp_path / "home", excluded=())
     assert all(not record["installations"] for record in result["executors"])
-
-
-# END OF FILE

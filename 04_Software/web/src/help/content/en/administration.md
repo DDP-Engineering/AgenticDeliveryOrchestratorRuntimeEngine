@@ -56,3 +56,9 @@ Choose **Apply filters**; this returns to the first page. The page reports how m
 Each row shows **Who**, **What**, **When** and **Result**: **Prepared**, **Applied**, **Discarded**, **Rejected** or **Uncertain**. Prepared means a candidate was staged, not applied. **Uncertain** means the host could not confirm completion; inspect the real resource before recovering. **Evidence** opens a row below the event with **Before**, **After / candidate**, the **Operation**, and the **Base revision** and **Candidate revision** when recorded. **Before value not recorded** means unknown, not empty. Passwords and environment values are never shown.
 
 Change history is kept indefinitely unless you set limits under [System status](#system-status). There is no download or export of change history. A Dev sees operational changes only for assigned projects; account, access, price and policy events stay with administrators.
+
+## Storage capacity {#storage-capacity}
+
+Storage status and the measured free/total capacity are grouped together below Workers. A shared physical volume is shown once; separate volumes appear in the table.
+
+Audit retention limits administrative events. Job history has no automatic expiry; explicit job deletion is separate.

@@ -5,7 +5,6 @@
  * See the LICENSE.txt file for full license details.
  * SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
  */
-
 /**
  * ADORE's Pi guard extension, loaded explicitly with `-e` for every Pi RPC run
  * in the executor image, so it applies without project trust.
