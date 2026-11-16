@@ -107,6 +107,11 @@ job without consuming stage failures. A stage checkpoint uses the configured age
 Git identity even when the host clone has no global identity. Its failure stops
 execution at the observed stage and preserves the worktree.
 
+Target merge commits use that same configured identity. Only index-proven content
+conflicts consume `INTEGRATION_CONFLICT` recovery and relaunch the executor.
+Other merge failures become terminal `GIT_INTEGRATION` evidence with the worktree
+retained, rather than asking Pi to repair the server's Git configuration.
+
 Progress checkpoint publication is independently configurable. It is lease-bound
 to the owned ticket branch and never opens a review by itself. Foreign/replaced
 refs refuse publication; target branches are never progress-pushed.

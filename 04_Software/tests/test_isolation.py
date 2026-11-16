@@ -1257,32 +1257,58 @@ def test_checkpoint_rejects_corrupt_mutation_exit(tmp_path: Path, index: int) ->
         manager.commit_all_if_dirty("run-1", "checkpoint")
 
 
-def test_checkpoint_commit_uses_configured_git_identity(tmp_path: Path) -> None:
-    """@brief A fresh clone needs no global Git identity for ADORE commits."""
-    runner = FakeRunner(_ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"), _ok())
+@pytest.mark.parametrize("operation", ["commit", "merge", "conflict"])
+def test_checkpoint_commit_uses_configured_git_identity(tmp_path: Path, operation: str) -> None:
+    """@brief Checkpoints and target merges use the same configured bot identity."""
+    if operation == "commit":
+        results = [_ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"), _ok()]
+    elif operation == "conflict":
+        results = [_fail("content conflict"), _ok("file.py\0")]
+    else:
+        results = [_ok()]
+    runner = FakeRunner(*results)
     manager = WorktreeManager(
         tmp_path / "repo", tmp_path / "worktrees", runner,
         git_name="ADORE Bot", git_email="adore@example.invalid",
     )
-    assert manager.commit_all_if_dirty("run-1", "checkpoint") is True
-    assert runner.calls[-1][-7:] == [
+    if operation == "commit":
+        assert manager.commit_all_if_dirty("run-1", "checkpoint") is True
+        command = runner.calls[-1]
+        ending = ["commit", "-m", "checkpoint"]
+    else:
+        result = manager.merge("run-1", "origin/master")
+        assert result.ok is (operation == "merge")
+        command = runner.calls[0]
+        ending = ["merge", "--no-edit", "origin/master"]
+        if operation == "conflict":
+            assert runner.calls[-1][-4:] == ["diff", "--name-only", "--diff-filter=U", "-z"]
+    assert command[-7:] == [
         "-c", "user.name=ADORE Bot", "-c",
-        "user.email=adore@example.invalid", "commit", "-m", "checkpoint",
+        "user.email=adore@example.invalid", *ending,
     ]
 
 
-def test_checkpoint_commit_reports_git_failure(tmp_path: Path) -> None:
-    """@brief Git commit failure remains a typed isolation error."""
-    runner = FakeRunner(
+@pytest.mark.parametrize("operation", ["commit", "merge", "merge-timeout", "merge-evidence"])
+def test_checkpoint_commit_reports_git_failure(tmp_path: Path, operation: str) -> None:
+    """@brief Git infrastructure failures and invalid conflict evidence fail closed."""
+    results = [
         _ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"),
         _fail("commit rejected"),
+    ] if operation == "commit" else (
+        [CommandResult(exit_code=1, timed_out=True)] if operation == "merge-timeout" else
+        [_fail("Committer identity unknown", exit_code=128),
+         _ok("partial" if operation == "merge-evidence" else "")]
     )
+    runner = FakeRunner(*results)
     manager = WorktreeManager(
         tmp_path / "repo", tmp_path / "worktrees", runner,
         git_name="ADORE Bot", git_email="adore@example.invalid",
     )
-    with pytest.raises(IsolationError, match="git commit failed"):
-        manager.commit_all_if_dirty("run-1", "checkpoint")
+    with pytest.raises(IsolationError, match="(?i)git .*failed|invalid Git merge conflict"):
+        if operation == "commit":
+            manager.commit_all_if_dirty("run-1", "checkpoint")
+        else:
+            manager.merge("run-1", "origin/master")
 
 
 def test_container_mount_sources_are_always_absolute(

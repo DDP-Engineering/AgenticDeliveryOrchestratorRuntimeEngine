@@ -623,18 +623,33 @@ class WorktreeManager:
     def merge(self, run_id: str, ref: str) -> CommandResult:
         """
         @brief      Merge a ref into the run branch (delivery integration).
-        @details    Returns the result as DATA: a conflicted merge is a
-                    conductor signal (relaunch the executor to resolve), not
-                    an isolation failure. The merge is left in progress on
-                    conflict so the executor can complete it (design 11a).
+        @details    Use the configured bot identity for any merge commit.
+                    Only proven unmerged index entries authorize executor
+                    conflict recovery; other Git failures stop integration.
         @param[in]  run_id Stable run identifier.
         @param[in]  ref Ref to merge (for example "origin/develop").
         @return     The captured CommandResult.
+        @exception IsolationError Git failed without proven content conflicts,
+                   timed out, or returned invalid conflict evidence.
         """
         self.scrub_container_worktree_config()
-        return self.runner(
-            ["git", "-C", str(self.path_for(run_id)), "merge", "--no-edit", ref]
+        worktree = str(self.path_for(run_id))
+        result = self.runner(
+            ["git", "-C", worktree, *self._git_identity(), "merge", "--no-edit", ref]
         )
+        if type(result.exit_code) is not int or result.timed_out:
+            raise IsolationError("git merge failed", result.argv, result.stderr)
+        if result.ok:
+            return result
+        conflicts = self._run_wt(worktree, "diff", "--name-only", "--diff-filter=U", "-z")
+        if (type(conflicts.exit_code) is not int or conflicts.timed_out
+                or not isinstance(conflicts.stdout, str) or len(conflicts.stdout) > 4_000_000
+                or conflicts.stdout and (not conflicts.stdout.endswith("\0")
+                                         or not all(conflicts.stdout[:-1].split("\0")))):
+            raise IsolationError("invalid Git merge conflict evidence")
+        if not conflicts.stdout:
+            raise IsolationError("git merge failed", result.argv, result.stderr)
+        return result
 
     def merge_in_progress(self, run_id: str) -> bool:
         """
@@ -1315,6 +1330,11 @@ class WorktreeManager:
             raise IsolationError(f"git {args[0]} failed", result.argv, result.stderr)
         return result
 
+    def _git_identity(self) -> list[str]:
+        """@brief Supply the configured bot identity to host commit-producing Git commands."""
+        return (["-c", f"user.name={self.git_name}", "-c", f"user.email={self.git_email}"]
+                if self.git_name and self.git_email else [])
+
     def _run_wt(self, worktree: str, *args: str) -> CommandResult:
         """
         @brief      Run git against a worktree dir, raising on failure.
@@ -1324,10 +1344,7 @@ class WorktreeManager:
         @exception  IsolationError When git exits non-zero.
         """
         self.scrub_container_worktree_config()
-        identity = (["-c", f"user.name={self.git_name}",
-                     "-c", f"user.email={self.git_email}"]
-                    if args[0] == "commit" and self.git_name and self.git_email
-                    else [])
+        identity = self._git_identity() if args[0] == "commit" else []
         argv = ["git", "-C", worktree, *identity, *args]
         result = self.runner(argv)
         if not result.ok:

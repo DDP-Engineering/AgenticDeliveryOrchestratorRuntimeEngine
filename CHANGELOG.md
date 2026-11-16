@@ -24,6 +24,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   resource names, retaining the official extension's host authentication.
 - Launch the standard Windows Azure CLI through its bundled Python without shell
   expansion, including prerequisite checks and PR label/Work Item association commands.
+- Use the configured bot identity for host-side target merge commits; only proven file conflicts relaunch the executor, while Git configuration and infrastructure failures preserve the job as a Git integration error.
 
 ## [0.17.0] - 2026-11-15
 
