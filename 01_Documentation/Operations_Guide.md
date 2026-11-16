@@ -177,6 +177,11 @@ Guarded progress commits can be pushed when `delivery.publish_checkpoints` is
 on; these are separate from final MR/PR publication and do not authorize merge.
 The agent never commits, pushes, creates reviews or merges on ADORE's behalf.
 
+ADORE supplies the configured agent name/email to its checkpoint and target merge
+commands, so no global Git identity is needed. Actual file conflicts return to
+the implementation conversation. Other Git integration failures preserve the job
+and report an integration error for operator correction instead of relaunching Pi.
+
 ADORE adopts an existing matching open MR/PR where appropriate, or creates a
 Draft/Ready review according to `delivery.draft`. It refreshes the publication
 description and records its pushed checkpoint. A publication failure retains

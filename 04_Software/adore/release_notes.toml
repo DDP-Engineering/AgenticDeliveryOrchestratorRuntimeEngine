@@ -13,6 +13,14 @@
 schema = 1
 
 [[release]]
+version = "Unreleased"
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Target integration uses the bot identity; Git setup errors no longer relaunch the agent.", fr = "L’intégration utilise l’identité du bot ; les erreurs Git ne relancent plus l’agent inutilement.", de = "Zielintegration nutzt die Bot-Identität; Git-Konfigurationsfehler starten den Agenten nicht neu.", ro = "Integrarea folosește identitatea botului; erorile de configurare Git nu mai relansează agentul." }
+
+[[release]]
 version = "0.17.0"
 date = "2026-11-15"
 

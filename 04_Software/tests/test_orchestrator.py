@@ -1304,16 +1304,29 @@ def test_direct_revision_retains_workflow_and_uses_fresh_thread(
     assert "Changed files: 2" not in forge.mr_body and "AEGIS task" not in forge.mr_body
 
 
-def test_direct_integration_conflict_returns_to_fresh_build(tmp_path, monkeypatch):
-    """@brief Target conflicts retain validate failure evidence and return to bounded build."""
+@pytest.mark.parametrize("infrastructure_error", [False, True])
+def test_direct_integration_conflict_returns_to_fresh_build(
+    tmp_path, monkeypatch, infrastructure_error,
+):
+    """@brief Only content conflicts relaunch Pi; integration infrastructure failures stop."""
     engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     executor.attempts.extend([direct_edit(worktrees), direct_edit(worktrees)])
     merges = deque([
         CommandResult(exit_code=1, stderr="target conflict"), CommandResult(exit_code=0),
     ])
-    monkeypatch.setattr(worktrees, "merge", lambda *args: merges.popleft())
+    def merge(*args):
+        if infrastructure_error:
+            raise IsolationError("git merge failed", stderr="Committer identity unknown")
+        return merges.popleft()
+
+    monkeypatch.setattr(worktrees, "merge", merge)
     engine.poll_once(ticket_iid=7)
     saved = engine.store.load("github-owner-repo-7")
+    if infrastructure_error:
+        assert saved.lifecycle == "failed" and saved.iterations == 1
+        assert saved.outcome.startswith("GIT_INTEGRATION:")
+        assert len(executor.prompts) == 1
+        return
     assert saved.lifecycle == "awaiting-approval" and saved.iterations == 2
     assert saved.failure_history[0]["code"] == "INTEGRATION_CONFLICT"
     assert saved.failure_history[0]["stage"] == "validate"

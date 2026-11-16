@@ -12,6 +12,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Use the configured bot identity for host-side target merge commits; only proven file conflicts relaunch the executor, while Git configuration and infrastructure failures preserve the job as a Git integration error.
+
 ## [0.17.0] - 2026-11-15
 
 ### Added

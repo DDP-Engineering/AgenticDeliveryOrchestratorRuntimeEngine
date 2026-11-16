@@ -30,7 +30,13 @@ preserved. Creation uses atomic git worktree add -b and refuses existing paths;
 recovery reattaches only under the saved ownership contract. Branch naming and
 repository policy are validated before destructive cleanup.
 
-Host checkpoints use configured author/committer identity. Before staging and
+Host checkpoints and target merge commits use the configured author/committer
+identity through per-command Git options, without requiring global Git settings.
+A failed target merge is returned for executor correction only when a successful,
+bounded NUL-delimited index query proves unmerged paths. Git configuration errors,
+timeouts and missing or invalid conflict evidence raise `IsolationError`; they do
+not masquerade as content conflicts or spend another executor attempt.
+Before staging and
 again before committing, NUL-delimited Git evidence checks untracked additions
 and the complete staged path set without rename inference. Suspicious whole
 percent-variable path segments or the Windows cache-path signature raise
