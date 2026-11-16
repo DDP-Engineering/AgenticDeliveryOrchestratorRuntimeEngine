@@ -23,7 +23,7 @@ A Dev sees only the projects an administrator assigned and has no Administration
 The top bar shows the page title and these controls.
 
 - **Project**: a selector on Overview only. It narrows **Needs attention** and **Active jobs** to one project; the default is all projects you can access. Jobs has its own **Job scope** selector and Statistics has a **Project** selector in its reporting period row.
-- **Refresh** and the **Last refreshed** time appear in the header on Users.
+- **Refresh** and the **Last successful update** time appear in the header on Users.
 - **About**: the ADORE version, with **What's new** (release notes by release, newest first, grouped New, Improved and Fixed), **License** and **Third-party notices**.
 - **How ADORE works**: opens this help center.
 
@@ -68,7 +68,7 @@ After **Start**, **Retry** or **Cancel**, a notice reports the command as queued
 
 ## Automatic updates, language and theme {#preferences}
 
-Overview, Projects, Jobs, project Settings, project Access, project History and Change history reload their data every 15 seconds while the browser tab is visible. Settings pauses while you have unsaved changes or a save or discard is in progress. Statistics and System status also refresh automatically. Background updates pause while the browser tab is hidden and resume when you return. If an update fails, the affected data stays hidden until the next successful update.
+Overview, Projects, Jobs, project Settings, project Access, project History and Change history reload their data every 15 seconds while the browser tab is visible. Settings pauses while you have unsaved changes or a save or discard is in progress. Statistics and System status also refresh automatically. Background updates pause while the browser tab is hidden and resume when you return. Same-context updates keep the displayed content and controls. Statistics, Jobs and change history offer **Refresh**, **Last successful update** and **Retry**. A temporary connection failure may keep informational data visible with an out-of-date warning; this is not current action authority. Initial failures, changed contexts, lost access and invalid evidence hide affected data.
 
 In [My account](/account), **Appearance** holds **Language** (English, Français, Deutsch, Română) and **Theme** (**System**, **Light**, **Dark**). Each choice is saved to your account and follows you across browsers; before you sign in, the sign-in page remembers the choice in the browser. **Change password** needs your current password and a new one of at least 8 characters.
 

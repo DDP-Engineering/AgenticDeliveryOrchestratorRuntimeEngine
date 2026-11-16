@@ -149,6 +149,6 @@ export function AccountAccessEditor({ account, projects, ready, locale, saveLabe
   return <div className="form-stack user-access">
     <div className="access-choices">{projects.map(p => <label key={p.id} className="access-choice"><input type="checkbox" disabled={!ready || busy || review !== null} checked={ids.includes(p.id)} onChange={e => setIds(e.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))} /><ChoiceText project={p} projects={projects} /></label>)}</div>
     <button className="ghost" disabled={!ready || busy || review !== null} onClick={() => setReview([...ids])}>{saveLabel}</button>
-    {review && <AccessReview subject={account.username} before={labels(account.project_ids, projects).join(", ") || copy.none} after={labels(review, projects).join(", ") || copy.none} copy={copy} busy={busy} apply={() => void apply()} correct={() => setReview(null)} />}
+    {review && <AccessReview subject={account.username} before={labels(account.project_ids, projects).join(", ") || copy.none} after={labels(review, projects).join(", ") || copy.none} copy={copy} busy={busy || !ready} apply={() => void apply()} correct={() => setReview(null)} />}
   </div>;
 }

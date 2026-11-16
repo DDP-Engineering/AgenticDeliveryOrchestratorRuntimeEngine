@@ -8,6 +8,8 @@ L’état système distingue **Superviseur**, **Service de configuration**, **Se
 
 ## Utilisateurs {#users}
 
+**Actualiser** dans l’en-tête garde la liste affichée et les brouillons de compte sans rapport pendant la relecture. **Dernière actualisation réussie** indique la fin. Les modifications de comptes existants attendent la relecture ; une liste illisible ou une autorité modifiée invalide les actions ou revues concernées.
+
 Sous **Administration**, ouvrez [Utilisateurs](/admin/users). La page comporte un panneau **Ajouter un utilisateur** et une liste **Utilisateurs**.
 
 Pour créer un compte :
@@ -40,7 +42,7 @@ Sous **Administration**, ouvrez [État du système](/admin/status). Il s’actua
 
 ## Historique des changements {#change-history}
 
-Sous **Administration**, ouvrez [Historique des changements](/admin/audit) pour voir qui a changé quoi, quand, et avec quel résultat. L’onglet **Historique** d’un projet montre les mêmes preuves pour ce projet seul, avec ses tâches terminées. Les deux vues s’actualisent toutes les 15 secondes quand elles sont visibles et conservent vos filtres, la page et les preuves ouvertes. Dans l’Historique des changements global, **Actualiser** recharge la liste immédiatement.
+Sous **Administration**, ouvrez [Historique des changements](/admin/audit) pour voir qui a changé quoi, quand, et avec quel résultat. L’onglet **Historique** d’un projet montre les mêmes preuves pour ce projet seul, avec ses tâches terminées. Les deux vues s’actualisent toutes les 15 secondes quand elles sont visibles et conservent vos filtres, la page et les preuves ouvertes. Dans les deux vues, **Actualiser** relit la même requête sans effacer lignes, filtres, pagination ni preuves ouvertes. **Dernière actualisation réussie** indique la fin. Une panne de connexion temporaire peut conserver le dernier instantané informatif avec un avertissement de péremption et **Réessayer** ; les preuves invalides ou non autorisées sont masquées.
 
 L’historique distingue les tickets et les tâches des numéros d’opération. Une opération échouée affiche **Échec**, une opération refusée **Refusé**. Les suppressions par CLI indiquent CLI comme auteur et restent visibles après suppression de la tâche. Une suppression interrompue reste **Incertain** jusqu’à confirmation.
 

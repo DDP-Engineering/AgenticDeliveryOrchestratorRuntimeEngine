@@ -9,6 +9,14 @@
 schema = 1
 
 [[release]]
+version = "Unreleased"
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
+text = { en = "Repeated Statistics refreshes wait for both reports without sending extra requests.", fr = "Actualiser à répétition attend les deux rapports sans lancer de requêtes supplémentaires.", de = "Wiederholtes Aktualisieren wartet auf beide Berichte, ohne zusätzliche Anfragen zu senden.", ro = "Reîmprospătările repetate așteaptă ambele rapoarte, fără cereri suplimentare." }
+
+[[release]]
 version = "0.18.0"
 date = "2026-11-16"
 
@@ -31,6 +39,11 @@ text = { en = "Restart cancelled jobs with current settings while keeping their 
 category = "fixed"
 topic = { en = "System status", fr = "État du système", de = "Systemstatus", ro = "Starea sistemului" }
 text = { en = "Storage status and free space are displayed together.", fr = "L’état du stockage et l’espace libre sont affichés ensemble.", de = "Speicherstatus und freier Speicherplatz werden gemeinsam angezeigt.", ro = "Starea stocării și spațiul liber sunt afișate împreună." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
+text = { en = "Background updates keep your place; failed refreshes show a time and Retry.", fr = "Les mises à jour gardent votre place ; un échec affiche l’heure et Réessayer.", de = "Aktualisierungen behalten Ihre Ansicht; Fehler zeigen Zeit und Wiederholen.", ro = "Actualizările păstrează vizualizarea; eșecurile arată ora și Reîncearcă." }
 
 [[release.entry]]
 category = "new"

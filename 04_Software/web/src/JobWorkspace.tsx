@@ -18,9 +18,11 @@ import type { JobConsumption } from "./metrics";
 import { JobAmounts } from "./StatisticsEvidence";
 import { workerCopy } from "./projectStatus";
 import { statisticsCopy } from "./statisticsCopy";
+import { useSnapshot } from "./useSnapshot";
+import { RefreshStatus } from "./RefreshStatus";
 
 export type JobProject = { id: string; name: string; display_name?: string; archived: boolean; paused: boolean };
-type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string) => Promise<T>;
+type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string, signal?: AbortSignal) => Promise<T>;
 type Props = {
   mode: "overview" | "jobs" | "history"; locale: Locale; projects: JobProject[]; scope: string; run?: string; runProject?: string;
   csrf: string; request: Request; t: (key: MessageKey) => string; refresh: number;
@@ -40,7 +42,6 @@ const lifecycleKeys: Record<string, MessageKey> = {
   "handed-off": "handedOffStatus", done: "done", failed: "failed", cancelled: "cancelled",
 };
 const label = (value: string, keys: Record<string, MessageKey>, t: Props["t"]) => keys[value] ? t(keys[value]) : value;
-const normalizeFailure = (cause: unknown) => cause instanceof ApiError ? cause : new ApiError("unexpected_response");
 const readOperation = (value: unknown): Operation => {
   const operation = value as Operation;
   if (operation?.admitted_run_id !== undefined &&
@@ -60,13 +61,7 @@ export function JobWorkspace(props: Props) {
   const compactOverview = mode === "overview";
   const [filters, setFilters] = useState<Filters>(() => props.viewState?.[props.viewKey || mode] || initialFilters(mode));
   useEffect(()=>{if(props.viewState)props.viewState[props.viewKey || mode]=filters;},[filters,props.viewKey]);
-  const [page, setPage] = useState<JobPage | null>(null);
-  const [activePage, setActivePage] = useState<JobPage | null>(null);
-  const [state, setState] = useState<ReadState>("loading");
-  const [failure, setFailure] = useState<unknown>(null);
-  const [detail, setDetail] = useState<Job | null>(null);
-  const [detailState, setDetailState] = useState<ReadState>("loading");
-  const [detailFailure, setDetailFailure] = useState<unknown>(null);
+
   const [operation, setOperation] = useState<Operation | null>(null);
   const [operationError, setOperationError] = useState<unknown>(null);
   const [commandStatusError, setCommandStatusError] = useState(false);
@@ -76,121 +71,79 @@ export function JobWorkspace(props: Props) {
   const mounted = useRef(true);
   const commandGeneration = useRef(0);
   const [reload, setReload] = useState(0);
-  const [usageReload, setUsageReload] = useState(0);
+
   const revision = useRef(props.viewRevisions?.[props.viewKey || mode] || { key: "", snapshot: "" });
   const [worker, setWorker] = useState("checking");
   const [workerComponents,setWorkerComponents]=useState<Array<"supervisor"|"configuration">>([]);
   const ids = projects.map(item => item.id).sort().join(",");
   const { offset, ...selection } = filters;
-  const baseKey = JSON.stringify([scope, mode, selection, ids]);
+  const baseKey = JSON.stringify([scope, mode, selection, ids, csrf, props.admin]);
   const renderKey = JSON.stringify([baseKey, offset]);
-  const [dataKey, setDataKey] = useState("");
   const detailScope = props.runProject || scope;
   const detailKey = `${detailScope}/${run || ""}`;
-  const [loadedDetailKey, setLoadedDetailKey] = useState("");
-  const visible = dataKey === renderKey && state === "ready" ? page : null;
+  const readState = (data: unknown, failure: unknown): ReadState => data ? "ready" : failure instanceof IncompleteJobs ? "incomplete" :
+    failure instanceof ApiError && failure.code === "job_snapshot_changed" ? "changed" : failure ? "error" : "loading";
+  const listing = useSnapshot(offset > 0 && revision.current.key !== baseKey ? null : renderKey, async signal => {
+    const query = new URLSearchParams({ limit: String(filters.size), offset: String(offset) });
+    if (scope) query.set("project_id", scope);
+    if (compactOverview) { query.set("overview", "true"); query.set("attention", "true"); }
+    for (const [key, value] of Object.entries({ q: filters.q.trim(), status_group: filters.group })) if (value) query.set(key, value);
+    if (!compactOverview) { query.set("sort", filters.sort); query.set("order", filters.descending ? "desc" : "asc"); }
+    if (offset > 0) query.set("snapshot", revision.current.snapshot);
+    const authorized = ids.split(",").filter(id => !scope || id === scope);
+    const page = readJobPage(await request(`/jobs-page?${query}`, "GET", undefined, undefined, signal), authorized, compactOverview);
+    if (page.offset !== offset) throw new ApiError("unexpected_response");
+    let activePage: JobPage | null = null;
+    if (compactOverview) {
+      const activeQuery = new URLSearchParams({ overview: "true", limit: "all", offset: "0", status_group: "active" });
+      if (scope) activeQuery.set("project_id", scope);
+      activePage = readJobPage(await request(`/jobs-page?${activeQuery}`, "GET", undefined, undefined, signal), authorized, true);
+      if (activePage.offset !== 0 || activePage.items.length !== activePage.total ||
+        activePage.items.some(row => !["working", "publishing"].includes(row.lifecycle))) throw new ApiError("unexpected_response");
+      if ((page.unreadable_projects ?? []).slice().sort().join() !== (activePage.unreadable_projects ?? []).slice().sort().join()) throw new ApiError("job_snapshot_changed");
+    }
+    return { page, activePage };
+  }, 15000, refresh + reload);
+  const state = readState(listing.data, listing.failure), failure = listing.failure;
+  const visible = listing.data?.page ?? null, activePage = listing.data?.activePage ?? null;
   const unreadable = visible?.unreadable_projects ?? [];
-  const visibleDetail = loadedDetailKey === detailKey && detailState === "ready" && ids.split(",").includes(detailScope) && !["error", "incomplete", "changed"].includes(state) ? detail : null;
+  useEffect(() => {
+    if (offset > 0 && revision.current.key !== baseKey) { setFilters(current => ({ ...current, offset: 0 })); return; }
+    if (visible) {
+      revision.current = { key: baseKey, snapshot: visible.snapshot };
+      if (props.viewRevisions) props.viewRevisions[props.viewKey || mode] = revision.current;
+    }
+  }, [baseKey, offset, visible]);
+  const detailRead = useSnapshot(run && detailScope && ids.split(",").includes(detailScope) ? JSON.stringify([detailKey, ids, csrf, props.admin]) : null,
+    async signal => readJobDetail(await request(`/jobs/${encodeURIComponent(detailScope)}/${encodeURIComponent(run!)}`, "GET", undefined, undefined, signal), detailScope, run!),
+    15000, refresh + reload, false);
+  const detailState = readState(detailRead.data, detailRead.failure), detailFailure = detailRead.failure;
+  const visibleDetail = !["error", "incomplete", "changed"].includes(state) ? detailRead.data : null;
   const consumptionProjects = [...new Set([...(visible?.items.map(job => job.project_id) ?? []), ...(visibleDetail ? [visibleDetail.project_id] : [])])].sort().join(",");
   const consumptionKey = JSON.stringify([consumptionProjects, ids, renderKey, detailKey]);
-  const [consumption, setConsumption] = useState<{ key: string; state: "loading" | "ready" | "error"; jobs: JobConsumption[] }>({ key: "", state: "loading", jobs: [] });
+  const consumption = useSnapshot(compactOverview ? null : consumptionKey, async signal => {
+    const lifetime = { from: "", through: "", timezone: "UTC", granularity: "day" } as const;
+    const values = await Promise.all(consumptionProjects.split(",").filter(Boolean).map(async id => {
+      if (!ids.split(",").includes(id)) throw new ApiError("unexpected_response");
+      return readConsumption(await request(`/projects/${encodeURIComponent(id)}/usage?timezone=UTC&granularity=day`, "GET", undefined, undefined, signal), id, lifetime, props.admin);
+    }));
+    return values.flatMap(value => value.jobs ?? []) as JobConsumption[];
+  }, 30000, refresh + reload);
   const statisticsText = statisticsCopy[locale];
   const consumptionView = (job: Job, full = false) => {
-    if (consumption.key !== consumptionKey || consumption.state !== "ready") return <>
-      <DataFeedback state={consumption.key === consumptionKey ? consumption.state : "loading"} t={t} />
-      {consumption.key === consumptionKey && consumption.state === "error" &&
-        <button className="ghost" onClick={() => setUsageReload(value => value + 1)}>{copy.refreshConsumption}</button>}
-    </>;
-    const usage = consumption.jobs.find(row => consumptionIdentity(row) === consumptionIdentity(job));
+    if (!consumption.data) return <><DataFeedback state={consumption.failure ? "error" : "loading"} t={t} />
+      {!!consumption.failure && <button className="ghost" aria-disabled={consumption.reading} onClick={() => void consumption.refresh()}>{copy.refreshConsumption}</button>}</>;
+    const usage = consumption.data.find(row => consumptionIdentity(row) === consumptionIdentity(job));
     return usage ? <JobAmounts job={usage} locale={locale} admin={props.admin} t={t} compact={!full} /> : <span>{statisticsText.unavailable}</span>;
   };
   const date = (value: string | null) => value ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium" }).format(new Date(value)) : copy.unknown;
   const change = (key: keyof Filters, value: string | number) => setFilters(current => ({ ...current, [key]: value, offset: 0 }));
-  const busy = submitting || operation !== null && ["pending", "running"].includes(operation.status);
+  const busy = submitting || !!listing.failure || !!detailRead.failure ||
+    !!visibleDetail && !projects.some(project => project.id === visibleDetail.project_id && !project.archived) ||
+    operation !== null && ["pending", "running"].includes(operation.status);
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; commandGeneration.current += 1; }; }, []);
-  useEffect(() => {
-    if (compactOverview) return;
-    let active = true, sequence = 0;
-    const fetchUsage = async () => {
-      const current = ++sequence;
-      setConsumption({ key: consumptionKey, state: "loading", jobs: [] });
-      try {
-        // Jobs show lifetime consumption only; reporting periods belong to Statistics.
-        const lifetime = { from: "", through: "", timezone: "UTC", granularity: "day" } as const;
-        const values = await Promise.all(consumptionProjects.split(",").filter(Boolean).map(async id => {
-          if (!ids.split(",").includes(id)) throw new ApiError("unexpected_response");
-          return readConsumption(await request(`/projects/${encodeURIComponent(id)}/usage?timezone=UTC&granularity=day`), id, lifetime, props.admin);
-        }));
-        if (active && current === sequence) setConsumption({ key: consumptionKey, state: "ready", jobs: values.flatMap(value => value.jobs ?? []) });
-      } catch { if (active && current === sequence) setConsumption({ key: consumptionKey, state: "error", jobs: [] }); }
-    };
-    void fetchUsage(); const stop = startVisiblePolling(() => void fetchUsage(), 30000);
-    return () => { active = false; stop(); };
-  }, [consumptionKey, refresh, reload, usageReload]);
   useEffect(() => { commandGeneration.current += 1; setOperation(null); setOperationError(null); setCommandStatusError(false); submitLock.current = false; setSubmitting(false); }, [scope]);
-
-  useEffect(() => {
-    let active = true, sequence = 0;
-    if (offset > 0 && revision.current.key !== baseKey) { setFilters(current => ({ ...current, offset: 0 })); return; }
-    const fetchPage = async (background = false) => {
-      const current = ++sequence;
-      if (!compactOverview || !background) setState("loading");
-      setDataKey(renderKey); setFailure(null);
-      const query = new URLSearchParams({ limit: String(filters.size), offset: String(offset) });
-      if (scope) query.set("project_id", scope);
-      if (compactOverview) { query.set("overview", "true"); query.set("attention", "true"); }
-      for (const [key, value] of Object.entries({ q: filters.q.trim(), status_group: filters.group })) if (value) query.set(key, value);
-      if (mode !== "overview") { query.set("sort", filters.sort); query.set("order", filters.descending ? "desc" : "asc"); }
-      if (offset > 0) query.set("snapshot", revision.current.snapshot);
-      try {
-        const authorized = ids.split(",").filter(id => !scope || id === scope);
-        const result = readJobPage(await request(`/jobs-page?${query}`), authorized, compactOverview);
-        if (result.offset !== offset) throw new ApiError("unexpected_response");
-        let activeResult: JobPage | null = null;
-        if (compactOverview) {
-          const activeQuery = new URLSearchParams({ overview: "true", limit: "all", offset: "0", status_group: "active" });
-          if (scope) activeQuery.set("project_id", scope);
-          activeResult = readJobPage(await request(`/jobs-page?${activeQuery}`), authorized, true);
-          if (activeResult.offset !== 0 || activeResult.items.length !== activeResult.total ||
-            activeResult.items.some(row => !["working", "publishing"].includes(row.lifecycle))) throw new ApiError("unexpected_response");
-          if ((result.unreadable_projects ?? []).slice().sort().join() !==
-            (activeResult.unreadable_projects ?? []).slice().sort().join()) throw new ApiError("job_snapshot_changed");
-        }
-        if (!active || sequence !== current) return;
-        revision.current = { key: baseKey, snapshot: result.snapshot };
-        if(props.viewRevisions)props.viewRevisions[props.viewKey || mode]=revision.current;
-        setPage(result); setActivePage(activeResult); setState("ready");
-      } catch (cause) {
-        if (!active || sequence !== current) return;
-        setPage(null); setActivePage(null);
-        setState(cause instanceof IncompleteJobs ? "incomplete" : cause instanceof ApiError && cause.code === "job_snapshot_changed" ? "changed" : "error");
-        setFailure(normalizeFailure(cause));
-      }
-    };
-    void fetchPage();
-    const stop = startVisiblePolling(() => void fetchPage(true), 15000);
-    return () => { active = false; stop(); };
-  }, [renderKey, refresh, reload]);
-
-  useEffect(() => {
-    if (!run || !detailScope || !ids.split(",").includes(detailScope)) { setDetail(null); return; }
-    let active = true, sequence = 0;
-    const fetchDetail = async (background = false) => {
-      const current = ++sequence;
-      if (!background) { setDetail(null); setDetailState("loading"); }
-      setDetailFailure(null); setLoadedDetailKey(detailKey);
-      try {
-        const result = readJobDetail(await request(`/jobs/${encodeURIComponent(detailScope)}/${encodeURIComponent(run)}`), detailScope, run);
-        if (active && sequence === current) { setDetail(result); setDetailState("ready"); }
-      } catch (cause) {
-        if (active && sequence === current) { setDetailState(cause instanceof IncompleteJobs ? "incomplete" : "error"); setDetailFailure(normalizeFailure(cause)); }
-      }
-    };
-    void fetchDetail();
-    const stop = startVisiblePolling(() => void fetchDetail(true), 15000);
-    return () => { active = false; stop(); };
-  }, [detailKey, ids, refresh, reload]);
 
   useEffect(() => {
     let active = true;
@@ -248,7 +201,7 @@ export function JobWorkspace(props: Props) {
   };
   const feedback = (status: ReadState, cause: unknown) => status === "incomplete" || status === "changed" ?
     <section className="panel data-feedback" role="alert"><div><h2>{status === "incomplete" ? copy.incomplete : copy.changed}</h2><p>{status === "incomplete" ? copy.incompleteHelp : copy.changedHelp}</p><button className="ghost" onClick={() => { revision.current = { key: "", snapshot: "" }; setFilters(current => ({ ...current, offset: 0 })); setReload(value => value + 1); }}>{copy.reload}</button></div></section> :
-    <><DataFeedback state={status === "loading" ? "loading" : "error"} t={t} />{cause && status !== "loading" ? <p className="muted">{describeError(locale, cause)}</p> : null}</>;
+    <><DataFeedback state={status === "loading" ? "loading" : "error"} t={t} />{cause && status !== "loading" ? <p className="muted">{describeError(locale, cause instanceof ApiError ? cause : new ApiError("unexpected_response"))}</p> : null}</>;
   const actionText = (job: Job) => job.waiting.next_action === "answer_question_on_ticket" ? copy.openQuestion : job.waiting.next_action === "review_candidate_on_ticket" ? copy.openApproval : copy.openReview;
   // Inside a project hub, job links address the hub's Jobs tab so new tabs and copied links stay there.
   const jobHref = (job: Job) => fixedScope ? formatRoute({ view: "projectDetails", project: job.project_id, tab: "jobs", run: job.run_id }) :
@@ -271,6 +224,9 @@ export function JobWorkspace(props: Props) {
   const pager = visible && <div className="table-pagination"><label>{t("rowsPerPage")}<select value={filters.size} onChange={event => change("size", event.target.value === "all" ? "all" : Number(event.target.value))}>{[10, 25, 50].map(size => <option key={size} value={size}>{size}</option>)}<option value="all">{t("all")}</option></select></label><span>{visible.total === 0 ? "0" : `${offset + 1}–${Math.min(offset + visible.items.length, visible.total)}`} / {visible.total}</span><div className="button-row"><button className="ghost" disabled={offset === 0} onClick={() => setFilters(current => ({ ...current, offset: Math.max(0, offset - visible.limit) }))}>{t("previous")}</button><button className="ghost" disabled={offset + visible.items.length >= visible.total || filters.size === "all"} onClick={() => setFilters(current => ({ ...current, offset: offset + visible.limit }))}>{t("next")}</button></div></div>;
 
   return <div className={`job-workspace${compactOverview ? " overview-workspace" : ""}${props.summaryHeader ? " project-summary-window" : ""}`}>
+    <RefreshStatus locale={locale} {...(run ? detailRead : listing)} stale={!run && !!listing.data}
+      refresh={() => { void listing.refresh(); if (run) void detailRead.refresh(); if (!compactOverview) void consumption.refresh(); }} />
+    {!compactOverview && !!consumption.failure && <RefreshStatus locale={locale} {...consumption} stale={!!consumption.data} />}
     {!run && props.summaryHeader?.(unreadable.length ? null : visible)}
     {/* Scope selection lives with the page; worker status appears only when it needs attention. */}
     {["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" && workerComponents.length ? workerComponents.map(role=>`${workerCopy[locale][role]} · ${workerCopy[locale].missing}`).join("; ") : copy.workerError}</span></div>}
@@ -278,7 +234,7 @@ export function JobWorkspace(props: Props) {
     {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && <p>{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}</p>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}{operation.status === "pending" && <p>{t("workerQueueHelp")}</p>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
     {!run && mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} /></label><label>{t("status")}<select aria-label={t("status")} value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div>
     </section>}
-    {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}
+    {run && !visibleDetail && state !== "changed" && feedback(detailState, detailFailure)}
     {run && state === "changed" && feedback("changed", failure)}
     {visibleDetail && <JobDetails key={detailKey} job={visibleDetail} locale={locale} t={t} admin={props.admin} busy={busy}
       request={request} onClose={onClose} onCommand={(action, job, workflow) => void command(action, job, workflow)}
@@ -296,7 +252,7 @@ export function JobWorkspace(props: Props) {
       {projects.filter(item => unreadable.includes(item.id)).map(item => <p key={item.id} className="alert" role="alert">
         <strong>{item.display_name || item.name}</strong>{" · "}{describeError(locale, new ApiError("run_state_corrupt"))}
       </p>)}
-      {!visible ? feedback(dataKey === renderKey ? state : "loading", failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : unreadable.length === 0 && <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : (selection.q.trim() || selection.group !== initialFilters(mode).group) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
+      {!visible ? feedback(state, failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : unreadable.length === 0 && <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : (selection.q.trim() || selection.group !== initialFilters(mode).group) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
     </section>
     {compactOverview && visible && activePage && (activePage.items.length > 0 || unreadable.length === 0) && <section className="panel" aria-label={t("activeJobs")}><h2>{t("activeJobs")}</h2>{activePage.items.length ? compactTable(activePage.items) : <div className="empty-state" role="status">{copy.noActive}</div>}</section>}
 

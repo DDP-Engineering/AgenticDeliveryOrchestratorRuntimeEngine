@@ -43,6 +43,14 @@ test("corrupt values cannot become false zero, fractional tokens or wrong sample
     const value = fixture(); change(value); assert.throws(() => readStatistics(value, "alpha", selection, false));
   }
 });
+test("consumption bucket identities are stable and unique before publication", () => {
+  const row = { date: "2026-10-25", executor: "pi", model: "fixture", ...amounts(7, 5) };
+  const value = { scope: scope(), totals: amounts(7, 5), lifetime: amounts(7, 5), unallocated: amounts(), jobs: [job()], daily: [row], coverage: {} };
+  assert.deepEqual(readConsumption(value, "alpha", selection, false).daily, [row]);
+  value.daily.push({ ...row });
+  assert.throws(() => readConsumption(value, "alpha", selection, false), RangeError);
+});
+
 test("consumption preserves reported versus estimated and rejects missing or corrupt amounts", () => {
   const value = { scope: scope(), totals: amounts(0, 0), lifetime: amounts(7, 5), unallocated: amounts(), jobs: [job()], daily: [], coverage: {} };
   value.jobs[0].lifetime.reported_cost_usd = 0;

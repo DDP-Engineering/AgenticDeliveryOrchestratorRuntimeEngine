@@ -25,6 +25,9 @@ import { groupRelease, type Release } from "./releaseNotes";
 import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
+import { useReporting } from "./useReporting";
+import { useSnapshot } from "./useSnapshot";
+import { RefreshStatus } from "./RefreshStatus";
 import { formatRoute, normalizeRoute, parseRoute, type JobsView, type ProjectTab, type Route } from "./routes";
 import { BATCH_KEY, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, validBranchPreview, type BranchPreview, connectionRowVisible } from "./settings";
 import { ExecutorEnvironment, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
@@ -117,7 +120,9 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
         && detail.components.every((role:unknown)=>role==="supervisor"||role==="configuration")) failure.components=detail.components;
       throw failure;
     }
-    throw new ApiError("request_failed", `HTTP ${response.status}`);
+    const failure = new ApiError("request_failed", `HTTP ${response.status}`);
+    failure.status = response.status;
+    throw failure;
   }
   if (!response.headers.get("content-type")?.includes("application/json")) {
     throw new ApiError("unexpected_response", `${path} (HTTP ${response.status})`);
@@ -151,20 +156,17 @@ export default function App() {
   const [projectSortKey, setProjectSortKey] = useState<ProjectSortKey>("name");
   const [projectSortDescending, setProjectSortDescending] = useState(false);
   const [selected, setSelected] = useState("");
-  const [selectedMetrics, setMetrics] = useState<Metrics | null>(null);
-  const [allMetrics, setAllMetrics] = useState<Record<string, Metrics> | null>(null);
+
   const [metricFrom, setMetricFrom] = useState("");
   const [metricTo, setMetricTo] = useState("");
   const [metricTimezone, setMetricTimezone] = useState("UTC");
   const [metricGranularity, setMetricGranularity] = useState<"day" | "week" | "month">("day");
   const [metricAllProjects, setMetricAllProjects] = useState(true);
-  const [metricsScope, setMetricsScope] = useState("");
+
   const [metricsTab, setMetricsTab] = useState<MetricsTab>("summary");
   const [usageSortKey, setUsageSortKey] = useState<UsageSortKey>("date");
   const [usageSortDescending, setUsageSortDescending] = useState(false);
-  const [selectedUsage, setUsage] = useState<Usage | null>(null);
-  const [usageScope, setUsageScope] = useState("");
-  const [allUsage, setAllUsage] = useState<Record<string, Usage> | null>(null);
+
   const [config, setConfig] = useState<Config | null>(null);
   const [configScope, setConfigScope] = useState("");
   const [pendingConfig, setPendingConfig] = useState<PendingConfig | null>(null);
@@ -182,7 +184,7 @@ export default function App() {
   }, [selected, session?.user.id]);
   const [prices, setPrices] = useState<Price[]>([]);
   const [pricesScope, setPricesScope] = useState("");
-  const [users, setUsers] = useState<AccountUser[]>([]);
+
   const [auditPolicy, setAuditPolicy] = useState<AuditPolicy | null>(null);
   const [adminMenuOpen, setAdminMenuOpen] = useState(true);
   const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
@@ -206,25 +208,22 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteName, setDeleteName] = useState("");
   const [deleteClone, setDeleteClone] = useState(false);
-  const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const projectsLoaded = useRef(false);
   const [configState, setConfigState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [usersState, setUsersState] = useState<DataState>("loading");
+
   const [jobScope, setJobScope] = useState("");
   const [requestedRun, setRequestedRun] = useState("");
   const jobListState=useRef<Record<string,Filters>>({});
   const jobListRevisions=useRef<Record<string,{key:string;snapshot:string}>>({});
   const jobOrigin=useRef<{page:Page;scope:string;selected:string;tab:ProjectTab;jobsView:JobsView}|null>(null);
   const [projectsState, setProjectsState] = useState<DataState>("loading");
-  const [selectedState, setSelectedState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [globalState, setGlobalState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [usageState, setUsageState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [globalUsageState, setGlobalUsageState] = useState<ScopedState>({ key: "", state: "loading" });
+
   const [routeReady, setRouteReady] = useState(false);
   const routedProject = useRef<string | null>(null);
   const preserveError = useRef(false);
   const [notice, setNotice] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
   const [operation, setOperation] = useState<Operation | null>(null);
   const operationId = useRef<number | null>(null);
   const operationBusy = useRef(false);
@@ -248,12 +247,12 @@ export default function App() {
   const aboutTrigger = useRef<HTMLButtonElement>(null);
   // Switching About views removes the pressed button; focus its counterpart so Escape and Tab keep working.
   const aboutSwitch = useRef<HTMLButtonElement>(null);
-  const selectedMetricsRequest = useRef(0);
   const projectsRequest = useRef(0);
-  const globalMetricsRequest = useRef(0);
-  const usageRequest = useRef(0);
+  const projectsReading = useRef(new Map<string, AbortController>());
   const configRequest = useRef(0);
   const configMutation = useRef(false);
+  const revalidateSettings = useRef<() => void>(() => {});
+  const settingsRevalidation = useRef(false);
   const configView = useRef("");
   configView.current = `${page}:${selected}`;
   const settingsVisible = page === "projectDetails" && projectTab === "configuration";
@@ -265,6 +264,7 @@ export default function App() {
     if (block) blocked.add(source);
     else blocked.delete(source);
     settingsPoll.current = { ...settingsPoll.current, blocked };
+    if (!block && blocked.size === 0 && settingsRevalidation.current) queueMicrotask(() => revalidateSettings.current());
   }, []);
   const blockSettingsEdits = useCallback((block: boolean) => setSettingsPollBlocked("settings", block), [setSettingsPollBlocked]);
   const blockCredentials = useCallback((block: boolean) => setSettingsPollBlocked("credentials", block), [setSettingsPollBlocked]);
@@ -389,26 +389,47 @@ export default function App() {
   // Per-project rows name the project and hint its repository instead of its identifier.
   const projectCell = (name: string) => { const repo = projects.find(item => item.name === name)?.repo; return <td>{name}{repo && <small className="field-hint">{repo}</small>}</td>; };
   const scopeLabel = allProjectScope ? t("metricsAllProjects") : selectedProject?.name || "";
-  const globalRows = allProjectScope ? Object.entries(allMetrics || {}) :
-    selectedMetrics && metricsScope === selected && selectedProject ? [[selectedProject.name, selectedMetrics] as [string, Metrics]] : [];
-  const selectedKey = JSON.stringify([selected, metricSuffix, authorizedMetricsKey]);
-  const globalMetricKey = JSON.stringify([metricSuffix, authorizedMetricsKey]);
-  const globalUsageKey = JSON.stringify([usageSuffix, authorizedMetricsKey]);
-  const scopedUsageKey = JSON.stringify([selected, usageSuffix, authorizedMetricsKey]);
-  const selectedDataState = selectedState.key === selectedKey ? selectedState.state : "loading";
-  const metricDataState = allProjectScope ? globalState.key === globalMetricKey ? globalState.state : "loading" : selectedDataState;
-  const usageDataState = allProjectScope ? globalUsageState.key === globalUsageKey ? globalUsageState.state : "loading" : usageState.key === scopedUsageKey ? usageState.state : "loading";
-  const canonicalScopes = (items: Array<Metrics | Usage>) => items.map(item => JSON.stringify([item.scope?.project_ids, item.scope?.mode, item.scope?.interval, item.scope?.from, item.scope?.to, item.scope?.timezone, item.scope?.granularity, item.scope?.interval_seconds])).sort().join("\0");
-  const metricScopeItems = allProjectScope ? Object.values(allMetrics ?? {}) : selectedMetrics ? [selectedMetrics] : [];
-  const usageScopeItems = allProjectScope ? Object.values(allUsage ?? {}) : selectedUsage ? [selectedUsage] : [];
-  const reportingDataState: DataState = metricDataState === "error" || usageDataState === "error" ? "error" :
-    metricDataState !== "ready" || usageDataState !== "ready" ? "loading" :
-    canonicalScopes(metricScopeItems) === canonicalScopes(usageScopeItems) ? "ready" : "error";
-  const metrics = reportingDataState !== "ready" ? null : allProjectScope ? (allMetrics ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : null) :
-    metricsScope === selected ? selectedMetrics : null;
+  const reportingKey = session && statisticsVisible && projectsState === "ready" &&
+    (allProjectScope || selectedProject) ? JSON.stringify([session.user.id, session.user.role, session.csrf,
+      allProjectScope ? "all" : selected, metricSuffix,
+      allProjectScope ? authorizedMetricsKey : [selectedProject?.id, selectedProject?.name]]) : null;
+  const selection = { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity };
+  const reporting = useReporting(reportingKey, async signal => {
+    const value = allProjectScope ? await request<Record<string, Metrics>>(`/metrics${metricSuffix}`, "GET", undefined, undefined, signal) :
+      { [selectedProject!.name]: await request<Metrics>(`/projects/${encodeURIComponent(selected)}/metrics${metricSuffix}`, "GET", undefined, undefined, signal) };
+    const scope = allProjectScope ? projects : [selectedProject!];
+    if (!value || Array.isArray(value) || Object.keys(value).sort().join("\0") !== scope.map(item => item.name).sort().join("\0")) throw new ApiError("unexpected_response");
+    for (const project of scope) readStatistics(value[project.name], project.id, selection, isAdmin);
+    if (allProjectScope) aggregateMetrics(Object.values(value), metricTimezone, metricFrom, metricTo);
+    return value;
+  }, async signal => {
+    const value = allProjectScope ? await request<Record<string, Usage>>(`/usage${usageSuffix}`, "GET", undefined, undefined, signal) :
+      { [selectedProject!.name]: await request<Usage>(`/projects/${encodeURIComponent(selected)}/usage${usageSuffix}`, "GET", undefined, undefined, signal) };
+    const scope = allProjectScope ? projects : [selectedProject!];
+    if (!value || Array.isArray(value) || Object.keys(value).sort().join("\0") !== scope.map(item => item.name).sort().join("\0")) throw new ApiError("unexpected_response");
+    for (const project of scope) readConsumption(value[project.name], project.id, selection, isAdmin);
+    return value;
+  }, allProjectScope ? 30000 : 15000);
+  const allMetrics = reporting.data?.metrics;
+  const allUsage = reporting.data?.usage;
+  const globalRows = Object.entries(allMetrics || {});
+  const scopedUsageRows = Object.entries(allUsage || {});
+  const reportingDataState: DataState = reporting.data ? "ready" : reporting.failure ? "error" : "loading";
+  const metrics = allMetrics ? allProjectScope ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : Object.values(allMetrics)[0] : null;
   const metricsEmpty = metrics !== null && !((metrics.totals.runs || 0) > 0);
-  const usage = reportingDataState !== "ready" ? null : allProjectScope ? (allUsage ? aggregateUsage(Object.values(allUsage)) : null) : usageScope === selected ? selectedUsage : null;
-  const scopedUsageRows = allProjectScope ? Object.entries(allUsage || {}) : selectedUsage && selectedProject ? [[selectedProject.name, selectedUsage] as [string, Usage]] : [];
+  const usage = allUsage ? allProjectScope ? aggregateUsage(Object.values(allUsage)) : Object.values(allUsage)[0] : null;
+  useEffect(() => { reporting.refresh(); revalidateSettings.current(); }, [viewRefresh]);
+  const accounts = useSnapshot(page === "adminUsers" && isAdmin && session ? `${session.user.id}:${session.csrf}` : null, async signal => {
+    const value = await request<AccountUser[]>("/users", "GET", undefined, undefined, signal);
+    if (!Array.isArray(value) || value.some(item => !validAccount(item) || typeof item.disabled !== "boolean") || new Set(value.map(item => item.id)).size !== value.length) throw new ApiError("unexpected_response");
+    return value;
+  }, null, viewRefresh, false);
+  const users = accounts.data ?? [];
+  const usersState: DataState = accounts.data ? "ready" : accounts.failure ? "error" : "loading";
+  useEffect(() => {
+    setAccountAction(current => current?.kind === "reset" && (accounts.failure || accounts.data &&
+      !accounts.data.some(user => user.id === current.account.id && user.username === current.account.username)) ? null : current);
+  }, [accounts.data, accounts.failure]);
   const formatNumber = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale).format(value);
   const formatPercent = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value);
   const formatMoney = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(value);
@@ -507,14 +528,22 @@ export default function App() {
   };
 
   const overviewProjects = page === "overview" || page === "projectDetails" && projectTab === "overview";
-  const refreshProjects = useCallback(async () => {
+  const refreshProjects = useCallback(async (invalidate = false) => {
     const generation = viewGeneration.current;
+    const readKey = `${generation}:${overviewProjects}`;
+    const previous = projectsReading.current.get(readKey);
+    if (previous && !previous.signal.aborted && !invalidate) return;
+    // Mutation completion must supersede a catalog read started before the write.
+    previous?.abort();
+    const controller = new AbortController();
+    projectsReading.current.set(readKey, controller);
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]);
     const revision = ++projectsRequest.current;
-    if (!projectsLoaded) setProjectsState("loading");
+    if (!projectsLoaded.current) setProjectsState("loading");
     try {
-      const items = await request<Project[]>("/projects").catch((cause: unknown) => {
+      const items = await request<Project[]>("/projects", "GET", undefined, undefined, signal).catch((cause: unknown) => {
         if (!overviewProjects || !(cause instanceof ApiError) || cause.code !== "run_state_corrupt") throw cause;
-        return request<Project[]>("/projects?overview=true");
+        return request<Project[]>("/projects?overview=true", "GET", undefined, undefined, signal);
       });
       if (generation !== viewGeneration.current || revision !== projectsRequest.current) return;
       if (!Array.isArray(items) || items.some(item => !item || typeof item.id !== "string" || typeof item.name !== "string" ||
@@ -528,99 +557,25 @@ export default function App() {
         !Number.isSafeInteger(item.runs) || item.runs < 0) || new Set(items.map(item => item.id)).size !== items.length) throw new ApiError("unexpected_response");
       setProjects(items);
       setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
-      setProjectsLoaded(true); setProjectsState("ready");
+      projectsLoaded.current = true; setProjectsState("ready");
     } catch (cause) {
       if (generation === viewGeneration.current && revision === projectsRequest.current) {
         setProjectsState("error"); setError(cause);
       }
-    }
-  }, [projectsLoaded, overviewProjects]);
+    } finally { if (projectsReading.current.get(readKey) === controller) projectsReading.current.delete(readKey); }
+  }, [overviewProjects]);
 
   useEffect(() => {
     if (!session) return;
+    const readKey = `${viewGeneration.current}:${overviewProjects}`;
     void refreshProjects();
     const stopPolling = startVisiblePolling(() => refreshProjects(), 15000);
-    return () => stopPolling();
-  }, [session, refreshProjects]);
-
-  useEffect(() => { setMetrics(null); setAllMetrics(null); }, [metricSuffix]);
-
-  useEffect(() => { setUsage(null); setAllUsage(null); }, [usageSuffix, selected]);
+    return () => { stopPolling(); projectsReading.current.get(readKey)?.abort(); };
+  }, [session?.csrf, session?.user.id, session?.user.role, refreshProjects]);
 
   useEffect(() => { readinessRequest.current += 1; readinessPending.current = false; setReadinessBusy(false); setReadinessError(null); setProjectReadiness(null); setReadinessExpanded(false); }, [selected, page, session?.user.id]);
 
   useEffect(() => {
-    if (!session || !selected || !statisticsVisible || projectsState !== "ready" || !projects.some(item => item.id === selected)) return;
-    let revision = ++usageRequest.current;
-    const generation = viewGeneration.current;
-    const key = JSON.stringify([selected, usageSuffix, authorizedMetricsKey]);
-    const current = () => generation === viewGeneration.current && revision === usageRequest.current;
-    const refresh = async () => {
-      revision = ++usageRequest.current;
-      const sequence = revision;
-      const live = () => current() && sequence === usageRequest.current;
-      setUsageState({ key, state: "loading" });
-      if (isAdmin) setGlobalUsageState({ key: globalUsageKey, state: "loading" });
-      const scoped = async () => {
-        try {
-          const value = await request<Usage>("/projects/" + encodeURIComponent(selected) + "/usage" + usageSuffix);
-          readConsumption(value, selected, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, isAdmin);
-          if (live()) { setUsage(value); setUsageScope(selected); setUsageState({ key, state: "ready" }); }
-        } catch (cause) { if (live()) { setUsage(null); setUsageState({ key, state: "error" }); setError(cause); } }
-      };
-      const global = async () => {
-        try {
-          const value = await request<Record<string, Usage>>("/usage" + usageSuffix);
-          if (!value || Array.isArray(value)) throw new ApiError("unexpected_response");
-          if (Object.keys(value).sort().join("\0") !== projects.map(item => item.name).sort().join("\0")) throw new ApiError("unexpected_response");
-          for (const project of projects) readConsumption(value[project.name], project.id, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, true);
-          if (live()) { setAllUsage(value); setGlobalUsageState({ key: globalUsageKey, state: "ready" }); }
-        } catch (cause) { if (live()) { setAllUsage(null); setGlobalUsageState({ key: globalUsageKey, state: "error" }); setError(cause); } }
-      };
-      await Promise.all([scoped(), ...(isAdmin ? [global()] : [])]);
-    };
-    void refresh();
-    const stopPolling = startVisiblePolling(() => void refresh(), 30000);
-    return () => { usageRequest.current += 1; stopPolling(); };
-  }, [session, selected, statisticsVisible, usageSuffix, isAdmin, authorizedMetricsKey, projectsState]);
-
-  const refreshSelected = useCallback(async () => {
-    const revision = ++selectedMetricsRequest.current;
-    if (!selected || !session || !statisticsVisible || projectsState !== "ready" || !projects.some(item => item.id === selected)) { setMetrics(null); return; }
-    const generation = viewGeneration.current;
-    const key = JSON.stringify([selected, metricSuffix, authorizedMetricsKey]);
-    setSelectedState({ key, state: "loading" });
-    try {
-      const metricData = await request<Metrics>(`/projects/${encodeURIComponent(selected)}/metrics${metricSuffix}`);
-      if (generation !== viewGeneration.current || revision !== selectedMetricsRequest.current) return;
-      readStatistics(metricData, selected, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, isAdmin);
-      setSelectedState({ key, state: "ready" });
-      setMetrics(metricData); setMetricsScope(selected);
-    } catch (cause) {
-      if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) {
-        setSelectedState({ key, state: "error" }); setMetrics(null); setError(cause);
-      }
-    }
-  }, [selected, session, metricSuffix, statisticsVisible, authorizedMetricsKey, projectsState]);
-
-  useEffect(() => {
-    void refreshSelected();
-    const stopPolling = startVisiblePolling(() => void refreshSelected(), 15000);
-    return () => { selectedMetricsRequest.current += 1; stopPolling(); };
-  }, [refreshSelected]);
-
-  useEffect(() => {
-    setLastRefresh(new Date());
-    if (page === "adminUsers" && isAdmin) {
-      const generation = viewGeneration.current;
-      let active = true;
-      setUsersState("loading");
-      request<AccountUser[]>("/users").then(value => {
-        if (!Array.isArray(value) || value.some(item => !validAccount(item) || typeof item.disabled !== "boolean") || new Set(value.map(item => item.id)).size !== value.length) throw new ApiError("unexpected_response");
-        if (active && generation === viewGeneration.current) { setUsers(value); setUsersState("ready"); }
-      }).catch(cause => { if (active && generation === viewGeneration.current) { setUsersState("error"); setError(cause); } });
-      return () => { active = false; };
-    }
     if (page === "administration" && isAdmin) {
       const generation = viewGeneration.current;
       request<AuditPolicy>("/audit-policy").then(value => { if (generation === viewGeneration.current) setAuditPolicy(value); }).catch(cause => setError(cause));
@@ -652,6 +607,7 @@ export default function App() {
         }
         if (reading) return;
         reading = true;
+        settingsRevalidation.current = false;
         const signal = AbortSignal.timeout(30000);
         const [configuration, pending] = await Promise.allSettled([
           request<Config>(path + "/config", "GET", undefined, undefined, signal).then(value => {
@@ -666,7 +622,7 @@ export default function App() {
           }) : Promise.resolve(null),
         ]);
         reading = false;
-        if (!current()) return;
+        if (!current()) { if (settingsRevalidation.current && active) void load(true); return; }
         if (configuration.status === "fulfilled") {
           setConfig(configuration.value); setConfigScope(selected); setConfigState({ key: selected, state: "ready" });
         } else {
@@ -679,11 +635,12 @@ export default function App() {
         if (pending.status === "fulfilled") setPendingConfig(pending.value);
         else { setPendingConfig(null); setError(pending.reason); }
       };
+      revalidateSettings.current = () => { settingsRevalidation.current = true; invalidateSettingsPoll(); void load(true); };
       void load();
       const stop = startVisiblePolling(() => void load(true), 15000);
-      return () => { active = false; stop(); };
+      return () => { active = false; stop(); settingsRevalidation.current = false; revalidateSettings.current = () => {}; };
     }
-  }, [page, isAdmin, selected, viewRefresh, session?.user.id]);
+  }, [page, isAdmin, selected, session?.user.id]);
 
 
   useEffect(() => {
@@ -702,24 +659,6 @@ export default function App() {
     const stopPolling = startVisiblePolling(() => void check(), 30000);
     return () => { active = false; stopPolling(); };
   }, [page, isAdmin]);
-
-  useEffect(() => {
-    if (page !== "metrics" || !isAdmin || projectsState !== "ready") return;
-    const refresh = () => {
-      const revision = ++globalMetricsRequest.current;
-      const generation = viewGeneration.current;
-      setGlobalState({ key: globalMetricKey, state: "loading" });
-      return request<Record<string, Metrics>>(`/metrics${metricSuffix}`).then(value => {
-        if (!value || Array.isArray(value)) throw new ApiError("unexpected_response");
-        if (Object.keys(value).sort().join("\0") !== projects.map(item => item.name).sort().join("\0")) throw new ApiError("unexpected_response");
-        for (const project of projects) readStatistics(value[project.name], project.id, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, true);
-        if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(value); setGlobalState({ key: globalMetricKey, state: "ready" }); }
-      }).catch(cause => { if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(null); setGlobalState({ key: globalMetricKey, state: "error" }); setError(cause); } });
-    };
-    void refresh();
-    const stopPolling = startVisiblePolling(() => void refresh(), 30000);
-    return () => { globalMetricsRequest.current += 1; stopPolling(); };
-  }, [page, isAdmin, metricSuffix, authorizedMetricsKey, projectsState]);
 
   // Presentation expires independently of worker polling and persisted outcomes.
   useEffect(() => {
@@ -749,8 +688,8 @@ export default function App() {
         setOperation(current);
         if (!["pending", "running"].includes(current.status)) {
           operationBusy.current = false;
-          if (current.action === "delete") await refreshProjects();
-          else { await refreshSelected(); await refreshProjects(); refreshView(); }
+          if (current.action === "delete") await refreshProjects(true);
+          else { await refreshProjects(true); refreshView(); }
         }
       } catch (cause) {
         if (active && currentSequence === sequence && generation === viewGeneration.current && operationId.current === operation.id) setError(cause);
@@ -759,7 +698,7 @@ export default function App() {
     void poll();
     const stopPolling = startVisiblePolling(poll, 2000);
     return () => { active = false; stopPolling(); };
-  }, [operation?.id, operation?.status, refreshSelected, refreshProjects]);
+  }, [operation?.id, operation?.status, refreshProjects]);
 
   useEffect(() => {
     if (preserveError.current) { preserveError.current = false; return; }
@@ -841,7 +780,7 @@ export default function App() {
 
   useEffect(() => {
     const wanted = routedProject.current;
-    if (!wanted || !projectsLoaded) return;
+    if (!wanted || !projectsLoaded.current) return;
     routedProject.current = null;
     const match = projects.find(item => item.id === wanted || item.name === wanted);
     if (match) { setSelected(match.id); if (page === "jobs" || page === "tickets" || page === "overview") setJobScope(match.id); return; }
@@ -850,7 +789,7 @@ export default function App() {
     setSelected(projects[0]?.id || "");
     if (page === "projectDetails") { setPage("projects"); window.history.replaceState(null, "", "/projects"); }
     setError(new ApiError("project_not_found"));
-  }, [projects, projectsLoaded]);
+  }, [projects]);
 
   useEffect(() => {
     if (page !== "projectDetails" || projectsState !== "ready" || projects.length) return;
@@ -863,25 +802,21 @@ export default function App() {
     ticketModePending.current = false; setTicketModeBusy(false);
     confirmedTicketMode.current = "rendered"; setTicketBodyMode("rendered");
     setPage("overview"); setJobScope(""); setMenuOpen(false);
-    selectedMetricsRequest.current += 1;
-    globalMetricsRequest.current += 1;
-    usageRequest.current += 1;
     configRequest.current += 1;
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
     jobListState.current={};jobListRevisions.current={};jobOrigin.current=null;
-    setProjects([]); setSelected(""); setRequestedRun(""); setUsersState("loading"); setConfigState({ key: "", state: "loading" });
+    setProjects([]); setSelected(""); setRequestedRun(""); setConfigState({ key: "", state: "loading" });
     projectsRequest.current += 1;
-    setProjectsState("loading"); setSelectedState({ key: "", state: "loading" }); setGlobalState({ key: "", state: "loading" });
-    setUsageState({ key: "", state: "loading" }); setGlobalUsageState({ key: "", state: "loading" });
-    setProjectsLoaded(false); setProjectTab("overview"); routedProject.current = null;
+    setProjectsState("loading");
+    projectsLoaded.current = false; setProjectTab("overview"); routedProject.current = null;
     setProjectSortKey("name"); setProjectSortDescending(false);
-    setMetrics(null); setAllMetrics(null); setMetricFrom(""); setMetricTo("");
-    setMetricAllProjects(true); setMetricsScope(""); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
-    setUsage(null); setUsageScope(""); setAllUsage(null); setUsageSortKey("date"); setUsageSortDescending(false);
+    setMetricFrom(""); setMetricTo("");
+    setMetricAllProjects(true); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
+    setUsageSortKey("date"); setUsageSortDescending(false);
     setConfig(null); setPendingConfig(null); setPrices([]);
-    setUsers([]); setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationVisible(false);
-    setNotice(""); setLastRefresh(null);
+    setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationVisible(false);
+    setNotice("");
   };
 
   const signIn = async (event: FormEvent<HTMLFormElement>) => {
@@ -930,7 +865,7 @@ export default function App() {
       if (submission !== operationSubmission.current) return;
       operationId.current = op.id; setOperation(op);
       setOperationVisible(true);
-      if (!["pending", "running"].includes(op.status)) { operationBusy.current = false; await refreshProjects(); }
+      if (!["pending", "running"].includes(op.status)) { operationBusy.current = false; await refreshProjects(true); }
     } catch (cause) { if (submission === operationSubmission.current) { operationBusy.current = false; setError(cause); } }
     finally { if (submission === operationSubmission.current) setOperationSubmitting(false); }
   };
@@ -960,7 +895,7 @@ export default function App() {
     try {
       await request(`/projects/${encodeURIComponent(projectId)}/${archive ? "archive" : "restore"}`,
         "POST", undefined, session.csrf);
-      await refreshProjects();
+      await refreshProjects(true);
       setNotice(t(archive ? "projectArchived" : "projectRestored"));
     } catch (cause) { setError(cause); }
   };
@@ -1061,7 +996,7 @@ export default function App() {
       if (applied.revision !== candidate.candidate_revision) throw new ApiError("unexpected_response");
       if (!current()) return false;
       setPendingConfig(null); setNotice(t("changeApplied")); setViewRefresh(value => value + 1);
-      await refreshProjects();
+      await refreshProjects(true);
       return true;
     } catch (cause) {
       if (current()) {
@@ -1274,6 +1209,7 @@ export default function App() {
 
   /** Statistics content; `fixed` keeps the project chosen by the project hub instead of offering a selector. */
   const statisticsView = (fixed: boolean) => <>
+        <RefreshStatus locale={locale} {...reporting} stale={!!reporting.data} />
         <section className="panel compact metrics-period"><div className="metrics-period-row"><h2>{t("reportingPeriod")}</h2>{!fixed && projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label><button className="ghost" type="button" onClick={() => { setMetricFrom(""); setMetricTo(""); }}>{statisticsText.allTime}</button>{(selected || isAdmin) && reportingDataState === "ready" && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a><a href={`/api/v1/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}</div></details>}</div></section>
         <div className="metrics-tabs" role="tablist" aria-label={t("metrics")}>
           {metricsTabs.map(tab => <button key={tab} id={`metrics-tab-${tab}`} type="button" role="tab" aria-controls="metrics-tab-panel" aria-selected={metricsTab === tab} tabIndex={metricsTab === tab ? 0 : -1} onClick={() => setMetricsTab(tab)} onKeyDown={event => onMetricsTabKeyDown(event, tab)}>{t(metricsTabLabels[tab])}</button>)}
@@ -1283,7 +1219,7 @@ export default function App() {
         {metricsTab === "usage" && <>
         <section className="panel"><h2>{t("attributedUsage")}</h2>
           {usage && <Chips items={usageTotals} className="usage-totals" />}
-          {usage?.daily.length ? <PagedTable key={`${usageSortKey}-${usageSortDescending}`} t={t}><table className="usage-table"><thead><tr>{usageColumns.map(([key, label]) => <SortHeader key={key} label={t(label)} sortKey={key} activeKey={usageSortKey} descending={usageSortDescending} onSort={changeUsageSort} />)}</tr></thead><tbody>{sortUsageRows(usage.daily, usageSortKey, usageSortDescending, locale).map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
+          {usage?.daily.length ? <PagedTable t={t}><table className="usage-table"><thead><tr>{usageColumns.map(([key, label]) => <SortHeader key={key} label={t(label)} sortKey={key} activeKey={usageSortKey} descending={usageSortDescending} onSort={changeUsageSort} />)}</tr></thead><tbody>{sortUsageRows(usage.daily, usageSortKey, usageSortDescending, locale).map(row => <tr key={JSON.stringify([row.date, row.executor, row.model])}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
           {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th><th>{t("unpricedEvents")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}>{projectCell(name)}<td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td><td>{formatNumber(item.totals.unpriced_events)}</td></tr>)}</tbody></table></PagedTable></>}
         </section>
         </>}
@@ -1322,8 +1258,7 @@ export default function App() {
     menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
     onSignOut={signOut} context={<>{session.user.factory_password && <p className="notice" role="status">{t("factoryPasswordNotice")} <a href="/account" onClick={event => { event.preventDefault(); navigatePage("settings"); }}>{t("changePassword")}</a></p>}{projectContext}</>}
     controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
-    actions={<>{manualRefresh && <><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
-      <button className="ghost" onClick={() => { if (refreshView(true)) void refreshProjects().catch(setError); }}>{t("refresh")}</button></>}
+    actions={<>{manualRefresh && <RefreshStatus locale={locale} {...accounts} refresh={() => { void accounts.refresh(); }} />}
       <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><a className="ghost link-button" href="/help" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigateHref("/help"); }}>{t("glossary")}</a></>}
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className={"modal about-modal" + (aboutView === "whatsNew" ? " about-wide" : "")} onClick={event => event.stopPropagation()} onKeyDown={event => {
       if (event.key === "Escape") closeAbout();
@@ -1390,12 +1325,12 @@ export default function App() {
         {page === "createProject" && isAdmin && <EnrollmentWizard locale={locale} csrf={session.csrf} t={t}
           registerGuard={registerSettingsGuard}
           onCancel={() => { setError(""); setPage("projects"); }}
-          onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
+          onCreated={() => { void refreshProjects(true); }} onOpen={id => openProject(id)} />}
 
         {page === "projects" && importOpen && isAdmin && <RawImportDialog key={session.user.id} locale={locale} csrf={session.csrf}
           registerGuard={registerSettingsGuard}
           onClose={() => setImportOpen(false)}
-          onImported={() => { setImportOpen(false); setNotice(importCopy[locale].imported); void refreshProjects(); }} />}
+          onImported={() => { setImportOpen(false); setNotice(importCopy[locale].imported); void refreshProjects(true); }} />}
 
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
@@ -1415,7 +1350,7 @@ export default function App() {
 
             {!selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
               connect={body => request(`/projects/${encodeURIComponent(selectedProject.id)}/repository-connection`, "POST", body, session.csrf)}
-              onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id && item.verification.status !== "unverified" ? { ...item, verification: { ...item.verification, status: "stale" } } : item)); void refreshProjects(); }} />}
+              onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id && item.verification.status !== "unverified" ? { ...item, verification: { ...item.verification, status: "stale" } } : item)); void refreshProjects(true); }} />}
             </div>}
             <section id="host-check-details" hidden={!readinessExpanded} aria-busy={readinessBusy} aria-labelledby="host-check-title">
               <div className="panel-heading"><h3 id="host-check-title">{readinessDetailsLabel(locale)}</h3><button type="button" className="ghost" onClick={() => { setReadinessExpanded(false); readinessTrigger.current?.focus(); }}>{readinessCloseLabel(locale)}</button></div>
@@ -1433,7 +1368,7 @@ export default function App() {
             </form>
           </section></ProjectDeleteDialog>}
           </>}
-          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}:${viewRefresh}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
+          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${session.user.role}:${selected}`} refresh={viewRefresh} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
           {projectTab === "tickets" && selectedProject && <TicketWorkspace automatic key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} onOpenJob={openJob} />}
           {projectTab === "jobs" && selectedProject && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
           {projectTab === "statistics" && statisticsView(true)}
@@ -1453,7 +1388,7 @@ export default function App() {
             </>}
           </SettingsList>}
           </>}
-          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={`${session.user.id}:${selected}:${viewRefresh}`} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
+          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={`${session.user.id}:${selected}`} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
           </div>
         </>}
 
@@ -1499,19 +1434,19 @@ export default function App() {
               <span className="user-avatar">{item.username.charAt(0).toUpperCase()}</span>
               <div><strong>{item.username}</strong><small>{t(item.role)}{item.disabled ? ` · ${t("disable")}` : ""}</small></div>
               {item.role === "developer" && <details className="membership-editor"><summary>{t("assignedProjects")}</summary>
-                <AccountAccessEditor key={item.id + ":" + item.project_ids.join()} account={item} projects={projects} ready={projectsState === "ready"} locale={locale} saveLabel={t("save")} send={(path, method, body) => request(path, method, body, session.csrf)} onError={setError} onApplied={result => { setNotice(result); setViewRefresh(value => value + 1); }} />
+                <AccountAccessEditor key={JSON.stringify([item.id, item.username, item.role, item.disabled, item.project_ids])} account={item} projects={projects} ready={projectsState === "ready" && !accounts.reading && !!accounts.data} locale={locale} saveLabel={t("save")} send={(path, method, body) => request(path, method, body, session.csrf)} onError={setError} onApplied={result => { setNotice(result); setViewRefresh(value => value + 1); }} />
               </details>}
-              {item.id !== session.user.id && <button type="button" className="ghost" onClick={() => setAccountEnabled(item.id, item.disabled)}>{t(item.disabled ? "enable" : "disable")}</button>}
-              <button type="button" className="ghost" onClick={() => setAccountAction({ kind: "reset", account: item })}>{t("resetPassword")}</button>
+              {item.id !== session.user.id && <button type="button" className="ghost" disabled={accounts.reading} onClick={() => setAccountEnabled(item.id, item.disabled)}>{t(item.disabled ? "enable" : "disable")}</button>}
+              <button type="button" className="ghost" disabled={accounts.reading} onClick={() => setAccountAction({ kind: "reset", account: item })}>{t("resetPassword")}</button>
             </div>
           )}</div>}</section>
-          {accountAction && <AccountActionDialog action={accountAction} projects={projects} ready={projectsState === "ready"}
+          {accountAction && <AccountActionDialog action={accountAction} projects={projects} ready={projectsState === "ready" && !!accounts.data && (accountAction.kind === "add" || !accounts.reading)}
             locale={locale} send={(path, method, body) => request(path, method, body, session.csrf)}
             onCreated={() => setViewRefresh(value => value + 1)} onReset={() => setNotice(t("passwordResetDone"))}
             onClose={() => setAccountAction(null)} />}
         </>}
 
-        {page === "adminAudit" && isAdmin && <AuditHistory key={`${session.user.id}:${viewRefresh}`} locale={locale} projects={projects} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
+        {page === "adminAudit" && isAdmin && <AuditHistory key={`${session.user.id}:${session.user.role}`} refresh={viewRefresh} locale={locale} projects={projects} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
 
         {page === "help" && <HelpCenter locale={locale} topic={helpTopic} onNavigate={navigateHref} />}
         {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword} onInput={() => setPasswordMismatch(false)}><FormLegend t={t} /><PasswordChangeFields t={t} mismatch={passwordMismatch} /><button className="primary">{t("save")}</button></form></section>

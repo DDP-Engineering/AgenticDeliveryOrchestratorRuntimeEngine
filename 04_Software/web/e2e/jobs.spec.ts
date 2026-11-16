@@ -631,6 +631,23 @@ test("global complete search paging basic filters and source revision conflicts"
   await page.getByRole("button", { name: "Next", exact: true }).click();
   expect(new URL((await continuation).url()).searchParams.get("snapshot")).toMatch(/^[a-f0-9]{64}$/);
   await expect(page.locator(".action-jobs-table tbody tr")).not.toHaveCount(10);
+  await expect(page.locator(".table-pagination")).toContainText("11–");
+  await expect(page.locator(".job-consumption").first()).toBeVisible();
+  const rows = page.locator(".action-jobs-table tbody tr"), original = await rows.allTextContents();
+  let release = () => {}, reads = 0;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/v1/jobs-page?*", async route => {
+    const response = await route.fetch(); reads++; await gate; await route.fulfill({ response });
+  });
+  try {
+    const previous = page.getByRole("button", { name: "Previous", exact: true }); await previous.focus();
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await expect.poll(() => reads).toBe(1);
+    await expect(rows).toHaveText(original); await expect(previous).toBeFocused();
+    await expect(page.locator(".table-pagination")).toContainText("11–");
+    release(); await expect(page.locator(".job-workspace .refresh-status").first().getByRole("button")).toHaveAttribute("aria-disabled", "false");
+    await expect(rows).toHaveText(original); await expect(previous).toBeFocused();
+  } finally { release(); await page.unroute("**/api/v1/jobs-page?*"); }
   await page.request.post("/__e2e__/jobs?mode=mutate", { headers: { "X-ADORE-E2E": "local-test" } });
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByRole("heading", { name: "Job sources changed", exact: true })).toBeVisible();

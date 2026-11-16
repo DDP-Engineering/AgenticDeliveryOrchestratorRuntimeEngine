@@ -87,6 +87,8 @@ If an older deleted job left a branch without a recorded checkpoint, ADORE keeps
 
 ## Following jobs {#following-jobs}
 
+Automatic reads keep rows, consumption, table controls and open job details visible. **Refresh** uses the same background read; **Last successful update** shows when it completed. A temporary list or consumption connection failure can keep the previous snapshot with an out-of-date warning and **Retry**. Invalid job evidence or an expired paging snapshot still requires recovery or a first-page reload; stale information cannot authorize job actions.
+
 Use **Jobs** in the sidebar or the project’s separate **Jobs** tab. The table has these columns:
 
 | Column | Content |

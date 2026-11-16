@@ -129,7 +129,7 @@ test(`${view} change history background reads keep the active filters and open e
   await expect(action).toHaveValue("unapplied-filter");
   expect(query.get("action")).toBe(event.action);
   expect(query.get("project_id")).toBe(project || null);
-  await expect(panel.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(project ? 0 : 1);
+  await expect(panel.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(1);
   if (project) projectId = "0".repeat(32);
   else actor = "invalid actor!";
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
@@ -182,10 +182,10 @@ test("malformed or failed projections hide evidence and retry recovers", async (
   await expect(page.locator(".audit-evidence")).not.toContainText("injected-private-secret");
   await page.unroute("**/api/v1/audit-page?*");
   await page.route("**/api/v1/audit-page?*", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"web_store_corrupt"}}' }));
-  await page.locator(".audit-evidence").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.locator(".audit-evidence").getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
   await page.unroute("**/api/v1/audit-page?*");
-  await page.locator(".audit-evidence").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.locator(".audit-evidence").getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByRole("columnheader", { name: "Result", exact: true })).toBeVisible();
 });
 

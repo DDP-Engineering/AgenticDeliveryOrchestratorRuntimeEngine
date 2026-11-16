@@ -23,7 +23,7 @@ Un Dev vede doar proiectele atribuite de un administrator și nu are intrarea Ad
 Bara de sus afișează titlul paginii și aceste comenzi.
 
 - **Proiect**: un selector doar în Prezentare generală. Restrânge **Necesită intervenție** și **Lucrări active** la un singur proiect; implicit sunt toate proiectele la care aveți acces. Lucrări are propriul selector **Domeniul joburilor**, iar Statistici are un selector **Proiect** în rândul perioadei de raportare.
-- **Reîmprospătează** și ora **Ultima actualizare** apar în antet pe pagina Utilizatori.
+- **Reîmprospătează** și ora **Ultima actualizare reușită** apar în antet pe pagina Utilizatori.
 - **Despre**: versiunea ADORE, cu **Noutăți** (notele de versiune pe versiuni, cele mai noi primele, grupate în Nou, Îmbunătățit și Corectat), **Licență** și **Notificări despre componente terțe**.
 - **Cum funcționează ADORE**: deschide acest centru de ajutor.
 
@@ -68,7 +68,7 @@ După **Pornește**, **Reîncearcă** sau **Anulează**, o notificare raporteaz�
 
 ## Actualizări automate, limbă și temă {#preferences}
 
-Prezentare generală, Proiecte, Lucrări, Setări, Acces și Istoric ale proiectului și Istoricul modificărilor își actualizează datele la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea Setărilor se oprește cât timp aveți modificări nesalvate sau cât timp se salvează ori se renunță la ele. Statistici și Starea sistemului se actualizează și ele automat. Actualizările se reiau când reveniți la filă. Dacă o actualizare eșuează, datele afectate rămân ascunse până la următoarea actualizare reușită.
+Prezentare generală, Proiecte, Lucrări, Setări, Acces și Istoric ale proiectului și Istoricul modificărilor își actualizează datele la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea Setărilor se oprește cât timp aveți modificări nesalvate sau cât timp se salvează ori se renunță la ele. Statistici și Starea sistemului se actualizează și ele automat. Actualizările se reiau când reveniți la filă. Actualizările aceluiași domeniu păstrează conținutul și comenzile. Statistici, Lucrări și Istoricul modificărilor oferă **Reîmprospătează**, **Ultima actualizare reușită** și **Reîncearcă**. O eroare temporară de conexiune poate păstra informațiile cu un avertisment de învechire; ele nu autorizează acțiuni curente. Eșecurile inițiale, schimbările de context, pierderea accesului și dovezile invalide ascund datele afectate.
 
 În [Contul meu](/account), **Aspect** conține **Limbă** (English, Français, Deutsch, Română) și **Temă** (**Sistem**, **Luminoasă**, **Întunecată**). Fiecare alegere este salvată în contul dumneavoastră și vă urmează în toate browserele; înainte de autentificare, pagina de autentificare reține alegerea în browser. **Schimbă parola** cere parola curentă și una nouă de cel puțin 8 caractere.
 

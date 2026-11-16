@@ -23,7 +23,7 @@ Un Dev ne voit que les projets attribués par un administrateur et n’a pas d�
 La barre supérieure affiche le titre de la page et ces commandes.
 
 - **Projet** : un sélecteur, uniquement sur la Vue d’ensemble. Il limite **À traiter** et **Tâches actives** à un projet ; par défaut, ce sont tous les projets accessibles. Tâches a son propre sélecteur **Périmètre des travaux** et Statistiques a un sélecteur **Projet** dans sa ligne de période de rapport.
-- **Actualiser** et l’heure **Actualisé le** figurent dans l’en-tête sur Utilisateurs.
+- **Actualiser** et l’heure **Dernière actualisation réussie** figurent dans l’en-tête sur Utilisateurs.
 - **À propos** : la version d’ADORE, avec **Nouveautés** (notes de version par version, de la plus récente à la plus ancienne, regroupées en Nouveau, Amélioré et Corrigé), **Licence** et **Mentions des composants tiers**.
 - **Comment fonctionne ADORE** : ouvre ce centre d’aide.
 
@@ -68,7 +68,7 @@ Après **Démarrer**, **Réessayer** ou **Annuler**, un message indique si la co
 
 ## Mises à jour automatiques, langue et thème {#preferences}
 
-Vue d’ensemble, Projets, Tâches, Paramètres, Accès et Historique du projet, ainsi que l’Historique des changements, rechargent leurs données toutes les 15 secondes quand l’onglet du navigateur est visible. Les Paramètres suspendent l’actualisation pendant une modification non enregistrée, un enregistrement ou un abandon. Statistiques et État du système s’actualisent aussi automatiquement. Les mises à jour reprennent au retour dans l’onglet. Si une mise à jour échoue, les données concernées restent masquées jusqu’à la prochaine réussite.
+Vue d’ensemble, Projets, Tâches, Paramètres, Accès et Historique du projet, ainsi que l’Historique des changements, rechargent leurs données toutes les 15 secondes quand l’onglet du navigateur est visible. Les Paramètres suspendent l’actualisation pendant une modification non enregistrée, un enregistrement ou un abandon. Statistiques et État du système s’actualisent aussi automatiquement. Les mises à jour reprennent au retour dans l’onglet. Les mises à jour du même périmètre conservent le contenu et les commandes. Statistiques, Tâches et Historique des changements proposent **Actualiser**, **Dernière actualisation réussie** et **Réessayer**. Une panne de connexion temporaire peut conserver les informations avec un avertissement de péremption ; elles n’autorisent pas les actions actuelles. Un échec initial, un changement de périmètre, une perte d’accès ou des preuves invalides masquent les données concernées.
 
 Dans [Mon compte](/account), **Apparence** contient **Langue** (English, Français, Deutsch, Română) et **Thème** (**Système**, **Clair**, **Sombre**). Chaque choix est enregistré dans votre compte et vous suit d’un navigateur à l’autre ; avant la connexion, la page de connexion mémorise le choix dans le navigateur. **Changer le mot de passe** demande votre mot de passe actuel et un nouveau mot de passe d’au moins 8 caractères.
 

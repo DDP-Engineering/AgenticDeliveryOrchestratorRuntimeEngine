@@ -40,13 +40,14 @@ export function AccountActionDialog({ action, projects, ready, locale, send, onC
     </div>
     {action.kind === "add"
       ? <UserCreation projects={projects} ready={ready} locale={locale} send={send} onCreated={onCreated} onBusyChange={setBusy} />
-      : <PasswordResetForm accountId={action.account.id} locale={locale} send={send} busy={busy} onBusyChange={setBusy}
+      : <PasswordResetForm accountId={action.account.id} locale={locale} send={send} busy={busy} ready={ready} onBusyChange={setBusy}
           onReset={() => { close(); onReset(); }} />}
   </dialog>;
 }
 
-function PasswordResetForm({ accountId, locale, send, busy, onBusyChange, onReset }: {
+function PasswordResetForm({ accountId, locale, send, busy, ready, onBusyChange, onReset }: {
   accountId: number;
+  ready: boolean;
   locale: Locale;
   send: UserTransport;
   busy: boolean;
@@ -62,7 +63,7 @@ function PasswordResetForm({ accountId, locale, send, busy, onBusyChange, onRese
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (sending.current) return;
+    if (sending.current || !ready) return;
     setError(null);
     const replacement = readConfirmedPassword(event.currentTarget, "replacement");
     if (replacement === null) { setMismatch(true); return; }
@@ -91,7 +92,7 @@ function PasswordResetForm({ accountId, locale, send, busy, onBusyChange, onRese
     <fieldset className="form-stack account-password-fields" disabled={busy}>
       <NewPasswordFields locale={locale} name="replacement" label={text.newPassword} hint={text.passwordRule}
         mismatch={mismatch} onEdit={() => { setMismatch(false); setError(null); }} />
-      <button type="submit" className="primary">{text.save}</button>
+      <button type="submit" className="primary" disabled={!ready}>{text.save}</button>
     </fieldset>
   </form>;
 }

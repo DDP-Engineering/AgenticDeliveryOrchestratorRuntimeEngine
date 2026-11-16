@@ -5,6 +5,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Coalesce manual Statistics refreshes until both reporting sources finish, even
+  when one completes earlier, without changing independent automatic polling.
+
 ## [0.18.0] - 2026-11-16
 
 ### Added
@@ -23,6 +28,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Refresh Statistics, Jobs, consumption, change history and Users without blanking
+  valid same-context content or resetting controls. Coalesce reads, publish scoped
+  reporting cohorts together, show explicit informational stale/retry feedback,
+  and preserve settings drafts and authorization/integrity failure boundaries.
 - Allow up to 30 seconds for Pi conversation startup inspection, separately from
   the final usage check, while preserving cancellation and shorter stage deadlines.
 - Confirm cancelled-job Restart with both predecessor and successor ownership intact;
