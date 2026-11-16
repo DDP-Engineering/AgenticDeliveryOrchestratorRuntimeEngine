@@ -1,35 +1,22 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       stamp_web_assets.py
-@brief      Add the project license to built JS/CSS and bundle the license text.
-@details    Stamps deployable or isolated Vite build outputs.
-"""
+"""Add the project license to built JS/CSS and bundle the license text."""
 
-# IMPORTS
 import argparse
 import hashlib
 import json
 from pathlib import Path
 
 
-# CONSTANTS
 STAMP = "BUILD_FINGERPRINT.json"
 
 
 def fingerprint(repo: Path, static: Path) -> dict:
-    """@brief Compute deterministic hashes of frontend build inputs and outputs.
-    @param[in] repo Repository root containing the frontend sources.
-    @param[in] static Build output directory.
-    @return Path-to-hash mappings for inputs and output files.
-    @exception OSError A required input or output cannot be read.
+    """
+    Compute deterministic hashes of frontend build inputs and outputs.
+    repo: Repository root containing the frontend sources.
+    static: Build output directory.
+    Returns: Path-to-hash mappings for inputs and output files.
+    Raises OSError: A required input or output cannot be read.
     """
     web = repo / "04_Software/web"
     inputs = [repo / "LICENSE.txt", repo / "02_Tools/package/release_checks/stamp_web_assets.py"]
@@ -57,13 +44,13 @@ def fingerprint(repo: Path, static: Path) -> dict:
     return {"inputs": hashes(inputs, repo, True), "outputs": hashes(outputs, static)}
 
 
-# PUBLIC API
 def main(argv: list[str] | None = None) -> int:
-    """@brief Stamp an existing web build and copy its legal notices.
+    """
+    Stamp an existing web build and copy its legal notices.
 
-    @param[in] argv Optional CLI arguments; --output selects an isolated build.
-    @return Zero after stamping the requested build.
-    @exception SystemExit The destination has no built index.html.
+    argv: Optional CLI arguments; --output selects an isolated build.
+    Returns: Zero after stamping the requested build.
+    Raises SystemExit: The destination has no built index.html.
     """
     repo = Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description=__doc__)
@@ -72,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     static = parser.parse_args(argv).output.resolve()
     if not (static / "index.html").is_file():
         parser.error("output must contain a built index.html")
+    # REUSE-IgnoreStart
     banner = (
         "/*\nCopyright (c) 2026 DDP Engineering\n"
         "This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
@@ -79,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         "See the LICENSE.txt file for full license details. "
         "SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n*/\n"
     )
+    # REUSE-IgnoreEnd
     for path in static.rglob("*"):
         if path.suffix not in (".js", ".css"):
             continue
@@ -98,6 +87,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-# END OF FILE

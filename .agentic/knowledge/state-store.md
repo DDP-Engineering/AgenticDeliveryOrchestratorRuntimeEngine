@@ -1,11 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details.
-SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # State store
 
 ## Routing
@@ -167,3 +159,7 @@ sharing denial raises StateStorageError (StateError subtype) with the exact path
 preserving prior evidence and propagating through list_runs/invalid_runs;
 other I/O errors still propagate. Publication rechecks before_write on every
 attempt. Focused public proof: tests/test_state.py state_sharing tests.
+
+## Execution generations
+
+Cancelled restart keeps the original run and IO directory unchanged. Positive -rN suffixes identify fresh executions in the same ticket family. latest_run_id validates every matching family member and selects the highest generation; corrupt, unsafe or misbound state refuses resolution. run_id_pattern includes these generations without matching another repository. Existing schema 1 is unchanged; no data is migrated. Explicit deletion can remove retained history.

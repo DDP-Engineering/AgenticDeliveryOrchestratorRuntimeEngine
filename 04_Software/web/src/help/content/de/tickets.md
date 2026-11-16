@@ -98,3 +98,9 @@ HTML bleibt sichtbarer Text und wird nicht ausgeführt. Nur absolute http-, http
 Wählen Sie in **Jobaktionen** für einen neuen Job **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** und bestätigen Sie den kurzen Browserdialog zum Verwerfen bestehender Arbeit. Fehlendes AEGIS deaktiviert diese Aktion. Tickets behält die Auswahl **Workflow** vor **Starten**. Wiederholen, Fortsetzung und Review-Korrekturen behalten den gespeicherten Workflow und dieselbe Pi-Unterhaltung.
 
 In Tickets stehen Workflow, bei Bedarf Priorität, Labels hinzufügen und starten und Abbrechen auf breiten Bildschirmen in einer kompakten Zeile; auf kleinen Bildschirmen werden sie umgebrochen.
+
+## Abgebrochene Jobs neu starten {#restart-cancelled}
+
+Ein abgebrochenes Ticket bietet **Job neu starten**. Wählen Sie den Workflow in der kompakten Bestätigungszeile und bestätigen Sie eine neue Ausführung. Der alte Verlauf bleibt verfügbar; Kapazität, Zulässigkeit und Berechtigung werden weiterhin geprüft.
+
+Unter [Abgebrochene Jobs neu starten](/help/jobs#restart-cancelled) finden Sie Verlaufnavigation und ausdrückliches Aufräumen.

@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_web_profile_visibility.py
-@brief      Operation identity remains reliable across profile read contention.
-@details    Offline accepted-operation polls preserve storage and authorization boundaries.
-"""
+"""Operation identity remains reliable across profile read contention."""
 
-# IMPORTS
 import errno
 from pathlib import Path
 
@@ -27,7 +13,7 @@ from tests.test_web_pending_config import _headers, _project
 # PUBLIC API / TESTS
 @pytest.mark.parametrize("boundary", ["transient", "persistent", "corrupt", "deleted"])
 def test_configuration_operation_preserves_profile_read_boundaries(tmp_path, monkeypatch, boundary):
-    """@brief Recover brief denial; unreadable, corrupt and deleted projects retain typed errors."""
+    """Recover brief denial; unreadable, corrupt and deleted projects retain typed errors."""
     profiles, path, _state = _project(tmp_path)
     identity = profiles.load("alpha").project_id
     metadata = profiles.profile_dir("alpha") / "profile.json"
@@ -59,7 +45,7 @@ def test_configuration_operation_preserves_profile_read_boundaries(tmp_path, mon
             metadata.write_text("{corrupt", encoding="utf-8")
         else:
             def contended(target, *args, **kwargs):
-                """@brief Model the observed CRT permission error without a winerror attribute."""
+                """Model the observed CRT permission error without a winerror attribute."""
                 if target == metadata:
                     attempts.append(True)
                     if boundary == "persistent" or len(attempts) <= 2:
@@ -85,5 +71,3 @@ def test_configuration_operation_preserves_profile_read_boundaries(tmp_path, mon
             assert not profiles.profile_dir("alpha").exists()
         else:
             assert path.read_bytes() == before
-
-# END OF FILE

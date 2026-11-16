@@ -162,3 +162,13 @@ A staged lower limit already stops new starts and resumptions until occupancy fa
 ## Choose the workflow {#workflow-choice}
 
 In **Job actions**, choose **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** for a fresh job, then accept the short browser confirmation that discards existing work. Missing AEGIS disables its action. Tickets keeps its **Workflow** selector before **Start**. **Retry**, continuation and review corrections retain the saved workflow and the same Pi conversation.
+
+## Restart cancelled jobs {#restart-cancelled}
+
+For the latest cancelled job, choose **Restart job** in Tickets, select **Workflow** and confirm, or choose **Restart job with AEGIS** / **Restart job without AEGIS** in **Job actions**. ADORE uses current project settings and normal admission checks; paused monitoring stays paused.
+
+The fresh execution has a new identity, working resources, conversation and budgets. The cancelled job, activity, saved sessions and outcome remain readable. **Previous job** and **New job** navigate between executions; an older restarted job cannot start another duplicate. Confirmation succeeds after durable admission and opens the new job.
+
+If Restart cannot be confirmed, refresh Jobs or Tickets and check for the new job before trying again. An unconfirmed result does not mean cleanup failed or that no job was created. A refused restart is reported separately.
+
+History has no automatic expiry. An operator can delete a selected old execution with `adore delete RUN_ID --force`. Audit retention does not remove job history.

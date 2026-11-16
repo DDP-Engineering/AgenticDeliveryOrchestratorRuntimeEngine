@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    jobs.py
-@brief   Strict, complete local projections of authorized jobs.
-@details The caller supplies authorized profiles. Reads use existing schema-1
-         sources without modifying operational recovery behavior or invoking
-         external tools. Optimistic content revisions detect changing sources.
-"""
+"""Strict, complete local projections of authorized jobs."""
 
-# IMPORTS
 from dataclasses import asdict
 from datetime import UTC, datetime
 from hashlib import sha256
@@ -30,7 +14,6 @@ from adore.profiles import Profile, ProfileStore
 from adore.state import RunState, StateError
 from adore.util import utc_now_iso
 
-# CONSTANTS
 _RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}")
 _FILES = ("state.json", "ticket.json", "journal.jsonl")
 _GROUPS = {
@@ -53,29 +36,27 @@ _FORGE_TOKEN = re.compile(
 )
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class JobReadError(RuntimeError):
-    """@brief Safe typed read failure carrying a public code and HTTP status."""
+    """Safe typed read failure carrying a public code and HTTP status."""
 
     def __init__(self, code: str, status: int = 503):
         """
-        @brief Record a safe failure without source bytes or exception text.
-        @param[in] code Stable public error code.
-        @param[in] status HTTP failure status.
+        Record a safe failure without source bytes or exception text.
+        code: Stable public error code.
+        status: HTTP failure status.
         """
         super().__init__(code)
         self.code = code
         self.status = status
 
 
-# LOCAL HELPERS
 def _text(value: object, code: str) -> str:
     """
-    @brief Validate and redact projected free text.
-    @param[in] value Persisted value selected for display.
-    @param[in] code Safe failure code for invalid input.
-    @return Text with recognized credential values masked.
-    @exception JobReadError For malformed text or Unicode.
+    Validate and redact projected free text.
+    value: Persisted value selected for display.
+    code: Safe failure code for invalid input.
+    Returns: Text with recognized credential values masked.
+    Raises JobReadError: For malformed text or Unicode.
     """
     if not isinstance(value, str) or "\x00" in value:
         raise JobReadError(code)
@@ -88,11 +69,11 @@ def _text(value: object, code: str) -> str:
 
 def _stamp(value: object, code: str) -> str | None:
     """
-    @brief Normalize an observed aware timestamp; an unset optional one is unknown.
-    @param[in] value Persisted ISO timestamp, or an empty string for an unset field.
-    @param[in] code Safe failure code for invalid input.
-    @return UTC ISO timestamp or None.
-    @exception JobReadError For a nonempty malformed or naive timestamp.
+    Normalize an observed aware timestamp; an unset optional one is unknown.
+    value: Persisted ISO timestamp, or an empty string for an unset field.
+    code: Safe failure code for invalid input.
+    Returns: UTC ISO timestamp or None.
+    Raises JobReadError: For a nonempty malformed or naive timestamp.
     """
     if value == "":
         return None
@@ -109,10 +90,10 @@ def _stamp(value: object, code: str) -> str | None:
 
 def _url(value: object) -> str | None:
     """
-    @brief Admit absolute credential-free HTTP(S) evidence locations.
-    @param[in] value Persisted link or legacy empty string.
-    @return Unchanged valid link or None.
-    @exception JobReadError For unsafe or malformed evidence links.
+    Admit absolute credential-free HTTP(S) evidence locations.
+    value: Persisted link or legacy empty string.
+    Returns: Unchanged valid link or None.
+    Raises JobReadError: For unsafe or malformed evidence links.
     """
     if value == "":
         return None
@@ -145,14 +126,14 @@ def _url(value: object) -> str | None:
 
 def _object(raw: bytes, code: str) -> dict:
     """
-    @brief Reject malformed JSON, duplicate keys and non-finite constants.
-    @param[in] raw Complete persisted bytes.
-    @param[in] code Safe failure code for invalid input.
-    @return One decoded JSON object.
-    @exception JobReadError For unsupported or unparseable JSON.
+    Reject malformed JSON, duplicate keys and non-finite constants.
+    raw: Complete persisted bytes.
+    code: Safe failure code for invalid input.
+    Returns: One decoded JSON object.
+    Raises JobReadError: For unsupported or unparseable JSON.
     """
     def unique(pairs: list[tuple]) -> dict:
-        """@brief Preserve one unambiguous value for each persisted object key."""
+        """Preserve one unambiguous value for each persisted object key."""
         value = dict(pairs)
         if len(value) != len(pairs):
             raise ValueError
@@ -172,11 +153,11 @@ def _object(raw: bytes, code: str) -> dict:
 
 def _sources(profiles: ProfileStore, items: list[Profile]) -> dict:
     """
-    @brief Capture authorized inventories and bytes.
-    @param[in] profiles Profile home providing default state roots.
-    @param[in] items Already authorized profile metadata.
-    @return Mapping of composite source keys to exact bytes or explicit absence.
-    @exception JobReadError For unreadable, linked or malformed source locations.
+    Capture authorized inventories and bytes.
+    profiles: Profile home providing default state roots.
+    items: Already authorized profile metadata.
+    Returns: Mapping of composite source keys to exact bytes or explicit absence.
+    Raises JobReadError: For unreadable, linked or malformed source locations.
     """
     result = {}
     for item in items:
@@ -222,10 +203,10 @@ def _sources(profiles: ProfileStore, items: list[Profile]) -> dict:
 
 def _journal(raw: bytes | None) -> list[dict]:
     """
-    @brief Strictly read evidence JSONL, preserving the operational reader unchanged.
-    @param[in] raw Persisted journal bytes, or None for a run without a journal.
-    @return Validated event objects in saved order.
-    @exception JobReadError For malformed records or selected evidence fields.
+    Strictly read evidence JSONL, preserving the operational reader unchanged.
+    raw: Persisted journal bytes, or None for a run without a journal.
+    Returns: Validated event objects in saved order.
+    Raises JobReadError: For malformed records or selected evidence fields.
     """
     if raw is None:
         return []
@@ -258,7 +239,7 @@ def _journal(raw: bytes | None) -> list[dict]:
 
 
 def _event_stage(event: dict) -> str | None:
-    """@brief Read stage evidence from the event's declared semantic field."""
+    """Read stage evidence from the event's declared semantic field."""
     stage = event.get("stage")
     if stage is None and event["event"] in {"usage", "executor-artifacts"}:
         stage = event.get("context")
@@ -279,20 +260,20 @@ def _event_stage(event: dict) -> str | None:
 def _waiting(run: RunState, events: list[dict], ticket_url: str | None,
              mr_url: str | None, platform: str) -> dict:
     """
-    @brief Derive actions from evidence matching the current lifecycle and wait.
-    @param[in] run Validated state with observed comment/candidate references.
-    @param[in] events Validated saved journal events.
-    @param[in] ticket_url Safe actual ticket link, when available.
-    @param[in] mr_url Safe actual MR/PR link, when available.
-    @param[in] platform Recorded forge kind for comment anchors.
-    @return Observed waiting evidence or explicit unknown fields.
+    Derive actions from evidence matching the current lifecycle and wait.
+    run: Validated state with observed comment/candidate references.
+    events: Validated saved journal events.
+    ticket_url: Safe actual ticket link, when available.
+    mr_url: Safe actual MR/PR link, when available.
+    platform: Recorded forge kind for comment anchors.
+    Returns: Observed waiting evidence or explicit unknown fields.
     """
     result = {"availability": "unknown", "reason": None, "next_action": None,
               "responsible_role": None, "responsible_person": None, "evidence_url": None,
               "source": None}
     # Comment anchors are forge-specific. Unknown platforms keep the actual ticket location.
     def comment_url(comment_id: int) -> str:
-        """@brief Locate observed comments using the selected forge's anchor contract."""
+        """Locate observed comments using the selected forge's anchor contract."""
         if platform == "gitlab":
             return f"{ticket_url}#note_{comment_id}"
         if platform in {"github", "gitea"}:
@@ -326,11 +307,11 @@ def _waiting(run: RunState, events: list[dict], ticket_url: str | None,
 
 def _direct_evidence(run: RunState, events: list[dict]) -> dict:
     """
-    @brief Project saved direct attempts and independent verification, never config.
-    @param[in] run Validated captured run state.
-    @param[in] events Captured journal in append order.
-    @return Closed redacted detail evidence with explicit unrecorded values.
-    @exception JobReadError For malformed selected state or journal evidence.
+    Project saved direct attempts and independent verification, never config.
+    run: Validated captured run state.
+    events: Captured journal in append order.
+    Returns: Closed redacted detail evidence with explicit unrecorded values.
+    Raises JobReadError: For malformed selected state or journal evidence.
     """
     if (run.stage not in {"build", "validate", "done"}
             and not (run.stage == "publishing" and run.lifecycle == "failed")):
@@ -348,15 +329,14 @@ def _direct_evidence(run: RunState, events: list[dict]) -> dict:
     return {"attempt": attempt}
 
 
-
 def _view(item: Profile, run_id: str, sources: dict) -> dict:
     """
-    @brief Validate schema-1 inputs and return the job evidence allowlist.
-    @param[in] item Authorized owning profile.
-    @param[in] run_id Selected safe source-directory identity.
-    @param[in] sources Captured bytes and explicit absent legacy sources.
-    @return Composite job identity, exact state and safe evidence fields.
-    @exception JobReadError For corrupt state, snapshots or journal evidence.
+    Validate schema-1 inputs and return the job evidence allowlist.
+    item: Authorized owning profile.
+    run_id: Selected safe source-directory identity.
+    sources: Captured bytes and explicit absent legacy sources.
+    Returns: Composite job identity, exact state and safe evidence fields.
+    Raises JobReadError: For corrupt state, snapshots or journal evidence.
     """
     data = _object(sources[(item.project_id, run_id, "state.json")], "run_state_corrupt")
     try:
@@ -394,6 +374,16 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
     ticket_url, mr_url = _url(ticket.get("web_url", "")), _url(run.mr_url)
     raw_journal = sources[(item.project_id, run_id, "journal.jsonl")]
     events = _journal(raw_journal)
+    history = {}
+    base_id = re.sub(r"-r[1-9][0-9]*$", "", run_id)
+    for event_name, field, target in (("restarted-from", "previous_run_id", "previous_run_id"),
+                                      ("restart-admitted", "new_run_id", "restarted_run_id")):
+        links = [event.get(field) for event in events if event.get("event") == event_name]
+        if any(not isinstance(link, str) or link == run_id or len(link) > 160
+               or re.fullmatch(re.escape(base_id) + r"(?:-r[1-9][0-9]*)?", link) is None
+               for link in links):
+            raise JobReadError("run_journal_corrupt")
+        history[target] = links[-1] if links else None
     activity = [stamp for stamp in [updated, *(_stamp(event["ts"],
                 "run_journal_corrupt") for event in events)] if stamp is not None]
     last = max(activity, key=datetime.fromisoformat) if activity else None
@@ -410,6 +400,7 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
         "lifecycle": run.lifecycle, "stage": run.stage, "workflow": run.workflow,
         **({"direct": _direct_evidence(run, events)} if run.workflow == "direct" else {}),
         "state_revision": sha256(sources[(item.project_id, run_id, "state.json")]).hexdigest(),
+        **history,
         "status_group": _GROUPS[run.lifecycle], "outcome": _text(run.outcome, "run_state_corrupt"),
         "stage_failures": run.stage_failures, "review_rounds": run.review_rounds,
         "created_at": created, "updated_at": updated, "last_activity_at": last,
@@ -436,10 +427,10 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
 
 def _current_budget_limits(path: Path) -> dict:
     """
-    @brief Read current limits or classify their unavailability without host probes.
-    @param[in] path Selected project's configuration file.
-    @return Validated limits and an optimistic configuration revision.
-    @exception JobReadError For missing/corrupt configuration or changing bytes.
+    Read current limits or classify their unavailability without host probes.
+    path: Selected project's configuration file.
+    Returns: Validated limits and an optimistic configuration revision.
+    Raises JobReadError: For missing/corrupt configuration or changing bytes.
     """
     try:
         if path.is_symlink():
@@ -465,13 +456,13 @@ def _current_budget_limits(path: Path) -> dict:
 
 
 def _job_rows(item: Profile, sources: dict) -> list[dict]:
-    """@brief Validate saved evidence for one project in a captured snapshot."""
+    """Validate saved evidence for one project in a captured snapshot."""
     return [_view(item, key[1], sources) for key in sorted(sources)
             if key[0] == item.project_id and key[2] == "state.json"]
 
 
 def _source_revision(sources: dict) -> str:
-    """@brief Bind the captured keys and exact bytes into a stable revision."""
+    """Bind the captured keys and exact bytes into a stable revision."""
     digest = sha256()
     for key, value in sorted(sources.items()):
         digest.update(json.dumps(key).encode())
@@ -480,7 +471,7 @@ def _source_revision(sources: dict) -> str:
 
 
 def _overview_sources(profiles: ProfileStore, items: list[Profile]) -> dict[str, dict | None]:
-    """@brief Capture each project's evidence or its unreadable run-state status."""
+    """Capture each project's evidence or its unreadable run-state status."""
     captured = {}
     for item in items:
         try:
@@ -492,12 +483,11 @@ def _overview_sources(profiles: ProfileStore, items: list[Profile]) -> dict[str,
     return captured
 
 
-# PUBLIC API
 def redact_text(value: str) -> str:
     """
-    @brief Mask credential values in free text shown in the web interface.
-    @param[in] value Text such as projected run evidence or engine output.
-    @return Text with key=value, quoted, Bearer/Basic, URL and forge-token credentials masked.
+    Mask credential values in free text shown in the web interface.
+    value: Text such as projected run evidence or engine output.
+    Returns: Text with key=value, quoted, Bearer/Basic, URL and forge-token credentials masked.
     """
     value = _URL_CREDENTIAL.sub(r"\1[REDACTED]\2", value)
     value = _FORGE_TOKEN.sub("[REDACTED]", value)
@@ -506,12 +496,12 @@ def redact_text(value: str) -> str:
 
 def read_jobs(profiles: ProfileStore, items: list[Profile]) -> tuple[list[dict], str]:
     """
-    @brief Capture a complete authorized projection and optimistic source revision.
-    @param[in] profiles Profile home used to resolve default state locations.
-    @param[in] items Already authorized current and archived profiles.
-    @return Validated jobs and digest of selected profile/source content.
-    @exception JobReadError For corrupt sources or a mutation during the read.
-    @note Caller rechecks current grants/profile metadata before returning to the browser.
+    Capture a complete authorized projection and optimistic source revision.
+    profiles: Profile home used to resolve default state locations.
+    items: Already authorized current and archived profiles.
+    Returns: Validated jobs and digest of selected profile/source content.
+    Raises JobReadError: For corrupt sources or a mutation during the read.
+    Note: Caller rechecks current grants/profile metadata before returning to the browser.
     """
     if len({item.project_id for item in items}) != len(items):
         raise JobReadError("project_identity_ambiguous")
@@ -533,11 +523,11 @@ def read_overview_jobs(
     profiles: ProfileStore, items: list[Profile],
 ) -> tuple[list[dict], str, list[str]]:
     """
-    @brief Project verified jobs and isolate projects with unreadable run state.
-    @param[in] profiles Profile home used to resolve default state locations.
-    @param[in] items Already authorized current and archived profiles.
-    @return Verified rows, optimistic projection revision and unreadable project IDs.
-    @exception JobReadError For ambiguous identity, racing reads or other corrupt evidence.
+    Project verified jobs and isolate projects with unreadable run state.
+    profiles: Profile home used to resolve default state locations.
+    items: Already authorized current and archived profiles.
+    Returns: Verified rows, optimistic projection revision and unreadable project IDs.
+    Raises JobReadError: For ambiguous identity, racing reads or other corrupt evidence.
     """
     if len({item.project_id for item in items}) != len(items):
         raise JobReadError("project_identity_ambiguous")
@@ -569,17 +559,17 @@ _GROUP_ORDER = ("active", "waiting", "review", "terminal")
 
 
 def _instant(value: str | None) -> datetime | None:
-    """@brief Compare activity as UTC instants; textual ISO offsets do not order."""
+    """Compare activity as UTC instants; textual ISO offsets do not order."""
     return datetime.fromisoformat(value) if value else None
 
 
 def sort_jobs(rows: list[dict], key: str, descending: bool) -> list[dict]:
     """
-    @brief Order jobs by one column with unknown values last in both directions.
-    @param[in] rows Authorized job rows from read_jobs.
-    @param[in] key One of activity, ticket, project or status.
-    @param[in] descending Reverse the known values.
-    @return New list; project and run identity break ties deterministically.
+    Order jobs by one column with unknown values last in both directions.
+    rows: Authorized job rows from read_jobs.
+    key: One of activity, ticket, project or status.
+    descending: Reverse the known values.
+    Returns: New list; project and run identity break ties deterministically.
     """
     values = {
         "activity": lambda row: _instant(row["last_activity_at"]),
@@ -598,13 +588,13 @@ def sort_jobs(rows: list[dict], key: str, descending: bool) -> list[dict]:
 def read_job_budget(profiles: ProfileStore, item: Profile, run_id: str,
                     state_revision: str) -> dict:
     """
-    @brief Retain trustworthy consumption when current project limits are unavailable.
-    @param[in] profiles Profile owner providing the selected configuration path.
-    @param[in] item Authorized job owner.
-    @param[in] run_id Job selected by composite identity.
-    @param[in] state_revision Exact state bytes already used by the detail projection.
-    @return Saved launch/time consumption with observed or explicitly unavailable limits.
-    @exception JobReadError For corrupt/changing state or concurrently changing limits.
+    Retain trustworthy consumption when current project limits are unavailable.
+    profiles: Profile owner providing the selected configuration path.
+    item: Authorized job owner.
+    run_id: Job selected by composite identity.
+    state_revision: Exact state bytes already used by the detail projection.
+    Returns: Saved launch/time consumption with observed or explicitly unavailable limits.
+    Raises JobReadError: For corrupt/changing state or concurrently changing limits.
     """
     state_path = (Path(item.store_root or profiles.default_store_root(item.name))
                   / "runs" / run_id / "state.json")
@@ -635,6 +625,3 @@ def read_job_budget(profiles: ProfileStore, item: Profile, run_id: str,
         raise JobReadError("job_snapshot_changed", 409) from exc
     except (OSError, StateError, ValueError, TypeError, OverflowError, RecursionError) as exc:
         raise JobReadError("run_state_corrupt") from exc
-
-
-# END OF FILE

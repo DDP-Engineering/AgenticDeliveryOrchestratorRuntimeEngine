@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_model_connection.py
-@brief Explicit Test AI connection contracts for Pi over RPC.
-@details The container runtime is faked and Pi is the fake RPC process replaying
-         recorded runs; provider output is never returned to the browser.
-"""
+"""Explicit Test AI connection contracts for Pi over RPC."""
 
 import importlib
 import json
@@ -32,7 +18,7 @@ from tests.configuration_client import TestClient
 
 
 def project(tmp_path, provider="gitlab"):
-    """@brief Create an offline project with real API identity/config storage."""
+    """Create an offline project with real API identity/config storage."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", store_root=str(tmp_path / "state"))
     path = profiles.config_path("alpha")
@@ -45,13 +31,13 @@ def project(tmp_path, provider="gitlab"):
 
 
 def test_explicit_model_test_returns_scoped_evidence(tmp_path, monkeypatch):
-    """@brief Only explicit requests run the Pi model probe."""
+    """Only explicit requests run the Pi model probe."""
     module = importlib.import_module("adore.web.app")
     profiles = project(tmp_path)
     calls = []
 
     def probe(config, runner, env_file, **_options):
-        """@brief Fake one external model call without a paid provider."""
+        """Fake one external model call without a paid provider."""
         calls.append(env_file)
         return {"ready": True, "reason": "ready", "executor": "pi",
                 "model": config.executor.model}
@@ -72,13 +58,13 @@ def test_explicit_model_test_returns_scoped_evidence(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("mode", ["anonymous", "csrf", "developer", "locked", "corrupt", "stale"])
 def test_model_test_rejects_trust_boundary(tmp_path, monkeypatch, mode):
-    """@brief Untrusted requests/state cannot initiate or retain model evidence."""
+    """Untrusted requests/state cannot initiate or retain model evidence."""
     module = importlib.import_module("adore.web.app")
     profiles = project(tmp_path)
     calls = []
 
     def probe(config, runner, env_file, **_options):
-        """@brief Simulate concurrent configuration drift after the request."""
+        """Simulate concurrent configuration drift after the request."""
         calls.append(True)
         if mode == "stale":
             path = profiles.config_path("alpha")
@@ -128,7 +114,7 @@ CHATGPT_TOKEN = "eyJ-fake-chatgpt-access-token-0123"
 
 
 def set_executor(profiles, provider: str, model: str, base_url: str = "") -> None:
-    """@brief Replace the example [executor] provider/model; append an endpoint table."""
+    """Replace the example [executor] provider/model; append an endpoint table."""
     path = profiles.config_path("alpha")
     raw = path.read_text(encoding="utf-8")
     raw = raw.replace('provider = "openai"\n', f'provider = "{provider}"\n', 1)
@@ -139,7 +125,7 @@ def set_executor(profiles, provider: str, model: str, base_url: str = "") -> Non
 
 
 class Runtime:
-    """@brief Fake container runtime: records commands, starts the fake Pi on `exec -i`."""
+    """Fake container runtime: records commands, starts the fake Pi on `exec -i`."""
 
     def __init__(self, tmp_path: Path, fixture: str, *options: str,
                  image_missing: bool = False, copy_fails: bool = False,
@@ -157,7 +143,7 @@ class Runtime:
         self.record = tmp_path / "commands.log"
 
     def runner(self, argv, **kwargs):
-        """@brief Answer the runtime CLI without a container."""
+        """Answer the runtime CLI without a container."""
         argv = list(argv)
         self.calls.append((argv, kwargs))
         if "image" in argv and "inspect" in argv:
@@ -183,7 +169,7 @@ class Runtime:
         return CommandResult(argv)
 
     def popen(self, argv, **kwargs):
-        """@brief Start the fake Pi in place of `<runtime> exec -i <name> node ...`."""
+        """Start the fake Pi in place of `<runtime> exec -i <name> node ...`."""
         self.spawned.append((list(argv), dict(kwargs.get("env") or {})))
         return subprocess.Popen(  # noqa: S603 - fixed test argv
             [sys.executable, "-I", str(FAKE), str(self.fixture), "--record", str(self.record),
@@ -191,7 +177,7 @@ class Runtime:
 
 
 def probe(profiles, runtime: Runtime, **kwargs) -> dict:
-    """@brief Run the probe against the fake runtime with a test-sized bound."""
+    """Run the probe against the fake runtime with a test-sized bound."""
     config = load_config(profiles.config_path("alpha"))
     kwargs.setdefault("chatgpt_dir", profiles.home / "chatgpt")
     return probe_model_connection(config, runtime.runner, profiles.profile_dir("alpha") / ".env",
@@ -207,7 +193,7 @@ def probe(profiles, runtime: Runtime, **kwargs) -> dict:
     ("failed_rate_limit_retry", "rate-limited"),
 ])
 def test_rpc_probe_reports_each_outcome_distinctly(tmp_path, monkeypatch, fixture, reason):
-    """@brief One Pi RPC run in a temporary container; each recorded outcome has its reason."""
+    """One Pi RPC run in a temporary container; each recorded outcome has its reason."""
     profiles = project(tmp_path)
     (profiles.profile_dir("alpha") / ".env").write_text(f"OPENAI_API_KEY={SECRET}\n")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -233,7 +219,7 @@ def test_rpc_probe_reports_each_outcome_distinctly(tmp_path, monkeypatch, fixtur
 
 
 def test_connection_probe_passes_thinking_to_pi(tmp_path, monkeypatch):
-    """@brief The disposable RPC probe receives the configured Pi reasoning effort."""
+    """The disposable RPC probe receives the configured Pi reasoning effort."""
     profiles = project(tmp_path)
     path = profiles.config_path("alpha")
     path.write_text(path.read_text(encoding="utf-8").replace('model = "gpt-6.1-terra"',
@@ -247,7 +233,7 @@ def test_connection_probe_passes_thinking_to_pi(tmp_path, monkeypatch):
 
 
 def set_internet(profiles, internet: bool, search: str = "") -> None:
-    """@brief Set [executor] internet (and [executor.web] search) in the project config."""
+    """Set [executor] internet (and [executor.web] search) in the project config."""
     path = profiles.config_path("alpha")
     raw = path.read_text(encoding="utf-8")
     import re
@@ -260,7 +246,7 @@ def set_internet(profiles, internet: bool, search: str = "") -> None:
 
 
 def test_probe_runs_under_the_internet_switch(tmp_path, monkeypatch):
-    """@brief Off: the probe container sits behind the provider-only proxy; On: open network."""
+    """Off: the probe container sits behind the provider-only proxy; On: open network."""
     monkeypatch.setenv("OPENAI_API_KEY", SECRET)
     profiles = project(tmp_path)
     runtime = Runtime(tmp_path, "run_connection_test_endpoint")
@@ -289,7 +275,7 @@ def test_probe_runs_under_the_internet_switch(tmp_path, monkeypatch):
 
 
 def test_rpc_probe_wrong_reply_is_an_invalid_response(tmp_path, monkeypatch):
-    """@brief A completed run whose last reply is not the reply nonce is not ready."""
+    """A completed run whose last reply is not the reply nonce is not ready."""
     profiles = project(tmp_path)
     monkeypatch.setenv("OPENAI_API_KEY", SECRET)
     fixture = (FIXTURES / "run_connection_test_endpoint.jsonl").read_text("utf-8")
@@ -302,7 +288,7 @@ def test_rpc_probe_wrong_reply_is_an_invalid_response(tmp_path, monkeypatch):
 
 
 def test_rpc_probe_timeout_aborts_and_releases_the_container(tmp_path, monkeypatch):
-    """@brief A run past the bound is aborted, reported as timeout, and cleaned up."""
+    """A run past the bound is aborted, reported as timeout, and cleaned up."""
     from adore.web import model_connection
 
     profiles = project(tmp_path)
@@ -314,7 +300,7 @@ def test_rpc_probe_timeout_aborts_and_releases_the_container(tmp_path, monkeypat
 
 
 def test_missing_credential_is_reported_without_a_container(tmp_path, monkeypatch):
-    """@brief No saved or server key for the provider: credential-missing, nothing started."""
+    """No saved or server key for the provider: credential-missing, nothing started."""
     profiles = project(tmp_path)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     runtime = Runtime(tmp_path, "run_connection_test_endpoint")
@@ -325,7 +311,7 @@ def test_missing_credential_is_reported_without_a_container(tmp_path, monkeypatc
 @pytest.mark.parametrize("keyed", [False, True])
 def test_endpoint_probe_places_models_json_and_passes_the_endpoint_key(
         tmp_path, monkeypatch, keyed):
-    """@brief custom: models.json copied into the agent dir before Pi; key only in the env."""
+    """custom: models.json copied into the agent dir before Pi; key only in the env."""
     profiles = project(tmp_path)
     set_executor(profiles, "custom", "qwen/qwen3.5-9b", "http://172.27.80.1:1234/v1")
     monkeypatch.delenv("ADORE_ENDPOINT_API_KEY", raising=False)
@@ -348,7 +334,7 @@ def test_endpoint_probe_places_models_json_and_passes_the_endpoint_key(
 
 
 def test_endpoint_probe_stops_when_models_json_cannot_be_placed(tmp_path, monkeypatch):
-    """@brief A failed copy into the agent dir is a runtime error; Pi never starts."""
+    """A failed copy into the agent dir is a runtime error; Pi never starts."""
     profiles = project(tmp_path)
     set_executor(profiles, "custom", "m", "http://172.27.80.1:1234/v1")
     runtime = Runtime(tmp_path, "run_connection_test_endpoint", copy_fails=True)
@@ -358,7 +344,7 @@ def test_endpoint_probe_stops_when_models_json_cannot_be_placed(tmp_path, monkey
 
 @pytest.mark.parametrize("mode", ["image", "cleanup", "garbage", "missing-cli"])
 def test_runtime_failures_fail_closed(tmp_path, monkeypatch, mode):
-    """@brief Missing image, cleanup failure, malformed output and a missing CLI fail closed."""
+    """Missing image, cleanup failure, malformed output and a missing CLI fail closed."""
     profiles = project(tmp_path)
     monkeypatch.setenv("OPENAI_API_KEY", SECRET)
     options = {"garbage": ["--garbage"], "missing-cli": ["--crash-after", "0", "--exit", "127"]}
@@ -383,7 +369,7 @@ def test_runtime_failures_fail_closed(tmp_path, monkeypatch, mode):
 
 
 def chatgpt_project(tmp_path, *, state: str = "signed-in"):
-    """@brief A ChatGPT project and the server's credential files."""
+    """A ChatGPT project and the server's credential files."""
     profiles = project(tmp_path)
     set_executor(profiles, "chatgpt", "gpt-5.6-luna")
     directory = profiles.home / "chatgpt"
@@ -397,7 +383,7 @@ def chatgpt_project(tmp_path, *, state: str = "signed-in"):
 
 
 def test_chatgpt_probe_answers_with_a_fresh_access_token(tmp_path, monkeypatch):
-    """@brief The token rides only on Pi's launch environment; the refresh token stays home."""
+    """The token rides only on Pi's launch environment; the refresh token stays home."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     profiles = chatgpt_project(tmp_path)
     runtime = Runtime(tmp_path, "run_connection_test_endpoint")
@@ -427,7 +413,7 @@ def test_chatgpt_probe_answers_with_a_fresh_access_token(tmp_path, monkeypatch):
     ("signed-in", {"status": "garbage"}, "runtime-error"),
 ])
 def test_chatgpt_probe_without_a_token_starts_no_run_container(tmp_path, state, answer, reason):
-    """@brief No token: a closed reason and no Pi run container."""
+    """No token: a closed reason and no Pi run container."""
     profiles = chatgpt_project(tmp_path, state=state)
     runtime = Runtime(tmp_path, "run_connection_test_endpoint", token_answer=answer)
     assert probe(profiles, runtime)["reason"] == reason
@@ -441,7 +427,7 @@ def test_chatgpt_probe_without_a_token_starts_no_run_container(tmp_path, state, 
     ("failed_rate_limit_retry", "", "", "usage-limit"),
 ])
 def test_chatgpt_refusals_have_their_own_reasons(tmp_path, monkeypatch, fixture, old, new, reason):
-    """@brief A plan that cannot share its subscription, and a reached usage limit."""
+    """A plan that cannot share its subscription, and a reached usage limit."""
     profiles = chatgpt_project(tmp_path)
     text = (FIXTURES / f"{fixture}.jsonl").read_text("utf-8")
     changed = tmp_path / "changed.jsonl"
@@ -449,6 +435,3 @@ def test_chatgpt_refusals_have_their_own_reasons(tmp_path, monkeypatch, fixture,
     runtime = Runtime(tmp_path, fixture)
     runtime.fixture = changed
     assert probe(profiles, runtime)["reason"] == reason
-
-
-# END OF FILE

@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_aegis.py
-@brief Offline contract tests for the AEGIS companion-CLI client.
-@details Covers every supported operation and the untrusted version, JSON,
-         schema, task identity, journal, path, stage, exit and timeout inputs.
-"""
+"""Offline contract tests for the AEGIS companion-CLI client."""
 
 from __future__ import annotations
 
-# IMPORTS
 import json
 from pathlib import Path
 import shlex
@@ -39,16 +24,11 @@ from adore.aegis import (
 from adore.util import CommandResult
 import pytest
 
-# CONSTANTS
-
 TASK_ID = "TASK-abc123ef"
 
 
-# DATA MODELS / TYPEDEFINITIONS
-
-
 class FakeExec:
-    """@brief Scripted container-exec double."""
+    """Scripted container-exec double."""
 
     def __init__(self, *results: CommandResult) -> None:
         self.results = list(results)
@@ -63,9 +43,6 @@ class FakeExec:
         return self.results.pop(0)
 
 
-# HELPER FUNCTIONS
-
-
 def result(
     payload=None,
     *,
@@ -74,7 +51,7 @@ def result(
     stderr: str = "",
     timed_out=False,
 ):
-    """@brief Build a captured command result from JSON or explicit text."""
+    """Build a captured command result from JSON or explicit text."""
     if payload is not None:
         stdout = json.dumps(payload)
     return CommandResult(
@@ -89,7 +66,7 @@ def task_payload(
     *, task_id: str = TASK_ID, stage: str = "frame", path: str = "full",
     branch: str = "adore/run-1", task_type: str = "feature",
 ):
-    """@brief Return one valid schema-1 task-status document."""
+    """Return one valid schema-1 task-status document."""
     steps = {
         "frame": "1_frame.md",
         "specify": "2_specify.md",
@@ -128,7 +105,7 @@ def task_payload(
 
 
 def status_list(*, schema: int = 1, unreadable=None, stage: str = "frame"):
-    """@brief Return a valid status-list probe document."""
+    """Return a valid status-list probe document."""
     return {
         "schema": schema,
         "command": "status",
@@ -144,7 +121,7 @@ def status_list(*, schema: int = 1, unreadable=None, stage: str = "frame"):
 
 
 def check_payload(*, passed: bool = True, warnings: int = 0, runs=None):
-    """@brief Return a strict check payload with internally consistent counts."""
+    """Return a strict check payload with internally consistent counts."""
     findings = [
         {"level": "WARN", "check": "docs", "path": "README.md", "message": "warn"}
         for _ in range(warnings)
@@ -167,11 +144,8 @@ def check_payload(*, passed: bool = True, warnings: int = 0, runs=None):
     }
 
 
-# PUBLIC API
-
-
 def test_probe_accepts_any_supported_minor_and_schema_1() -> None:
-    """@brief Version and schema are both proved before work."""
+    """Version and schema are both proved before work."""
     execute = FakeExec(result(stdout="aegis 0.15.2\n"), result(status_list()))
     probe = AegisClient(execute).probe()
     assert probe.version == "0.15.2" and probe.schema == 1
@@ -186,8 +160,8 @@ def test_probe_accepts_the_whole_supported_major_from_the_floor_up(
     version: str,
 ) -> None:
     """
-    @brief   A newer AEGIS minor needs no ADORE change.
-    @details The supported range is declared once in the client. Anything at or
+    A newer AEGIS minor needs no ADORE change.
+    The supported range is declared once in the client. Anything at or
              above the floor within the major is conducted, so an AEGIS minor
              release does not require editing ADORE at all.
     """
@@ -197,7 +171,7 @@ def test_probe_accepts_the_whole_supported_major_from_the_floor_up(
 
 @pytest.mark.parametrize("version", ["aegis 1.0.0", "aegis 2.3.4"])
 def test_probe_rejects_a_different_major(version: str) -> None:
-    """@brief A major bump means the companion contract itself changed."""
+    """A major bump means the companion contract itself changed."""
     with pytest.raises(AegisProtocolError, match=r"unsupported.*from 0\.15\.0"):
         AegisClient(FakeExec(result(stdout=version))).probe()
 
@@ -205,8 +179,8 @@ def test_probe_rejects_a_different_major(version: str) -> None:
 @pytest.mark.parametrize("version", ["aegis 0.14.9", "aegis 0.5.0", "aegis 0.0.1"])
 def test_probe_refuses_releases_older_than_0_15_0(version: str) -> None:
     """
-    @brief   A payload older than the floor fails at probe, before any status read.
-    @details AEGIS before 0.15.0 ends in a deliver stage that asks the agent to
+    A payload older than the floor fails at probe, before any status read.
+    AEGIS before 0.15.0 ends in a deliver stage that asks the agent to
              wait for a human and to commit, a flow ADORE no longer conducts.
              The refusal names the minimum so the operator knows what to
              install.
@@ -219,13 +193,13 @@ def test_probe_refuses_releases_older_than_0_15_0(version: str) -> None:
 
 @pytest.mark.parametrize("version", ["0.6.0", "", "aegis", "aegis 0.6"])
 def test_probe_rejects_malformed_version_text(version: str) -> None:
-    """@brief Version text that is not the documented shape fails closed."""
+    """Version text that is not the documented shape fails closed."""
     with pytest.raises(AegisProtocolError, match="unsupported"):
         AegisClient(FakeExec(result(stdout=version))).probe()
 
 
 def test_probe_rejects_wrong_schema_and_unreadable_journal() -> None:
-    """@brief A bad schema or any corrupt journal prevents pickup."""
+    """A bad schema or any corrupt journal prevents pickup."""
     with pytest.raises(AegisProtocolError, match="schema"):
         AegisClient(FakeExec(
             result(stdout="aegis 0.15.0"), result(status_list(schema=2)),
@@ -234,7 +208,7 @@ def test_probe_rejects_wrong_schema_and_unreadable_journal() -> None:
 
 @pytest.mark.parametrize("stage", ["survey", "components", "close"])
 def test_probe_accepts_authoritative_adoption_stages(stage: str) -> None:
-    """@brief Repository probing accepts AEGIS adoption journals as foreign work."""
+    """Repository probing accepts AEGIS adoption journals as foreign work."""
     execute = FakeExec(
         result(stdout="aegis 0.15.0"),
         result(status_list(stage=stage)),
@@ -243,7 +217,7 @@ def test_probe_accepts_authoritative_adoption_stages(stage: str) -> None:
 
 
 def test_probe_refuses_a_listed_retired_deliver_journal() -> None:
-    """@brief Retired journal stages fail closed rather than widening the contract."""
+    """Retired journal stages fail closed rather than widening the contract."""
     execute = FakeExec(
         result(stdout="aegis 0.15.0"),
         result(status_list(stage="deliver")),
@@ -253,7 +227,7 @@ def test_probe_refuses_a_listed_retired_deliver_journal() -> None:
 
 
 def test_status_probe_still_rejects_an_unknown_stage() -> None:
-    """@brief Status-list widening remains bounded to AEGIS's documented stages."""
+    """Status-list widening remains bounded to AEGIS's documented stages."""
     with pytest.raises(AegisProtocolError, match="unknown stage"):
         AegisClient(FakeExec(
             result(stdout="aegis 0.15.0"),
@@ -267,7 +241,7 @@ def test_status_probe_still_rejects_an_unknown_stage() -> None:
 
 
 def test_task_creation_and_status_are_pinned_and_validated() -> None:
-    """@brief Task create/status expose only a validated task identity."""
+    """Task create/status expose only a validated task identity."""
     execute = FakeExec(
         result(stdout=f".agentic/tasks/{TASK_ID}.md\n"),
         result(task_payload()),
@@ -297,7 +271,7 @@ def test_task_creation_and_status_are_pinned_and_validated() -> None:
     ],
 )
 def test_task_journal_trust_boundary_fails_closed(mutation, error: str) -> None:
-    """@brief Wrong identity, stage, paths, headers, checklist and log are rejected."""
+    """Wrong identity, stage, paths, headers, checklist and log are rejected."""
     payload = task_payload()
     mutation(payload)
     with pytest.raises((AegisProtocolError, AegisTaskError), match=error):
@@ -306,8 +280,8 @@ def test_task_journal_trust_boundary_fails_closed(mutation, error: str) -> None:
 
 def test_task_deviations_follow_the_aegis_marker_rule() -> None:
     """
-    @brief   Only `DEVIATION <stage>:` or its ` - ` spelling is a deviation.
-    @details Only current conducted and adoption stage names are harvested.
+    Only `DEVIATION <stage>:` or its ` - ` spelling is a deviation.
+    Only current conducted and adoption stage names are harvested.
     """
     payload = task_payload(stage="done")
     payload["task"]["log"] = [
@@ -333,14 +307,14 @@ def test_task_deviations_follow_the_aegis_marker_rule() -> None:
 def test_task_status_accepts_the_0_15_0_stages_and_step_files(
     stage: str, step_file: str | None,
 ) -> None:
-    """@brief Every conducted stage decodes with the step file AEGIS 0.15.0 names."""
+    """Every conducted stage decodes with the step file AEGIS 0.15.0 names."""
     task = AegisClient(FakeExec(result(task_payload(stage=stage)))).task_status(TASK_ID)
     assert task.stage == stage and task.step_file == step_file
     assert task.done is (stage == "done")
 
 
 def test_task_status_refuses_an_unknown_stage() -> None:
-    """@brief A task outside the supported stage domain is refused without execution."""
+    """A task outside the supported stage domain is refused without execution."""
     payload = task_payload()
     payload["task"]["stage"] = "unsupported_stage"
     with pytest.raises(AegisTaskError, match="invalid/disagreeing stage 'unsupported_stage'"):
@@ -348,7 +322,7 @@ def test_task_status_refuses_an_unknown_stage() -> None:
 
 
 def test_active_task_decoder_rejects_adoption_stage() -> None:
-    """@brief ADORE conducts only its six stages even though probing is wider."""
+    """ADORE conducts only its six stages even though probing is wider."""
     payload = task_payload()
     payload["task"]["stage"] = "survey"
     payload["task"]["header"]["stage"] = "survey"
@@ -358,7 +332,7 @@ def test_active_task_decoder_rejects_adoption_stage() -> None:
 
 
 def test_task_creation_rejects_path_escape_and_extra_output() -> None:
-    """@brief The created task path is exact and singular."""
+    """The created task path is exact and singular."""
     for stdout in ("../TASK-abc123ef.md\n", ".agentic/tasks/TASK-abc123ef.md\nnoise\n"):
         with pytest.raises(AegisProtocolError):
             AegisClient(FakeExec(result(stdout=stdout))).create_task("Title", "fix")
@@ -367,13 +341,13 @@ def test_task_creation_rejects_path_escape_and_extra_output() -> None:
 def test_container_transport_quotes_title_and_reads_validated_stdout(
     tmp_path: Path,
 ) -> None:
-    """@brief Shell-sensitive ticket text crosses the WSL boundary only in a file."""
+    """Shell-sensitive ticket text crosses the WSL boundary only in a file."""
     io_dir = tmp_path / "io"
     calls: list[list[str]] = []
     title = "Fix user's $(touch /tmp/pwned) & preserve spaces"
 
     def execute(argv, *, timeout=None):
-        """@brief Simulate the script's bounded stdout/stderr side effects."""
+        """Simulate the script's bounded stdout/stderr side effects."""
         calls.append(list(argv))
         (io_dir / AEGIS_STDOUT_FILE).write_text(
             f".agentic/tasks/{TASK_ID}.md\n", encoding="utf-8"
@@ -397,7 +371,7 @@ def test_container_transport_quotes_title_and_reads_validated_stdout(
 def test_container_transport_timeout_stays_typed_without_exchange_files(
     tmp_path: Path,
 ) -> None:
-    """@brief A wrapper timeout wins even when the killed command wrote no files."""
+    """A wrapper timeout wins even when the killed command wrote no files."""
     execute = FakeExec(result(code=124, stdout="unrelated", timed_out=True))
 
     with pytest.raises(AegisTimeoutError):
@@ -409,7 +383,7 @@ def test_container_transport_timeout_stays_typed_without_exchange_files(
 def test_container_transport_surfaces_bounded_pre_script_failure(
     tmp_path: Path,
 ) -> None:
-    """@brief A failed container exec retains its real exit and bounded stderr."""
+    """A failed container exec retains its real exit and bounded stderr."""
     stderr = "discarded-prefix\n" + ("x" * 1300) + "\nruntime daemon unavailable"
     execute = FakeExec(result(code=127, stderr=stderr))
 
@@ -427,11 +401,11 @@ def test_container_transport_surfaces_bounded_pre_script_failure(
 def test_container_transport_requires_readable_exchange_output(
     tmp_path: Path, failure: str,
 ) -> None:
-    """@brief Missing or unreadable stdout fails closed as a typed protocol error."""
+    """Missing or unreadable stdout fails closed as a typed protocol error."""
     io_dir = tmp_path / "io"
 
     def execute(argv, *, timeout=None):
-        """@brief Leave stdout absent or replace it with an unreadable directory."""
+        """Leave stdout absent or replace it with an unreadable directory."""
         if failure == "unreadable":
             (io_dir / AEGIS_STDOUT_FILE).mkdir()
         (io_dir / AEGIS_STDERR_FILE).write_text("", encoding="utf-8")
@@ -442,11 +416,11 @@ def test_container_transport_requires_readable_exchange_output(
 
 
 def test_container_transport_rejects_oversized_exchange_output(tmp_path: Path) -> None:
-    """@brief Container output is read with the same finite JSON byte bound."""
+    """Container output is read with the same finite JSON byte bound."""
     io_dir = tmp_path / "io"
 
     def execute(argv, *, timeout=None):
-        """@brief Write one byte beyond the accepted stdout boundary."""
+        """Write one byte beyond the accepted stdout boundary."""
         (io_dir / AEGIS_STDOUT_FILE).write_bytes(b"x" * (MAX_JSON_BYTES + 1))
         (io_dir / AEGIS_STDERR_FILE).write_text("", encoding="utf-8")
         return CommandResult(exit_code=0)
@@ -456,7 +430,7 @@ def test_container_transport_rejects_oversized_exchange_output(tmp_path: Path) -
 
 
 def test_check_parses_strict_findings_and_executed_commands() -> None:
-    """@brief Strict verification preserves one invocation and its command evidence."""
+    """Strict verification preserves one invocation and its command evidence."""
     execute = FakeExec(result(check_payload()))
     check = AegisClient(execute).check(TASK_ID, strict=True, run=True)
     assert check.passed and len(check.executed_runs) == 1
@@ -468,7 +442,7 @@ def test_check_parses_strict_findings_and_executed_commands() -> None:
 
 
 def test_failed_strict_check_is_data_but_contradiction_is_protocol_error() -> None:
-    """@brief Exit one is a valid failed strict result only when JSON agrees."""
+    """Exit one is a valid failed strict result only when JSON agrees."""
     failed = AegisClient(FakeExec(result(
         check_payload(passed=False, warnings=1), code=1,
     ))).check(TASK_ID, strict=True, run=True)
@@ -480,7 +454,7 @@ def test_failed_strict_check_is_data_but_contradiction_is_protocol_error() -> No
 
 
 def test_check_rejects_malformed_run_evidence_and_summary_mismatch() -> None:
-    """@brief Command records and finding counts are untrusted inputs."""
+    """Command records and finding counts are untrusted inputs."""
     malformed = check_payload(runs=[{"name": "test", "status": "ok"}])
     with pytest.raises(AegisProtocolError, match="lacks exit"):
         AegisClient(FakeExec(result(malformed))).check(TASK_ID, strict=True)
@@ -492,13 +466,13 @@ def test_check_rejects_malformed_run_evidence_and_summary_mismatch() -> None:
 
 @pytest.mark.parametrize("stdout", ["", "not-json", "[]", '{"schema":1'])
 def test_json_protocol_rejects_empty_malformed_or_non_object(stdout: str) -> None:
-    """@brief The JSON boundary never guesses or accepts partial output."""
+    """The JSON boundary never guesses or accepts partial output."""
     with pytest.raises(AegisProtocolError):
         AegisClient(FakeExec(result(stdout=stdout))).task_status(TASK_ID)
 
 
 def test_protocol_rejects_invalid_utf8_marker_timeout_and_unexpected_exit() -> None:
-    """@brief Decoding replacement, timeout and exit two are distinct loud errors."""
+    """Decoding replacement, timeout and exit two are distinct loud errors."""
     with pytest.raises(AegisProtocolError, match="invalid UTF-8"):
         AegisClient(FakeExec(result(stdout="\ufffd"))).task_status(TASK_ID)
     with pytest.raises(AegisTimeoutError):
@@ -537,7 +511,7 @@ def test_protocol_rejects_invalid_utf8_marker_timeout_and_unexpected_exit() -> N
     ],
 )
 def test_transition_allowlist(previous: str, current: str, path: str, expected: bool) -> None:
-    """@brief Earlier stages stay valid; done reopens only for governed validation."""
+    """Earlier stages stay valid; done reopens only for governed validation."""
 
     assert allowed_transition(previous, current, path) is expected
 
@@ -553,7 +527,7 @@ _RAN_AHEAD_LOG = (
 
 def test_evidenced_jump_accepts_an_executor_that_ran_the_whole_task() -> None:
     """
-    @brief   A model may run every stage in one session instead of stopping
+    A model may run every stage in one session instead of stopping
              after one. That is a contract deviation with the work actually
              done, not a skipped stage, and the journal proves which happened
              (live finding 2026-09-18). Every crossed stage carries a Log
@@ -565,7 +539,7 @@ def test_evidenced_jump_accepts_an_executor_that_ran_the_whole_task() -> None:
 
 def test_evidenced_jump_still_refuses_a_genuine_skip() -> None:
     """
-    @brief   The trust boundary is unchanged: a gap in the Log means the stage
+    The trust boundary is unchanged: a gap in the Log means the stage
              did not run, so the jump stays refused however far it reaches.
     """
     missing_build = tuple(e for e in _RAN_AHEAD_LOG if not e.startswith("2026-09-18 build"))
@@ -575,7 +549,7 @@ def test_evidenced_jump_still_refuses_a_genuine_skip() -> None:
 
 def test_evidenced_jump_ignores_prose_that_merely_names_a_stage() -> None:
     """
-    @brief   Matching is anchored to the start of an entry, so a sentence
+    Matching is anchored to the start of an entry, so a sentence
              mentioning a stage cannot fake evidence that it ran.
     """
     prose = (
@@ -592,22 +566,19 @@ def test_evidenced_jump_ignores_prose_that_merely_names_a_stage() -> None:
 
 def test_evidenced_jump_declines_what_allowed_transition_already_rules_on() -> None:
     """
-    @brief   Single steps and backward routes stay the allowlist's business;
+    Single steps and backward routes stay the allowlist's business;
              this function answers only for forward jumps of more than one.
     """
     assert evidenced_transition("frame", "specify", "full", _RAN_AHEAD_LOG) is False
     assert evidenced_transition("done", "validate", "full", _RAN_AHEAD_LOG) is False
 
 
-# END OF FILE
-
-
 def test_backend_paths_control_aegis_file_transport(tmp_path):
-    """@brief Backend paths, including spaces, govern both scripts and launch argv."""
+    """Backend paths, including spaces, govern both scripts and launch argv."""
     from adore.execution import ExecutionPaths
 
     class Target:
-        """@brief Backend-native exchange fake with distinct paths."""
+        """Backend-native exchange fake with distinct paths."""
         paths = ExecutionPaths(worktree="/native work", io="/native io")
 
         def __call__(self, argv, **kwargs):

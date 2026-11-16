@@ -1,21 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_native_chatgpt.py
-@brief Native ChatGPT sign-in, scoped stages and model diagnostics.
-@details Injects managed Pi, process and helper boundaries for offline Windows/Linux proof.
-"""
+"""Native ChatGPT sign-in, scoped stages and model diagnostics."""
 
 from __future__ import annotations
 
-# IMPORTS
 import json
 from pathlib import Path
 import subprocess
@@ -35,7 +21,7 @@ FAKE = Path(__file__).with_name("fake_chatgpt_helper.py")
 
 @pytest.fixture
 def native(tmp_path, monkeypatch):
-    """@brief Inject managed paths and the native external command boundary."""
+    """Inject managed paths and the native external command boundary."""
     pi = ManagedPi(tmp_path / "node.exe", tmp_path / "managed pi")
     monkeypatch.setattr("adore.pi_installation.verify_pi", lambda **_: pi)
     monkeypatch.setenv("NODE_OPTIONS", "--import=hostile.js")
@@ -56,7 +42,7 @@ def native(tmp_path, monkeypatch):
 
 
 def test_native_token_uses_managed_paths_and_private_filtered_environment(tmp_path, native):
-    """@brief The trusted helper uses no container, personal setup or project PATH."""
+    """The trusted helper uses no container, personal setup or project PATH."""
     helper, pi, calls = native
     directory = tmp_path / "auth"
     signed_in(directory)
@@ -87,7 +73,7 @@ def test_native_token_uses_managed_paths_and_private_filtered_environment(tmp_pa
     ],
 )
 def test_native_token_rejects_invalid_helper_output(tmp_path, native, bad):
-    """@brief Invalid native stdout never supplies a stage credential."""
+    """Invalid native stdout never supplies a stage credential."""
     helper, _, _ = native
     helper.runner = lambda argv, **_: CommandResult(argv, stdout=bad)
     directory = tmp_path / "auth"
@@ -100,7 +86,7 @@ def test_native_token_rejects_invalid_helper_output(tmp_path, native, bad):
     "code,timed_out,expected", [(1, False, "helper-failed"), (124, True, "unavailable")]
 )
 def test_native_token_refuses_bad_exit_and_timeout(tmp_path, native, code, timed_out, expected):
-    """@brief A plausible answer cannot override a failed native helper exit."""
+    """A plausible answer cannot override a failed native helper exit."""
     helper, _, _ = native
     helper.runner = lambda argv, **_: CommandResult(
         argv,
@@ -115,7 +101,7 @@ def test_native_token_refuses_bad_exit_and_timeout(tmp_path, native, code, timed
 
 
 def test_native_sign_in_and_cancel_use_only_owned_process(tmp_path, native):
-    """@brief Native login uses the same validated state protocol and bounded cancellation."""
+    """Native login uses the same validated state protocol and bounded cancellation."""
     helper, _, _ = native
     processes = []
 
@@ -144,7 +130,7 @@ def test_native_sign_in_and_cancel_use_only_owned_process(tmp_path, native):
 
 
 def test_native_missing_pi_is_typed_without_leaking_paths(tmp_path, monkeypatch):
-    """@brief Missing native prerequisites use the shared closed helper failure."""
+    """Missing native prerequisites use the shared closed helper failure."""
 
     def missing(**_):
         raise PiInstallationError("pi-missing", "private-path-and-host")
@@ -157,7 +143,7 @@ def test_native_missing_pi_is_typed_without_leaking_paths(tmp_path, monkeypatch)
 
 
 def test_native_helper_is_the_same_pinned_oauth_protocol():
-    """@brief Packaged native and image helpers cannot drift."""
+    """Packaged native and image helpers cannot drift."""
     root = Path(__file__).resolve().parents[1]
     assert (root / "adore/executor/adore-chatgpt.mjs").read_bytes() == (
         root / "docker/pi/adore-chatgpt.mjs"
@@ -166,7 +152,7 @@ def test_native_helper_is_the_same_pinned_oauth_protocol():
 
 @pytest.mark.parametrize("system", ["Windows", "Linux"])
 def test_native_stage_token_is_explicit_and_redacted(tmp_path, monkeypatch, system):
-    """@brief Only explicit gate binding can inject the subscription credential."""
+    """Only explicit gate binding can inject the subscription credential."""
     from adore.local_execution import LocalBackend
 
     from tests.test_local_execution import local_fixture
@@ -193,7 +179,7 @@ def test_native_stage_token_is_explicit_and_redacted(tmp_path, monkeypatch, syst
 
 @pytest.mark.parametrize("code", [None, "not-signed-in", "sign-in-again", "unavailable"])
 def test_native_model_probe_uses_subscription_source(tmp_path, monkeypatch, code):
-    """@brief Model and shell checks use fresh subscription tokens or fail before Pi."""
+    """Model and shell checks use fresh subscription tokens or fail before Pi."""
     from adore.web.model_connection import probe_model_connection
 
     from tests.test_local_execution import local_fixture
@@ -232,7 +218,7 @@ def test_native_model_probe_uses_subscription_source(tmp_path, monkeypatch, code
 def test_native_readiness_reads_subscription_without_model_or_refresh(
     tmp_path, monkeypatch, state, ready
 ):
-    """@brief Host readiness uses the ADORE store rather than a personal API key."""
+    """Host readiness uses the ADORE store rather than a personal API key."""
     from adore.local_execution import probe_local_executor
 
     from tests.test_local_execution import local_fixture
@@ -253,7 +239,7 @@ def test_native_readiness_reads_subscription_without_model_or_refresh(
 
 @pytest.mark.parametrize("failure", [False, True])
 def test_native_conductor_selects_helper_and_binds_only_the_stage(tmp_path, monkeypatch, failure):
-    """@brief The default conductor token source and native target work together."""
+    """The default conductor token source and native target work together."""
     from tests.test_chatgpt_stage import RecordingExecutor
     from tests.test_local_execution import local_fixture
     from tests.test_orchestrator import make_engine, make_run, task
@@ -305,7 +291,7 @@ def test_native_conductor_selects_helper_and_binds_only_the_stage(tmp_path, monk
 
 @pytest.mark.parametrize("expires", [0, True, "tomorrow", None])
 def test_native_token_requires_a_valid_lifetime(tmp_path, native, expires):
-    """@brief An otherwise plausible helper answer cannot carry an invalid expiry."""
+    """An otherwise plausible helper answer cannot carry an invalid expiry."""
     helper, _, _ = native
     directory = tmp_path / "auth"
     signed_in(directory)
@@ -318,7 +304,7 @@ def test_native_token_requires_a_valid_lifetime(tmp_path, native, expires):
 
 @pytest.mark.parametrize("exit_code,expected", [(7, "helper-failed"), (0, "unreadable")])
 def test_native_sign_in_refuses_failed_completion(tmp_path, native, exit_code, expected):
-    """@brief A success event needs successful termination and a stored credential."""
+    """A success event needs successful termination and a stored credential."""
     helper, _, _ = native
     state = "native-state-123456789"
     script = (
@@ -343,7 +329,7 @@ def test_native_sign_in_refuses_failed_completion(tmp_path, native, exit_code, e
 @pytest.mark.parametrize("phase", ["start", "submit"])
 @pytest.mark.parametrize("code", [[], {}])
 def test_native_sign_in_refuses_malformed_error_codes(tmp_path, native, phase, code):
-    """@brief Unhashable helper JSON codes produce only the closed typed failure."""
+    """Unhashable helper JSON codes produce only the closed typed failure."""
     helper, _, _ = native
     state = "native-state-123456789"
     error = {"event": "error", "code": code}
@@ -370,7 +356,7 @@ def test_native_sign_in_refuses_malformed_error_codes(tmp_path, native, phase, c
 
 
 def test_native_subscription_usage_limit_has_its_own_reason(tmp_path, monkeypatch):
-    """@brief Native subscription quota is distinguished from API-key throttling."""
+    """Native subscription quota is distinguished from API-key throttling."""
     from adore.executor.pi_rpc import PiRpcResult
     from adore.web.model_connection import probe_model_connection
 
@@ -389,6 +375,3 @@ def test_native_subscription_usage_limit_has_its_own_reason(tmp_path, monkeypatc
         config, lambda *a, **k: pytest.fail("container called"), tmp_path / ".env"
     )
     assert result["reason"] == "usage-limit"
-
-
-# END OF FILE

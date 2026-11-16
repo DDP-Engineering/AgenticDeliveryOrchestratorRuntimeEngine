@@ -98,3 +98,9 @@ HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute 
 În **Acțiuni job**, alegeți **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** pentru un job nou, apoi acceptați confirmarea scurtă a browserului privind ștergerea lucrului existent. Lipsa AEGIS dezactivează acea acțiune. Tichetele păstrează selectorul **Flux de lucru** înainte de **Pornește**. Reîncercarea, continuarea și corecțiile de review păstrează fluxul salvat și aceeași conversație Pi.
 
 În Tichete, Flux de lucru, Prioritate dacă este necesară, Adaugă etichetele și pornește și Renunță sunt pe un singur rând compact pe ecrane late și trec pe rânduri separate pe ecrane mici.
+
+## Repornirea joburilor anulate {#restart-cancelled}
+
+Un tichet anulat oferă **Repornește jobul**. Selectează fluxul pe rândul compact de confirmare și confirmă execuția nouă. Istoricul anulat rămâne accesibil; capacitatea, eligibilitatea și autorizarea sunt verificate în continuare.
+
+Vezi [Repornirea joburilor anulate](/help/jobs#restart-cancelled) pentru navigarea istoricului și ștergerea explicită.

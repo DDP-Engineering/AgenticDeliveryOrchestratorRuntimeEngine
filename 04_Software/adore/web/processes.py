@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    processes.py
-@brief   Gated, bounded local process trees and ancestry fencing.
-@details Windows kill-on-close Jobs and Linux sessions contain trusted workers.
-         Every child waits until containment exists; parent death never grants
-         replay authority. An independent drainer retains at most 64 KiB output.
-"""
+"""Gated, bounded local process trees and ancestry fencing."""
 
 from __future__ import annotations
 
-# IMPORTS
 from contextlib import suppress
 import json
 import os
@@ -31,15 +15,14 @@ from uuid import uuid4
 from adore.util import automatic_environment, background_process_options, strict_json_loads
 from adore.web.ownership import OwnershipError, process_birth
 
-# CONSTANTS
 ANCESTRY = "ADORE_WORKER_ANCESTRY"
 
 
-# PUBLIC API
 def assert_ancestry(raw: str | None = None) -> list[dict]:
-    """@brief Refuse corrupt, dead, reused or unverifiable parent identities.
-    @return Strictly validated ancestry; absent transport means standalone use.
-    @exception OwnershipError An ancestor cannot demonstrably authorize effects.
+    """
+    Refuse corrupt, dead, reused or unverifiable parent identities.
+    Returns: Strictly validated ancestry; absent transport means standalone use.
+    Raises OwnershipError: An ancestor cannot demonstrably authorize effects.
     """
     raw = os.environ.get(ANCESTRY) if raw is None else raw
     if raw is None:
@@ -65,7 +48,7 @@ def assert_ancestry(raw: str | None = None) -> list[dict]:
 
 
 def child_environment(environment: dict[str, str]) -> dict[str, str]:
-    """@brief Bind a new child to the complete verified parent chain."""
+    """Bind a new child to the complete verified parent chain."""
     parents = assert_ancestry(environment.get(ANCESTRY))
     birth = process_birth(os.getpid())
     if not birth:
@@ -78,13 +61,14 @@ def child_environment(environment: dict[str, str]) -> dict[str, str]:
 
 
 class ProcessTree:
-    """@brief Own one gated worker and all descendants within an OS process scope."""
+    """Own one gated worker and all descendants within an OS process scope."""
 
     def __init__(self, argv: list[str], environment: dict[str, str]) -> None:
-        """@brief Establish containment before releasing the trusted wrapper.
-        @param[in] argv Fixed argument vector, without shell interpretation.
-        @param[in] environment Non-secret ownership transport and service environment.
-        @exception OSError/RuntimeError Launch or containment was refused.
+        """
+        Establish containment before releasing the trusted wrapper.
+        argv: Fixed argument vector, without shell interpretation.
+        environment: Non-secret ownership transport and service environment.
+        Raises OSError/RuntimeError: Launch or containment was refused.
         """
         self.output = bytearray()
         self.output_lock = Lock()
@@ -126,7 +110,7 @@ class ProcessTree:
             raise
 
     def poll(self) -> int | None:
-        """@brief Inspect exit without waiting for this or another project."""
+        """Inspect exit without waiting for this or another project."""
         if os.name != "nt" and self.process.returncode is None:
             # Keep an exited leader unreaped until its entire original group is
             # killed. Its reserved PID cannot become a stranger's process group.
@@ -139,7 +123,7 @@ class ProcessTree:
         return self.reported if self.reported is not None else code or 1
 
     def _linux_exit(self):
-        """@brief Inspect our direct child without releasing its kernel PID identity."""
+        """Inspect our direct child without releasing its kernel PID identity."""
         try:
             return os.waitid(os.P_PID, self.process.pid,
                              os.WEXITED | os.WNOHANG | os.WNOWAIT)
@@ -147,7 +131,7 @@ class ProcessTree:
             raise OwnershipError("owned process wait identity unavailable") from exc
 
     def _read_report(self) -> None:
-        """@brief Read the trusted wrapper's bounded exit report, never engine output."""
+        """Read the trusted wrapper's bounded exit report, never engine output."""
         try:
             raw = self.process.stdout.readline(128)
             value = strict_json_loads(raw.decode("ascii"))
@@ -160,7 +144,7 @@ class ProcessTree:
             self.report_done.set()
 
     def _drain_output(self) -> None:
-        """@brief Drain continuously into a fixed-size tail, including long-lived workers."""
+        """Drain continuously into a fixed-size tail, including long-lived workers."""
         try:
             while chunk := self.process.stderr.read1(8192):
                 with self.output_lock:
@@ -172,14 +156,14 @@ class ProcessTree:
             self.process.stderr.close()
 
     def request_stop(self) -> None:
-        """@brief Request cooperative tree stop through the owned private pipe."""
+        """Request cooperative tree stop through the owned private pipe."""
         if self.poll() is None:
             with suppress(OSError):
                 self.process.stdin.write(b"S")
                 self.process.stdin.flush()
 
     def kill(self) -> None:
-        """@brief Force only this owned scope, including descendants of an exited root."""
+        """Force only this owned scope, including descendants of an exited root."""
         if self.jobs is not None:
             self.jobs.kill(self.job)
         elif self.process is not None and self.process.returncode is None:
@@ -193,14 +177,14 @@ class ProcessTree:
                 os.killpg(self.process.pid, signal.SIGKILL)
 
     def tail(self, limit: int = 65536) -> str:
-        """@brief Read bounded captured evidence after an observed process exit."""
+        """Read bounded captured evidence after an observed process exit."""
         if type(limit) is not int or limit < 1:
             raise ValueError("output tail limit must be a positive integer")
         with self.output_lock:
             return bytes(self.output[-min(limit, 65536):]).decode("utf-8", "replace")
 
     def close(self) -> None:
-        """@brief Release drained scope handles; retained output stays bounded."""
+        """Release drained scope handles; retained output stays bounded."""
         if self.jobs is not None and self.job:
             self.jobs.kill(self.job)
             self.jobs.remove(self.job)
@@ -212,13 +196,14 @@ class ProcessTree:
 
 def stop_trees(children: list[ProcessTree], *, grace: float = 2.0,
                timeout: float = 5.0) -> None:
-    """@brief Stop all scopes concurrently, then force them under shared deadlines.
-    @note Unconfirmed processes keep durable ownership and recovery evidence.
+    """
+    Stop all scopes concurrently, then force them under shared deadlines.
+    Note: Unconfirmed processes keep durable ownership and recovery evidence.
     """
     failures = []
 
     def attempt(action) -> None:
-        """@brief One failed scope never skips stop/kill/drain of another scope."""
+        """One failed scope never skips stop/kill/drain of another scope."""
         try:
             action()
         except Exception as exc:  # noqa: BLE001 - aggregate after all owned scopes
@@ -248,14 +233,14 @@ def stop_trees(children: list[ProcessTree], *, grace: float = 2.0,
 
 
 def main() -> int:
-    """@brief Guard one trusted child; EOF/Stop/parent death quiesces its tree."""
+    """Guard one trusted child; EOF/Stop/parent death quiesces its tree."""
     if not sys.argv[1:] or os.read(sys.stdin.fileno(), 1) != b"G":
         return 1
     assert_ancestry()
     stop = Event()
 
     def read_stop() -> None:
-        """@brief EOF also stops children when the controlling process disappears."""
+        """EOF also stops children when the controlling process disappears."""
         os.read(sys.stdin.fileno(), 1)
         stop.set()
 
@@ -288,5 +273,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# END OF FILE

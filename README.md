@@ -1,11 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details.
-SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
 ADORE turns an opt-in GitHub, GitLab, Gitea or Azure DevOps Services ticket into an isolated,
@@ -17,7 +9,7 @@ unverified candidate. By default both require fresh human approval; `delivery.re
 can disable this gate while retaining candidate/target freshness. ADORE publishes
 a draft or ready MR/PR according to `delivery.draft` and never merges.
 
-Current release: **ADORE 0.17.0**.
+Current release: **ADORE 0.18.0**.
 
 ## How it works
 

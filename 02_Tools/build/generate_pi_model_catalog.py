@@ -1,38 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file generate_pi_model_catalog.py
-@brief Write ADORE's Pi provider and model catalog from the pinned Pi, offline.
-@details Reads the single-variable API-key provider table from the installed
-         Pi package's `docs/providers.md`, then runs `pi --list-models` once per
-         variable with only that variable set to a placeholder, `PI_OFFLINE=1`
-         and an empty agent directory. Pi lists the built-in catalog of every
-         provider that has a credential, so each run yields the provider ids
-         and models behind one variable; no network call is made and no real
-         key is used. The models of a ChatGPT subscription come from Pi's
-         ChatGPT catalog in the installed pi-ai package (`chatgpt_models`).
-         Each provider's `hosts` are the host names of every `baseUrl` in
-         pi-ai's `providers/data/<id>.json`: the hosts an internet-off run
-         must reach.
-         The result is `04_Software/adore/pi_catalog.json`.
-         Providers whose key is a forge token (GitHub Copilot) or that list
-         no chat models (TypeSafe classifiers) are left out. Run it again
-         whenever the pinned Pi version changes.
-@example
-    python 02_Tools/build/generate_pi_model_catalog.py --node <node22>/node.exe \
-        --cli <prefix>/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
-"""
+"""Write ADORE's Pi provider and model catalog from the pinned Pi, offline."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 import json
 import os
@@ -43,7 +13,6 @@ import sys
 import tempfile
 from urllib.parse import urlsplit
 
-# CONSTANTS
 OUTPUT = Path(__file__).resolve().parents[2] / "04_Software" / "adore" / "pi_catalog.json"
 #: Variables ADORE does not offer: a GitHub token is a forge credential, and
 #: TypeSafe serves classifier models only.
@@ -63,15 +32,12 @@ PLACEHOLDER = "adore-catalog-placeholder"
 _ROW = re.compile(r"^\|\s*(?P<name>[^|]+?)\s*\|\s*`(?P<variable>[A-Z][A-Z0-9_]*)`\s*\|\s*$")
 
 
-# HELPER FUNCTIONS
-
-
 def provider_table(docs: Path) -> list[tuple[str, str]]:
     """
-    @brief      Read Pi's single-variable API-key provider table.
-    @param[in]  docs Pi's `docs/providers.md`.
-    @return     (display name, variable) rows in Pi's order.
-    @exception  SystemExit When the table is missing.
+    Read Pi's single-variable API-key provider table.
+    docs: Pi's `docs/providers.md`.
+    Returns: (display name, variable) rows in Pi's order.
+    Raises SystemExit: When the table is missing.
     """
     text = docs.read_text(encoding="utf-8")
     section = text.split("## Use an API key from the environment", 1)[-1].split("\n## ", 1)[0]
@@ -88,12 +54,12 @@ def provider_table(docs: Path) -> list[tuple[str, str]]:
 
 def list_models(node: str, cli: str, variable: str) -> dict[str, list[str]]:
     """
-    @brief      List the models Pi offers when only `variable` holds a credential.
-    @param[in]  node Node executable.
-    @param[in]  cli Pi's `cli.js`.
-    @param[in]  variable Provider key variable set to a placeholder.
-    @return     Provider id -> model ids in Pi's order.
-    @exception  SystemExit When Pi fails or prints an unexpected table.
+    List the models Pi offers when only `variable` holds a credential.
+    node: Node executable.
+    cli: Pi's `cli.js`.
+    variable: Provider key variable set to a placeholder.
+    Returns: Provider id -> model ids in Pi's order.
+    Raises SystemExit: When Pi fails or prints an unexpected table.
     """
     with tempfile.TemporaryDirectory(prefix="adore-pi-catalog-") as home:
         env = {key: os.environ[key] for key in ("PATH", "SYSTEMROOT", "TEMP", "TMP")
@@ -118,10 +84,10 @@ def list_models(node: str, cli: str, variable: str) -> dict[str, list[str]]:
 
 def pi_ai_data(package: Path) -> Path:
     """
-    @brief      The provider data directory of the installed pi-ai package.
-    @param[in]  package Installed pi-coding-agent package directory.
-    @return     `.../pi-ai/dist/providers/data`.
-    @exception  SystemExit When it is missing.
+    The provider data directory of the installed pi-ai package.
+    package: Installed pi-coding-agent package directory.
+    Returns: `.../pi-ai/dist/providers/data`.
+    Raises SystemExit: When it is missing.
     """
     data = Path("dist") / "providers" / "data"
     candidates = (package / "node_modules" / "@earendil-works" / "pi-ai" / data,
@@ -134,11 +100,11 @@ def pi_ai_data(package: Path) -> Path:
 
 def provider_hosts(data: Path, provider: str) -> list[str]:
     """
-    @brief      Host names of every base URL Pi uses for a provider.
-    @param[in]  data pi-ai provider data directory.
-    @param[in]  provider Provider id.
-    @return     Sorted unique host names.
-    @exception  SystemExit When the provider has no data file or no concrete host.
+    Host names of every base URL Pi uses for a provider.
+    data: pi-ai provider data directory.
+    provider: Provider id.
+    Returns: Sorted unique host names.
+    Raises SystemExit: When the provider has no data file or no concrete host.
     """
     path = data / f"{provider}.json"
     if not path.is_file():
@@ -166,7 +132,7 @@ def provider_hosts(data: Path, provider: str) -> list[str]:
 
 
 def model_thinking(data: Path, provider: str, models: list[str]) -> dict[str, list[str]]:
-    """@brief Derive conservative supported levels from pinned Pi model data."""
+    """Derive conservative supported levels from pinned Pi model data."""
     levels = ("off", "minimal", "low", "medium", "high", "xhigh", "max")
     source = json.loads((data / f"{provider}.json").read_text(encoding="utf-8"))
     found: dict[str, list[set[str]]] = {}
@@ -191,15 +157,15 @@ def model_thinking(data: Path, provider: str, models: list[str]) -> dict[str, li
 
 def chatgpt_models(package: Path, openai: list[str]) -> list[str]:
     """
-    @brief      The models a ChatGPT subscription serves, from Pi's own catalog.
-    @details    Pi's ChatGPT-backed catalog (`openai-codex`, the legacy client's
+    The models a ChatGPT subscription serves, from Pi's own catalog.
+    Pi's ChatGPT-backed catalog (`openai-codex`, the legacy client's
                 provider) lists the chat models of a ChatGPT account; Sign in
                 with ChatGPT runs them as provider `openai`, so only those that
                 are also openai models are kept, in Pi's order.
-    @param[in]  package Installed pi-coding-agent package directory.
-    @param[in]  openai Models Pi lists for provider openai.
-    @return     Model ids.
-    @exception  SystemExit When the catalog is missing or empty.
+    package: Installed pi-coding-agent package directory.
+    openai: Models Pi lists for provider openai.
+    Returns: Model ids.
+    Raises SystemExit: When the catalog is missing or empty.
     """
     path = pi_ai_data(package) / "openai-codex.json"
     if not path.is_file():
@@ -212,13 +178,10 @@ def chatgpt_models(package: Path, openai: list[str]) -> list[str]:
     return models
 
 
-# PUBLIC API
-
-
 def main() -> int:
     """
-    @brief      Generate the catalog file.
-    @return     Process exit code.
+    Generate the catalog file.
+    Returns: Process exit code.
     """
     parser = argparse.ArgumentParser(description="Write adore/pi_catalog.json from the pinned Pi.")
     parser.add_argument("--node", required=True, help="Node 22 executable")
@@ -256,5 +219,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-# END OF FILE

@@ -1,306 +1,116 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
+# AGENTS.md - ADORE
 
-# AGENTS.md - Agentic Delivery Orchestrator & Runtime Engine
+Shared repository instructions. `claude.md` and `QWEN.md` only link here.
+A deeper AGENTS.md overrides this file for its subtree. User instructions take precedence.
 
-## Scope
+## Scope and reading
 
-These instructions apply to the repository rooted at:
-`2026_AgenticDeliveryOrchestratorRuntimeEngine/`
+- Use AEGIS only for product implementation and its tests, unless the user says otherwise.
+  Repository maintenance, documentation, setup, dependencies, packaging and releases are direct work.
+  This project scope overrides broader wording in the managed AEGIS instructions.
+- Before code changes read [Code style](01_Documentation/Code_Style.md).
+  For versions, changelog and release notes read [Releases](01_Documentation/Releases.md).
+- Read only the current task, relevant requirements, component and source sections.
+  `.agentic/context/project.md` routes to current contracts; `environment.md` routes to tools.
+  Use searches and bounded reads rather than loading full histories or large modules.
+- Keep plans in `00_Planning/`; change them only when explicitly requested.
 
-A deeper `AGENTS.md` overrides this file for its subtree.
+## Repository ownership
 
-## Shared instruction entry point
+- `01_Documentation/`: current user/operator manuals and specialized references.
+- `02_Tools/`: all setup, installation, build, package, deployment and launch scripts,
+  including Windows/Linux variants. Generated packages may contain copies.
+- `04_Software/`: product code and tests. Keep the core portable Python.
+- `05_SoftwareDocu/`: component contracts; update the relevant sections with implementation.
+  Use its compact component template; link existing guidance instead of duplicating it.
+- `07_Delivery/`: final user archives and optional SHA-256 files only.
+  Build/verification scratch belongs in cleaned OS temporary directories; no reports there.
+- Keep folders independent and names descriptive. Preserve useful specialized manuals;
+  replace superseded statements rather than appending another account of the same behavior.
 
-This `AGENTS.md` is the common source of repository instructions for all agents.
-Root `claude.md` and `QWEN.md` contain only their legal header, title and a link
-to this file. Keep shared rules and managed workflow guidance here; do not
-duplicate them or add separate rules in those entry-point files.
+## Product boundaries
 
-## AEGIS applicability (repository rule)
+- One forge adapter interface: GitLab, GitHub, Gitea and Azure DevOps Services.
+  One executor interface: Pi. Do not couple the conductor to a particular forge or OS.
+- ADORE may publish configured draft/ready PRs or MRs. It never merges; humans decide.
+- Pi owns implementation and reported repository checks. ADORE owns admission,
+  isolation, recovery, candidate freshness, approval and publication.
+- New jobs select automatic AEGIS detection or explicit AEGIS/Direct. Direct skips
+  AEGIS even when installed; Retry retains the saved workflow and conversation.
+- Keep changes simple, incremental and scoped. Bound autonomous runs explicitly.
+  Preserve unrelated local work. Branches, commits, pushes and deployment follow user authorization.
 
-AEGIS applies exclusively to software implementation: creating or changing
-ADORE product code, including tests and validation of that implementation.
+## Stored data before delivery
 
-Repository operations and documentation work do not use the AEGIS workflow.
-This includes repository inspection and maintenance, Git administration,
-agent instructions such as this file, standalone documentation creation or
-updates, development environment and tool setup, dependency provisioning,
-and packaging, release and delivery operations. Perform these tasks directly
-under the repository rules; do not create AEGIS task journals, run AEGIS
-stages, or require AEGIS checkpoints for them.
+- Support exactly one current format per store. No migrations, version upgrades,
+  compatibility readers, old-layout fallbacks or automatic data resets.
+- Web schema stays `1` during pre-release. Validate the complete current structure;
+  a matching identifier alone is insufficient. Change current definitions in place.
+- Refuse unsupported/corrupt stores with a typed error and explicit operator deletion guidance.
+  Never guess, fill old fields or silently recreate data. Keep stored-format and release versions separate.
+- Do not promise upgrade/downgrade paths in docs or notes. Breaking stored-format changes
+  get one changelog line naming what to delete before starting the build.
 
-Documentation required by a software implementation change is updated in the
-same change, as required below; it does not start a separate AEGIS workflow.
-For mixed requests, apply AEGIS only to the software implementation portion.
+## Verification
 
-The active requirement/specification registry describes implemented product
-behavior and its current software tests. Do not register standalone manuals,
-repository environment/setup/deployment/packaging scripts, removed capabilities
-or tests whose only purpose is to prove a removed feature stays absent. Keep
-negative tests for actual current input, authorization, ownership and persistence
-boundaries. Keep task journals as history; current specs do not retain old
-candidate inventories, review receipts, screenshots or validation logs.
+- Test implemented public behavior: one clear path and negative cases at trust boundaries.
+  Cover forge/executor output, config, human comments, persisted state and process exit codes.
+  Fail closed with typed errors. Test contracts, not private helpers or absence of retired features.
+- Unit tests run offline with injected command runners, never real forge/Git/container commands.
+- Keep mutable homes, databases, applications and credentials isolated per test.
+- Run focused checks for affected behavior and consumers. Reuse passing proof when its inputs
+  are unchanged; journal-only handoffs need no retesting. Full suites follow the user's gate.
+- Do not add/run automated tests for deployment or environment setup scripts.
+  Live forge, model, credentials and container checks require operator authorization.
 
-This project-owned scope rule takes precedence over broader applicability
-wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
+## Documentation, help and release notes
 
-## Repository Rules
+- Update affected component docs and public instructions with implementation.
+  Keep AEGIS knowledge as routing, invariants and focused-test pointers; details live in component docs.
+  Requirements describe current product behavior/tests, not manuals, setup scripts or removed features.
+  Preserve task journals as history; do not load them as current instructions.
+- UI/workflow changes update affected help topics in `en`, `fr`, `de`, `ro` together.
+  Follow `04_Software/web/src/help/README.md`; keep structure, anchors and interface terms aligned.
+- Each notable change updates Unreleased in CHANGELOG; user-visible changes also update
+  four-locale release notes. Format and release commands belong to Releases.md.
+- Record help/release-note decisions in the AEGIS log when using AEGIS; otherwise in the handoff.
 
-- Treat this repository as independent.
-- Keep the runnable orchestrator implementation under `04_Software/`.
-- Keep folder boundaries clear across planning, documentation, tools, software,
-  software documentation, delivery, and support material.
-- Keep folder ownership explicit:
-  - `00_Planning/` holds planning, strategy, design-history, and TODO
-    material. AI agents update it only when the user explicitly asks.
-  - `01_Documentation/` holds current project/user manuals, setup guides,
-    configuration references, presentations, and operational guidance. Keep
-    implemented facts here; do not retain superseded plans, ticket-publication
-    bundles or historical acceptance handoffs as current documentation.
-    Consolidate duplicated guidance while retaining useful specialized guides.
-    The three compact user guides live directly beside the technical manuals;
-    the packager explicitly selects and names their exported files.
-    AI agents update documentation when software interfaces, user-visible
-    behavior, or implementation-facing guidance changes.
-  - `02_Tools/` is the required source location for all environment setup,
-    installation, packaging, deployment, service setup, launch, and related
-    repository automation scripts, including Windows and Linux variants.
-    Keep these scripts here, including any deployment subdirectories, rather
-    than under `04_Software/` or elsewhere in the source tree. Generated
-    delivery bundles may include copies of these scripts.
-  - `05_SoftwareDocu/` holds component implementation documentation. AI agents
-    update it in the same change as component behavior, contracts,
-    responsibilities, dependencies, or workflow integration.
-  - `07_Delivery/` holds only final user delivery archives and optional adjacent
-    SHA-256 files. Do not retain README files, reports, logs, extracted packages,
-    intermediate builds or technical subdirectories there. Resolve it relative
-    to the repository root; keep machine-specific absolute paths out of scripts.
-    Use automatically cleaned OS temporary directories for build/verification
-    work and print verification results to the console without saving reports.
-- Keep the orchestrator forge-agnostic (GitLab, GitHub and Gitea behind one
-  adapter) and executor-agnostic (one executor interface; Pi is its only
-  implementation).
-- Keep the delivery boundary strict: the orchestrator may open a draft MR/PR but
-  must never merge. Merge is a human decision.
-- Prefer portable Python; do not add OS-specific glue to the core loop.
+## Code and license
 
-## Working Rules
-
-- Prefer simple, maintainable changes over speculative abstraction.
-- Make changes incrementally.
-- Update documentation in the same change when behavior, commands, folder
-  layout, or contracts change.
-- Bound every autonomous run with explicit limits (iterations, wall-clock,
-  cost, files touched).
-
-## Stored data during development (repository rule)
-
-ADORE is in development. Until the user states otherwise in writing, this rule
-overrides any requirement, spec, document or habit that asks for more:
-
-- Do not implement data migrations, schema-version upgrades, backward or
-  forward compatibility, or readers for older stored formats. This covers the
-  web database, run state, profiles, configuration, journals, exports and any
-  other data ADORE stores.
-- Each build supports exactly one current schema per stored format. Change a
-  format in place; a fresh store gets the current schema.
-- The web database schema identifier stays fixed at `1` throughout pre-release.
-  Change the current table definitions in place, retain current-structure
-  validation, and refuse a mismatched store. Do not increment the identifier
-  or add version-dispatch, compatibility readers, migrations or automatic resets.
-- A store in any other schema version is refused with a clear message that
-  names what the operator deletes to start fresh. Never delete, rewrite or
-  recreate it automatically.
-- Do not write requirements, specs, documentation, help, CHANGELOG entries or
-  release notes that promise migration, upgrade or downgrade paths, or
-  compatibility with earlier ADORE builds. A breaking format change gets one
-  CHANGELOG line saying what to delete before starting the new build.
-
-## Testing Rules
-
-- Do not add or run automated tests for deployment or environment setup scripts.
-  These repository tools do not use the product testing/AEGIS workflow.
-
-- **Every public behavior gets one clear-path (happy) test plus negative tests
-  at its trust boundaries.** A contract is proven twice: once that it works,
-  once that it fails closed on bad input (corner cases).
-- **Trust boundaries that require negative tests** are everything crossing into
-  the orchestrator from outside: Git-platform CLI output (glab/gh/tea JSON,
-  URLs, HTTP status lines), config files typed by humans, ticket comments
-  written by humans, persisted state read back after a crash, executor output,
-  and container/git exit codes.
-- **Fail closed on corrupt input:** raise a typed error (for example
-  `StateError`, `ForgeError`) so the caller can skip or escalate
-  deterministically. Never silently reinitialize, guess, or continue with
-  partial data. Writing the negative test forces this decision at
-  implementation time.
-- **Test contracts, not internals.** Private helpers are covered through the
-  public surface; do not test implementation details directly, and do not
-  force a negative test onto branch-free plumbing.
-- **Tests must run offline.** External CLIs are faked through the injectable
-  command runner; no network and no real glab/gh/git/docker in unit tests.
-
-## License Header
-
-- **Every generated file must carry the project legal/license header**, adapted
-  to that file's comment syntax. Canonical text:
-
-  ```text
-  Copyright (c) 2026 DDP Engineering
-  This software is licensed under the PolyForm Noncommercial License 1.0.0.
-  Commercial use requires a separate commercial license.
-  See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-  ```
-
-- Use the file type's comment style, for example:
-  - Markdown / HTML: wrap the header in `<!-- ... -->`.
-  - Python / TOML / Bash / PowerShell: prefix each line with `#`.
-  - cmd (`.bat`/`.cmd`): prefix each line with `::` (or `REM`).
-- For Python files the header is part of the file prologue defined in the Style
-  Rules (the banner lines before the module docstring).
-- Apply the header even to small generated files; omit only where a header is
-  technically impossible (for example pure data files that must not contain
-  comments).
-
-## Style Rules
-
-Code style and Python documentation style are defined in
-`01_Documentation/Code_Style.md`; follow that file for implementation and
-documentation conventions. Use the referenced
-`settings_service.py` (AudioMancer) as the canonical example of the exact format.
-
-### Doxygen documentation (Python source and test files)
-
-- **File prologue:** `#!/usr/bin/env python3`, `# -*- coding: utf-8 -*-`, the
-  copyright/license banner, then a module docstring with aligned Doxygen tags:
-  `@file`, `@brief`, `@details` (add `@example` when relevant).
-- **Section markers** where meaningful: `IMPORTS`, `CONSTANTS`,
-  `DATA MODELS / TYPEDEFINITIONS`, `HELPER FUNCTIONS` / `LOCAL HELPERS`,
-  `PUBLIC API` / `EXPORTED FUNCTIONS / PUBLIC API`, `END OF FILE`.
-- **Callable docstrings** (functions, methods, classes, documented nested
-  helpers) use Doxygen-like tags when non-trivial or part of the public API:
-  `@brief`, `@param[in]`, `@param[out]`, `@param[in,out]`, `@return`, plus
-  `@exception`, `@note`, `@todo`, `@retval`, `@example` as applicable.
-
-### Release versioning and changelog rules
-
-- The repository-root `CHANGELOG.md` is the canonical record of notable ADORE
-  project updates. Accrue changes under `## [Unreleased]` using Keep a
-  Changelog sections (`Added`, `Changed`, `Fixed`, `Removed`).
-- The project release version is declared in both
-  `04_Software/pyproject.toml` and `04_Software/adore/__init__.py`; keep these
-  values aligned.
-- When the user asks to assign or cut a release version, in the same change:
-  1. roll `## [Unreleased]` into a dated `## [x.y.z] - YYYY-MM-DD` section in
-     the root `CHANGELOG.md`;
-  2. bump every release-version declaration to the same `x.y.z`;
-  3. keep generated package names in `02_Tools/package/create_delivery_package.py`
-     derived from that version rather than hardcoding a separate one.
-- Use Semantic Versioning: MAJOR for breaking CLI/config/state/executor
-  contracts, MINOR for backward-compatible capabilities, and PATCH for fixes
-  with no contract change.
-
-### Release notes rules
-
-`04_Software/adore/release_notes.toml` holds the user-facing release notes shown
-in the web About > What's new window. Agents maintain them; developers never
-need to remember them.
-
-- In the same change as any `CHANGELOG.md` entry, decide whether the change is
-  visible to a user (web interface, CLI behavior or a setting a user sets). If
-  it is, add or update an entry under the `Unreleased` release; if not, write
-  none. Internal refactoring, tests, tooling and documentation are not notes.
-- Each entry has a category (`new`, `improved` or `fixed`), a short `topic`
-  (the area a user knows, such as Statistics or Jobs) and a `text`, both in
-  `en`, `fr`, `de` and `ro`. Use the interface's own terms in each language.
-- Text is plain user language of at most 100 characters: no file names, paths,
-  endpoints, REQ/TASK ids, component or code identifiers. Keep at most 10
-  entries per category in a release; merge or rewrite related notes instead.
-- Record the decision as one task journal Log line at build:
-  `release-notes: added | updated | none (<reason>)`.
-- Before validate, run `python 02_Tools/package/release_checks/check_release_notes.py --since <task
-  base>`. It fails on contract errors and warns when `CHANGELOG.md` changed
-  without the release notes; resolve the warning or justify it in the journal.
-- When cutting a release, rename `Unreleased` to the new version with the date
-  of its changelog heading, in the same change as the other release steps, and
-  ensure `adore/release_notes.toml` remains included by the application wheel
-  and the portable package manifest.
-
-### Help content rules
-
-The in-app help center (`/help`, header **How ADORE works**) renders
-`04_Software/web/src/help/content/<locale>/<topic>.md`; the format and topic
-list are in `04_Software/web/src/help/README.md`. Agents keep it current.
-
-- In the same change as any interface or workflow change, update every help
-  topic that describes it: screen, tab, button or setting names, steps, labels,
-  defaults and limits. Add a topic only with its entry in `src/help/topics.ts`.
-- Update all four locales (`en`, `fr`, `de`, `ro`) together with the same
-  headings, ids, tables, lists, notes and link targets; use the interface's own
-  terms in each language.
-- Describe only behavior that exists, taken from the code and
-  `01_Documentation/`.
-- Record the decision as one task journal Log line at build:
-  `help: updated | none (<reason>)`.
-- `node --test tests/help.test.mjs` (part of `npm test`) fails on a missing
-  locale, structure drift, unsupported Markdown or a broken link.
-
-## Documentation Rules
-
-- **After every component creation or update, create or update that component's
-  documentation** under `05_SoftwareDocu/`, based on the template at
-  `05_SoftwareDocu/component_documentation_template.md`.
-- Do this **in the same change** as the component's behavior, contracts,
-  responsibilities, dependencies, or workflow integration changes.
-- Keep only the template sections relevant to the component; remove empty
-  sections rather than filling them with placeholder text.
-- Component documentation **complements** the in-code Doxygen docstrings
-  (Style Rules); it does not replace them.
-
-## Status
-
-ADORE conducts a team's opt-in forge tickets and persists its own run state as
-schema 1, with a required pinned execution plan for every admitted job. For a
-repository with AEGIS installed it is the companion
-orchestrator: it invokes `python .agentic/aegis.py` and accepts AEGIS JSON
-schema 1. The supported AEGIS range is declared once in
-`04_Software/adore/aegis.py`, never in prose. Executors advance the durable AEGIS
-task journals; ADORE independently owns ticket selection, worktree/container
-isolation, bounded recovery, validation, candidate-bound human approval, Git
-publication, forge comments, and configured draft or ready MR/PR creation. ADORE never
-merges, and migrates no earlier run state. New jobs use the auto/direct project
-default or an explicit manual AEGIS/Direct choice; Direct bypasses AEGIS procedures
-even when installed, while Retry retains the saved workflow. The Direct workflow is described in
-`01_Documentation/Operations_Guide.md`.
-
-The runnable implementation under `04_Software/` supports GitLab, GitHub and
-Gitea adapters; Docker, Podman and WSL-wrapped runtimes; open/none/allowlisted
-egress; assisted multi-project profiles; durable notification replay; metrics;
-and operator recovery/cleanup commands. Failures become explicit terminal
-state with preserved retry evidence, while cancel/delete are the explicit
-resource-release boundaries. Verification is offline by default; live forge,
-container and credential checks remain operator-authorized acceptance work.
+- Follow Code_Style.md; tools enforce formatting and lint. Keep contract documentation concise.
+- `REUSE.toml` assigns licensing to project-owned files; `LICENSE.txt` and `LICENSES/`
+  carry the license text. Do not add project copyright/license banners to source or documentation.
+- Preserve third-party notices, bundled licenses and the managed AEGIS payload.
+  Prompt resources retain the exact legal prefix required by their loader; it is excluded from Pi prompts.
+  Generated standalone files and deployed Pi extensions retain required notices.
+  Distribution tooling includes the license texts and metadata in delivered files and media.
 
 <!-- AEGIS:BEGIN (managed by .agentic/aegis.py init) -->
 
 ## AEGIS workflow
 
-This repository uses AEGIS to guide software implementation, one feature,
-fix or change per task. Before changing the product, read
-`.agentic/AGENTS.md`; it routes you to one step file per stage.
+This repository uses AEGIS for changes that add or change a durable product
+rule: logic, data, security, performance, integrations, or a product-wide UI
+rule such as a theme, layout system, accessibility or interaction
+convention. For those, read `.agentic/AGENTS.md` first; it routes you to one
+step file per stage.
 
-- New work: run `python .agentic/aegis.py status` (an open task may cover
-  it), then follow `.agentic/steps/1_frame.md`.
+Make other changes directly, with no journal or requirement: a bug fix that
+restores intended behavior, a local UI adjustment (one element's position,
+spacing, wording or style), a refactor with no behavior change, or a test,
+docs or tooling fix. A fix that contradicts an active requirement, adds
+behavior, or touches security or data handling uses AEGIS. The user's
+explicit choice wins; otherwise start with one line,
+`LANE: direct|aegis - <why>`.
+
+- New AEGIS work: run `python .agentic/aegis.py status` (an open task may
+  cover it), then follow `.agentic/steps/1_frame.md`.
 - An existing task: run `python .agentic/aegis.py brief TASK-<id>` and read
   what its `Read next` line names.
 
-Stages: frame -> specify -> design -> build -> validate -> done; the quick
-path is frame -> build -> validate -> done. The CLI writes the journal state:
+Stages: frame -> specify -> design -> build -> validate -> done; specify and
+design have skip rules for work that does not need them. The CLI writes the
+journal state:
 `advance` finishes a stage, `pause` stops for the user, `log` and `ruling`
 record events and decisions. End every session with `advance` or `pause`.
 

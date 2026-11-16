@@ -1,28 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file metrics.py
-@brief Statistics capture and query for ADORE (design 13; stdlib only).
-@details The per-run journal.jsonl stays the append-only raw truth; at each
-         run's terminal state a flat RunSummary is computed from journal +
-         state + ticket and upserted into a SQLite database, mirrored to a
-         JSONL export. Access is CLI-first (stats/report/export) plus an
-         optional self-contained static HTML file - no server, no exporter.
-         This data is the crawl -> walk -> run promotion signal. The final
-         The final AEGIS strict-check outcome (`ok` or `failed`) remains a
-         separate column from the ADORE lifecycle outcome.
-"""
+"""Statistics capture and query for ADORE (design 13; stdlib only)."""
 
 from __future__ import annotations
 
-# IMPORTS
 from contextlib import closing, contextmanager
 import csv
 from dataclasses import asdict, dataclass, fields
@@ -40,23 +19,18 @@ from adore.resource_lock import ResourceLockError, atomic_write, resource_lock
 from adore.state import StateStore
 from adore.util import iso_to_datetime
 
-# CONSTANTS
-
 _TABLE = "run_summaries"
 VALIDATION_EVENT = "validation-accepted"
 
 
 class MetricsError(ValueError):
-    """@brief Persisted metrics evidence violates its versioned contract."""
+    """Persisted metrics evidence violates its versioned contract."""
 
-# DATA MODELS / TYPEDEFINITIONS
 
 
 @dataclass
 class RunSummary:
-    """
-    @brief   One run's flat metrics record (a SQLite row / JSONL line).
-    """
+    """One run's flat metrics record (a SQLite row / JSONL line)."""
 
     run_id: str
     ticket_iid: int = 0
@@ -85,22 +59,21 @@ class RunSummary:
 
     def __post_init__(self) -> None:
         """
-        @brief Refuse unknown workflow identities at summary construction and load.
-        @exception MetricsError For any value other than aegis or direct.
+        Refuse unknown workflow identities at summary construction and load.
+        Raises MetricsError: For any value other than aegis or direct.
         """
         if not isinstance(self.workflow, str) or self.workflow not in {"aegis", "direct"}:
             raise MetricsError("metrics summary carries unknown workflow")
 
 
-# HELPER FUNCTIONS
 
 
 def _seconds_between(start: str, end: str) -> int:
     """
-    @brief      Whole seconds between two ISO timestamps (0 on parse gaps).
-    @param[in]  start Earlier timestamp.
-    @param[in]  end Later timestamp.
-    @return     Non-negative seconds.
+    Whole seconds between two ISO timestamps (0 on parse gaps).
+    start: Earlier timestamp.
+    end: Later timestamp.
+    Returns: Non-negative seconds.
     """
     a = iso_to_datetime(start)
     b = iso_to_datetime(end)
@@ -111,12 +84,12 @@ def _seconds_between(start: str, end: str) -> int:
 
 def _connect(db_path: str | Path) -> sqlite3.Connection:
     """
-    @brief      Open (creating on demand) the metrics database.
-    @details    There are no migrations while ADORE is in development: a table
+    Open (creating on demand) the metrics database.
+    There are no migrations while ADORE is in development: a table
                 whose columns differ from RunSummary is refused, not extended.
-    @param[in]  db_path SQLite file path.
-    @return     Connection with the schema ensured.
-    @exception  MetricsError When the database was written by another build.
+    db_path: SQLite file path.
+    Returns: Connection with the schema ensured.
+    Raises MetricsError: When the database was written by another build.
     """
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -145,16 +118,15 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
     return connection
 
 
-# PUBLIC API
 
 
 def validate_usage_observation(event: dict, run_id: str) -> tuple:
     """
-    @brief Validate one versioned launch coverage record for replay.
-    @param[in] event Persisted usage-observation journal object.
-    @param[in] run_id Owning run identity.
-    @return Stable replay identity and validated usage/coverage fields.
-    @exception MetricsError On malformed or non-UTC evidence.
+    Validate one versioned launch coverage record for replay.
+    event: Persisted usage-observation journal object.
+    run_id: Owning run identity.
+    Returns: Stable replay identity and validated usage/coverage fields.
+    Raises MetricsError: On malformed or non-UTC evidence.
     """
     attempt = event.get("attempt")
     token_status = event.get("token_status")
@@ -213,12 +185,13 @@ def validate_usage_observation(event: dict, run_id: str) -> tuple:
 
 
 def unique_usage_events(events: list[dict], run_id: str) -> list[dict]:
-    """@brief Keep one numeric usage event per versioned launch identity.
+    """
+    Keep one numeric usage event per versioned launch identity.
 
-    @param[in] events Run journal records in persisted order.
-    @param[in] run_id Run owning those records.
-    @return Journal records with identical versioned usage replays removed.
-    @exception MetricsError Malformed or conflicting versioned evidence.
+    events: Run journal records in persisted order.
+    run_id: Run owning those records.
+    Returns: Journal records with identical versioned usage replays removed.
+    Raises MetricsError: Malformed or conflicting versioned evidence.
     """
     seen: dict[str, tuple] = {}
     result: list[dict] = []
@@ -278,16 +251,16 @@ def unique_usage_events(events: list[dict], run_id: str) -> list[dict]:
 def summarize_run(store: StateStore, run_id: str,
                   files_changed: int = 0) -> RunSummary:
     """
-    @brief      Compute a run's summary from its journal, state, and ticket.
-    @details    The journal is the source of truth: AEGIS stage outcomes,
+    Compute a run's summary from its journal, state, and ticket.
+    The journal is the source of truth: AEGIS stage outcomes,
                 usage events (tokens/cost per launch), park/resume gaps, and
                 the time to the MR all come from its timestamps. Malformed
                 usage fails closed.
-    @param[in]  store The state store holding the run.
-    @param[in]  run_id Stable run identifier.
-    @param[in]  files_changed Files-touched count when the caller still has a
+    store: The state store holding the run.
+    run_id: Stable run identifier.
+    files_changed: Files-touched count when the caller still has a
                               worktree to measure (0 otherwise).
-    @return     The RunSummary.
+    Returns: The RunSummary.
     """
     state = store.load(run_id)
     events = unique_usage_events(store.read_journal(run_id), run_id)
@@ -350,8 +323,9 @@ def summarize_run(store: StateStore, run_id: str,
 
 @contextmanager
 def _summary_mutation(db_path, export_jsonl):
-    """@brief Serialize mutation and mirror publication across processes.
-    @exception MetricsError Busy or corrupt storage; committed SQLite remains truth.
+    """
+    Serialize mutation and mirror publication across processes.
+    Raises MetricsError: Busy or corrupt storage; committed SQLite remains truth.
     """
     path = Path(db_path).resolve()
     try:
@@ -372,13 +346,13 @@ def _summary_mutation(db_path, export_jsonl):
 def record_summary(db_path: str | Path, summary: RunSummary,
                    export_jsonl: str | Path = "") -> None:
     """
-    @brief      Upsert a run summary into SQLite and refresh the JSONL mirror.
-    @details    INSERT OR REPLACE keyed by run_id: re-recording a run (retry
+    Upsert a run summary into SQLite and refresh the JSONL mirror.
+    INSERT OR REPLACE keyed by run_id: re-recording a run (retry
                 after failure, rebuild) never duplicates rows. The mirror is
                 rewritten from the database so it always matches.
-    @param[in]  db_path SQLite database path.
-    @param[in]  summary The summary to persist.
-    @param[in]  export_jsonl Mirror path ("" = no mirror).
+    db_path: SQLite database path.
+    summary: The summary to persist.
+    export_jsonl: Mirror path ("" = no mirror).
     """
     with _summary_mutation(db_path, export_jsonl):
         names = [f.name for f in fields(RunSummary)]
@@ -397,11 +371,12 @@ def record_summary(db_path: str | Path, summary: RunSummary,
 
 
 def delete_summary(db_path: str | Path, run_id: str, export_jsonl: str = "") -> None:
-    """@brief Remove a deleted job's terminal projection before its identity is reused.
-    @param[in] db_path Current metrics store; absent files remain absent.
-    @param[in] run_id Exactly the verified deleted job.
-    @param[in] export_jsonl Optional current summary mirror.
-    @exception MetricsError Unsupported store schema.
+    """
+    Remove a deleted job's terminal projection before its identity is reused.
+    db_path: Current metrics store; absent files remain absent.
+    run_id: Exactly the verified deleted job.
+    export_jsonl: Optional current summary mirror.
+    Raises MetricsError: Unsupported store schema.
     """
     if not db_path:
         return
@@ -420,11 +395,11 @@ def delete_summary(db_path: str | Path, run_id: str, export_jsonl: str = "") -> 
 def load_summaries(db_path: str | Path,
                    since_seconds: int | None = None) -> list[RunSummary]:
     """
-    @brief      Load summaries, optionally only runs ending in a window.
-    @param[in]  db_path SQLite database path.
-    @param[in]  since_seconds Keep runs whose ended_at is within this many
+    Load summaries, optionally only runs ending in a window.
+    db_path: SQLite database path.
+    since_seconds: Keep runs whose ended_at is within this many
                               seconds of now (None = all).
-    @return     Summaries ordered by ended_at.
+    Returns: Summaries ordered by ended_at.
     """
     if not Path(db_path).is_file():
         return []
@@ -445,10 +420,10 @@ def load_summaries(db_path: str | Path,
 
 def load_analytical_summaries(db_path: str | Path) -> list[RunSummary]:
     """
-    @brief Read summary evidence without creating or extending its database.
-    @param[in] db_path Existing metrics database; absence is an empty source.
-    @return Validated summaries.
-    @exception MetricsError Corrupt, unsupported or unreadable summary source.
+    Read summary evidence without creating or extending its database.
+    db_path: Existing metrics database; absence is an empty source.
+    Returns: Validated summaries.
+    Raises MetricsError: Corrupt, unsupported or unreadable summary source.
     """
     path = Path(db_path)
     if not path.exists():
@@ -486,10 +461,10 @@ def load_analytical_summaries(db_path: str | Path) -> list[RunSummary]:
 def aggregate(summaries: list[RunSummary],
               by: str = "") -> dict[str, dict[str, Any]]:
     """
-    @brief      Aggregate summaries, optionally grouped by a field.
-    @param[in]  summaries Loaded summaries.
-    @param[in]  by Group field ("priority" / "outcome" / "" = one group).
-    @return     Group -> {runs, merged, failed, avg_span_s, tokens_in,
+    Aggregate summaries, optionally grouped by a field.
+    summaries: Loaded summaries.
+    by: Group field ("priority" / "outcome" / "" = one group).
+    Returns: Group -> {runs, merged, failed, avg_span_s, tokens_in,
                 tokens_out, cost_usd, launches}.
     """
     groups: dict[str, list[RunSummary]] = {}
@@ -514,12 +489,12 @@ def aggregate(summaries: list[RunSummary],
 
 def profile_stats(db_path: str | Path) -> dict[str, Any]:
     """
-    @brief      One project's headline run statistics from its metrics DB.
-    @details    Reuses aggregate() over all summaries; a missing/empty database
+    One project's headline run statistics from its metrics DB.
+    Reuses aggregate() over all summaries; a missing/empty database
                 yields zeros (never an error), so a freshly-created profile
                 renders cleanly. success_rate is merged/runs as a percentage.
-    @param[in]  db_path SQLite database path (may not exist yet).
-    @return     {runs, merged, failed, success_rate, avg_span_s, launches,
+    db_path: SQLite database path (may not exist yet).
+    Returns: {runs, merged, failed, success_rate, avg_span_s, launches,
                 tokens_in, tokens_out, cost_usd, last_run}.
     """
     summaries = load_summaries(db_path) if db_path else []
@@ -542,9 +517,9 @@ def profile_stats(db_path: str | Path) -> dict[str, Any]:
 
 def export_csv(summaries: list[RunSummary]) -> str:
     """
-    @brief      Render summaries as CSV text (`adore export --csv`).
-    @param[in]  summaries Loaded summaries.
-    @return     CSV text including the header row.
+    Render summaries as CSV text (`adore export --csv`).
+    summaries: Loaded summaries.
+    Returns: CSV text including the header row.
     """
     names = [f.name for f in fields(RunSummary)]
     buffer = io.StringIO()
@@ -557,12 +532,12 @@ def export_csv(summaries: list[RunSummary]) -> str:
 
 def render_html(summaries: list[RunSummary], out_path: str | Path) -> Path:
     """
-    @brief      Write the self-contained static dashboard (`stats --html`).
-    @details    Stdlib only, no scripts, no server: aggregates on top, one
+    Write the self-contained static dashboard (`stats --html`).
+    Stdlib only, no scripts, no server: aggregates on top, one
                 table row per run. Open the file directly in a browser.
-    @param[in]  summaries Loaded summaries.
-    @param[in]  out_path Output HTML path.
-    @return     The written path.
+    summaries: Loaded summaries.
+    out_path: Output HTML path.
+    Returns: The written path.
     """
     totals = aggregate(summaries).get("all", {})
     head_cells = "".join(
@@ -598,11 +573,8 @@ def render_html(summaries: list[RunSummary], out_path: str | Path) -> Path:
 
 def is_terminal(lifecycle: str) -> bool:
     """
-    @brief      Whether a run lifecycle is a terminal (recordable) state.
-    @param[in]  lifecycle Run lifecycle value.
-    @return     True for actual runtime terminal lifecycles.
+    Whether a run lifecycle is a terminal (recordable) state.
+    lifecycle: Run lifecycle value.
+    Returns: True for actual runtime terminal lifecycles.
     """
     return lifecycle in ("done", "failed", "cancelled", "handed-off")
-
-
-# END OF FILE

@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    preparation.py
-@brief   Closed, versioned preparation grammar and reviewed execution plans.
-@details Parses only the published fixed-depth Actions-style schema using the
-         standard library. Source is a regular tracked blob at an exact Git
-         commit, never a mutable worktree file or generated state directory.
-"""
+"""Closed, versioned preparation grammar and reviewed execution plans."""
 
 from __future__ import annotations
 
-# IMPORTS
 from dataclasses import asdict, replace
 from hashlib import sha256
 import json
@@ -31,7 +15,6 @@ from adore.util import CommandRunner, run_command
 if TYPE_CHECKING:
     from adore.config import Config
 
-# CONSTANTS
 PLAN_SCHEMA = 1
 MAX_RECIPE_BYTES = 65536
 MAX_STEPS = 32
@@ -42,14 +25,12 @@ _JOB = re.compile(r"[A-Za-z_][A-Za-z0-9_-]{0,63}\Z")
 _IMAGE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/:@-]{0,255}\Z")
 _COERCIBLE = re.compile(r"(?i)(?:true|false|yes|no|on|off|null|~|[-+]?\d.*|\.inf|\.nan)\Z")
 
-# DATA MODELS / TYPEDEFINITIONS
 
 
 class PreparationError(RuntimeError):
-    """@brief Recipe/source/plan input cannot safely authorize execution."""
+    """Recipe/source/plan input cannot safely authorize execution."""
 
 
-# LOCAL HELPERS
 
 
 def _digest(value: dict) -> str:
@@ -59,14 +40,14 @@ def _digest(value: dict) -> str:
 
 
 class _RecipeReader:
-    """@brief Fixed-depth reader; each schema node admits only named children."""
+    """Fixed-depth reader; each schema node admits only named children."""
 
     def __init__(self, source: str) -> None:
         self.lines = source.splitlines()
         self.index = 0
 
     def peek(self) -> tuple[int, str] | None:
-        """@brief Skip structural comments/blank lines and inspect indentation."""
+        """Skip structural comments/blank lines and inspect indentation."""
         while self.index < len(self.lines):
             line = self.lines[self.index]
             if not line.strip() or line.lstrip().startswith("#"):
@@ -76,7 +57,7 @@ class _RecipeReader:
         return None
 
     def scalar(self, raw: str, field: str, indent: int) -> str:
-        """@brief Decode explicit text, with literal blocks only for run bodies."""
+        """Decode explicit text, with literal blocks only for run bodies."""
         if raw in {"|", "|-"} and field.endswith(".run"):
             lines = []
             while self.index < len(self.lines):
@@ -121,7 +102,7 @@ class _RecipeReader:
             raise PreparationError(f"{field}: expected unambiguous text") from exc
 
     def mapping(self, indent: int, field: str, kind: str, first: str | None = None) -> dict:
-        """@brief Read only root/jobs/job/container/step schema mappings."""
+        """Read only root/jobs/job/container/step schema mappings."""
         result: dict = {}
         allowed = {
             "root": {"name", "jobs"},
@@ -181,7 +162,7 @@ class _RecipeReader:
         return result
 
     def steps(self, indent: int, field: str) -> list[dict]:
-        """@brief Read sequential steps with optional name and required run."""
+        """Read sequential steps with optional name and required run."""
         result = []
         while (item := self.peek()) is not None and item[0] >= indent:
             if item[0] != indent or not item[1].startswith("- "):
@@ -195,15 +176,14 @@ class _RecipeReader:
         return result
 
 
-# PUBLIC API
 
 
 def parse_selection(selection: str) -> tuple[str, str, str]:
     """
-    @brief Decode a reviewed path#job@full-commit profile selection.
-    @param[in] selection Operator-selected text.
-    @return Relative path, job ID and exact commit.
-    @exception PreparationError For unsafe or incomplete selection.
+    Decode a reviewed path#job@full-commit profile selection.
+    selection: Operator-selected text.
+    Returns: Relative path, job ID and exact commit.
+    Raises PreparationError: For unsafe or incomplete selection.
     """
     if not isinstance(selection, str) or len(selection) > 512:
         raise PreparationError("selection: expected bounded text")
@@ -230,11 +210,11 @@ def parse_selection(selection: str) -> tuple[str, str, str]:
 
 def parse_recipe(source: str, job: str) -> dict:
     """
-    @brief Normalize a complete version-1 recipe, validating every job.
-    @param[in] source UTF-8 recipe text with original newlines.
-    @param[in] job Explicit selected job ID.
-    @return Name, image and ordered normalized steps.
-    @exception PreparationError For malformed or unsupported input.
+    Normalize a complete version-1 recipe, validating every job.
+    source: UTF-8 recipe text with original newlines.
+    job: Explicit selected job ID.
+    Returns: Name, image and ordered normalized steps.
+    Raises PreparationError: For malformed or unsupported input.
     """
     if not isinstance(source, str):
         raise PreparationError("recipe: expected UTF-8 text")
@@ -281,12 +261,12 @@ def resolve_plan(
     config: Config, *, runner: CommandRunner = run_command, expected_revision: str | None = None
 ) -> dict:
     """
-    @brief Resolve one complete non-secret execution plan without installing.
-    @param[in] config Typed operator profile.
-    @param[in] runner Injectable argv command runner for exact Git source reads.
-    @param[in] expected_revision Optional run target commit for stale review checks.
-    @return Versioned fingerprinted plan, including source text for immutable evidence.
-    @exception PreparationError For source, image, revision or backend conflicts.
+    Resolve one complete non-secret execution plan without installing.
+    config: Typed operator profile.
+    runner: Injectable argv command runner for exact Git source reads.
+    expected_revision: Optional run target commit for stale review checks.
+    Returns: Versioned fingerprinted plan, including source text for immutable evidence.
+    Raises PreparationError: For source, image, revision or backend conflicts.
     """
     if config.execution.backend not in {"container", "local"}:
         raise PreparationError("execution.backend: expected container/local")
@@ -309,7 +289,7 @@ def resolve_plan(
             raise PreparationError("execution.preparation: reviewed revision is stale for target")
 
         def git(*argv: str) -> str:
-            """@brief Read bounded Git source metadata through injected commands."""
+            """Read bounded Git source metadata through injected commands."""
             result = runner(["git", "-C", str(Path(config.worktree.repo_path)), *argv], timeout=30)
             if not result.ok or result.timed_out:
                 raise PreparationError("execution.preparation: Git source read failed")
@@ -352,9 +332,9 @@ def resolve_plan(
 
 def execution_policy(config: Config) -> dict:
     """
-    @brief Snapshot non-secret settings that can change execution identity.
-    @param[in] config Operator profile.
-    @return Closed non-secret policy used for drift checks and future image apply.
+    Snapshot non-secret settings that can change execution identity.
+    config: Operator profile.
+    Returns: Closed non-secret policy used for drift checks and future image apply.
     """
     policy = {
         "execution": asdict(config.execution),
@@ -391,10 +371,10 @@ def execution_policy(config: Config) -> dict:
 
 def validate_plan(plan: object) -> dict:
     """
-    @brief Validate closed persisted plan and its complete fingerprint.
-    @param[in] plan Untrusted persisted mapping.
-    @return The trusted plan.
-    @exception PreparationError For corrupt, unknown or inconsistent data.
+    Validate closed persisted plan and its complete fingerprint.
+    plan: Untrusted persisted mapping.
+    Returns: The trusted plan.
+    Raises PreparationError: For corrupt, unknown or inconsistent data.
     """
     keys = {
         "schema",
@@ -442,7 +422,7 @@ def validate_plan(plan: object) -> dict:
         }
 
     def typed(value: object, example: object, field: str) -> None:
-        """@brief Check closed policy types before accepting crash-state authority."""
+        """Check closed policy types before accepting crash-state authority."""
         if type(value) is not type(example):
             raise PreparationError(f"plan.policy.{field}: invalid type")
         if isinstance(example, dict):
@@ -499,11 +479,11 @@ def validate_plan(plan: object) -> dict:
 
 def preview_plan(config: Config, *, runner: CommandRunner = run_command) -> dict:
     """
-    @brief Resolve a plan against the currently selected local target revision.
-    @param[in] config Validated operator profile.
-    @param[in] runner Injectable Git command boundary, without setup or fetch.
-    @return Complete reviewed plan for CLI, GUI and image-apply integration.
-    @exception PreparationError For stale review or malformed target output.
+    Resolve a plan against the currently selected local target revision.
+    config: Validated operator profile.
+    runner: Injectable Git command boundary, without setup or fetch.
+    Returns: Complete reviewed plan for CLI, GUI and image-apply integration.
+    Raises PreparationError: For stale review or malformed target output.
     """
     target = None
     if config.execution.preparation:
@@ -526,11 +506,11 @@ def preview_plan(config: Config, *, runner: CommandRunner = run_command) -> dict
 
 def effective_probe_config(config: Config, *, runner: CommandRunner = run_command) -> Config:
     """
-    @brief Bind read-only readiness to the same reviewed effective image.
-    @param[in] config Typed project snapshot.
-    @param[in] runner Bounded injectable Git runner.
-    @return Snapshot with normalized image; no preparation commands execute.
-    @exception PreparationError For stale or unsupported source.
+    Bind read-only readiness to the same reviewed effective image.
+    config: Typed project snapshot.
+    runner: Bounded injectable Git runner.
+    Returns: Snapshot with normalized image; no preparation commands execute.
+    Raises PreparationError: For stale or unsupported source.
     """
     if not config.execution.preparation:
         return config
@@ -540,9 +520,9 @@ def effective_probe_config(config: Config, *, runner: CommandRunner = run_comman
 
 def public_plan(plan: dict) -> dict:
     """
-    @brief Return one closed review projection without raw source/configuration.
-    @param[in] plan Complete validated immutable plan.
-    @return Normalized image/source/step review shared by CLI and GUI.
+    Return one closed review projection without raw source/configuration.
+    plan: Complete validated immutable plan.
+    Returns: Normalized image/source/step review shared by CLI and GUI.
     """
     return {
         key: plan[key]
@@ -557,6 +537,3 @@ def public_plan(plan: dict) -> dict:
             "steps",
         )
     }
-
-
-# END OF FILE

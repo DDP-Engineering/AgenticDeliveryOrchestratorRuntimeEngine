@@ -1,22 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-"""
-@file    test_web_tickets.py
-@brief   Contract tests for browsing and stopping project tickets over the web API.
-@details The forge CLI is faked through the injectable probe runner: listing,
-         comments and stop are read or written only on explicit requests, and
-         forge output is a trust boundary that fails closed with typed errors.
-"""
+"""Contract tests for browsing and stopping project tickets over the web API."""
 
-# IMPORTS
 
 from __future__ import annotations
 
+from hashlib import sha256
 import json
 from pathlib import Path
 import sqlite3
@@ -32,23 +19,20 @@ from fastapi.testclient import TestClient
 import pytest
 
 from tests.execution_records import execution_record
-
-# CONSTANTS
+from tests.fixture_data import example_config_text
 
 REPO = "mygroup/myproject"
-
-# HELPER FUNCTIONS
 
 
 def _project(tmp_path: Path) -> ProfileStore:
     """
-    @brief      Create an offline GitLab project with real config storage.
-    @param[in]  tmp_path Test directory.
-    @return     The profile store.
+    Create an offline GitLab project with real config storage.
+    tmp_path: Test directory.
+    Returns: The profile store.
     """
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", store_root=str(tmp_path / "state"))
-    raw = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
+    raw = example_config_text()
     raw = raw.replace('store_root = ".adore"', f'store_root = "{(tmp_path / "state").as_posix()}"')
     raw = raw.replace('repo = "group/subgroup/project"', f'repo = "{REPO}"')
     profiles.config_path("alpha").write_text(raw, encoding="utf-8")
@@ -57,11 +41,11 @@ def _project(tmp_path: Path) -> ProfileStore:
 
 def _issue(iid: int, *labels: str, title: str = "") -> dict[str, object]:
     """
-    @brief      One glab issue record.
-    @param[in]  iid Issue number.
-    @param[in]  labels Issue labels.
-    @param[in]  title Optional title.
-    @return     The raw record.
+    One glab issue record.
+    iid: Issue number.
+    labels: Issue labels.
+    title: Optional title.
+    Returns: The raw record.
     """
     return {
         "iid": iid,
@@ -77,26 +61,24 @@ def _issue(iid: int, *labels: str, title: str = "") -> dict[str, object]:
 
 
 class Forge:
-    """
-    @brief   Fake glab boundary dispatching on the command vector.
-    """
+    """Fake glab boundary dispatching on the command vector."""
 
     def __init__(
         self, issues: list[dict[str, object]] | str, notes: object = None, fail: str = ""
     ) -> None:
         """
-        @brief      Configure canned issue list, notes and an optional failing command.
-        @param[in]  issues Issue records, or raw stdout text for corrupt output.
-        @param[in]  notes Note records for the comments endpoint.
-        @param[in]  fail Command word ("list", "view", "update", "notes") that fails.
+        Configure canned issue list, notes and an optional failing command.
+        issues: Issue records, or raw stdout text for corrupt output.
+        notes: Note records for the comments endpoint.
+        fail: Command word ("list", "view", "update", "notes") that fails.
         """
         self.issues, self.notes, self.fail = issues, notes or [], fail
         self.calls: list[list[str]] = []
 
     def __call__(self, argv, *, cwd=None, timeout=None, env=None) -> CommandResult:
         """
-        @brief      Answer one glab call.
-        @return     The canned CommandResult.
+        Answer one glab call.
+        Returns: The canned CommandResult.
         """
         argv = [str(part) for part in argv]
         self.calls.append(argv)
@@ -120,8 +102,8 @@ class Forge:
 
 def _admin(client: TestClient) -> str:
     """
-    @brief      Sign in as the bootstrap administrator.
-    @return     The CSRF token.
+    Sign in as the bootstrap administrator.
+    Returns: The CSRF token.
     """
     return client.post("/api/v1/session", json={"username": "admin", "password": "admin"}).json()[
         "csrf"
@@ -130,8 +112,8 @@ def _admin(client: TestClient) -> str:
 
 def _developer(profiles: ProfileStore, client: TestClient, member: bool) -> str:
     """
-    @brief      Create and sign in a developer, optionally assigned to alpha.
-    @return     The CSRF token.
+    Create and sign in a developer, optionally assigned to alpha.
+    Returns: The CSRF token.
     """
     web = WebStore(profiles.home / "web.db")
     user = web.create_user("dev", "longer-password", "developer")
@@ -144,8 +126,8 @@ def _developer(profiles: ProfileStore, client: TestClient, member: bool) -> str:
 
 def _run(tmp_path: Path, iid: int, lifecycle: str) -> str:
     """
-    @brief      Persist a run for one ticket.
-    @return     The run id.
+    Persist a run for one ticket.
+    Returns: The run id.
     """
     run_id = derive_run_id("gitlab", REPO, iid)
     StateStore(str(tmp_path / "state")).save(
@@ -159,12 +141,11 @@ def _run(tmp_path: Path, iid: int, lifecycle: str) -> str:
 # PUBLIC API / TESTS - listing
 
 
-def test_admin_lists_open_tickets_with_eligibility_and_job_state(tmp_path: Path) -> None:
-    """
-    @brief   Open tickets carry the shared eligibility reason and any existing job.
-    """
+@pytest.mark.parametrize("lifecycle", ["working", "cancelled"])
+def test_admin_lists_open_tickets_with_eligibility_and_job_state(tmp_path: Path, lifecycle) -> None:
+    """Open tickets carry the shared eligibility reason and any existing job."""
     profiles = _project(tmp_path)
-    run_id = _run(tmp_path, 14, "working")
+    run_id = _run(tmp_path, 14, lifecycle)
     forge = Forge(
         [_issue(12, "agent-ready", "P2"), _issue(13, "P2"), _issue(14, "agent-working", "P2")]
     )
@@ -178,15 +159,17 @@ def test_admin_lists_open_tickets_with_eligibility_and_job_state(tmp_path: Path)
     assert rows[12]["startable"] is True and rows[12]["reason"] is None and rows[12]["job"] is None
     assert rows[12]["description"] == "Body 12" and rows[12]["labels"] == ["agent-ready", "P2"]
     assert rows[13]["startable"] is False and rows[13]["reason"] == "missing_ready_label"
-    assert rows[14]["job"] == {"run_id": run_id, "lifecycle": "working"}
+    expected = {"run_id": run_id, "lifecycle": lifecycle}
+    if lifecycle == "cancelled":
+        expected["state_revision"] = sha256((StateStore(tmp_path / "state").run_dir(run_id)
+                                             / "state.json").read_bytes()).hexdigest()
+    assert rows[14]["job"] == expected
     assert rows[14]["reason"] == "missing_ready_label"
     assert all("--label" not in call for call in forge.calls)
 
 
 def test_listing_flags_truncation_beyond_500_tickets(tmp_path: Path) -> None:
-    """
-    @brief   More than 500 open tickets are cut at 500 and flagged.
-    """
+    """More than 500 open tickets are cut at 500 and flagged."""
     profiles = _project(tmp_path)
     issues = [_issue(i) for i in range(1, 502)]
 
@@ -203,9 +186,7 @@ def test_listing_flags_truncation_beyond_500_tickets(tmp_path: Path) -> None:
 
 
 def test_assigned_developer_lists_and_unassigned_developer_cannot(tmp_path: Path) -> None:
-    """
-    @brief   Ticket reads follow project access.
-    """
+    """Ticket reads follow project access."""
     profiles = _project(tmp_path)
     with TestClient(
         create_app(profiles.home, probe_runner=Forge([_issue(12, "agent-ready", "P2")]))
@@ -230,9 +211,7 @@ def test_assigned_developer_lists_and_unassigned_developer_cannot(tmp_path: Path
 def test_listing_failures_return_typed_errors_and_no_partial_list(
     tmp_path: Path, forge: Forge, status: int, code: str
 ) -> None:
-    """
-    @brief   Failing or malformed forge output never yields a partial list.
-    """
+    """Failing or malformed forge output never yields a partial list."""
     profiles = _project(tmp_path)
     with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
         _admin(client)
@@ -245,9 +224,7 @@ def test_listing_failures_return_typed_errors_and_no_partial_list(
 
 
 def test_comments_are_human_ordered_and_skip_system_notes(tmp_path: Path) -> None:
-    """
-    @brief   Comments keep forge order and omit system notes.
-    """
+    """Comments keep forge order and omit system notes."""
     profiles = _project(tmp_path)
     notes = [
         {
@@ -293,9 +270,7 @@ def test_comments_are_human_ordered_and_skip_system_notes(tmp_path: Path) -> Non
     ],
 )
 def test_comment_failures_are_typed(tmp_path: Path, forge: Forge, status: int, code: str) -> None:
-    """
-    @brief   Missing tickets and bad forge output return typed errors.
-    """
+    """Missing tickets and bad forge output return typed errors."""
     profiles = _project(tmp_path)
     with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
         _admin(client)
@@ -308,8 +283,8 @@ def test_comment_failures_are_typed(tmp_path: Path, forge: Forge, status: int, c
 
 def _audit(profiles: ProfileStore) -> list[dict[str, object]]:
     """
-    @brief      Read the structured evidence of ticket stop audit rows.
-    @return     Evidence payloads in insertion order.
+    Read the structured evidence of ticket stop audit rows.
+    Returns: Evidence payloads in insertion order.
     """
     with sqlite3.connect(profiles.home / "web.db") as connection:
         rows = connection.execute(
@@ -319,9 +294,7 @@ def _audit(profiles: ProfileStore) -> list[dict[str, object]]:
 
 
 def test_stop_queues_cancel_removes_ready_label_and_audits(tmp_path: Path) -> None:
-    """
-    @brief   Stop cancels the unfinished job and removes the ready label.
-    """
+    """Stop cancels the unfinished job and removes the ready label."""
     profiles = _project(tmp_path)
     run_id = _run(tmp_path, 12, "working")
     forge = Forge([_issue(12, "agent-ready", "agent-working")])
@@ -354,9 +327,7 @@ def test_stop_queues_cancel_removes_ready_label_and_audits(tmp_path: Path) -> No
 
 
 def test_stop_without_job_or_ready_label_changes_nothing_extra(tmp_path: Path) -> None:
-    """
-    @brief   No job means no cancel; no ready label means no forge write.
-    """
+    """No job means no cancel; no ready label means no forge write."""
     profiles = _project(tmp_path)
     _run(tmp_path, 13, "done")
     forge = Forge([_issue(12, "agent-ready"), _issue(13, "P2")])
@@ -386,9 +357,7 @@ def test_stop_without_job_or_ready_label_changes_nothing_extra(tmp_path: Path) -
 
 
 def test_stop_reports_label_failure_but_keeps_queued_cancel(tmp_path: Path) -> None:
-    """
-    @brief   A forge write failure after queueing is reported, not rolled back.
-    """
+    """A forge write failure after queueing is reported, not rolled back."""
     profiles = _project(tmp_path)
     _run(tmp_path, 12, "working")
     with TestClient(
@@ -408,9 +377,7 @@ def test_stop_reports_label_failure_but_keeps_queued_cancel(tmp_path: Path) -> N
 def test_stop_rejects_missing_ticket_archived_project_csrf_and_foreign_developer(
     tmp_path: Path,
 ) -> None:
-    """
-    @brief   Stop follows the mutation, archive and access boundaries.
-    """
+    """Stop follows the mutation, archive and access boundaries."""
     profiles = _project(tmp_path)
     with TestClient(create_app(profiles.home, probe_runner=Forge([]))) as client:
         csrf = _admin(client)
@@ -451,9 +418,7 @@ def test_stop_rejects_missing_ticket_archived_project_csrf_and_foreign_developer
 
 
 def test_corrupt_run_state_is_reported_as_local_state_not_forge(tmp_path: Path) -> None:
-    """
-    @brief   An unreadable run for a listed ticket returns run_state_corrupt.
-    """
+    """An unreadable run for a listed ticket returns run_state_corrupt."""
     profiles = _project(tmp_path)
     run_id = derive_run_id("gitlab", REPO, 12)
     store = StateStore(str(tmp_path / "state"))
@@ -472,9 +437,7 @@ def test_corrupt_run_state_is_reported_as_local_state_not_forge(tmp_path: Path) 
 
 
 def test_stop_reports_malformed_ticket_after_queueing_cancel(tmp_path: Path) -> None:
-    """
-    @brief   A malformed ticket record is a typed label failure, not a server error.
-    """
+    """A malformed ticket record is a typed label failure, not a server error."""
     profiles = _project(tmp_path)
     _run(tmp_path, 12, "working")
     with TestClient(
@@ -494,9 +457,7 @@ def test_stop_reports_malformed_ticket_after_queueing_cancel(tmp_path: Path) -> 
 
 
 def test_stop_cancels_even_when_repository_credentials_are_corrupt(tmp_path: Path) -> None:
-    """
-    @brief   Unusable credentials fail only the label step, never the local cancel.
-    """
+    """Unusable credentials fail only the label step, never the local cancel."""
     profiles = _project(tmp_path)
     _run(tmp_path, 12, "working")
     (profiles.profile_dir("alpha") / "repository-auth.json").write_text(
@@ -516,9 +477,7 @@ def test_stop_cancels_even_when_repository_credentials_are_corrupt(tmp_path: Pat
 
 
 def test_unassigned_developer_cannot_read_comments(tmp_path: Path) -> None:
-    """
-    @brief   Comment reads follow project access like the ticket list.
-    """
+    """Comment reads follow project access like the ticket list."""
     profiles = _project(tmp_path)
     with TestClient(create_app(profiles.home, probe_runner=Forge([_issue(12)]))) as client:
         _developer(profiles, client, member=False)
@@ -534,8 +493,8 @@ def _start(
     client: TestClient, csrf: str, iid: int, priority: str = "", key: str = "start-ticket-1"
 ):
     """
-    @brief      Post a ticket start request.
-    @return     The response.
+    Post a ticket start request.
+    Returns: The response.
     """
     body: dict[str, object] = {"idempotency_key": key}
     if priority:
@@ -547,8 +506,8 @@ def _start(
 
 def _starts(profiles: ProfileStore) -> list[dict[str, object]]:
     """
-    @brief      Read queued start operations.
-    @return     Operation rows.
+    Read queued start operations.
+    Returns: Operation rows.
     """
     with sqlite3.connect(profiles.home / "web.db") as connection:
         connection.row_factory = sqlite3.Row
@@ -561,9 +520,7 @@ def _starts(profiles: ProfileStore) -> list[dict[str, object]]:
 
 
 def test_listing_reports_what_start_would_add(tmp_path: Path) -> None:
-    """
-    @brief   Each ticket says whether Start can fix it with labels and which ones.
-    """
+    """Each ticket says whether Start can fix it with labels and which ones."""
     profiles = _project(tmp_path)
     issues = [
         _issue(12, "agent-ready", "P2"),
@@ -600,9 +557,7 @@ def test_listing_reports_what_start_would_add(tmp_path: Path) -> None:
 
 
 def test_start_eligible_ticket_queues_without_forge_write(tmp_path: Path) -> None:
-    """
-    @brief   An already eligible ticket is only queued.
-    """
+    """An already eligible ticket is only queued."""
     profiles = _project(tmp_path)
     forge = Forge([_issue(12, "agent-ready", "P2")])
     with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
@@ -614,9 +569,7 @@ def test_start_eligible_ticket_queues_without_forge_write(tmp_path: Path) -> Non
 
 
 def test_start_adds_missing_labels_then_queues_and_audits(tmp_path: Path) -> None:
-    """
-    @brief   Missing ready and priority labels are added before the start is queued.
-    """
+    """Missing ready and priority labels are added before the start is queued."""
     profiles = _project(tmp_path)
     forge = Forge([_issue(13, "P2"), _issue(14)])
     with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
@@ -660,9 +613,7 @@ def test_start_adds_missing_labels_then_queues_and_audits(tmp_path: Path) -> Non
 
 @pytest.mark.parametrize("priority", ["", "P9"])
 def test_start_without_valid_priority_choice_changes_nothing(tmp_path: Path, priority: str) -> None:
-    """
-    @brief   A ticket needing a priority requires a configured priority label.
-    """
+    """A ticket needing a priority requires a configured priority label."""
     profiles = _project(tmp_path)
     forge = Forge([_issue(14)])
     with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
@@ -683,9 +634,7 @@ def test_start_without_valid_priority_choice_changes_nothing(tmp_path: Path, pri
 def test_start_refuses_rules_labels_cannot_fix(
     tmp_path: Path, issue: dict[str, object], has_run: bool, reason: str
 ) -> None:
-    """
-    @brief   Hold, exclude, closed state and existing runs block Start without side effects.
-    """
+    """Hold, exclude, closed state and existing runs block Start without side effects."""
     profiles = _project(tmp_path)
     if has_run:
         _run(tmp_path, 12, "failed")
@@ -699,9 +648,7 @@ def test_start_refuses_rules_labels_cannot_fix(
 
 
 def test_start_label_write_failure_queues_nothing(tmp_path: Path) -> None:
-    """
-    @brief   A failed forge write leaves no queued start.
-    """
+    """A failed forge write leaves no queued start."""
     profiles = _project(tmp_path)
     with TestClient(
         create_app(profiles.home, probe_runner=Forge([_issue(13, "P2")], fail="update"))
@@ -712,9 +659,7 @@ def test_start_label_write_failure_queues_nothing(tmp_path: Path) -> None:
 
 
 def test_start_follows_archive_csrf_access_and_missing_ticket_boundaries(tmp_path: Path) -> None:
-    """
-    @brief   Start uses the mutation, archive and access boundaries.
-    """
+    """Start uses the mutation, archive and access boundaries."""
     profiles = _project(tmp_path)
     with TestClient(create_app(profiles.home, probe_runner=Forge([]))) as client:
         csrf = _admin(client)
@@ -737,9 +682,9 @@ def test_start_follows_archive_csrf_access_and_missing_ticket_boundaries(tmp_pat
 
 def _pickup(tmp_path: Path, stopped: bool) -> None:
     """
-    @brief      Stop or start the project's pickup the way `adore pause/resume` do.
-    @param[in]  tmp_path Test directory holding the project's state root.
-    @param[in]  stopped True to stop pickup, False to start it.
+    Stop or start the project's pickup the way `adore pause/resume` do.
+    tmp_path: Test directory holding the project's state root.
+    stopped: True to stop pickup, False to start it.
     """
     state = StateStore(tmp_path / "state")
     if stopped:
@@ -750,8 +695,8 @@ def _pickup(tmp_path: Path, stopped: bool) -> None:
 
 def _prepared(profiles: ProfileStore) -> int:
     """
-    @brief      Count recorded prepared starts.
-    @return     Number of ticket-start-prepared audit rows.
+    Count recorded prepared starts.
+    Returns: Number of ticket-start-prepared audit rows.
     """
     with sqlite3.connect(profiles.home / "web.db") as connection:
         return connection.execute(
@@ -760,7 +705,7 @@ def _prepared(profiles: ProfileStore) -> int:
 
 
 def test_start_with_pickup_stopped_queues_only_requested_ticket(tmp_path: Path) -> None:
-    """@brief Manual admission preserves paused monitoring and prepares one ticket."""
+    """Manual admission preserves paused monitoring and prepares one ticket."""
     profiles = _project(tmp_path)
     forge = Forge([_issue(13, "P2")])
     with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
@@ -777,9 +722,7 @@ def test_start_with_pickup_stopped_queues_only_requested_ticket(tmp_path: Path) 
 def test_start_replay_from_before_pickup_stopped_returns_original_operation(
     tmp_path: Path,
 ) -> None:
-    """
-    @brief   A start queued before pickup stopped replays its operation, not a refusal.
-    """
+    """A start queued before pickup stopped replays its operation, not a refusal."""
     profiles = _project(tmp_path)
     with TestClient(
         create_app(profiles.home, probe_runner=Forge([_issue(12, "agent-ready", "P2")]))
@@ -793,9 +736,7 @@ def test_start_replay_from_before_pickup_stopped_returns_original_operation(
 
 
 def test_listing_with_pickup_stopped_preserves_manual_start(tmp_path: Path) -> None:
-    """
-    @brief   Stopped automatic pickup preserves manual admission and every other guard.
-    """
+    """Stopped automatic pickup preserves manual admission and every other guard."""
     profiles = _project(tmp_path)
     issues = [_issue(12, "agent-ready", "P2"), _issue(13, "P2"), _issue(15, "agent-hold")]
     with TestClient(create_app(profiles.home, probe_runner=Forge(issues))) as client:
@@ -817,9 +758,7 @@ def test_listing_with_pickup_stopped_preserves_manual_start(tmp_path: Path) -> N
 
 
 def test_start_replay_with_same_key_returns_original_operation(tmp_path: Path) -> None:
-    """
-    @brief   Replaying a start key returns the queued operation even after a run exists.
-    """
+    """Replaying a start key returns the queued operation even after a run exists."""
     profiles = _project(tmp_path)
     with TestClient(
         create_app(profiles.home, probe_runner=Forge([_issue(12, "agent-ready", "P2")]))
@@ -843,9 +782,7 @@ def test_start_replay_with_same_key_returns_original_operation(tmp_path: Path) -
 
 
 def test_start_label_write_failure_is_audited_as_uncertain(tmp_path: Path) -> None:
-    """
-    @brief   A forge write failure leaves an uncertain audit row and nothing queued.
-    """
+    """A forge write failure leaves an uncertain audit row and nothing queued."""
     profiles = _project(tmp_path)
     with TestClient(
         create_app(profiles.home, probe_runner=Forge([_issue(13, "P2")], fail="update"))
@@ -862,9 +799,7 @@ def test_start_label_write_failure_is_audited_as_uncertain(tmp_path: Path) -> No
 
 
 def test_start_refuses_ticket_without_required_acceptance_criteria(tmp_path: Path) -> None:
-    """
-    @brief   Labels cannot replace required acceptance criteria.
-    """
+    """Labels cannot replace required acceptance criteria."""
     profiles = _project(tmp_path)
     path = profiles.config_path("alpha")
     text = path.read_text(encoding="utf-8")
@@ -882,9 +817,7 @@ def test_start_refuses_ticket_without_required_acceptance_criteria(tmp_path: Pat
 
 
 def test_start_with_malformed_ticket_record_is_a_bad_gateway(tmp_path: Path) -> None:
-    """
-    @brief   A malformed ticket record during Start is reported as invalid forge data.
-    """
+    """A malformed ticket record during Start is reported as invalid forge data."""
     profiles = _project(tmp_path)
     forge = Forge([{"iid": 12, "author": "not-a-mapping"}])
     with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
@@ -893,10 +826,8 @@ def test_start_with_malformed_ticket_record_is_a_bad_gateway(tmp_path: Path) -> 
     assert response.json()["detail"]["code"] == "forge_response_invalid"
 
 
-
-
 def test_cancel_requires_explicit_confirmation_at_both_web_boundaries(tmp_path: Path) -> None:
-    """@brief Refuse unconfirmed cancellation before any queue or forge write."""
+    """Refuse unconfirmed cancellation before any queue or forge write."""
     profiles = _project(tmp_path)
     run_id = _run(tmp_path, 12, "working")
     forge = Forge([_issue(12, "agent-ready")])
@@ -920,7 +851,7 @@ def test_cancel_requires_explicit_confirmation_at_both_web_boundaries(tmp_path: 
 
 
 def test_custom_epic_label_refuses_start_without_forge_write(tmp_path: Path) -> None:
-    """@brief Configured epic labels prevent both listed and direct manual admission."""
+    """Configured epic labels prevent both listed and direct manual admission."""
     profiles = _project(tmp_path)
     path = profiles.config_path("alpha")
     path.write_text(path.read_text(encoding="utf-8").replace('type_epic = "epic"',
@@ -936,10 +867,8 @@ def test_custom_epic_label_refuses_start_without_forge_write(tmp_path: Path) -> 
     assert not any(call[2] == "update" for call in forge.calls)
 
 
-
-
 def test_history_distinguishes_ticket_from_queued_operation(tmp_path: Path) -> None:
-    """@brief Start preparation identifies the ticket and does not assert job success."""
+    """Start preparation identifies the ticket and does not assert job success."""
     profiles = _project(tmp_path)
     with TestClient(
         create_app(profiles.home, probe_runner=Forge([_issue(12, "agent-ready", "P2")]))
@@ -954,5 +883,3 @@ def test_history_distinguishes_ticket_from_queued_operation(tmp_path: Path) -> N
             "prepared",
         )
         assert row["operation_id"] == response.json()["operation_id"]
-
-# END OF FILE

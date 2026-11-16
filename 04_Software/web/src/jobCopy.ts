@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 /** Names and notices for literal archived agent evidence, in every interface locale. */
 export const sessionCopy = {
   en: {live:"Live",working:"Agent is working: {activity}",thinking:"thinking",title:"Agent sessions",artifacts:"Artifacts",technical:"Technical information",showTicket:"Show ticket",help:"Recorded text may contain secrets. System messages are never shown.",empty:"No completed agent sessions recorded.",failed:"Could not read agent sessions.",attempt:"Attempt",more:"Load more",startUnknown:"Start time was not recorded. The time shown is archive completion.",succeeded:"Succeeded",failedOutcome:"Failed",timed_out:"Timed out",prompt:"Prompt",assistant:"Assistant",reasoning:"Reasoning",tool_call:"Tool call",tool_result:"Tool result",turn:"Turn",usage:"Token usage",notice:"Notice",turnStart:"Turn started",turnEnd:"Turn ended",counters:{input:"Input",output:"Output",cacheRead:"Cache read",cacheWrite:"Cache write",reasoning:"Reasoning",totalTokens:"Total tokens",cost:"Estimated cost"}},

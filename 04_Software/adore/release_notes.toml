@@ -1,7 +1,3 @@
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
 # User-facing release notes shown in About > What's new. Rules: AGENTS.md
 # "Release notes rules"; check: python 02_Tools/package/release_checks/check_release_notes.py.
@@ -13,7 +9,28 @@
 schema = 1
 
 [[release]]
-version = "Unreleased"
+version = "0.18.0"
+date = "2026-11-16"
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Agent sessions", fr = "Sessions d’agent", de = "Agent-Sitzungen", ro = "Sesiunile agentului" }
+text = { en = "Pi has up to 30 seconds to initialize its conversation before receiving the task.", fr = "Pi dispose de 30 secondes pour initialiser sa conversation avant de recevoir la tâche.", de = "Pi hat bis zu 30 Sekunden, um die Unterhaltung vor dem Auftrag zu initialisieren.", ro = "Pi are până la 30 de secunde pentru inițializarea conversației înainte de primirea sarcinii." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Restart confirms the new job correctly and distinguishes refused from unconfirmed actions.", fr = "Le redémarrage confirme le nouveau travail et distingue refus et absence de confirmation.", de = "Neustart bestätigt den neuen Job korrekt und unterscheidet Ablehnung und fehlende Bestätigung.", ro = "Repornirea confirmă corect jobul nou și distinge refuzul de lipsa confirmării." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Restart cancelled jobs with current settings while keeping their history.", fr = "Redémarrez les travaux annulés avec les paramètres actuels en conservant leur historique.", de = "Abgebrochene Jobs mit aktuellen Einstellungen neu starten und ihren Verlauf behalten.", ro = "Repornește joburile anulate cu setările curente, păstrând istoricul." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "System status", fr = "État du système", de = "Systemstatus", ro = "Starea sistemului" }
+text = { en = "Storage status and free space are displayed together.", fr = "L’état du stockage et l’espace libre sont affichés ensemble.", de = "Speicherstatus und freier Speicherplatz werden gemeinsam angezeigt.", ro = "Starea stocării și spațiul liber sunt afișate împreună." }
 
 [[release.entry]]
 category = "fixed"

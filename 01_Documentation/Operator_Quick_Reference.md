@@ -1,25 +1,19 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Operator quick reference
 
-Applies to **ADORE 0.17.0**. This is a task reminder; the linked manuals define
+Applies to **ADORE 0.18.0**. This is a task reminder; the linked manuals define
 the complete setup, configuration and recovery contracts.
 
 ## Setup and first pickup
 
-1. Authenticate the host forge CLI (`gh`, `glab` or `tea`) and host Git
+1. Authenticate the host forge CLI (`gh`, `glab`, `tea` or Azure CLI with its
+   azure-devops extension) and host Git
    separately. `git ls-remote origin` proves read access, not permission to push.
 2. Choose a prepared project container image or managed local Pi. Install local
    project tools under the service account. See [Getting started](Getting_Started.md),
    [Local execution](Local_Execution.md) and [Project images](Project_Executor_Images.md).
-3. If the repository has AEGIS, setup validates its current contract. Without
-   AEGIS, Direct runs build, validate and done. An invalid installed AEGIS is an
-   error. Pi is the only executor in either workflow.
+3. Choose AEGIS or Direct. Automatic detection validates an installed AEGIS
+   contract and selects Direct when absent. Explicit Direct bypasses AEGIS even
+   when installed or unusable. Pi is the only executor in either workflow.
 4. Review the project limits, publication approval and pipeline-repair policy.
    Publication approval defaults to enabled. Pipeline failure defaults to a
    bounded revision round; `notify` requests human intervention instead.
@@ -96,6 +90,7 @@ and network access.
 |---|---|
 | Answer clarification | Add a ticket comment and the answered label; monitoring resumes the workflow. |
 | `retry <run-id>` | Reset the active stage counter; retain work, history and consumed budget. |
+| **Restart job** for a cancelled job | Keep history and admit a fresh execution with the selected workflow. |
 | `cancel <run-id>` | Request stopping the job; wait for confirmation before changing resources. |
 | `reset <run-id> --to <stage> --force` | Correct ADORE's stage pointer after verifying evidence; never edit the AEGIS journal. |
 | `delete <run-id> --force` | Explicit irreversible removal of the job and its owned resources. |

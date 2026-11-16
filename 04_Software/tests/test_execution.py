@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_execution.py
-@brief   Shared execution identity and bounded preparation file contracts.
-@details All command/process boundaries are injected and remain offline.
-"""
+"""Shared execution identity and bounded preparation file contracts."""
 
-# IMPORTS
 import io
 import json
 from pathlib import Path
@@ -29,7 +15,7 @@ import pytest
 
 
 def test_transport_rejects_linked_parents_before_creating_files(tmp_path, monkeypatch):
-    """@brief Linked executor-controlled parents cannot cause host-side writes."""
+    """Linked executor-controlled parents cannot cause host-side writes."""
     original = Path.is_symlink
     monkeypatch.setattr(
         Path, "is_symlink", lambda path: path == tmp_path / "preparation" or original(path)
@@ -42,10 +28,10 @@ def test_transport_rejects_linked_parents_before_creating_files(tmp_path, monkey
 
 
 def test_preparation_runner_uses_file_transport_and_authoritative_result(tmp_path):
-    """@brief Multiline scripts are files with bounded redacted evidence."""
+    """Multiline scripts are files with bounded redacted evidence."""
 
     class Target:
-        """@brief Fake target writes the file protocol through mounted IO."""
+        """Fake target writes the file protocol through mounted IO."""
 
         paths = ExecutionPaths()
 
@@ -73,7 +59,7 @@ def test_preparation_runner_uses_file_transport_and_authoritative_result(tmp_pat
 
 
 def test_container_identity_reports_actual_container_and_image_ids():
-    """@brief Authoritative inspect IDs govern resource identity."""
+    """Authoritative inspect IDs govern resource identity."""
     manager = ContainerManager(
         "docker",
         "project:1",
@@ -110,7 +96,7 @@ def test_container_identity_reports_actual_container_and_image_ids():
     ],
 )
 def test_container_identity_rejects_corrupt_or_foreign_resources(output):
-    """@brief Malformed or duplicate inspect values cannot authorize a target."""
+    """Malformed or duplicate inspect values cannot authorize a target."""
     manager = ContainerManager(
         "podman",
         "project:1",
@@ -126,14 +112,14 @@ def test_container_identity_rejects_corrupt_or_foreign_resources(output):
 def test_standalone_preparation_runner_bounds_output_and_process_lifetime(
     tmp_path, monkeypatch, mode
 ):
-    """@brief File runner bounds retention and distinguishes shell exit from timeout."""
+    """File runner bounds retention and distinguishes shell exit from timeout."""
     secret = "secret-" + "z" * 200
     monkeypatch.setenv("MODEL_KEY", secret)
     (tmp_path / "secret-keys.json").write_text('["MODEL_KEY"]')
     calls = []
 
     class Process:
-        """@brief Fake pipes exercise redaction without launching a command."""
+        """Fake pipes exercise redaction without launching a command."""
 
         pid = 123
         stdout = io.BytesIO(("x" * 4090 + secret + "\U0001f600" * 40000).encode())
@@ -167,7 +153,7 @@ def test_standalone_preparation_runner_bounds_output_and_process_lifetime(
 
 
 def test_bound_target_spawn_verifies_identity_and_merges_env():
-    """@brief Streaming spawn checks the pinned container first and adds the extra env."""
+    """Streaming spawn checks the pinned container first and adds the extra env."""
     from adore.execution import BoundTarget, ContainerBackend, ExecutionRecoveryError
 
     calls = []
@@ -199,8 +185,5 @@ def test_bound_target_spawn_verifies_identity_and_merges_env():
 
 
 def test_redacted_unicode_output_respects_byte_limit():
-    """@brief Multibyte truncation never exceeds the retained UTF-8 byte limit."""
+    """Multibyte truncation never exceeds the retained UTF-8 byte limit."""
     assert len(redact_output("\U0001f600" * 20000, {}).encode()) <= 65536
-
-
-# END OF FILE

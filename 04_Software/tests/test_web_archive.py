@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_archive.py
-@brief Project archive and restore contract tests.
-@details Archived projects retain history but cannot start new work.
-"""
+"""Project archive and restore contract tests."""
 
 import json
 from pathlib import Path
@@ -29,13 +16,13 @@ from tests.execution_records import execution_record
 
 
 def _login(client):
-    """@brief Return the administrator's CSRF token."""
+    """Return the administrator's CSRF token."""
     return client.post("/api/v1/session", json={
         "username": "admin", "password": "admin"}).json()["csrf"]
 
 
 def test_archive_retains_history_and_restore_reenables_operations(tmp_path):
-    """@brief Archived history remains readable and restore permits pickup."""
+    """Archived history remains readable and restore permits pickup."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
@@ -61,7 +48,7 @@ def test_archive_retains_history_and_restore_reenables_operations(tmp_path):
 
 
 def test_archive_rejects_nonterminal_runs_and_queued_operations(tmp_path):
-    """@brief Archive never strands an active run or already queued work."""
+    """Archive never strands an active run or already queued work."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
@@ -81,7 +68,7 @@ def test_archive_rejects_nonterminal_runs_and_queued_operations(tmp_path):
 
 
 def test_human_handoff_is_visible_and_preserves_web_ownership(tmp_path):
-    """@brief A pending transfer blocks writes; completed handoff is terminal history."""
+    """A pending transfer blocks writes; completed handoff is terminal history."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
@@ -110,7 +97,7 @@ def test_human_handoff_is_visible_and_preserves_web_ownership(tmp_path):
 
 
 def test_archive_rejects_active_conductor_lock(tmp_path):
-    """@brief An idle-looking project with a running poll cannot archive."""
+    """An idle-looking project with a running poll cannot archive."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     state = StateStore(profiles.default_store_root("alpha"))
@@ -127,7 +114,7 @@ def test_archive_rejects_active_conductor_lock(tmp_path):
 
 
 def test_archive_requires_admin_csrf_and_rejects_corrupt_metadata(tmp_path):
-    """@brief Developer writes and malformed stored archive flags fail closed."""
+    """Developer writes and malformed stored archive flags fail closed."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     web = WebStore(profiles.home / "web.db")
@@ -150,7 +137,7 @@ def test_archive_requires_admin_csrf_and_rejects_corrupt_metadata(tmp_path):
 
 
 def test_worker_rejects_queued_work_after_external_archive(tmp_path):
-    """@brief A stale queued command cannot execute after archive."""
+    """A stale queued command cannot execute after archive."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     web = WebStore(profiles.home / "web.db")
@@ -167,7 +154,7 @@ def test_worker_rejects_queued_work_after_external_archive(tmp_path):
 
 
 def test_named_cli_profile_cannot_poll_while_archived(tmp_path, monkeypatch, capsys):
-    """@brief CLI pickup observes archive, including active-profile resolution."""
+    """CLI pickup observes archive, including active-profile resolution."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha")
     example = Path(__file__).resolve().parents[1] / "config.example.toml"

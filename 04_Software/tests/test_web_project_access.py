@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_project_access.py
-@brief Administrators see and change one project's developer access from the
-       project itself, one developer at a time.
-"""
+"""Administrators see and change one project's developer access from the"""
 
 from adore.profiles import ProfileStore
 from adore.web.app import create_app
@@ -21,7 +8,7 @@ import pytest
 
 
 def _setup(tmp_path):
-    """@brief Two projects and two developers: dev1 has both, dev2 only beta."""
+    """Two projects and two developers: dev1 has both, dev2 only beta."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     profiles.create("beta")
@@ -35,7 +22,7 @@ def _setup(tmp_path):
 
 
 def _login(client, username, password):
-    """@brief Sign in and return the CSRF header for writes."""
+    """Sign in and return the CSRF header for writes."""
     csrf = client.post("/api/v1/session", json={
         "username": username, "password": password}).json()["csrf"]
     return {"X-CSRF-Token": csrf}
@@ -43,7 +30,7 @@ def _login(client, username, password):
 
 def test_administrator_grants_and_removes_one_developer(tmp_path):
     """
-    @brief   A grant or removal changes exactly one developer's access to one
+    A grant or removal changes exactly one developer's access to one
              project, is audited, and the developer's project list follows.
     """
     app, web, dev1, dev2 = _setup(tmp_path)
@@ -81,7 +68,7 @@ def test_administrator_grants_and_removes_one_developer(tmp_path):
 
 
 def test_access_api_refuses_non_administrators_and_bad_targets(tmp_path):
-    """@brief Role, CSRF, unknown project or account and non-developers are refused."""
+    """Role, CSRF, unknown project or account and non-developers are refused."""
     app, web, _dev1, dev2 = _setup(tmp_path)
     admin_id = next(user["id"] for user in web.list_users() if user["username"] == "admin")
     target = f"/api/v1/projects/alpha/access/{dev2['id']}"
@@ -109,7 +96,7 @@ def test_access_api_refuses_non_administrators_and_bad_targets(tmp_path):
 
 def test_access_follows_the_project_identity_across_a_rename(tmp_path):
     """
-    @brief   A grant made before a rename can be removed afterwards, and a new
+    A grant made before a rename can be removed afterwards, and a new
              project that reuses the old name is granted without taking the
              renamed project's grant away.
     """
@@ -135,7 +122,7 @@ def test_access_follows_the_project_identity_across_a_rename(tmp_path):
 
 def test_a_rename_racing_a_grant_is_refused_cleanly(tmp_path, monkeypatch):
     """
-    @brief   When a rename lands between the project snapshot and the write, the
+    When a rename lands between the project snapshot and the write, the
              grant is refused as a store error and nothing changes.
     """
     profiles = ProfileStore(tmp_path / "home")
@@ -154,7 +141,7 @@ def test_a_rename_racing_a_grant_is_refused_cleanly(tmp_path, monkeypatch):
 
 
 def test_the_access_route_reports_a_racing_rename_as_project_changed(tmp_path, monkeypatch):
-    """@brief The API answers 409 project_changed, changes nothing and audits nothing."""
+    """The API answers 409 project_changed, changes nothing and audits nothing."""
     app, web, dev1, _dev2 = _setup(tmp_path)
     stale = web._projects_by_id()
     profiles = ProfileStore(tmp_path / "home")

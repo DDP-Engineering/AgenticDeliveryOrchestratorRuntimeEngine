@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    diagnostics.py
-@brief   Normalize operational diagnostics at the host capture boundary.
-@details Host capture preserves concrete missing-module and test-result facts.
-         A closed grammar suppresses arbitrary private content before immutable
-         run-owned snapshots are bound to executor-artifacts journal entries.
-"""
+"""Normalize operational diagnostics at the host capture boundary."""
 
-# IMPORTS
 from collections import deque
 from hashlib import sha256
 import json
@@ -26,7 +10,6 @@ from uuid import uuid4
 from adore.executor.base import GateRun
 from adore.state import StateError
 
-# CONSTANTS
 LIMIT = 64 * 1024
 _MODULE = re.compile(
     r"^ModuleNotFoundError: No module named ['\"]([A-Za-z_][A-Za-z0-9_.]{0,79})['\"]$")
@@ -50,13 +33,12 @@ _CATEGORIES = (
 )
 
 
-# PUBLIC API
 def normalize_diagnostics(text: str) -> str:
     """
-    @brief Keep concrete closed operational facts, withholding all arbitrary prose.
-    @param[in] text Already credential-redacted protocol errors or tool/stderr diagnostics.
-    @return At most 64 KiB of canonical exceptions, test counts and failure categories.
-    @note No assistant content, tool arguments, paths, values or reasoning is forwarded.
+    Keep concrete closed operational facts, withholding all arbitrary prose.
+    text: Already credential-redacted protocol errors or tool/stderr diagnostics.
+    Returns: At most 64 KiB of canonical exceptions, test counts and failure categories.
+    Note: No assistant content, tool arguments, paths, values or reasoning is forwarded.
     """
     rows = deque(maxlen=500)
     for raw in text.splitlines():
@@ -89,10 +71,10 @@ def normalize_diagnostics(text: str) -> str:
 
 def protocol_diagnostics(record: dict, clean) -> str:
     """
-    @brief Select only protocol errors and failed tool results before normalization.
-    @param[in] record Untrusted parsed Pi protocol object.
-    @param[in] clean Existing bound credential redactor.
-    @return Canonical diagnostics without assistant content or tool arguments.
+    Select only protocol errors and failed tool results before normalization.
+    record: Untrusted parsed Pi protocol object.
+    clean: Existing bound credential redactor.
+    Returns: Canonical diagnostics without assistant content or tool arguments.
     """
     text = ""
     if record.get("type") == "response" and record.get("success") is False:
@@ -112,10 +94,10 @@ def protocol_diagnostics(record: dict, clean) -> str:
 
 def validate_diagnostics(value: object) -> dict:
     """
-    @brief Fail closed unless a snapshot contains exactly canonical bounded streams.
-    @param[in] value Untrusted persisted or launcher-provided stream mapping.
-    @return Validated canonical stream mapping.
-    @exception StateError Invalid keys, stream types, bounds or canonical content.
+    Fail closed unless a snapshot contains exactly canonical bounded streams.
+    value: Untrusted persisted or launcher-provided stream mapping.
+    Returns: Validated canonical stream mapping.
+    Raises StateError: Invalid keys, stream types, bounds or canonical content.
     """
     if (not isinstance(value, dict) or set(value) != {"stdout", "stderr"}
             or any(not isinstance(text, str) or len(text.encode("utf-8")) > LIMIT
@@ -127,14 +109,14 @@ def validate_diagnostics(value: object) -> dict:
 def record_diagnostics(root: Path, run_id: str, attempt: int, context: str,
                        result: GateRun) -> dict | None:
     """
-    @brief Persist host-normalized output outside writable executor IO and bind its digest.
-    @param[in] root Authoritative run directory.
-    @param[in] run_id Owning run identity.
-    @param[in] attempt Cumulative executor launch number.
-    @param[in] context Recorded launch context.
-    @param[in] result Host-side launcher result; absent diagnostics stay unavailable.
-    @return Journal reference to the exact immutable snapshot, or None.
-    @exception StateError Invalid diagnostics or unsafe output location.
+    Persist host-normalized output outside writable executor IO and bind its digest.
+    root: Authoritative run directory.
+    run_id: Owning run identity.
+    attempt: Cumulative executor launch number.
+    context: Recorded launch context.
+    result: Host-side launcher result; absent diagnostics stay unavailable.
+    Returns: Journal reference to the exact immutable snapshot, or None.
+    Raises StateError: Invalid diagnostics or unsafe output location.
     """
     if result.diagnostics is None:
         return None
@@ -152,6 +134,3 @@ def record_diagnostics(root: Path, run_id: str, attempt: int, context: str,
     with (folder / name).open("xb") as handle:
         handle.write(raw)
     return {"file": name, "sha256": sha256(raw).hexdigest(), "attempt": attempt}
-
-
-# END OF FILE

@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_container_git.py
-@brief      Public container Git-binding contracts, with offline runtime doubles.
-@details    Temporary pointer files and recorded CLI arguments establish native
-            discovery construction without executing real Git or containers.
-"""
+"""Public container Git-binding contracts, with offline runtime doubles."""
 
 from __future__ import annotations
 
-# IMPORTS
 import os
 from pathlib import Path
 import stat
@@ -34,8 +19,9 @@ from tests.test_isolation import FakeRunner, owned_container_receipt
     "wsl -d Ubuntu --exec docker", "wsl -d Ubuntu -e docker",
 ])
 def test_wsl_container_commands_use_direct_argv_transport(runtime):
-    """@brief Supported WSL prefixes carry literal data without default-shell expansion.
-    @param[in] runtime Supported WSL command notation.
+    """
+    Supported WSL prefixes carry literal data without default-shell expansion.
+    runtime: Supported WSL command notation.
     """
     runner = FakeRunner(CommandResult(stdout="ok"))
     manager = ContainerManager(runtime, "image", "uv", "npm", runner)
@@ -47,7 +33,7 @@ def test_wsl_container_commands_use_direct_argv_transport(runtime):
 
 
 def test_ambiguous_wsl_runtime_requires_explicit_command_boundary():
-    """@brief A custom WSL command identifies its direct execution boundary."""
+    """A custom WSL command identifies its direct execution boundary."""
     with pytest.raises(ValueError, match="explicit"):
         ContainerManager("wsl -d Ubuntu custom-wrapper", "image", "uv", "npm", FakeRunner())
 
@@ -70,9 +56,10 @@ def test_ambiguous_wsl_runtime_requires_explicit_command_boundary():
       "--exec", "docker"]),
 ])
 def test_wsl_options_and_wrapper_arguments_keep_their_positions(runtime, expected):
-    """@brief Only the WSL command boundary controls direct transport.
-    @param[in] runtime Option operands or wrapper arguments resembling runtime markers.
-    @param[in] expected Exact admitted prefix, preserving all operand data.
+    """
+    Only the WSL command boundary controls direct transport.
+    runtime: Option operands or wrapper arguments resembling runtime markers.
+    expected: Exact admitted prefix, preserving all operand data.
     """
     runner = FakeRunner(CommandResult(stdout="ok"))
     manager = ContainerManager(runtime, "image", "uv", "npm", runner)
@@ -86,8 +73,9 @@ def test_wsl_options_and_wrapper_arguments_keep_their_positions(runtime, expecte
     "wsl --unknown-option docker", "wsl --cd /home/docker custom-wrapper",
 ])
 def test_wsl_incomplete_or_unsupported_options_fail_before_execution(runtime):
-    """@brief Unknown or incomplete WSL prefixes cannot select a guessed command.
-    @param[in] runtime Invalid or ambiguous WSL execution prefix.
+    """
+    Unknown or incomplete WSL prefixes cannot select a guessed command.
+    runtime: Invalid or ambiguous WSL execution prefix.
     """
     runner = FakeRunner()
     with pytest.raises(ValueError):
@@ -98,9 +86,10 @@ def test_wsl_incomplete_or_unsupported_options_fail_before_execution(runtime):
 def test_fresh_git_container_mounts_native_pointer_and_clears_selection(
     tmp_path: Path, monkeypatch,
 ) -> None:
-    """@brief Fresh repository containers admit a pointer and clear inherited selectors.
-    @param[in] tmp_path Temporary host filesystem, outside the candidate tree.
-    @param[in] monkeypatch Inject inherited host selection variables.
+    """
+    Fresh repository containers admit a pointer and clear inherited selectors.
+    tmp_path: Temporary host filesystem, outside the candidate tree.
+    monkeypatch: Inject inherited host selection variables.
     """
     monkeypatch.setenv("GIT_DIR", "/host-wrong")
     runner = FakeRunner(
@@ -131,7 +120,7 @@ def test_fresh_git_container_mounts_native_pointer_and_clears_selection(
 
 
 def test_bound_exec_does_not_forward_git_selection_metadata() -> None:
-    """@brief Descendants receive author identity and secrets, without Git selectors."""
+    """Descendants receive author identity and secrets, without Git selectors."""
     runner = FakeRunner(CommandResult(stdout="ok"))
     manager = ContainerManager("docker", "test-image", "uv-cache", "npm-cache", runner)
     metadata = build_container_env("run-1", "Bot", "bot@example.test")
@@ -158,10 +147,11 @@ def test_bound_exec_does_not_forward_git_selection_metadata() -> None:
     ("podman --connection docker", "podman"),
 ])
 def test_git_pointer_binding_preserves_runtime_transport(tmp_path, runtime, expected):
-    """@brief Each supported runtime keeps the same pointer and unset contract.
-    @param[in] tmp_path Isolated IO root.
-    @param[in] runtime Supported native or WSL runtime prefix.
-    @param[in] expected Container CLI dialect.
+    """
+    Each supported runtime keeps the same pointer and unset contract.
+    tmp_path: Isolated IO root.
+    runtime: Supported native or WSL runtime prefix.
+    expected: Container CLI dialect.
     """
     runner = FakeRunner(
         CommandResult(exit_code=1, stderr="No such container: c"),
@@ -189,9 +179,10 @@ def test_git_pointer_binding_preserves_runtime_transport(tmp_path, runtime, expe
     None, 42,
 ])
 def test_git_binding_rejects_invalid_admin_metadata(tmp_path, value):
-    """@brief Malformed Git metadata cannot admit a new resource.
-    @param[in] tmp_path Isolated IO root.
-    @param[in] value Corrupt external metadata.
+    """
+    Malformed Git metadata cannot admit a new resource.
+    tmp_path: Isolated IO root.
+    value: Corrupt external metadata.
     """
     runner = FakeRunner(
         CommandResult(exit_code=1, stderr="No such container: c"),
@@ -209,10 +200,11 @@ def test_git_binding_rejects_invalid_admin_metadata(tmp_path, value):
     ("GIT_COMMON_DIR", "/foreign"), ("GIT_WORK_TREE", "/foreign"),
 ])
 def test_git_binding_rejects_contradictory_mount_metadata(tmp_path, key, value):
-    """@brief Metadata agrees with the managed mounts before resource creation.
-    @param[in] tmp_path Isolated IO root.
-    @param[in] key Contradictory selection field.
-    @param[in] value Foreign mount path.
+    """
+    Metadata agrees with the managed mounts before resource creation.
+    tmp_path: Isolated IO root.
+    key: Contradictory selection field.
+    value: Foreign mount path.
     """
     runner = FakeRunner(CommandResult(exit_code=1, stderr="No such container: c"),
                         CommandResult(stdout="created"))
@@ -226,9 +218,10 @@ def test_git_binding_rejects_contradictory_mount_metadata(tmp_path, key, value):
 
 @pytest.mark.parametrize("kind", ["wrong-bytes", "directory"])
 def test_git_binding_preserves_and_rejects_corrupt_pointer(tmp_path, kind):
-    """@brief Existing corrupt binding evidence is rejected without overwrite.
-    @param[in] tmp_path Isolated IO root.
-    @param[in] kind Invalid filesystem evidence.
+    """
+    Existing corrupt binding evidence is rejected without overwrite.
+    tmp_path: Isolated IO root.
+    kind: Invalid filesystem evidence.
     """
     io = tmp_path / "io"
     io.mkdir()
@@ -249,9 +242,10 @@ def test_git_binding_preserves_and_rejects_corrupt_pointer(tmp_path, kind):
 
 
 def test_git_binding_rejects_link_evidence_before_open(tmp_path, monkeypatch):
-    """@brief A filesystem-reported link is rejected before admission on every host.
-    @param[in] tmp_path Isolated IO root.
-    @param[in] monkeypatch Inject link metadata without Windows symlink privileges.
+    """
+    A filesystem-reported link is rejected before admission on every host.
+    tmp_path: Isolated IO root.
+    monkeypatch: Inject link metadata without Windows symlink privileges.
     """
     io = tmp_path / "io"
     io.mkdir()
@@ -260,9 +254,10 @@ def test_git_binding_rejects_link_evidence_before_open(tmp_path, monkeypatch):
     original = Path.lstat
 
     def linked(path, *args, **kwargs):
-        """@brief Supply a link-mode filesystem receipt for the one boundary file.
-        @param[in] path Requested filesystem path.
-        @return Native stat result with the injected link type where selected.
+        """
+        Supply a link-mode filesystem receipt for the one boundary file.
+        path: Requested filesystem path.
+        Returns: Native stat result with the injected link type where selected.
         """
         result = original(path, *args, **kwargs)
         if Path(path) == pointer:
@@ -283,10 +278,11 @@ def test_git_binding_rejects_link_evidence_before_open(tmp_path, monkeypatch):
 @pytest.mark.parametrize("status", ["running", "exited"])
 @pytest.mark.parametrize("mode", ["missing", "pointer"])
 def test_git_binding_warm_reuse_requires_current_binding(tmp_path, status, mode):
-    """@brief Warm recovery requires the current binding without changing resources.
-    @param[in] tmp_path Isolated IO root.
-    @param[in] status Observed owned resource state.
-    @param[in] mode Current or missing creation-time binding label.
+    """
+    Warm recovery requires the current binding without changing resources.
+    tmp_path: Isolated IO root.
+    status: Observed owned resource state.
+    mode: Current or missing creation-time binding label.
     """
     io = tmp_path / "io"
     io.mkdir()
@@ -327,9 +323,10 @@ def test_git_binding_warm_reuse_requires_current_binding(tmp_path, status, mode)
     CommandResult(exit_code=1, stderr="denied"), CommandResult(timed_out=True),
 ])
 def test_git_binding_reuse_rejects_untrusted_mode_receipts(tmp_path, reply):
-    """@brief Corrupt or failed inspect data cannot authorize resource reuse.
-    @param[in] tmp_path Isolated IO root.
-    @param[in] reply Untrusted CLI receipt.
+    """
+    Corrupt or failed inspect data cannot authorize resource reuse.
+    tmp_path: Isolated IO root.
+    reply: Untrusted CLI receipt.
     """
     runner = FakeRunner(CommandResult(stdout="running"), reply)
     manager = ContainerManager("docker", "test-image", "uv", "npm", runner)
@@ -344,9 +341,10 @@ def test_git_binding_reuse_rejects_untrusted_mode_receipts(tmp_path, reply):
     CommandResult(stdout="adore-git-binding-v1\n", timed_out=True),
 ])
 def test_git_binding_requires_exact_runtime_confirmation(tmp_path, reply):
-    """@brief Fresh binding is admitted only after a successful exact runtime receipt.
-    @param[in] tmp_path Isolated IO root.
-    @param[in] reply Failed or contradictory environment/native-Git confirmation.
+    """
+    Fresh binding is admitted only after a successful exact runtime receipt.
+    tmp_path: Isolated IO root.
+    reply: Failed or contradictory environment/native-Git confirmation.
     """
     runner = FakeRunner(CommandResult(exit_code=1, stderr="No such container: c"),
                         CommandResult(stdout="created"), reply)
@@ -357,8 +355,9 @@ def test_git_binding_requires_exact_runtime_confirmation(tmp_path, reply):
 
 
 def test_git_binding_new_mode_requires_saved_pointer_before_start(tmp_path):
-    """@brief Missing current pointer data refuses reuse before starting a container.
-    @param[in] tmp_path Isolated IO root without saved pointer evidence.
+    """
+    Missing current pointer data refuses reuse before starting a container.
+    tmp_path: Isolated IO root without saved pointer evidence.
     """
     runner = FakeRunner(CommandResult(stdout="exited"), CommandResult(stdout='"pointer-v1"'),
                         CommandResult())
@@ -367,6 +366,3 @@ def test_git_binding_new_mode_requires_saved_pointer_before_start(tmp_path):
         manager.provision("c", tmp_path / "repo", tmp_path / "work", tmp_path / "io",
                           build_container_env("run-1", "Bot", "bot@example.test"))
     assert not any("start" in call for call in runner.calls)
-
-
-# END OF FILE

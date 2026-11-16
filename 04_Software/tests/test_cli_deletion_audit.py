@@ -1,16 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""@file test_cli_deletion_audit.py
-@brief Offline CLI deletion and durable History boundary tests.
-@details Fake resource cleanup and temporary profile homes avoid real services.
-"""
+"""Offline CLI deletion and durable History boundary tests."""
 
 from adore.cli import main
 from adore.state import StateStore
@@ -22,14 +10,14 @@ from tests.test_web_tickets import _admin, _project, _run
 
 
 def test_cli_delete_survives_job_removal_without_web_bootstrap(tmp_path, monkeypatch):
-    """@brief A CLI deletion before web setup appears once after web initialization."""
+    """A CLI deletion before web setup appears once after web initialization."""
     profiles = _project(tmp_path)
     monkeypatch.setenv("ADORE_HOME", str(profiles.home))
     run_id = _run(tmp_path, 12, "failed")
     state = StateStore(tmp_path / "state")
 
     class Engine:
-        """@brief Emulate owned cleanup without invoking any real resources."""
+        """Emulate owned cleanup without invoking any real resources."""
 
         def delete(self, run_id, *, owned_resources=False):
             state.delete_run(run_id)
@@ -50,7 +38,7 @@ def test_cli_delete_survives_job_removal_without_web_bootstrap(tmp_path, monkeyp
 
 
 def test_cli_delete_refuses_corrupt_audit_before_cleanup(tmp_path, monkeypatch):
-    """@brief Corrupt audit evidence is never overwritten and leaves the job intact."""
+    """Corrupt audit evidence is never overwritten and leaves the job intact."""
     profiles = _project(tmp_path)
     monkeypatch.setenv("ADORE_HOME", str(profiles.home))
     run_id = _run(tmp_path, 12, "failed")
@@ -59,7 +47,7 @@ def test_cli_delete_refuses_corrupt_audit_before_cleanup(tmp_path, monkeypatch):
     calls = []
 
     class Engine:
-        """@brief A called delete would indicate lost fail-closed behavior."""
+        """A called delete would indicate lost fail-closed behavior."""
 
         def delete(self, run_id, *, owned_resources=False):
             calls.append(run_id)
@@ -72,7 +60,7 @@ def test_cli_delete_refuses_corrupt_audit_before_cleanup(tmp_path, monkeypatch):
 
 
 def test_interrupted_deletion_keeps_uncertain_evidence(tmp_path, monkeypatch):
-    """@brief Failed cleanup does not claim deletion even after History reads the attempt."""
+    """Failed cleanup does not claim deletion even after History reads the attempt."""
     from adore.state import StateError
 
     profiles = _project(tmp_path)
@@ -81,7 +69,7 @@ def test_interrupted_deletion_keeps_uncertain_evidence(tmp_path, monkeypatch):
     app = create_app(profiles.home)
 
     class Engine:
-        """@brief Interrupt after another reader has imported the initial receipt."""
+        """Interrupt after another reader has imported the initial receipt."""
 
         def delete(self, run_id, *, owned_resources=False):
             assert app.state.web_store.recent_audit(None)[0]["result"] == "uncertain"
@@ -95,14 +83,14 @@ def test_interrupted_deletion_keeps_uncertain_evidence(tmp_path, monkeypatch):
 
 
 def test_history_refreshes_attempt_after_confirmed_deletion(tmp_path, monkeypatch):
-    """@brief A receipt imported during cleanup becomes applied once, after success."""
+    """A receipt imported during cleanup becomes applied once, after success."""
     profiles = _project(tmp_path)
     monkeypatch.setenv("ADORE_HOME", str(profiles.home))
     run_id = _run(tmp_path, 12, "failed")
     app = create_app(profiles.home)
 
     class Engine:
-        """@brief Observe the pre-cleanup event and remove only isolated job state."""
+        """Observe the pre-cleanup event and remove only isolated job state."""
 
         def delete(self, run_id, *, owned_resources=False):
             assert app.state.web_store.recent_audit(None)[0]["result"] == "uncertain"
@@ -115,7 +103,7 @@ def test_history_refreshes_attempt_after_confirmed_deletion(tmp_path, monkeypatc
 
 
 def test_unsupported_ledger_names_the_file_and_keeps_job(tmp_path, monkeypatch, capsys):
-    """@brief An unsupported ledger is refused with the explicit fresh-store path."""
+    """An unsupported ledger is refused with the explicit fresh-store path."""
     import sqlite3
 
     profiles = _project(tmp_path)
@@ -132,7 +120,7 @@ def test_unsupported_ledger_names_the_file_and_keeps_job(tmp_path, monkeypatch, 
 
 
 def test_confirm_failure_reports_job_was_removed(tmp_path, monkeypatch, capsys):
-    """@brief Post-delete audit failure never claims that the job was retained."""
+    """Post-delete audit failure never claims that the job was retained."""
     from adore.deletion_audit import DeletionAuditError
 
     profiles = _project(tmp_path)
@@ -156,7 +144,7 @@ def test_confirm_failure_reports_job_was_removed(tmp_path, monkeypatch, capsys):
 
 
 def test_impossible_ledger_state_refuses_before_delete(tmp_path, monkeypatch):
-    """@brief An impossible stored receipt cannot disappear silently from History."""
+    """An impossible stored receipt cannot disappear silently from History."""
     import sqlite3
 
     from adore.deletion_audit import DeletionAudit
@@ -180,7 +168,7 @@ def test_impossible_ledger_state_refuses_before_delete(tmp_path, monkeypatch):
 
 
 def test_existing_web_store_deletion_uses_projection_cleanup_and_audit(tmp_path, monkeypatch):
-    """@brief The normal CLI callback removes source and records one event."""
+    """The normal CLI callback removes source and records one event."""
     profiles = _project(tmp_path)
     monkeypatch.setenv("ADORE_HOME", str(profiles.home))
     run_id = _run(tmp_path, 12, "failed")
@@ -199,7 +187,7 @@ def test_existing_web_store_deletion_uses_projection_cleanup_and_audit(tmp_path,
 
 
 def test_import_refuses_wal_without_losing_unimported_evidence(tmp_path, monkeypatch):
-    """@brief Non-atomic multi-database journaling fails closed without scrubbing the receipt."""
+    """Non-atomic multi-database journaling fails closed without scrubbing the receipt."""
     import sqlite3
 
     from adore.deletion_audit import DeletionAudit
@@ -220,7 +208,7 @@ def test_import_refuses_wal_without_losing_unimported_evidence(tmp_path, monkeyp
 
 
 def test_import_rejects_changed_identity(tmp_path):
-    """@brief Imported uncertain evidence cannot be rebound to a different job."""
+    """Imported uncertain evidence cannot be rebound to a different job."""
     import sqlite3
 
     from adore.deletion_audit import DeletionAudit
@@ -240,7 +228,7 @@ def test_import_rejects_changed_identity(tmp_path):
 
 
 def test_delayed_import_obeys_timestamp_order_and_paging(tmp_path):
-    """@brief A late import does not move an older deletion ahead of newer web changes."""
+    """A late import does not move an older deletion ahead of newer web changes."""
     import sqlite3
 
     from adore.deletion_audit import DeletionAudit
@@ -260,7 +248,7 @@ def test_delayed_import_obeys_timestamp_order_and_paging(tmp_path):
 
 
 def test_history_rejects_invented_cli_actor(tmp_path):
-    """@brief Corrupted CLI evidence cannot impersonate a web account."""
+    """Corrupted CLI evidence cannot impersonate a web account."""
     import json
     import sqlite3
 
@@ -286,7 +274,7 @@ def test_history_rejects_invented_cli_actor(tmp_path):
 
 
 def test_delete_refuses_audit_permission_error(tmp_path, monkeypatch):
-    """@brief Unwritable audit storage blocks cleanup and retains the job."""
+    """Unwritable audit storage blocks cleanup and retains the job."""
     import sqlite3
 
     profiles = _project(tmp_path)
@@ -313,7 +301,7 @@ def test_delete_refuses_audit_permission_error(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("policy", ["age", "size"])
 def test_delayed_import_retention_keeps_newer_event(tmp_path, policy):
-    """@brief Delayed old receipts never evict a newer event under retention limits."""
+    """Delayed old receipts never evict a newer event under retention limits."""
     import sqlite3
 
     from adore.deletion_audit import DeletionAudit

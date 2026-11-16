@@ -1,10 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
-
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
@@ -221,7 +214,9 @@ td.strong { font-weight: 800; }
 .readiness { border-radius: 999px; padding: 7px 12px; background: var(--surface-alt); font-size: .8rem; }
 .readiness-ready { color: var(--accent-deep); background: var(--accent-soft); }
 .readiness-unavailable, .readiness-error { color: var(--danger); background: var(--danger-soft); }
-.system-status-row { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+.system-storage-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 16px; }
+.system-storage-status > p { margin: 0; }
+.system-storage-status > .table-scroll, .system-storage-status > .page-controls { flex-basis: 100%; }
 .system-indicator { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; }
 .empty { color: var(--muted); text-align: center; padding: 36px 12px; margin: 0; }
 .project-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 15px; }

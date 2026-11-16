@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    executor_recipes.py
-@brief   Retain image-shared executor sources and resolve complete image definitions.
-@details Recipe metadata is independent of project/job configuration. No Docker,
-         forge, model or caller-selected host-file commands are executed here.
-"""
+"""Retain image-shared executor sources and resolve complete image definitions."""
 
-# IMPORTS
 from collections.abc import Callable
 from dataclasses import replace
 from hashlib import sha256
@@ -45,21 +30,20 @@ from adore.state import StateError, StateStore
 from adore.util import run_command
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class RecipeStore:
-    """@brief Immutable source objects and independently validated exact-image bindings."""
+    """Immutable source objects and independently validated exact-image bindings."""
 
     def __init__(self, home: Path):
-        """@brief Select a trusted ADORE home without creating a store during reads."""
+        """Select a trusted ADORE home without creating a store during reads."""
         self.root = Path(home) / "executor-recipes"
 
     def binding_path(self, image: str) -> Path:
-        """@brief Derive an opaque safe filename from a validated exact image tag."""
+        """Derive an opaque safe filename from a validated exact image tag."""
         image_reference(image, tagged=True)
         return self.root / "images" / (sha256(image.encode()).hexdigest() + ".json")
 
     def _refuse(self, path):
-        """@brief Name only the affected relative record for explicit operator recovery."""
+        """Name only the affected relative record for explicit operator recovery."""
         selected = path.relative_to(self.root)
         # Shared-object deletion alone strands its image bindings. An explicit
         # catalog reset removes both sides; a bad binding remains recoverable
@@ -69,7 +53,7 @@ class RecipeStore:
         raise RecipeError("recipe_store_corrupt", recovery=relative)
 
     def _parents(self, path):
-        """@brief Refuse links in the controlled recipe-store hierarchy."""
+        """Refuse links in the controlled recipe-store hierarchy."""
         try:
             for parent in (self.root, path.parent, path):
                 if parent.is_symlink():
@@ -81,7 +65,7 @@ class RecipeStore:
             raise RecipeError("recipe_store_corrupt", recovery="executor-recipes") from exc
 
     def _binding(self, image):
-        """@brief Validate one current binding without reading another image's metadata."""
+        """Validate one current binding without reading another image's metadata."""
         path = self.binding_path(image)
         self._parents(path)
         if not path.exists():
@@ -107,16 +91,16 @@ class RecipeStore:
             self._refuse(path)
 
     def binding_digest(self, image: str) -> str | None:
-        """@brief Read the observed association revision, or None when unregistered."""
+        """Read the observed association revision, or None when unregistered."""
         binding = self._binding(image)
         return binding["digest"] if binding else None
 
     def get(self, image: str) -> Recipe | None:
         """
-        @brief Load exact retained sources after binding, digest and schema validation.
-        @param[in] image Exact output image tag.
-        @return A recipe or None for a missing association.
-        @exception RecipeError For corrupt selected records; no fallback or repair occurs.
+        Load exact retained sources after binding, digest and schema validation.
+        image: Exact output image tag.
+        Returns: A recipe or None for a missing association.
+        Raises RecipeError: For corrupt selected records; no fallback or repair occurs.
         """
         binding = self._binding(image)
         if binding is None:
@@ -136,7 +120,7 @@ class RecipeStore:
         selected = {}
 
         def include(name):
-            """@brief Select only the requested image and its embedded dependency sources."""
+            """Select only the requested image and its embedded dependency sources."""
             if name in selected:
                 return
             selected[name] = document.definitions[name]
@@ -150,11 +134,11 @@ class RecipeStore:
 
     def put(self, recipe: Recipe, *, expected_digest: str | None) -> str:
         """
-        @brief Retain a validated immutable source object and atomically bind its image.
-        @param[in] recipe Selected image and source definitions.
-        @param[in] expected_digest Previously observed association, None for absent.
-        @return SHA-256 of the canonical retained source archive.
-        @exception RecipeError For unsafe input, corrupt data, contention or stale replacement.
+        Retain a validated immutable source object and atomically bind its image.
+        recipe: Selected image and source definitions.
+        expected_digest: Previously observed association, None for absent.
+        Returns: SHA-256 of the canonical retained source archive.
+        Raises RecipeError: For unsafe input, corrupt data, contention or stale replacement.
         """
         if expected_digest is not None and (
             not isinstance(expected_digest, str)
@@ -239,10 +223,10 @@ class RecipeStore:
 
     def preview_import(self, recipe: Recipe) -> dict[str, str | None]:
         """
-        @brief Inspect image associations without replacing an existing root snapshot.
-        @param[in] recipe Complete validated imported source graph.
-        @return Observed association revisions for confirmation under the catalog lock.
-        @exception RecipeError For corrupt storage or a different existing root recipe.
+        Inspect image associations without replacing an existing root snapshot.
+        recipe: Complete validated imported source graph.
+        Returns: Observed association revisions for confirmation under the catalog lock.
+        Raises RecipeError: For corrupt storage or a different existing root recipe.
         """
         revisions = {}
         for image in sorted(recipe.definitions):
@@ -258,13 +242,13 @@ class RecipeStore:
         self, recipe: Recipe, *, revisions: dict[str, str | None], publish: Callable[[], dict]
     ) -> dict:
         """
-        @brief Retain new bindings and publish a project under one catalog lock.
-        @param[in] recipe Complete validated imported source snapshot.
-        @param[in] revisions Exact associations observed by the accepted preview.
-        @param[in] publish Existing guarded project publisher, including profile rollback.
-        @return The successfully published project response.
-        @exception RecipeError For stale/corrupt bindings, conflict or storage failure.
-        @note Existing bases are preserved; a new root keeps its embedded source graph.
+        Retain new bindings and publish a project under one catalog lock.
+        recipe: Complete validated imported source snapshot.
+        revisions: Exact associations observed by the accepted preview.
+        publish: Existing guarded project publisher, including profile rollback.
+        Returns: The successfully published project response.
+        Raises RecipeError: For stale/corrupt bindings, conflict or storage failure.
+        Note: Existing bases are preserved; a new root keeps its embedded source graph.
         """
         if (not isinstance(revisions, dict) or set(revisions) != set(recipe.definitions)
                 or any(value is not None and (
@@ -333,9 +317,8 @@ class RecipeStore:
                     raise RecipeError("recipe_write_failed") from exc
 
 
-# LOCAL HELPERS
 def _unique_record(pairs):
-    """@brief Refuse duplicate keys in persisted image associations."""
+    """Refuse duplicate keys in persisted image associations."""
     value = dict(pairs)
     if len(value) != len(pairs):
         raise ValueError("duplicate recipe record field")
@@ -343,7 +326,7 @@ def _unique_record(pairs):
 
 
 def _builtin(image):
-    """@brief Read the same canonical base assets in a source checkout or installed wheel."""
+    """Read the same canonical base assets in a source checkout or installed wheel."""
     if image != EXECUTOR_BASE_IMAGE:
         return None
     packaged = Path(__file__).parent / "_executor_recipe"
@@ -369,7 +352,7 @@ def _builtin(image):
 
 
 def _resolve(config, *, home, runner, overrides):
-    """@brief Resolve a bounded source graph and report unavailable local bases separately."""
+    """Resolve a bounded source graph and report unavailable local bases separately."""
     config = effective_recipe_config(config, runner=runner)
     selected = config.container.image
     image_reference(selected, tagged=True)
@@ -383,7 +366,7 @@ def _resolve(config, *, home, runner, overrides):
     root_revision = None
 
     def load(image):
-        """@brief Select explicit overrides, retained sources, root Git sources or built-ins."""
+        """Select explicit overrides, retained sources, root Git sources or built-ins."""
         if image in overrides:
             return overrides[image]
         retained = store.get(image)
@@ -396,7 +379,7 @@ def _resolve(config, *, home, runner, overrides):
         return _builtin(image)
 
     def visit(image):
-        """@brief Close one local image's dependencies, refusing cycles and conflicting sources."""
+        """Close one local image's dependencies, refusing cycles and conflicting sources."""
         nonlocal root_source, root_revision
         if image in visiting:
             raise RecipeError("recipe_cycle")
@@ -449,9 +432,8 @@ def _resolve(config, *, home, runner, overrides):
     return Recipe(selected, complete, source=root_source, revision=root_revision), sorted(missing)
 
 
-# PUBLIC API
 def effective_recipe_config(config, *, runner=run_command):
-    """@brief Select preparation's effective image in memory, preserving saved configuration."""
+    """Select preparation's effective image in memory, preserving saved configuration."""
     if config.execution.backend != "container":
         return config
     from adore.preparation import PreparationError, effective_probe_config
@@ -472,13 +454,13 @@ def effective_recipe_config(config, *, runner=run_command):
 
 def resolve_recipe(config, *, home=None, runner=run_command, overrides=None) -> Recipe:
     """
-    @brief Resolve every local image required by the selected executor recipe.
-    @param[in] config Saved project configuration.
-    @param[in] home Trusted ADORE home containing retained image definitions.
-    @param[in] runner Injectable Git source reader; never invokes a container runtime.
-    @param[in] overrides Validated preview candidates replacing exact images in memory.
-    @return Complete source-only image graph.
-    @exception RecipeError For missing local images, corrupt sources or cycles.
+    Resolve every local image required by the selected executor recipe.
+    config: Saved project configuration.
+    home: Trusted ADORE home containing retained image definitions.
+    runner: Injectable Git source reader; never invokes a container runtime.
+    overrides: Validated preview candidates replacing exact images in memory.
+    Returns: Complete source-only image graph.
+    Raises RecipeError: For missing local images, corrupt sources or cycles.
     """
     recipe, missing = _resolve(
         config, home=home or ProfileStore().home, runner=runner, overrides=overrides or {}
@@ -489,7 +471,7 @@ def resolve_recipe(config, *, home=None, runner=run_command, overrides=None) -> 
 
 
 def recipe_status(config, *, home=None, runner=run_command, overrides=None) -> dict:
-    """@brief Expose non-secret availability metadata without creating catalog records."""
+    """Expose non-secret availability metadata without creating catalog records."""
     home = home or ProfileStore().home
     if config.execution.backend != "container":
         return {
@@ -507,6 +489,3 @@ def recipe_status(config, *, home=None, runner=run_command, overrides=None) -> d
         "digest": RecipeStore(home).binding_digest(recipe.image),
         "source": recipe.source,
     }
-
-
-# END OF FILE

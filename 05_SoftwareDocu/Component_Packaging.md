@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: Repository environment, build and packaging tools
 
 Portable bundles copy the supplemental Azure Services operator guide and complete
@@ -127,3 +120,15 @@ same pair/ownership boundary. See [Web worker](Component_Web_Worker.md) and
 
 Setup/service scripts are maintained directly as repository tools. Do not add or
 run automated deployment/environment setup tests for them.
+
+## Release source and licensing
+
+`04_Software/pyproject.toml` is authoritative. `02_Tools/package/set_version.py` validates
+and synchronizes source metadata, lockfile, changelog, translated notes and current presentation
+versions. `--check` and `--dry-run` never write; no mode runs tests, builds or Git publication.
+Release consistency derives its expectation from pyproject rather than another version constant.
+
+Project-owned source notices are declared by `REUSE.toml` and `LICENSES/`, with `LICENSE.txt`
+retained. Portable delivery copies those files beside existing bundled third-party notices.
+Prompt resources and generated standalone delivery notices keep their existing legal contracts.
+See [Releases](../01_Documentation/Releases.md) for the procedure and failure boundaries.

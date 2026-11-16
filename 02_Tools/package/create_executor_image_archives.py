@@ -1,21 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       create_executor_image_archives.py
-@brief      Publish the generic executor image for offline Docker/Podman import.
-@details    Builds explicitly on request, with unique source-bound tags, or
-            exports selected local images. No registry push or running-container
-            mutation occurs. Only final archives and hashes enter 07_Delivery.
-"""
+"""Publish the generic executor image for offline Docker/Podman import."""
 
-# IMPORTS
 import argparse
 import gzip
 import hashlib
@@ -29,10 +14,10 @@ import sys
 import tempfile
 import tomllib
 
-# CONSTANTS
 REPO = Path(__file__).resolve().parents[2]
 ROLES = ("executor-base",)
 MAX_IMAGE_BYTES = 16 * 1024 * 1024 * 1024
+# REUSE-IgnoreStart
 LEGAL = (
     "# Copyright (c) 2026 DDP Engineering\n"
     "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
@@ -40,23 +25,25 @@ LEGAL = (
     "# See the LICENSE.txt file for full license details. "
     "SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n"
 )
+# REUSE-IgnoreEnd
 
 
-# LOCAL HELPERS
 def run(argv: list[str], *, timeout: int = 900) -> str:
-    """@brief Run a bounded explicit argv without a shell.
-    @param[in] argv Command and arguments.
-    @param[in] timeout Maximum command duration.
-    @return Captured standard output.
+    """
+    Run a bounded explicit argv without a shell.
+    argv: Command and arguments.
+    timeout: Maximum command duration.
+    Returns: Captured standard output.
     """
     return subprocess.run(argv, cwd=REPO, check=True, stdout=subprocess.PIPE,
                           text=True, timeout=timeout).stdout.strip()
 
 
 def publish(source: Path, destination: Path) -> None:
-    """@brief Publish a complete archive and its streaming SHA-256 on one volume.
-    @param[in] source Complete compressed image archive in temporary storage.
-    @param[in] destination Final repository-relative delivery path.
+    """
+    Publish a complete archive and its streaming SHA-256 on one volume.
+    source: Complete compressed image archive in temporary storage.
+    destination: Final repository-relative delivery path.
     """
     destination.parent.mkdir(exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=destination.parent, suffix=".tmp", delete=False) as output:
@@ -78,12 +65,12 @@ def publish(source: Path, destination: Path) -> None:
         LEGAL + f"{digest}  {destination.name}\n", encoding="utf-8", newline="\n")
 
 
-# PUBLIC API
 def main(argv: list[str] | None = None) -> int:
-    """@brief Build/export selected Linux x64 images for offline import.
-    @param[in] argv Optional runtime, roles and local image overrides.
-    @return Zero after complete archives and hashes are published.
-    @exception RuntimeError Invalid image metadata or uncommitted build sources.
+    """
+    Build/export selected Linux x64 images for offline import.
+    argv: Optional runtime, roles and local image overrides.
+    Returns: Zero after complete archives and hashes are published.
+    Raises RuntimeError: Invalid image metadata or uncommitted build sources.
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime", choices=("docker", "podman"), default="docker")
@@ -168,5 +155,3 @@ if __name__ == "__main__":
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"Image delivery failed: {error}", file=sys.stderr)
         raise SystemExit(1) from error
-
-# END OF FILE

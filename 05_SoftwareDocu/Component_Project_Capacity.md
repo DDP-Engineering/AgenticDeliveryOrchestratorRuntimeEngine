@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Project Capacity and Worker Status
 
 ## 1. Purpose
@@ -41,7 +34,7 @@ Browser drafts store only bounded editable strings, base revision and editor key
 
 ## 7. Workflow Integration
 
-Project Summary embeds only limit, free and queued counts in the operational fact grid (five columns/two rows on wide screens). Settings, Statistics, History and Access do not display a separate capacity panel. The project/global Jobs workspace has Tickets, Jobs and Capacity sub-tabs. CapacityTable.tsx renders one authorized project per row with limit/free/queue, monitoring and current job-state counts; it reuses the normal row-size selector and pager. It shows no finished history, operation history or logs. Rows load independently, with at most one read per project, a 15-second timeout and cancellation when leaving the view; a slow project does not hold other rows. Failed project reads stay explicit and never become zero counts. Capacity deep links retain the selected scope across refresh. Accepted/pending/running operations remain distinct from confirmed success; revisiting reads server evidence without resubmitting. Settings choices remain per project; System status is informational.
+Project Summary embeds only limit, free and queued counts in the operational fact grid (five columns/two rows on wide screens). Settings, Statistics, History and Access do not display a separate capacity panel. Project Jobs and Tickets are separate top-level tabs; project capacity stays in Summary. Global Jobs has Jobs and Capacity sub-tabs, while global Tickets is a separate scoped page. CapacityTable.tsx renders one authorized project per row with limit/free/queue, monitoring and current job-state counts; it reuses the normal row-size selector and pager. It shows no finished history, operation history or logs. Rows load independently, with at most one read per project, a 15-second timeout and cancellation when leaving the view; a slow project does not hold other rows. Failed project reads stay explicit and never become zero counts. Capacity deep links retain the selected scope across refresh. Accepted/pending/running operations remain distinct from confirmed success; revisiting reads server evidence without resubmitting. Settings choices remain per project; System status is informational.
 
 ## 9. Validation And Tests
 

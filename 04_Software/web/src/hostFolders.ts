@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 export type HostFolders = {system:string;path:string;parent:string|null;roots:string[];folders:{name:string;path:string}[];truncated:boolean};
 
 /** A folder name is one portable path segment, never a traversal or device name. */

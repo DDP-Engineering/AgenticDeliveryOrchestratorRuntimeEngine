@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { Locale, MessageKey } from "./i18n";
 import { commandAllowed, stableExecutionDrift, type Job } from "./jobModel";
@@ -25,12 +19,13 @@ type Tab = "activity" | "sessions" | "details";
 type Props = {
   job: Job; locale: Locale; t: (key: MessageKey) => string; admin: boolean; busy: boolean;
   onClose: () => void; onCommand: (action: "retry" | "cancel" | "restart", job: Job, workflow?: Workflow) => void;
+  historyHref: (run: string) => string; onOpenHistory: (run: string) => void;
   request:<T>(path:string)=>Promise<T>; sessions: (active:boolean,target?:{id:string;sequence:number},toolbarHost?:HTMLElement|null,maximized?:boolean)=>ReactNode; consumption: ReactNode; output: ReactNode; directEvidence?: ReactNode;
   stageLabel: string; stageName: (stage: string) => string; statusLabel: string;
 };
 
 /** Present only saved job evidence; commands keep their existing worker-owned authorization. */
-export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, sessions, request, consumption, output, directEvidence, stageLabel, stageName, statusLabel }: Props) {
+export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, historyHref, onOpenHistory, sessions, request, consumption, output, directEvidence, stageLabel, stageName, statusLabel }: Props) {
   const copy = jobCopy[locale], text = jobDetailsCopy[locale], budget = budgetCopy[locale];
   const canRestart = commandAllowed(job, "restart");
   const [restartAvailability, setRestartAvailability] = useState<boolean | null>(null);
@@ -127,13 +122,17 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
       <div className="job-detail-meta"><StatusBadge code={job.lifecycle}>{statusLabel}</StatusBadge><span>{t("stage")}: <strong>{stageLabel}</strong></span><span>{directCopy[locale].workflow}: {job.workflow === "direct" ? directCopy[locale].direct : "AEGIS"}</span><span>{job.project_display_name}</span>
         {commands.length > 0 && <details className="job-actions"><summary>{text.actions}</summary><div className="job-action-menu">
           {commands.map(action => action === "restart" ? <div key={action} className="job-restart-actions">
-            <button className="danger" disabled={busy || restartAvailability !== true} onClick={() => onCommand("restart", job, "aegis")}>{recoveryCopy[locale].restartAegis}</button>
-            <button className="danger" disabled={busy || restartAvailability === null} onClick={() => onCommand("restart", job, "direct")}>{recoveryCopy[locale].restartDirect}</button>
+            <button className={job.lifecycle === "cancelled" ? "primary" : "danger"} disabled={busy || restartAvailability !== true} onClick={() => onCommand("restart", job, "aegis")}>{job.lifecycle === "cancelled" ? recoveryCopy[locale].restartJobAegis : recoveryCopy[locale].restartAegis}</button>
+            <button className={job.lifecycle === "cancelled" ? "primary" : "danger"} disabled={busy || restartAvailability === null} onClick={() => onCommand("restart", job, "direct")}>{job.lifecycle === "cancelled" ? recoveryCopy[locale].restartJobDirect : recoveryCopy[locale].restartDirect}</button>
             {!!restartError && <p role="alert">{describeError(locale, restartError)}</p>}
           </div> : <div key={action}>{action === "cancel" && <p className="field-hint">{copy.cancelHelp}</p>}
             <button className={action === "retry" ? "ghost" : "danger"} disabled={busy} onClick={() => onCommand(action, job)}>{t(action)}</button></div>)}
         </div></details>}
       </div>
+      {(job.previous_run_id || job.restarted_run_id) && <div className="button-row job-history-links">
+        {[[job.previous_run_id, recoveryCopy[locale].previousExecution], [job.restarted_run_id, recoveryCopy[locale].nextExecution]].map(([identity, label]) => identity &&
+          <a key={identity} href={historyHref(identity)} onClick={event => { if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onOpenHistory(identity); } }}>{label}</a>)}
+      </div>}
     </header>
     <div className="job-detail-grid"><div className="job-detail-main">
       <div className="job-session-controls" hidden={selected!=="sessions"}>

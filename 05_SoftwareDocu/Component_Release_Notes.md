@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: Release Notes (`adore/release_notes.py`)
 
 ## 1. Purpose
@@ -75,9 +68,7 @@ and the English fallback; the `shell.spec.ts` About journey opens What's new.
 Whether a change is user-visible stays a judgement made by the agent or
 developer; the checker verifies only form and alignment, and the `--since`
 warning is advisory. Translation quality is reviewed, not machine-checked.
-ADORE 0.17.0 assigns the accumulated release notes to the dated `0.17.0`
-release, matching the changelog heading of 2026-11-15. Future user-visible
-changes start a new `Unreleased` group. The wheel includes
-`adore/release_notes.toml`; portable archives install that wheel and record the
-file in their integrity manifest. Package names derive from the project version;
-existing archives retain the identity with which they were built.
+The authoritative version and dated changelog heading define each release group. The source
+release command synchronizes declarations and stamps notes without running tests or building
+archives. See [Releases](../01_Documentation/Releases.md). The wheel includes
+`adore/release_notes.toml`; existing archives retain the identity with which they were built.

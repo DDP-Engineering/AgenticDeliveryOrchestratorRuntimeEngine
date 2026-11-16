@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_web_user_creation.py
-@brief      Atomic reviewed account creation at public trust boundaries.
-@details    Offline API, authentication, stable grants and rollback/race proof.
-"""
+"""Atomic reviewed account creation at public trust boundaries."""
 
-# IMPORTS
 import sqlite3
 
 from adore.profiles import ProfileStore
@@ -25,9 +11,8 @@ import pytest
 from tests.configuration_client import TestClient
 
 
-# LOCAL HELPERS
 def setup(tmp_path):
-    """@brief Prepare two visible profiles and a local API with no external tools."""
+    """Prepare two visible profiles and a local API with no external tools."""
     home = tmp_path / "home"
     profiles = ProfileStore(home)
     alpha, beta = profiles.create("alpha"), profiles.create("beta")
@@ -36,7 +21,7 @@ def setup(tmp_path):
 
 
 def login(client, username="admin", password="admin"):
-    """@brief Authenticate through the API and return its CSRF header."""
+    """Authenticate through the API and return its CSRF header."""
     response = client.post("/api/v1/session", json={"username": username, "password": password})
     assert response.status_code == 200, response.text
     return {"X-CSRF-Token": response.json()["csrf"]}
@@ -47,10 +32,9 @@ def intent(selected_ids, **updates):
             "project_ids": selected_ids, "allow_no_projects": False, **updates}
 
 
-# PUBLIC API
 @pytest.mark.parametrize("role", ["admin", "developer"])
 def test_atomic_create_assigns_exact_access_and_keeps_secrets_private(tmp_path, role):
-    """@brief Admin global and Dev selected access work through recipient login."""
+    """Admin global and Dev selected access work through recipient login."""
     app, web, _profiles, alpha, beta = setup(tmp_path)
     ids = [alpha.project_id] if role == "developer" else []
     with TestClient(app) as client:
@@ -85,7 +69,7 @@ def test_atomic_create_assigns_exact_access_and_keeps_secrets_private(tmp_path, 
     {"unknown": "ignored?"},
 ])
 def test_invalid_intent_leaves_no_partial_account_or_success_audit(tmp_path, updates):
-    """@brief Invalid and coercible external data is rejected without a partial write."""
+    """Invalid and coercible external data is rejected without a partial write."""
     app, web, _profiles, alpha, _beta = setup(tmp_path)
     with TestClient(app) as client:
         headers = login(client)
@@ -98,7 +82,7 @@ def test_invalid_intent_leaves_no_partial_account_or_success_audit(tmp_path, upd
 
 
 def test_explicit_empty_dev_and_duplicate_grants(tmp_path):
-    """@brief Zero-project Dev requires deliberate choice; duplicate IDs fail closed."""
+    """Zero-project Dev requires deliberate choice; duplicate IDs fail closed."""
     app, web, _profiles, alpha, _beta = setup(tmp_path)
     with TestClient(app) as client:
         headers = login(client)
@@ -114,12 +98,12 @@ def test_explicit_empty_dev_and_duplicate_grants(tmp_path):
 
 @pytest.mark.parametrize("change", ["archive", "delete", "replace", "rename"])
 def test_project_change_during_hashing_rolls_back_creation(tmp_path, monkeypatch, change):
-    """@brief A live project change during creation cannot leave an account behind."""
+    """A live project change during creation cannot leave an account behind."""
     app, web, profiles, alpha, _beta = setup(tmp_path)
     original = store_module._HASHER.hash
 
     def hashing(_hasher, password):
-        """@brief Inject a lifecycle race at the real credential hashing boundary."""
+        """Inject a lifecycle race at the real credential hashing boundary."""
         hashed = original(password)
         if change == "archive":
             alpha.archived = True
@@ -143,7 +127,7 @@ def test_project_change_during_hashing_rolls_back_creation(tmp_path, monkeypatch
 
 
 def test_archived_and_corrupt_projects_fail_closed(tmp_path):
-    """@brief Archived or corrupt metadata never produces a grant or account."""
+    """Archived or corrupt metadata never produces a grant or account."""
     app, web, profiles, alpha, _beta = setup(tmp_path)
     alpha.archived = True
     profiles.save(alpha)
@@ -161,7 +145,7 @@ def test_archived_and_corrupt_projects_fail_closed(tmp_path):
 
 
 def test_membership_write_failure_rolls_back_user_and_all_grants(tmp_path):
-    """@brief A storage fault after user and first grant insertion rolls everything back."""
+    """A storage fault after user and first grant insertion rolls everything back."""
     app, web, _profiles, alpha, beta = setup(tmp_path)
     with sqlite3.connect(web.path) as connection:
         connection.execute("CREATE TRIGGER reject_beta BEFORE INSERT ON memberships "
@@ -178,7 +162,7 @@ def test_membership_write_failure_rolls_back_user_and_all_grants(tmp_path):
 
 
 def test_only_active_admin_with_csrf_can_create_and_legacy_api_works(tmp_path):
-    """@brief New endpoint preserves server authorization and the supported old contract."""
+    """New endpoint preserves server authorization and the supported old contract."""
     app, web, _profiles, alpha, _beta = setup(tmp_path)
     with TestClient(app) as client:
         headers = login(client)
@@ -205,12 +189,12 @@ def test_only_active_admin_with_csrf_can_create_and_legacy_api_works(tmp_path):
 
 
 def test_project_deleted_after_grant_write_rolls_back_everything(tmp_path, monkeypatch):
-    """@brief The final lifecycle check rolls back rows already written in the transaction."""
+    """The final lifecycle check rolls back rows already written in the transaction."""
     app, web, profiles, alpha, _beta = setup(tmp_path)
     original = WebStore._prune_audit
 
     def prune(store, connection):
-        """@brief Simulate external deletion during the transaction's final audit write."""
+        """Simulate external deletion during the transaction's final audit write."""
         original(store, connection)
         profiles.delete("alpha")
 
@@ -228,7 +212,7 @@ def test_project_deleted_after_grant_write_rolls_back_everything(tmp_path, monke
 
 
 def test_created_grants_survive_rename_restart_and_do_not_transfer_to_replacement(tmp_path):
-    """@brief Public durable memberships follow IDs and never a recycled name."""
+    """Public durable memberships follow IDs and never a recycled name."""
     app, web, profiles, alpha, _beta = setup(tmp_path)
     with TestClient(app) as client:
         headers = login(client)
@@ -246,7 +230,7 @@ def test_created_grants_survive_rename_restart_and_do_not_transfer_to_replacemen
 
 @pytest.mark.parametrize("field", ["role", "project_ids"])
 def test_atomic_creation_requires_explicit_access_fields(tmp_path, field):
-    """@brief The reviewed API cannot silently infer a role or project selection."""
+    """The reviewed API cannot silently infer a role or project selection."""
     app, web, _profiles, alpha, _beta = setup(tmp_path)
     with TestClient(app) as client:
         headers = login(client)
@@ -260,7 +244,7 @@ def test_atomic_creation_requires_explicit_access_fields(tmp_path, field):
 
 @pytest.mark.parametrize("corruption", ["audit_policy", "audit_write"])
 def test_audit_failure_cannot_leave_a_successful_account(tmp_path, corruption):
-    """@brief Corrupt policy and failed audit writes roll back the entire mutation."""
+    """Corrupt policy and failed audit writes roll back the entire mutation."""
     app, web, _profiles, alpha, _beta = setup(tmp_path)
     with TestClient(app) as client:
         headers = login(client)
@@ -280,6 +264,3 @@ def test_audit_failure_cannot_leave_a_successful_account(tmp_path, corruption):
             assert connection.execute("SELECT COUNT(*) FROM memberships").fetchone()[0] == 0
             assert connection.execute("SELECT COUNT(*) FROM audit "
                                       "WHERE action='user-created'").fetchone()[0] == 0
-
-
-# END OF FILE

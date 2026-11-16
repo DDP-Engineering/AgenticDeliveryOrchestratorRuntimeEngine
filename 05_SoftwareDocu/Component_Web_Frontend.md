@@ -1,13 +1,12 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: Web frontend
 
 ## Purpose and source ownership
+
+Cancelled jobs offer workflow-aware Restart in Jobs and Tickets. Confirmation
+retains history; durable admission opens the fresh job. Previous/New job links
+navigate within the current project context. Failed-job abandonment and Retry
+remain separate actions. System status groups the storage label, availability
+badge and measured capacity together below the worker list at all widths.
 
 `04_Software/web/` contains the React/TypeScript interface. Vite produces the
 same-origin assets in `04_Software/adore/web/static/`, included in the wheel.
@@ -125,6 +124,10 @@ publication approval and reviewer-list editing use the server's reviewed
 contracts. Stopping pickup prevents automatic new admissions; it does not stop
 active jobs. Start explicitly requests one eligible ticket even when pickup is
 paused. Confirmation is required for destructive restart/delete actions.
+
+Restart results distinguish an explicit refusal from an unconfirmed operation in
+all four locales. An unconfirmed result asks the operator to refresh Jobs/Tickets
+and check for a new job; it does not assert that cleanup failed or no job exists.
 
 ## Rendering, preferences and request ownership
 

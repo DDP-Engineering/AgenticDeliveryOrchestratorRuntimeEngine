@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_audit_evidence.py
-@brief Structured change evidence and audit trust-boundary tests.
-@details All services and mutations use offline local fixtures.
-"""
+"""Structured change evidence and audit trust-boundary tests."""
 
 import json
 import sqlite3
@@ -32,17 +19,15 @@ from tests.test_web_enrollment import (  # noqa: F401
 from tests.test_web_transfer import _review, _source
 
 
-# LOCAL HELPERS
 def _domain_change(web):
-    """@brief Select domain evidence independently of its separate operation completion."""
+    """Select domain evidence independently of its separate operation completion."""
     return next(row for row in web.recent_audit() if row["action"] != "operation-finished")
 
 
-# PUBLIC API
 
 
 def test_account_evidence_is_structured_and_transactional(tmp_path):
-    """@brief Account evidence records known noncredential values atomically."""
+    """Account evidence records known noncredential values atomically."""
     web = WebStore(tmp_path / "web.db")
     account = web.create_user_with_access("dev", "secret-password", "developer", [], True, 1)
     event = web.recent_audit()[0]
@@ -62,7 +47,7 @@ def test_account_evidence_is_structured_and_transactional(tmp_path):
 
 
 def test_completion_replay_and_crash_evidence(tmp_path):
-    """@brief Completion and audit commit together; replay cannot duplicate success."""
+    """Completion and audit commit together; replay cannot duplicate success."""
     profiles = ProfileStore(tmp_path)
     item = profiles.create("alpha")
     web = WebStore(tmp_path / "web.db")
@@ -87,7 +72,7 @@ def test_completion_replay_and_crash_evidence(tmp_path):
 
 
 def test_authorized_server_filters_counts_and_paging(tmp_path):
-    """@brief SQL paging/count sees only the exact permitted stable project."""
+    """SQL paging/count sees only the exact permitted stable project."""
     profiles = ProfileStore(tmp_path)
     alpha, beta = profiles.create("alpha"), profiles.create("beta")
     app = create_app(tmp_path)
@@ -118,7 +103,7 @@ def test_authorized_server_filters_counts_and_paging(tmp_path):
 
 
 def test_audit_row_without_evidence_is_corrupt(tmp_path):
-    """@brief Every audit row the current build writes has evidence; one without it fails closed."""
+    """Every audit row the current build writes has evidence; one without it fails closed."""
     web = WebStore(tmp_path / "web.db")
     with sqlite3.connect(web.path) as connection:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
@@ -133,7 +118,7 @@ def test_audit_row_without_evidence_is_corrupt(tmp_path):
 
 
 def test_corrupt_project_fails_closed_on_public_reads(tmp_path):
-    """@brief Persisted project metadata cannot expose credential-bearing URLs."""
+    """Persisted project metadata cannot expose credential-bearing URLs."""
     app = create_app(tmp_path)
     web = app.state.web_store
     secret = "https://user:fixture-password@example.test"
@@ -158,7 +143,7 @@ def test_corrupt_project_fails_closed_on_public_reads(tmp_path):
 
 
 def test_config_prepare_apply_discard_truthful_values(tmp_path):
-    """@brief Preparing never claims application and discard preserves live value."""
+    """Preparing never claims application and discard preserves live value."""
     from pathlib import Path
 
     from adore.state import StateStore
@@ -221,7 +206,7 @@ def test_config_prepare_apply_discard_truthful_values(tmp_path):
 
 
 def test_access_update_rolls_back_when_audit_write_fails(tmp_path):
-    """@brief Account access and its known stable grant diff commit atomically."""
+    """Account access and its known stable grant diff commit atomically."""
     profiles = ProfileStore(tmp_path)
     alpha = profiles.create("alpha")
     app = create_app(tmp_path)
@@ -257,7 +242,7 @@ def test_access_update_rolls_back_when_audit_write_fails(tmp_path):
 
 
 def test_nested_secret_and_error_metadata_is_redacted(tmp_path):
-    """@brief Nested credential, environment and arbitrary text never reach evidence."""
+    """Nested credential, environment and arbitrary text never reach evidence."""
     web = WebStore(tmp_path / "web.db")
     web.audit(
         1,
@@ -287,7 +272,7 @@ def test_nested_secret_and_error_metadata_is_redacted(tmp_path):
 
 
 def test_retention_does_not_break_filesystem_confirmation(tmp_path):
-    """@brief Explicit history deletion never prevents finishing an owning change."""
+    """Explicit history deletion never prevents finishing an owning change."""
     web = WebStore(tmp_path / "web.db")
     web.set_audit_policy(None, 1)
     key = web.begin_change(
@@ -301,7 +286,7 @@ def test_retention_does_not_break_filesystem_confirmation(tmp_path):
     "damage", ["schema", "timestamp", "json", "secret", "duplicate", "column", "index", "attempt"]
 )
 def test_corrupt_audit_storage_fails_closed_without_identity_reset(tmp_path, damage):
-    """@brief Persisted malformed evidence/shape rejects initialization and reads."""
+    """Persisted malformed evidence/shape rejects initialization and reads."""
     web = WebStore(tmp_path / "web.db")
     web.change_password(1, "admin", "replacement-password")
     web.audit(1, "config-applied", resource_type="config", resource_id="budgets.max_iterations")
@@ -337,7 +322,7 @@ def test_corrupt_audit_storage_fails_closed_without_identity_reset(tmp_path, dam
 
 
 def test_operation_completion_fault_rolls_back_status_and_event(tmp_path):
-    """@brief A failed audit commit leaves the running operation available for reconciliation."""
+    """A failed audit commit leaves the running operation available for reconciliation."""
     ProfileStore(tmp_path).create("alpha")
     web = WebStore(tmp_path / "web.db")
     op = web.enqueue(1, "alpha", "pause", "", "one")
@@ -356,7 +341,7 @@ def test_operation_completion_fault_rolls_back_status_and_event(tmp_path):
 
 
 def test_admin_filters_counts_period_and_bad_queries(tmp_path):
-    """@brief Combined SQL filters and half-open dates count all matching rows."""
+    """Combined SQL filters and half-open dates count all matching rows."""
     profiles = ProfileStore(tmp_path)
     alpha, beta = profiles.create("alpha"), profiles.create("beta")
     app = create_app(tmp_path)
@@ -418,7 +403,7 @@ def test_admin_filters_counts_period_and_bad_queries(tmp_path):
 
 
 def test_dev_project_history_excludes_admin_metadata(tmp_path):
-    """@brief Grant filtering excludes administrator access and price rows."""
+    """Grant filtering excludes administrator access and price rows."""
     profiles = ProfileStore(tmp_path)
     alpha = profiles.create("alpha")
     app = create_app(tmp_path)
@@ -453,7 +438,7 @@ def test_dev_project_history_excludes_admin_metadata(tmp_path):
 
 
 def test_filesystem_apply_crash_retry_preserves_original_before_once(tmp_path, monkeypatch):
-    """@brief Crash after file replacement stays uncertain; retry confirms the same attempt."""
+    """Crash after file replacement stays uncertain; retry confirms the same attempt."""
     from pathlib import Path
 
     profiles = ProfileStore(tmp_path / "home")
@@ -481,7 +466,7 @@ def test_filesystem_apply_crash_retry_preserves_original_before_once(tmp_path, m
         ).json()
 
         def crash(*args, **kwargs):
-            """@brief Simulate failed audit confirmation after the config replacement."""
+            """Simulate failed audit confirmation after the config replacement."""
             raise WebStoreError("private-sensitive-crash")
 
         monkeypatch.setattr(web, "confirm_change", crash)
@@ -522,7 +507,7 @@ def test_filesystem_apply_crash_retry_preserves_original_before_once(tmp_path, m
 
 @pytest.mark.parametrize("code", [None, True, "0", 0.0])
 def test_invalid_executor_exit_code_cannot_claim_applied(tmp_path, code):
-    """@brief A malformed injected command result remains uncertain without known after."""
+    """A malformed injected command result remains uncertain without known after."""
     from adore.web.commands import CommandWorker
 
     profiles = ProfileStore(tmp_path)
@@ -537,7 +522,7 @@ def test_invalid_executor_exit_code_cannot_claim_applied(tmp_path, code):
 
 
 def test_enrollment_and_exact_import_evidence_has_known_identity_and_stopped_result(tmp_path):
-    """@brief Preview stays prepared; enrollment/import commits known stopped state."""
+    """Preview stays prepared; enrollment/import commits known stopped state."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers = _login(client)
@@ -574,7 +559,7 @@ def test_enrollment_and_exact_import_evidence_has_known_identity_and_stopped_res
 
 @pytest.mark.parametrize("method", ["file", "project"])
 def test_transfer_evidence_distinguishes_import_clone_and_preparation(tmp_path, method):
-    """@brief Transfer records known source and stable target revisions truthfully."""
+    """Transfer records known source and stable target revisions truthfully."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _preview, _raw = _source(client, app, tmp_path, method)
@@ -595,7 +580,7 @@ def test_transfer_evidence_distinguishes_import_clone_and_preparation(tmp_path, 
 
 
 def test_policy_evidence_and_pruning_share_one_transaction(tmp_path):
-    """@brief Policy diffs and deletion count agree; write failure rolls limits back."""
+    """Policy diffs and deletion count agree; write failure rolls limits back."""
     web = WebStore(tmp_path / "web.db")
     saved = web.set_audit_policy(30, None, actor_id=1)
     assert saved == {"retention_days": 30, "max_bytes": None, "deleted_events": 0}
@@ -619,7 +604,7 @@ def test_policy_evidence_and_pruning_share_one_transaction(tmp_path):
 
 
 def test_enrollment_rollback_retains_uncertain_attempt(tmp_path, monkeypatch):
-    """@brief Failed publication retains no applied claim or visible project."""
+    """Failed publication retains no applied claim or visible project."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers = _login(client)
@@ -628,7 +613,7 @@ def test_enrollment_rollback_retains_uncertain_attempt(tmp_path, monkeypatch):
         original = app.state.web_store.audit
 
         def fault(actor, action, *args, **kwargs):
-            """@brief Reject owning confirmation without exposing its private cause."""
+            """Reject owning confirmation without exposing its private cause."""
             if action == "project-created":
                 raise WebStoreError("private audit credential secret")
             return original(actor, action, *args, **kwargs)
@@ -651,7 +636,7 @@ def test_enrollment_rollback_retains_uncertain_attempt(tmp_path, monkeypatch):
 
 
 def test_history_reflects_retry_failure_and_refusal(tmp_path):
-    """@brief An accepted failed retry differs from a refused retry in History."""
+    """An accepted failed retry differs from a refused retry in History."""
     profiles = ProfileStore(tmp_path)
     profiles.create("alpha")
     web = WebStore(tmp_path / "web.db")
@@ -667,7 +652,7 @@ def test_history_reflects_retry_failure_and_refusal(tmp_path):
 
 
 def test_history_rejects_cross_project_operation_binding(tmp_path):
-    """@brief Corrupt operation ownership must not disclose another project's target."""
+    """Corrupt operation ownership must not disclose another project's target."""
     profiles = ProfileStore(tmp_path)
     alpha, beta = profiles.create("alpha"), profiles.create("beta")
     web = WebStore(tmp_path / "web.db")
@@ -679,7 +664,7 @@ def test_history_rejects_cross_project_operation_binding(tmp_path):
 
 
 def test_history_rejects_corrupt_operation_target_type(tmp_path):
-    """@brief A malformed persisted operation raises a typed store error."""
+    """A malformed persisted operation raises a typed store error."""
     profiles = ProfileStore(tmp_path)
     profiles.create("alpha")
     web = WebStore(tmp_path / "web.db")
@@ -688,5 +673,3 @@ def test_history_rejects_corrupt_operation_target_type(tmp_path):
         db.execute("UPDATE operations SET run_id=? WHERE id=?", (sqlite3.Binary(b"bad"), op["id"]))
     with pytest.raises(WebStoreError):
         web.recent_audit(None)
-
-# END OF FILE

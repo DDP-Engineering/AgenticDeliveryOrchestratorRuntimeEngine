@@ -1,11 +1,6 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # ADORE documentation
+
+Current documentation: **ADORE 0.18.0** (2026-11-16).
 
 These guides describe the current implementation. Source code and the CLI's
 `--help` define exact runtime contracts; component details live in
@@ -21,7 +16,9 @@ These guides describe the current implementation. Source code and the CLI's
 
 These three source files sit beside the technical guides. Portable distributions
 copy only them into Documentation, with User_Guide.md named README.md in the
-package. The index and engineering references remain repository documentation.
+package. Azure_DevOps_Services.md and its configuration example are copied
+separately to the package root. The index and other engineering references remain
+repository documentation.
 
 ## Technical and operator guides
 
@@ -34,6 +31,7 @@ package. The index and engineering references remain repository documentation.
 | [Configuration reference](Configuration_Reference.md) | Current settings, defaults, limits and save rules. |
 | [Security and credentials](Security_And_Credentials.md) | Authentication, secrets, isolation and agent package-installation authority. |
 | [Code style](Code_Style.md) | Implementation and source documentation conventions. |
+| [Releases](Releases.md) | One version source, changelog, translated notes and explicit release preparation. |
 
 ## Specialized contracts
 
@@ -43,6 +41,7 @@ package. The index and engineering references remain repository documentation.
 | [Local execution](Local_Execution.md) | Managed Pi, Windows Jobs, Linux cgroups and native recovery. |
 | [Project executor images](Project_Executor_Images.md) | External builds, retained definitions, source ZIPs and image selection. |
 | [Portable project settings](Portable_Project_Settings.md) | Closed working-rule export and transfer format. |
+| [Azure DevOps Services](Azure_DevOps_Services.md) | Azure CLI authentication, repository-owned Boards scope, tags and PR labels. |
 
 [Operator quick reference](Operator_Quick_Reference.md) provides task-oriented
 reminders and the five current presentations. [Deployment tools](../02_Tools/setup/README.md)

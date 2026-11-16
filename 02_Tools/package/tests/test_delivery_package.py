@@ -1,20 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_delivery_package.py
-@brief      Offline contract checks for portable delivery trust boundaries.
-@details    Exercises the public verifier and command argument validation using
-            temporary isolated media; never downloads or starts services.
-"""
+"""Offline contract checks for portable delivery trust boundaries."""
 
-# IMPORTS
 import hashlib
 import importlib.util
 import io
@@ -29,7 +15,6 @@ from types import ModuleType, SimpleNamespace
 import unittest
 from unittest import mock
 
-# CONSTANTS
 REPO = Path(__file__).resolve().parents[3]
 WORK = Path(tempfile.gettempdir())
 SPEC = importlib.util.spec_from_file_location("portable_launcher",
@@ -43,10 +28,10 @@ PACKAGE_SPEC.loader.exec_module(PACKAGER)
 
 # PUBLIC API / TESTS
 class PortableDocumentation(unittest.TestCase):
-    """@brief User distributions contain a fixed practical guide set."""
+    """User distributions contain a fixed practical guide set."""
 
     def test_only_curated_user_guides_are_copied(self) -> None:
-        """@brief Extra engineering and handoff files never enter the user documentation."""
+        """Extra engineering and handoff files never enter the user documentation."""
         with tempfile.TemporaryDirectory(prefix="portable-doc-unit-", dir=WORK) as temp:
             source = Path(temp) / "source"
             source.mkdir()
@@ -60,7 +45,7 @@ class PortableDocumentation(unittest.TestCase):
             self.assertEqual((destination / "README.md").read_text(encoding="utf-8"), body)
 
     def test_missing_guide_fails_before_copying(self) -> None:
-        """@brief Incomplete source documentation fails before staging a partial guide set."""
+        """Incomplete source documentation fails before staging a partial guide set."""
         with tempfile.TemporaryDirectory(prefix="portable-doc-unit-", dir=WORK) as temp:
             source = Path(temp) / "source"
             source.mkdir()
@@ -73,7 +58,7 @@ class PortableDocumentation(unittest.TestCase):
 
     @unittest.skipIf(sys.platform == "win32", "POSIX document-link boundary")
     def test_linked_guide_fails_before_copying(self) -> None:
-        """@brief A linked guide cannot escape the curated source boundary."""
+        """A linked guide cannot escape the curated source boundary."""
         with tempfile.TemporaryDirectory(prefix="portable-doc-unit-", dir=WORK) as temp:
             source = Path(temp) / "source"
             source.mkdir()
@@ -86,10 +71,10 @@ class PortableDocumentation(unittest.TestCase):
 
 
 class PortableDelivery(unittest.TestCase):
-    """@brief Verify media contracts without depending on packaging libraries."""
+    """Verify media contracts without depending on packaging libraries."""
 
     def setUp(self) -> None:
-        """@brief Create tiny delivery media inside the delivery output tree."""
+        """Create tiny delivery media inside the delivery output tree."""
         self.temporary = tempfile.TemporaryDirectory(prefix="portable-unit-",
                                                       dir=WORK)
         self.addCleanup(self.temporary.cleanup)
@@ -107,15 +92,15 @@ class PortableDelivery(unittest.TestCase):
         self.write_manifest()
 
     def write_manifest(self) -> None:
-        """@brief Materialize the supplied external manifest, including bad values."""
+        """Materialize the supplied external manifest, including bad values."""
         (self.bundle / "manifest.json").write_text(json.dumps(self.manifest), encoding="utf-8")
 
     def test_complete_inventory_verifies(self) -> None:
-        """@brief A complete, host-matched manifest returns the recorded release."""
+        """A complete, host-matched manifest returns the recorded release."""
         self.assertEqual(LAUNCHER.verify(self.bundle)["version"], "0.15.0")
 
     def test_corrupt_missing_and_unlisted_files_fail_closed(self) -> None:
-        """@brief Media corruption, absence and unlisted files are explicit errors."""
+        """Media corruption, absence and unlisted files are explicit errors."""
         self.payload.write_bytes(b"changed")
         with self.assertRaises(LAUNCHER.DeliveryError):
             LAUNCHER.verify(self.bundle)
@@ -128,7 +113,7 @@ class PortableDelivery(unittest.TestCase):
             LAUNCHER.verify(self.bundle)
 
     def test_invalid_manifest_and_host_fail_closed(self) -> None:
-        """@brief Corrupt schema, inventory and host metadata never start a service."""
+        """Corrupt schema, inventory and host metadata never start a service."""
         for field, value in (("schema", True), ("schema", 99), ("system", "other"),
                              ("architecture", "arm64"), ("python_version", "0.0.0"),
                              ("files", []), ("files", {})):
@@ -144,7 +129,7 @@ class PortableDelivery(unittest.TestCase):
             LAUNCHER.verify(self.bundle)
 
     def test_manifest_paths_cannot_escape_bundle(self) -> None:
-        """@brief External paths, traversal and malformed digests are refused."""
+        """External paths, traversal and malformed digests are refused."""
         for name in ("../outside", "/absolute", "C:/absolute", "a\\b", "a/./b", "a//b"):
             with self.subTest(path=name):
                 self.manifest["files"] = {name: "0" * 64}
@@ -157,7 +142,7 @@ class PortableDelivery(unittest.TestCase):
             LAUNCHER.verify(self.bundle)
 
     def test_invalid_launcher_arguments_fail_before_media_access(self) -> None:
-        """@brief Invalid external limits fail before package or user-state access."""
+        """Invalid external limits fail before package or user-state access."""
         for arguments in (("--port", "0"), ("--startup-timeout", "999"),
                           ("--restart-limit", "-1"), ("--service", "worker")):
             result = subprocess.run([sys.executable, str(REPO / "02_Tools/package/launcher_templates/launch.py"),
@@ -165,7 +150,7 @@ class PortableDelivery(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
 
     def test_packager_rejects_output_outside_delivery(self) -> None:
-        """@brief An output escape is rejected before network or build operations."""
+        """An output escape is rejected before network or build operations."""
         result = subprocess.run([sys.executable, str(REPO / "02_Tools/package/create_delivery_package.py"),
                                  "--output", "02_Tools/invalid-output"],
                                 capture_output=True, text=True, timeout=10, check=False)
@@ -173,7 +158,7 @@ class PortableDelivery(unittest.TestCase):
         self.assertIn("unrecognized arguments", result.stderr)
 
     def test_failed_service_pairs_exhaust_the_explicit_restart_limit(self) -> None:
-        """@brief Public startup stops after two failed pairs with restart limit one."""
+        """Public startup stops after two failed pairs with restart limit one."""
         root_module = ModuleType("adore")
         root_module.__version__ = self.manifest["version"]
         profile_module = ModuleType("adore.profiles")
@@ -186,7 +171,7 @@ class PortableDelivery(unittest.TestCase):
             test_port = probe.getsockname()[1]
 
         def spawn(*_args, **_kwargs):
-            """@brief Simulate failed external processes without starting any CLI."""
+            """Simulate failed external processes without starting any CLI."""
             child = SimpleNamespace(stdout=io.StringIO(), poll=lambda: 1,
                                     wait=lambda **_kwargs: 1)
             created.append(child)
@@ -216,7 +201,7 @@ class PortableDelivery(unittest.TestCase):
 
     @unittest.skipIf(sys.platform == "win32", "POSIX symlink trust-boundary case")
     def test_media_links_are_refused(self) -> None:
-        """@brief A linked payload is rejected even when its bytes match the manifest."""
+        """A linked payload is rejected even when its bytes match the manifest."""
         target = self.bundle / "target.txt"
         self.payload.rename(target)
         self.payload.symlink_to(target)
@@ -226,5 +211,3 @@ class PortableDelivery(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-# END OF FILE

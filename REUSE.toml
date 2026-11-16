@@ -1,0 +1,11 @@
+version = 1
+SPDX-PackageName = "ADORE - Agentic Delivery Orchestrator & Runtime Engine"
+SPDX-PackageSupplier = "DDP Engineering"
+
+# Project-owned files inherit this declaration. Existing in-file and adjacent
+# notices take precedence, including the managed AEGIS payload and bundled work.
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 DDP Engineering"
+SPDX-License-Identifier = "LicenseRef-PolyForm-Noncommercial-1.0.0"

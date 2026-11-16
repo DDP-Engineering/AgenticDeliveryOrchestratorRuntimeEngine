@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_secret_setting_names.py
-@brief ADORE's own non-secret settings with credential-looking names stay
-       visible and editable; every other such name stays a secret.
-"""
+"""ADORE's own non-secret settings with credential-looking names stay"""
 
 from adore.cli import EXIT_ERROR, EXIT_OK, main
 from adore.config import load_config
@@ -42,7 +29,7 @@ runtime_env = { UV_LINK_MODE = "copy", GITHUB_TOKEN = "example-value" }
 
 def test_web_lists_and_edits_capture_tokens_but_not_secret_names(tmp_path):
     """
-    @brief   metrics.capture_tokens has a row an administrator can edit; a
+    metrics.capture_tokens has a row an administrator can edit; a
              runtime entry named like a token stays hidden and uneditable.
     """
     profiles = ProfileStore(tmp_path / "home")
@@ -88,7 +75,7 @@ def test_web_lists_and_edits_capture_tokens_but_not_secret_names(tmp_path):
 
 def test_a_non_boolean_capture_tokens_value_stays_hidden(tmp_path):
     """
-    @brief   The exemption covers the boolean setting only: a string written
+    The exemption covers the boolean setting only: a string written
              into metrics.capture_tokens by hand is still treated as a secret.
     """
     profiles = ProfileStore(tmp_path / "home")
@@ -105,7 +92,7 @@ def test_a_non_boolean_capture_tokens_value_stays_hidden(tmp_path):
 
 
 def test_cli_sets_capture_tokens_but_refuses_secret_names(tmp_path, capsys):
-    """@brief `adore config set` accepts metrics.capture_tokens only."""
+    """`adore config set` accepts metrics.capture_tokens only."""
     path = tmp_path / "config.toml"
     path.write_bytes(_CONFIG.encode("utf-8"))
 

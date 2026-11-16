@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_chatgpt_helper_script.py
-@brief ADORE's ChatGPT helper script against a stub Pi package, offline.
-@details Runs `docker/pi/adore-chatgpt.mjs` with Node and `ADORE_PI_PACKAGE`
-         pointing at a stub of the three Pi modules it imports; the stub's
-         refresh fails with the message in `STUB_ERROR`. Skipped without Node.
-"""
+"""ADORE's ChatGPT helper script against a stub Pi package, offline."""
 
 from __future__ import annotations
 
@@ -49,7 +34,7 @@ _STORAGE = """export class AuthStorage {
 
 
 def stub(root: Path) -> Path:
-    """@brief A stub pi-coding-agent package with a nested pi-ai."""
+    """A stub pi-coding-agent package with a nested pi-ai."""
     package = root / "pi-coding-agent"
     ai = package / "node_modules" / "@earendil-works" / "pi-ai"
     for path, text in ((ai / "dist" / "auth" / "oauth" / "openai-chatgpt.js", _OAUTH),
@@ -63,7 +48,7 @@ def stub(root: Path) -> Path:
 
 
 def run(tmp_path: Path, *args: str, error: str = "", expires_in_ms: int = 60_000) -> dict:
-    """@brief Run the script's command against the stub and return its answer."""
+    """Run the script's command against the stub and return its answer."""
     credential = tmp_path / "cred"
     credential.mkdir(exist_ok=True)
     (credential / "auth.json").write_bytes(json.dumps({"openai": {
@@ -91,13 +76,13 @@ def run(tmp_path: Path, *args: str, error: str = "", expires_in_ms: int = 60_000
     ("something unexpected", "failed"),
 ])
 def test_a_refused_refresh_is_reduced_to_one_cause(tmp_path, error, status):
-    """@brief Only a refused grant asks for a new sign-in; transient answers do not."""
+    """Only a refused grant asks for a new sign-in; transient answers do not."""
     assert run(tmp_path, "token", "--min-validity-seconds", "600", error=error) == {
         "status": status}
 
 
 def test_a_valid_token_needs_no_refresh_and_a_refresh_returns_the_new_one(tmp_path):
-    """@brief The stored token when it lasts long enough; otherwise Pi's refreshed one."""
+    """The stored token when it lasts long enough; otherwise Pi's refreshed one."""
     current = run(tmp_path, "token", "--min-validity-seconds", "600", expires_in_ms=3_000_000)
     assert current["status"] == "ok" and current["token"] == "stub-access-token-current"
     refreshed = run(tmp_path, "token", "--min-validity-seconds", "600")
@@ -107,8 +92,5 @@ def test_a_valid_token_needs_no_refresh_and_a_refresh_returns_the_new_one(tmp_pa
 @pytest.mark.parametrize("args", [["token"], ["token", "--min-validity-seconds", "0"],
                                   ["token", "--min-validity-seconds", "soon"]])
 def test_a_bad_token_request_fails_closed(tmp_path, args):
-    """@brief Missing or invalid validity is refused without a token."""
+    """Missing or invalid validity is refused without a token."""
     assert run(tmp_path, *args) == {"status": "failed"}
-
-
-# END OF FILE

@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_retry_revalidation.py
-@brief   Explicit native Retry revalidation and honest CLI/worker outcomes.
-@details Uses injected process, forge and executor boundaries; never runs host tools.
-"""
+"""Explicit native Retry revalidation and honest CLI/worker outcomes."""
 
-# IMPORTS
 from dataclasses import replace
 import json
 
@@ -28,11 +14,9 @@ from tests.execution_records import execution_record
 from tests.test_local_execution import local_fixture
 from tests.test_orchestrator import FakeAegis, FakeExecutor, make_engine, make_run, task
 
-# LOCAL HELPERS
-
 
 def retry_fixture(tmp_path, monkeypatch, system="Windows", agent="pi", iid=7):
-    """@brief Persist a failed native job with real receipts and injected execution."""
+    """Persist a failed native job with real receipts and injected execution."""
     config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
     context["system"] = system
     from adore.pi_installation import managed_pi
@@ -94,7 +78,7 @@ def retry_fixture(tmp_path, monkeypatch, system="Windows", agent="pi", iid=7):
 
 
 def upgrade(engine, context, controller, binary):
-    """@brief Simulate an ordinary installed CLI update and inherited PATH change."""
+    """Simulate an ordinary installed CLI update and inherited PATH change."""
     binary.write_bytes(b"updated installed executor binary")
     binary.chmod(0o755)
     context["path"] += (";" if context["system"] == "Windows" else ":") + str(binary.parent / "new")
@@ -109,7 +93,7 @@ def upgrade(engine, context, controller, binary):
 def test_explicit_retry_refreshes_native_tools_without_losing_job(
     tmp_path, monkeypatch, system, agent, iid
 ):
-    """@brief Every supported agent/job can refresh native environment on both OS paths."""
+    """Every supported agent/job can refresh native environment on both OS paths."""
     engine, run, context, controller, binary, work, executor = retry_fixture(
         tmp_path, monkeypatch, system, agent, iid
     )
@@ -145,7 +129,7 @@ def test_explicit_retry_refreshes_native_tools_without_losing_job(
 def test_retry_revalidation_refuses_real_failures_without_losing_work(
     tmp_path, monkeypatch, change
 ):
-    """@brief Scope corruption and unavailable executors keep the job/work and actual cause."""
+    """Scope corruption and unavailable executors keep the job/work and actual cause."""
     engine, run, context, controller, binary, work, executor = retry_fixture(tmp_path, monkeypatch)
     upgrade(engine, context, controller, binary)
     if change in {"account", "host"}:
@@ -162,7 +146,7 @@ def test_retry_revalidation_refuses_real_failures_without_losing_work(
     elif change in {"version", "exit", "timeout"}:
 
         def invalid_version(argv, **_kwargs):
-            """@brief Refuse invalid Pi output without launching a tool."""
+            """Refuse invalid Pi output without launching a tool."""
             return CommandResult(
                 stdout="v22.23.4" if len(argv) == 2 else "PRIVATE invalid output",
                 exit_code=0 if len(argv) == 2 else 2 if change == "exit" else
@@ -195,7 +179,7 @@ def test_retry_revalidation_refuses_real_failures_without_losing_work(
 
 
 def test_automatic_poll_does_not_refresh_failed_native_jobs(tmp_path, monkeypatch):
-    """@brief Revalidation is an explicit Retry action rather than an automatic bypass."""
+    """Revalidation is an explicit Retry action rather than an automatic bypass."""
     engine, run, context, controller, binary, _, executor = retry_fixture(tmp_path, monkeypatch)
     upgrade(engine, context, controller, binary)
     snapshot = engine.store.run_dir(run.run_id) / "state.json"
@@ -207,7 +191,7 @@ def test_automatic_poll_does_not_refresh_failed_native_jobs(tmp_path, monkeypatc
 
 
 def test_retry_cli_returns_failure_when_rearming_immediately_fails(tmp_path, monkeypatch, capsys):
-    """@brief Accepted retry is not reported as success when provisioning fails."""
+    """Accepted retry is not reported as success when provisioning fails."""
     from adore.cli import main
 
     from tests.test_smoke import _config_file
@@ -218,10 +202,10 @@ def test_retry_cli_returns_failure_when_rearming_immediately_fails(tmp_path, mon
         execution=execution_record()))
 
     class Engine:
-        """@brief Simulate a newly persisted measured provisioning failure."""
+        """Simulate a newly persisted measured provisioning failure."""
 
         def retry(self, run_id):
-            """@brief Persist a measured terminal failure after accepting Retry."""
+            """Persist a measured terminal failure after accepting Retry."""
             current = store.load(run_id)
             current.outcome = "INFRASTRUCTURE_EXHAUSTED: measured version-invalid"
             store.save(current)
@@ -252,7 +236,7 @@ def test_retry_cli_returns_failure_when_rearming_immediately_fails(tmp_path, mon
     ],
 )
 def test_retry_worker_reports_bound_outcome(tmp_path, change):
-    """@brief Retry binds process evidence and reads only the requested persisted cause."""
+    """Retry binds process evidence and reads only the requested persisted cause."""
     from adore.profiles import ProfileStore
     from adore.web.commands import CommandWorker
     from adore.web.store import WebStore
@@ -299,7 +283,7 @@ def test_retry_worker_reports_bound_outcome(tmp_path, change):
         evidence = evidence.replace('"schema": 1', '"schema": 1, "schema": 1')
 
     def runner(argv, env):
-        """@brief Supply bound or corrupt terminal evidence without external commands."""
+        """Supply bound or corrupt terminal evidence without external commands."""
         return CommandResult(
             exit_code=code,
             stdout=(
@@ -328,13 +312,13 @@ def test_retry_worker_reports_bound_outcome(tmp_path, change):
 
 
 def test_explicit_retry_can_repeat_interrupted_environment_refresh(tmp_path, monkeypatch):
-    """@brief A receipt refresh interrupted before plan replacement can be retried safely."""
+    """A receipt refresh interrupted before plan replacement can be retried safely."""
     engine, run, context, controller, binary, work, executor = retry_fixture(tmp_path, monkeypatch)
     upgrade(engine, context, controller, binary)
     from adore.local_process import atomic_record
 
     def interrupted(path, value):
-        """@brief Interrupt the plan write after the owned receipt was refreshed."""
+        """Interrupt the plan write after the owned receipt was refreshed."""
         raise OSError("interrupted plan replacement")
 
     monkeypatch.setattr("adore.orchestrator.atomic_record", interrupted)
@@ -355,7 +339,7 @@ def test_explicit_retry_can_repeat_interrupted_environment_refresh(tmp_path, mon
     ],
 )
 def test_retry_cli_reports_native_setup_cause(tmp_path, monkeypatch, capsys, cause, reason):
-    """@brief Missing native prerequisites are classified even before engine construction."""
+    """Missing native prerequisites are classified even before engine construction."""
     from adore.cli import main
     from adore.local_process import LocalExecutionError
 
@@ -364,7 +348,7 @@ def test_retry_cli_reports_native_setup_cause(tmp_path, monkeypatch, capsys, cau
     config = _config_file(tmp_path)
 
     def unavailable(*args, **kwargs):
-        """@brief Raise a known native setup boundary error without host tools."""
+        """Raise a known native setup boundary error without host tools."""
         if cause == "permission":
             raise PermissionError("PRIVATE path")
         raise LocalExecutionError(cause)
@@ -374,5 +358,3 @@ def test_retry_cli_reports_native_setup_cause(tmp_path, monkeypatch, capsys, cau
     output = capsys.readouterr().out
     assert json.loads(output.split("ADORE_RETRY_RESULT ")[1])["reason"] == reason
     assert "PRIVATE" not in output
-
-# END OF FILE

@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file commands.py
-@brief Single-host durable web operation worker.
-@details Uses the existing CLI as the bounded, locked engine boundary. A
-         demonstrably dead owner leaves in-flight commands uncertain instead of replaying
-         a possible forge or container side effect.
-"""
+"""Single-host durable web operation worker."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 from collections.abc import Callable
 from contextlib import suppress
@@ -55,10 +39,9 @@ from adore.web.ownership import OwnershipError, WorkerOwner
 from adore.web.store import WebStore, WebStoreError
 
 
-# DATA MODELS / TYPEDEFINITIONS
 @dataclass(frozen=True)
 class CommandOutcome:
-    """@brief Exit code and combined stdout/stderr of one engine command."""
+    """Exit code and combined stdout/stderr of one engine command."""
 
     code: int
     output: str = ""
@@ -77,10 +60,10 @@ _NOT_STARTED = re.compile(
 _COMMAND_ACTIONS = ("start", "retry", "restart", "cancel", "pause", "resume", "delete")
 
 
-# HELPER FUNCTIONS
 def _run(argv: list[str], env: dict[str, str]) -> CommandOutcome:
-    """@brief Run a fixed CLI argument vector with a finite timeout, keeping its output.
-    @details stderr joins stdout so the kept lines stay in the order they were printed.
+    """
+    Run a fixed CLI argument vector with a finite timeout, keeping its output.
+    stderr joins stdout so the kept lines stay in the order they were printed.
     """
     try:
         result = subprocess.run(
@@ -97,14 +80,13 @@ def _run(argv: list[str], env: dict[str, str]) -> CommandOutcome:
 
 
 def _refusal_reason(output: str, ticket: str) -> str:
-    """@brief Return the stable code the CLI printed for this ticket, or ""."""
+    """Return the stable code the CLI printed for this ticket, or ""."""
     codes = [code for iid, code in _NOT_STARTED.findall(output) if iid == ticket]
     return codes[-1] if codes else ""
 
 
-# PUBLIC API
 class CommandWorker:
-    """@brief Execute authorized persisted commands through ADORE's CLI."""
+    """Execute authorized persisted commands through ADORE's CLI."""
 
     def __init__(self, profiles: ProfileStore, web: WebStore,
                  runner: Runner = _run, *, project_id: str | None = None,
@@ -134,7 +116,7 @@ class CommandWorker:
                             "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
 
     def run_pending(self) -> int:
-        """@brief Execute at most one pending command; return 1 if claimed."""
+        """Execute at most one pending command; return 1 if claimed."""
         from adore.web.processes import assert_ancestry
 
         assert_ancestry()
@@ -162,7 +144,7 @@ class CommandWorker:
         if operation["status"] != "running":
             return 1
         def finish(operation_id, status, result, *, reason="", detail=""):
-            """@brief Finish this exact claim and release completed configuration ownership."""
+            """Finish this exact claim and release completed configuration ownership."""
             assert_ancestry()
             self.web.finish(operation_id, status, result, owner=owner,
                             generation=operation["generation"], reason=reason, detail=detail)
@@ -237,13 +219,15 @@ class CommandWorker:
                 state = StateStore(profile.store_root or self.profiles.default_store_root(project))
                 raw = (state.run_dir(run_id) / "state.json").read_bytes()
                 previous = state.load(run_id)
-                if (previous.lifecycle != "failed"
+                if (previous.lifecycle not in {"failed", "cancelled"}
                         or sha256(raw).hexdigest() != revision):
                     raise StateError("confirmed job changed")
             except (StateError, OSError):
                 finish(operation["id"], "failed", "restart:job_changed")
                 return 1
             argv.extend(["restart", run_id, "--force", "--expected-revision", revision])
+            if self.admit_only:
+                argv.append("--admit-only")
         elif action in ("retry", "cancel") and target:
             argv.extend([action, target])
         elif action in ("pause", "resume") and actor["role"] == "admin" and not target:
@@ -269,7 +253,7 @@ class CommandWorker:
             raise
         except Exception:  # noqa: BLE001 - unexpected outcome needs reconciliation
             current = self.web.operation(operation["id"])
-            if action == "start" and current["status"] == "succeeded":
+            if action in {"start", "restart"} and current["status"] == "succeeded":
                 self.web.authorize_effect(operation["id"], owner=owner,
                                           generation=operation["generation"])
                 return 1
@@ -349,7 +333,7 @@ class CommandWorker:
             except (StateError, FileNotFoundError, OSError):
                 status, result, reason = "uncertain", "cancel not confirmed", "cancel_unconfirmed"
         current = self.web.operation(operation["id"])
-        if action == "start" and current["status"] == "succeeded":
+        if action in {"start", "restart"} and current["status"] == "succeeded":
             # Admission is already confirmed; subsequent job failure is separate.
             self.web.authorize_effect(operation["id"], owner=owner,
                                       generation=operation["generation"])
@@ -362,7 +346,7 @@ class CommandWorker:
         return 1
 
     def _owner(self, domain: str, project_id: str) -> WorkerOwner:
-        """@brief Reuse only this worker's explicit project/domain owner handle."""
+        """Reuse only this worker's explicit project/domain owner handle."""
         key = (domain, project_id)
         with self._owners_lock:
             if key not in self._owners:
@@ -376,7 +360,7 @@ class CommandWorker:
             return self._owners[key]
 
     def _signal_pending_cancels(self) -> None:
-        """@brief Claim and authorize before writing any durable cancel signal."""
+        """Claim and authorize before writing any durable cancel signal."""
         from adore.web.processes import assert_ancestry
 
         assert_ancestry()
@@ -404,11 +388,11 @@ class CommandWorker:
     def _run_with_cancel_watch(
         self, argv: list[str], *, context: str | None = None,
     ) -> int | CommandOutcome | CommandResult:
-        """@brief Watch queued cancellations around one blocking engine command."""
+        """Watch queued cancellations around one blocking engine command."""
         done = Event()
 
         def watch() -> None:
-            """@brief Deliver pending cancel signals during a blocking CLI poll."""
+            """Deliver pending cancel signals during a blocking CLI poll."""
             while not done.wait(0.2):
                 try:
                     self._signal_pending_cancels()
@@ -433,7 +417,7 @@ class CommandWorker:
                 self.web.set_worker_activity(self._supervisor, "idle")
 
     def poll_project(self, project: str) -> int | CommandResult:
-        """@brief Poll one project while watching for newly authorized cancels."""
+        """Poll one project while watching for newly authorized cancels."""
         profile = self.profiles.load(project)
         owner = self._owner("execution", profile.project_id)
         self.web.authorize_worker(owner)
@@ -449,7 +433,7 @@ class CommandWorker:
     def run_forever(self, *, interval: float = 2.0,
                     heartbeat_interval: float = 2.0,
                     stop: Event | None = None) -> None:
-        """@brief Own the local worker lock, heartbeat and project polling."""
+        """Own the local worker lock, heartbeat and project polling."""
         lock = StateStore(self.profiles.home / "web-control", "adore-web")
         if not lock.acquire_lock():
             raise RuntimeError("another web control worker is active")
@@ -460,7 +444,7 @@ class CommandWorker:
         heartbeat_started = False
 
         def beat() -> None:
-            """@brief Keep readiness current while a conductor call blocks."""
+            """Keep readiness current while a conductor call blocks."""
             while not heartbeat_done.wait(heartbeat_interval):
                 try:
                     self.web.touch_worker(self._supervisor)
@@ -536,7 +520,7 @@ class CommandWorker:
 
 
 def main() -> int:
-    """@brief Launch the single-home local process supervisor."""
+    """Launch the single-home local process supervisor."""
     from adore.web.supervisor import Supervisor
 
     parser = argparse.ArgumentParser(description="ADORE web control worker")
@@ -553,6 +537,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-# END OF FILE

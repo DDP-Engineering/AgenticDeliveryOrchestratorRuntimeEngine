@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_web_enrollment.py
-@brief   Stable identity and safe enrollment public contract tests.
-@details External runners are faked; barriers observe publication and rollback.
-"""
+"""Stable identity and safe enrollment public contract tests."""
 
-# IMPORTS
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 import json
@@ -33,10 +19,9 @@ from tests.configuration_client import TestClient
 from tests.execution_records import execution_record
 
 
-# LOCAL HELPERS
 @pytest.fixture(autouse=True)
 def offline_wizard(monkeypatch):
-    """@brief Fake every legacy wizard CLI even while tests demonstrate red behavior."""
+    """Fake every legacy wizard CLI even while tests demonstrate red behavior."""
     import adore.web.app as web_app
     from adore.wizard import run_wizard
 
@@ -48,7 +33,7 @@ def offline_wizard(monkeypatch):
 
 
 def _body(tmp_path, **changes):
-    """@brief Valid explicit setup with a local fixture clone."""
+    """Valid explicit setup with a local fixture clone."""
     clone = tmp_path / "clone"
     (clone / ".git").mkdir(parents=True, exist_ok=True)
     return {"name": "alpha", "display_name": "Alpha service", "kind": "gitea",
@@ -58,19 +43,19 @@ def _body(tmp_path, **changes):
 
 
 def _login(client, username="admin", password="admin"):
-    """@brief Return the authenticated account's CSRF header."""
+    """Return the authenticated account's CSRF header."""
     result = client.post("/api/v1/session", json={"username": username, "password": password})
     assert result.status_code == 200, result.text
     return {"X-CSRF-Token": result.json()["csrf"]}
 
 
 def _no_probe(argv, **kwargs):
-    """@brief Fail if preview, create or read launches an external command."""
+    """Fail if preview, create or read launches an external command."""
     raise AssertionError(f"Unexpected external probe: {argv}")
 
 
 def _create(tmp_path):
-    """@brief Enroll one valid project and return the app and profile."""
+    """Enroll one valid project and return the app and profile."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         result = client.post("/api/v1/projects", json=_body(tmp_path), headers=_login(client))
@@ -79,7 +64,7 @@ def _create(tmp_path):
 
 
 def _import_body(tmp_path):
-    """@brief Preserve a valid sample document with absolute external paths."""
+    """Preserve a valid sample document with absolute external paths."""
     text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text(
         encoding="utf-8")
     changes = {".adore": tmp_path / "state", "../project": tmp_path / "clone",
@@ -93,7 +78,7 @@ def _import_body(tmp_path):
 
 # PUBLIC API / TESTS
 def test_guided_candidate_review_binds_complete_setup_without_probes(tmp_path, monkeypatch):
-    """@brief Explicit setup produces canonical paths, rules and revision offline."""
+    """Explicit setup produces canonical paths, rules and revision offline."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _body(tmp_path, ready_label="human-ready", max_iterations=7,
                  max_wall_clock_seconds=600, max_cost_usd=2.5, max_files_touched=20,
@@ -131,7 +116,7 @@ def test_guided_candidate_review_binds_complete_setup_without_probes(tmp_path, m
 
 
 def test_draft_verification_is_explicit_ephemeral_and_revision_bound(tmp_path):
-    """@brief Draft probe returns honest failed checks; stale draft never probes."""
+    """Draft probe returns honest failed checks; stale draft never probes."""
     calls = []
 
     def fake(argv, **_kwargs):
@@ -161,7 +146,7 @@ def test_draft_verification_is_explicit_ephemeral_and_revision_bound(tmp_path):
 
 
 def test_guided_setup_accepts_supported_thinking_and_rejects_unsupported(tmp_path):
-    """@brief Review and creation preserve valid Pi effort and reject invalid levels."""
+    """Review and creation preserve valid Pi effort and reject invalid levels."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _body(tmp_path, model="gpt-5", thinking="medium")
     with TestClient(app) as client:
@@ -183,7 +168,7 @@ def test_guided_setup_accepts_supported_thinking_and_rejects_unsupported(tmp_pat
 
 
 def test_checked_enrollment_transfers_only_server_evidence(tmp_path):
-    """@brief Server evidence binds creation; forged evidence is refused."""
+    """Server evidence binds creation; forged evidence is refused."""
 
     def fake(argv, **kwargs):
         return CommandResult(argv=argv, exit_code=127)
@@ -212,7 +197,7 @@ def test_checked_enrollment_transfers_only_server_evidence(tmp_path):
 
 
 def test_partial_enrollment_evidence_remains_partial_and_goes_stale(tmp_path, monkeypatch):
-    """@brief Unchecked repository evidence is neither promoted nor retained after edits."""
+    """Unchecked repository evidence is neither promoted nor retained after edits."""
     import adore.web.app as web_app
 
     checks = {
@@ -254,7 +239,7 @@ def test_partial_enrollment_evidence_remains_partial_and_goes_stale(tmp_path, mo
 
 
 def test_expired_enrollment_check_is_rejected(tmp_path, monkeypatch):
-    """@brief A server check token cannot outlive its bounded in-memory lifetime."""
+    """A server check token cannot outlive its bounded in-memory lifetime."""
     import adore.web.app as web_app
 
     tick = [100.0]
@@ -287,7 +272,7 @@ def test_expired_enrollment_check_is_rejected(tmp_path, monkeypatch):
 
 
 def test_readiness_is_host_bound_and_requires_applicable_checks(tmp_path, monkeypatch):
-    """@brief Evidence is stale on another host; missing configured checks fail closed."""
+    """Evidence is stale on another host; missing configured checks fail closed."""
     import adore.local_process as local_process
     import adore.web.app as web_app
 
@@ -323,7 +308,7 @@ def test_readiness_is_host_bound_and_requires_applicable_checks(tmp_path, monkey
 
 @pytest.mark.parametrize("kind", ["executor_sign_in", "web_search_key"])
 def test_configured_optional_readiness_check_cannot_be_omitted(tmp_path, monkeypatch, kind):
-    """@brief Evidence cannot claim verification without configuration-required checks."""
+    """Evidence cannot claim verification without configuration-required checks."""
     import adore.web.app as web_app
 
     body = _body(
@@ -364,7 +349,7 @@ def test_configured_optional_readiness_check_cannot_be_omitted(tmp_path, monkeyp
 
 
 def test_chatgpt_draft_check_rejects_auth_drift(tmp_path, monkeypatch):
-    """@brief A draft checked before subscription credentials change cannot transfer evidence."""
+    """A draft checked before subscription credentials change cannot transfer evidence."""
     import adore.web.app as web_app
 
     checks = {
@@ -399,7 +384,7 @@ def test_chatgpt_draft_check_rejects_auth_drift(tmp_path, monkeypatch):
 
 
 def test_draft_probe_reports_verified_and_honors_selected_gitea_login(tmp_path):
-    """@brief Successful host checks verify the prerequisites; no model check is claimed."""
+    """Successful host checks verify the prerequisites; no model check is claimed."""
     calls = []
 
     def fake(argv, **kwargs):
@@ -431,7 +416,7 @@ def test_draft_probe_reports_verified_and_honors_selected_gitea_login(tmp_path):
 
 @pytest.mark.parametrize("field,value", [("auth_mode", "host-auth"), ("executor_cli", "codex")])
 def test_enrollment_refuses_host_sign_in_and_agent_choice(tmp_path, field, value):
-    """@brief Pi is the only agent and host sign-in staging is gone: both fields are refused."""
+    """Pi is the only agent and host sign-in staging is gone: both fields are refused."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = {**_body(tmp_path), field: value}
     with TestClient(app) as client:
@@ -444,7 +429,7 @@ def test_enrollment_refuses_host_sign_in_and_agent_choice(tmp_path, field, value
 
 @pytest.mark.parametrize("route", ["setup-preview", "setup-check", "setup-create"])
 def test_guided_draft_routes_require_admin_csrf(tmp_path, route):
-    """@brief Every draft boundary rejects Dev and missing mutation CSRF."""
+    """Every draft boundary rejects Dev and missing mutation CSRF."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     app.state.web_store.create_user("dev", "test-password", "developer")
     with TestClient(app) as client:
@@ -463,7 +448,7 @@ def test_guided_draft_routes_require_admin_csrf(tmp_path, route):
     {"runtime": "untrusted-runtime"}, {"ready_label": ""},
 ])
 def test_guided_invalid_explicit_fields_fail_closed(tmp_path, changes):
-    """@brief Invalid setup rejects with no probes or runnable profile."""
+    """Invalid setup rejects with no probes or runnable profile."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         result = client.post("/api/v1/projects/setup-preview", json=_body(tmp_path, **changes),
@@ -477,7 +462,7 @@ def test_guided_invalid_explicit_fields_fail_closed(tmp_path, changes):
 
 
 def test_offline_preview_and_enrollment_publish_separate_states(tmp_path):
-    """@brief Preview writes nothing; successful creation is already paused."""
+    """Preview writes nothing; successful creation is already paused."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers = _login(client)
@@ -501,7 +486,7 @@ def test_offline_preview_and_enrollment_publish_separate_states(tmp_path):
 
 
 def test_display_edit_keeps_membership_operations_and_paths(tmp_path):
-    """@brief Human identity changes preserve all operational ownership."""
+    """Human identity changes preserve all operational ownership."""
     app, profile = _create(tmp_path)
     profiles, web = app.state.profiles, app.state.web_store
     before = profiles.load("alpha")
@@ -533,7 +518,7 @@ def test_display_edit_keeps_membership_operations_and_paths(tmp_path):
 @pytest.mark.parametrize("value", ["", " ", " padded ", "x" * 121,
                                   "line\nbreak", "x\u202ey", 42, None])
 def test_display_input_and_corrupt_metadata_fail_closed(tmp_path, value):
-    """@brief Invalid display metadata is rejected rather than reset."""
+    """Invalid display metadata is rejected rather than reset."""
     app, _profile = _create(tmp_path)
     with TestClient(app) as client:
         response = client.put("/api/v1/projects/alpha/identity", json={"display_name": value},
@@ -553,7 +538,7 @@ def test_display_input_and_corrupt_metadata_fail_closed(tmp_path, value):
                                   "setup-preview", "setup-check", "setup-create",
                                   "import", "a" * 32, "x" * 65])
 def test_id_policy_rejects_malformed_reserved_and_ambiguous_ids(tmp_path, name):
-    """@brief Portable IDs cannot address devices, paths or immutable-ID aliases."""
+    """Portable IDs cannot address devices, paths or immutable-ID aliases."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers = _login(client)
@@ -568,7 +553,7 @@ def test_id_policy_rejects_malformed_reserved_and_ambiguous_ids(tmp_path, name):
 
 
 def test_id_availability_checks_incomplete_casefold_and_corrupt_profiles(tmp_path):
-    """@brief Advisory availability rechecks all persisted trust boundaries."""
+    """Advisory availability rechecks all persisted trust boundaries."""
     app = create_app(tmp_path / "home")
     with TestClient(app) as client:
         headers = _login(client)
@@ -582,7 +567,7 @@ def test_id_availability_checks_incomplete_casefold_and_corrupt_profiles(tmp_pat
 
 
 def test_publication_visibility_and_competing_api_instances(tmp_path, monkeypatch):
-    """@brief Worker discovery sees no unpaused profile and a competing API loses."""
+    """Worker discovery sees no unpaused profile and a competing API loses."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     other = create_app(tmp_path / "home", probe_runner=_no_probe)
     entered, release = Event(), Event()
@@ -622,7 +607,7 @@ def test_publication_visibility_and_competing_api_instances(tmp_path, monkeypatc
 
 @pytest.mark.parametrize("failure", ["pause", "metadata", "audit", "config"])
 def test_failed_creation_rolls_back_and_preserves_running_projects(tmp_path, monkeypatch, failure):
-    """@brief Failed publication cannot leave a runnable orphan or change another project."""
+    """Failed publication cannot leave a runnable orphan or change another project."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     existing = app.state.profiles.create("running", store_root=str(tmp_path / "running-state"))
     StateStore(existing.store_root).save(RunState(run_id="job", ticket_iid=9,
@@ -667,7 +652,7 @@ def test_failed_creation_rolls_back_and_preserves_running_projects(tmp_path, mon
 
 
 def test_readiness_storage_failure_is_typed_and_redacted(tmp_path, monkeypatch):
-    """@brief An evidence write failure has a stable safe public finding."""
+    """An evidence write failure has a stable safe public finding."""
     app, _item = _create(tmp_path)
     import adore.web.app as web_app
 
@@ -688,7 +673,7 @@ def test_readiness_storage_failure_is_typed_and_redacted(tmp_path, monkeypatch):
                                       '[platform]\nrepo = []\n',
                                       '[state]\nstore_root = 7\n'])
 def test_malformed_import_field_types_return_structured_findings(tmp_path, document):
-    """@brief Human TOML types fail closed through the public preview boundary."""
+    """Human TOML types fail closed through the public preview boundary."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         response = client.post("/api/v1/projects/import-preview", json={
@@ -699,7 +684,7 @@ def test_malformed_import_field_types_return_structured_findings(tmp_path, docum
 
 
 def test_structured_setup_findings_and_direct_unauthorized_requests(tmp_path):
-    """@brief Bad setup is actionable; Dev cannot reach mutations through the API."""
+    """Bad setup is actionable; Dev cannot reach mutations through the API."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     app.state.web_store.create_user("dev", "longer-password", "developer")
     with TestClient(app) as client:
@@ -725,7 +710,7 @@ def test_structured_setup_findings_and_direct_unauthorized_requests(tmp_path):
 
 
 def test_guided_setup_rejects_unknown_secret_fields_without_echo(tmp_path):
-    """@brief Unsupported JSON credentials are rejected, never silently ignored."""
+    """Unsupported JSON credentials are rejected, never silently ignored."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         result = client.post("/api/v1/projects",
@@ -737,7 +722,7 @@ def test_guided_setup_rejects_unknown_secret_fields_without_echo(tmp_path):
 
 
 def test_readiness_is_revision_bound_persisted_and_display_independent(tmp_path):
-    """@brief Explicit fake probes produce evidence; config changes make it stale."""
+    """Explicit fake probes produce evidence; config changes make it stale."""
     app, profile = _create(tmp_path)
     calls = []
 
@@ -775,7 +760,7 @@ def test_readiness_is_revision_bound_persisted_and_display_independent(tmp_path)
 
 
 def test_readiness_rejects_mid_probe_revision_change(tmp_path):
-    """@brief A probe cannot certify config bytes changed while commands ran."""
+    """A probe cannot certify config bytes changed while commands ran."""
     app, _profile = _create(tmp_path)
     path = app.state.profiles.config_path("alpha")
 
@@ -793,7 +778,7 @@ def test_readiness_rejects_mid_probe_revision_change(tmp_path):
 @pytest.mark.parametrize("record", [{}, [], {"schema": 99}, {"schema": True},
                                    {"checked_at": "bad"}])
 def test_corrupt_readiness_metadata_fails_closed(tmp_path, record):
-    """@brief Corrupt stored verification never becomes a fresh or empty result."""
+    """Corrupt stored verification never becomes a fresh or empty result."""
     app, _profile = _create(tmp_path)
     evidence = app.state.profiles.profile_dir("alpha") / "readiness.json"
     evidence.write_text(json.dumps(record), encoding="utf-8")
@@ -806,7 +791,7 @@ def test_corrupt_readiness_metadata_fails_closed(tmp_path, record):
 
 
 def test_wizard_preparation_keeps_cli_defaults_and_never_probes(tmp_path):
-    """@brief Preparation has no effects while normal CLI enrollment still saves unpaused."""
+    """Preparation has no effects while normal CLI enrollment still saves unpaused."""
     from adore.wizard import ScriptedAsker, WizardSetup, run_wizard
 
     profiles = ProfileStore(tmp_path / "home")
@@ -822,7 +807,7 @@ def test_wizard_preparation_keeps_cli_defaults_and_never_probes(tmp_path):
 
 
 def test_import_visibility_rollback_and_retained_state(tmp_path, monkeypatch):
-    """@brief Exact imports pause before metadata; an audit failure restores external state."""
+    """Exact imports pause before metadata; an audit failure restores external state."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _import_body(tmp_path)
     state = StateStore(tmp_path / "state")
@@ -870,7 +855,7 @@ def test_import_visibility_rollback_and_retained_state(tmp_path, monkeypatch):
     {"OPENAI_BASE_URL": "https://model.invalid/v1?token=fixture-sensitive-value"},
 ])
 def test_import_rejects_secret_runtime_values_and_provider_json(tmp_path, env):
-    """@brief Secret rejection covers values and URLs without values in findings."""
+    """Secret rejection covers values and URLs without values in findings."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _import_body(tmp_path)
     inline = ", ".join(key + " = " + json.dumps(value) for key, value in env.items())
@@ -889,13 +874,9 @@ def test_import_rejects_secret_runtime_values_and_provider_json(tmp_path, env):
     assert not app.state.profiles.profile_dir("imported").exists()
 
 
-
-
-
-
 @pytest.mark.parametrize("display", [None, "", " x "])
 def test_explicit_invalid_enrollment_display_is_rejected(tmp_path, display):
-    """@brief Explicit invalid names are not treated as legacy omission."""
+    """Explicit invalid names are not treated as legacy omission."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         result = client.post("/api/v1/projects", json=_body(tmp_path, display_name=display),
@@ -911,7 +892,7 @@ def test_explicit_invalid_enrollment_display_is_rejected(tmp_path, display):
                      "model": "", "reason": "unrecognized-private-reason"}),
 ])
 def test_readiness_rejects_tampered_valid_record_fields(tmp_path, field, value):
-    """@brief Time, identity, schema and command-result evidence remain strict boundaries."""
+    """Time, identity, schema and command-result evidence remain strict boundaries."""
     app, _profile = _create(tmp_path)
     def runner(argv, **kwargs):
         return CommandResult(argv=argv, exit_code=0)
@@ -930,7 +911,7 @@ def test_readiness_rejects_tampered_valid_record_fields(tmp_path, field, value):
 
 
 def test_preview_lists_the_settings_that_keep_their_defaults(tmp_path):
-    """@brief Review and create shows every editable setting still at ADORE's default."""
+    """Review and create shows every editable setting still at ADORE's default."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers = _login(client)
@@ -948,7 +929,7 @@ def test_preview_lists_the_settings_that_keep_their_defaults(tmp_path):
 
 
 def test_enrollment_reviews_an_endpoint_provider_and_names_its_credential(tmp_path):
-    """@brief Step 2 provider/endpoint answers reach the reviewed config; no key is asked."""
+    """Step 2 provider/endpoint answers reach the reviewed config; no key is asked."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _body(tmp_path, provider="custom", model="qwen/qwen3.5-9b",
                  endpoint_base_url="http://172.27.80.1:1234/v1",
@@ -982,7 +963,7 @@ def test_enrollment_reviews_an_endpoint_provider_and_names_its_credential(tmp_pa
     ({"provider": "anthropic", "model": ""}, "model"),
 ])
 def test_enrollment_refuses_an_invalid_provider_selection(tmp_path, changes, field):
-    """@brief An unknown provider, an endpoint without URL and a missing model are findings."""
+    """An unknown provider, an endpoint without URL and a missing model are findings."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         preview = client.post("/api/v1/projects/setup-preview", headers=_login(client),
@@ -995,7 +976,7 @@ def test_enrollment_refuses_an_invalid_provider_selection(tmp_path, changes, fie
     (["aegis.toml"], "direct"), (["aegis.py"], "aegis"),
     (["aegis.py", "aegis.toml"], "aegis")])
 def test_draft_workflow_preview_check_and_creation(tmp_path, files, workflow):
-    """@brief Read-only preview/check agree; creation preserves the measured observation."""
+    """Read-only preview/check agree; creation preserves the measured observation."""
     body = _body(tmp_path)
     clone = Path(body["repo_path"])
     if files is None:
@@ -1044,7 +1025,7 @@ def test_draft_workflow_preview_check_and_creation(tmp_path, files, workflow):
 
 @pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}])
 def test_draft_invalid_workflow_never_issues_evidence(tmp_path, monkeypatch, bad):
-    """@brief Draft probes validate the required enum before issuing any token."""
+    """Draft probes validate the required enum before issuing any token."""
     import adore.web.app as web_app
 
     evidence = {"checks": dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
@@ -1063,6 +1044,3 @@ def test_draft_invalid_workflow_never_issues_evidence(tmp_path, monkeypatch, bad
         assert result.json()["detail"]["code"] == "readiness_probe_failed"
         assert "evidence_token" not in result.json()
         assert not app.state.profiles.profile_dir("alpha").exists()
-
-
-# END OF FILE

@@ -1,25 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    local_execution.py
-@brief   Native installed-executor implementation of the shared backend contract.
-@details Reuses existing account credentials in place. No container, recipe,
-         tooling installation, account switching or host sandbox is provided.
-"""
+"""Native installed-executor implementation of the shared backend contract."""
 
 from __future__ import annotations
 
 from contextlib import contextmanager
 from copy import deepcopy
-
-# IMPORTS
 from dataclasses import asdict
 import hashlib
 import json
@@ -45,7 +29,6 @@ from adore.pi_installation import PI_ENV, PiInstallationError, managed_pi, verif
 from adore.pi_providers import credential_required, credential_variable, secret_names
 from adore.util import CommandResult, automatic_environment
 
-# CONSTANTS
 SYSTEM_ENV_KEYS = frozenset(
     {
         "SYSTEMROOT",
@@ -115,36 +98,34 @@ LOCAL_PROBE_REASONS = frozenset({
 
 
 class LocalPrerequisiteError(LocalExecutionError):
-    """@brief Preserve a closed prerequisite cause and the measured process status."""
+    """Preserve a closed prerequisite cause and the measured process status."""
 
     def __init__(self, reason: str, exit_code: int | None = None, message: str = ""):
-        """@brief Carry safe diagnostic data without retaining command output."""
+        """Carry safe diagnostic data without retaining command output."""
         super().__init__(message or reason)
         self.reason, self.exit_code = reason, exit_code
 
-# LOCAL HELPERS
-
 
 def fingerprint(value: dict) -> str:
-    """@brief Canonical non-secret local identity digest.
-    @param[in] value Closed native JSON record.
-    @return Verified native operation result.
+    """
+    Canonical non-secret local identity digest.
+    value: Closed native JSON record.
+    Returns: Verified native operation result.
     """
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, ensure_ascii=False).encode()
     ).hexdigest()
 
 
-
-
 def local_environment(config, context: dict, secrets: dict | None = None) -> dict[str, str]:
-    """@brief Build the selected account's explicit environment without forge tokens.
-    @param[in] config Validated local profile.
-    @param[in] context Actual native account/machine defaults.
-    @param[in] secrets Approved executor values supplied in memory only.
-    @return Controlled environment shared by probes and gates.
-    @note Python standard streams use UTF-8 to match native evidence.
-    @exception LocalExecutionError Account assertion, home or platform is unsupported.
+    """
+    Build the selected account's explicit environment without forge tokens.
+    config: Validated local profile.
+    context: Actual native account/machine defaults.
+    secrets: Approved executor values supplied in memory only.
+    Returns: Controlled environment shared by probes and gates.
+    Note: Python standard streams use UTF-8 to match native evidence.
+    Raises LocalExecutionError: Account assertion, home or platform is unsupported.
     """
     if context["system"] not in {"Windows", "Linux"}:
         raise LocalExecutionError("unsupported local execution platform")
@@ -181,12 +162,13 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
 
 
 def resolve_executable(command: str, env: dict[str, str], system: str) -> str:
-    """@brief Resolve one installed native executable without a shell or installer.
-    @param[in] command Explicit executable token.
-    @param[in] env Selected native environment.
-    @param[in] system Native Windows/Linux platform.
-    @return Exact executable path used by gates/probes.
-    @exception LocalExecutionError Missing CLI, shell wrapper or unsafe Windows shim.
+    """
+    Resolve one installed native executable without a shell or installer.
+    command: Explicit executable token.
+    env: Selected native environment.
+    system: Native Windows/Linux platform.
+    Returns: Exact executable path used by gates/probes.
+    Raises LocalExecutionError: Missing CLI, shell wrapper or unsafe Windows shim.
     """
     found = command if Path(command).is_absolute() else None
     if found is None:
@@ -215,10 +197,11 @@ def resolve_executable(command: str, env: dict[str, str], system: str) -> str:
 
 
 def local_policy(config, *, context: dict | None = None) -> dict:
-    """@brief Pin native account/environment and installed executable without commands.
-    @param[in] config Validated profile.
-    @param[in] context Injectable actual native context.
-    @return Closed non-secret native plan policy.
+    """
+    Pin native account/environment and installed executable without commands.
+    config: Validated profile.
+    context: Injectable actual native context.
+    Returns: Closed non-secret native plan policy.
     """
     context = context or native_context()
     env = local_environment(config, context)
@@ -231,7 +214,7 @@ def local_policy(config, *, context: dict | None = None) -> dict:
         raise LocalExecutionError("managed Pi and Node must be installed outside the project")
 
     def describe(path: Path) -> dict:
-        """@brief Pin the exact native file identity."""
+        """Pin the exact native file identity."""
         details = path.stat()
         return {"path": str(path), "size": details.st_size, "mtime_ns": details.st_mtime_ns,
                 "inode": details.st_ino, "device": details.st_dev}
@@ -251,10 +234,11 @@ def local_policy(config, *, context: dict | None = None) -> dict:
 
 
 def validate_local_resource(resource: object) -> dict:
-    """@brief Validate the closed additive native resource record.
-    @param[in] resource Untrusted persisted mapping.
-    @return Trusted local resource identity.
-    @exception LocalExecutionError Unsupported or corrupt identity.
+    """
+    Validate the closed additive native resource record.
+    resource: Untrusted persisted mapping.
+    Returns: Trusted local resource identity.
+    Raises LocalExecutionError: Unsupported or corrupt identity.
     """
     if (
         not isinstance(resource, dict)
@@ -276,19 +260,17 @@ def validate_local_resource(resource: object) -> dict:
     return resource
 
 
-# PUBLIC API
-
-
 class LocalBackend:
-    """@brief Managed native Pi adapter on the shared lifecycle boundary."""
+    """Managed native Pi adapter on the shared lifecycle boundary."""
 
     paths = ExecutionPaths(shell="")
 
     @classmethod
     def for_cleanup(cls, config):
-        """@brief Construct ownership-only cleanup without resolving installed tools.
-        @param[in] config Current state-root configuration; grants no execution authority.
-        @return Native adapter restricted to explicit saved-ownership release.
+        """
+        Construct ownership-only cleanup without resolving installed tools.
+        config: Current state-root configuration; grants no execution authority.
+        Returns: Native adapter restricted to explicit saved-ownership release.
         """
         backend = cls.__new__(cls)
         backend.config = config
@@ -300,11 +282,12 @@ class LocalBackend:
         return backend
 
     def remove_owned(self, name: str, expected: dict, previous_policy: dict) -> None:
-        """@brief Release saved native ownership after explicit drift acknowledgement.
-        @param[in] name Persisted run resource name.
-        @param[in] expected Exact saved native resource.
-        @param[in] previous_policy Saved validated plan policy, independent of current tools.
-        @exception LocalExecutionError Foreign receipt, paths, host/account or process scope.
+        """
+        Release saved native ownership after explicit drift acknowledgement.
+        name: Persisted run resource name.
+        expected: Exact saved native resource.
+        previous_policy: Saved validated plan policy, independent of current tools.
+        Raises LocalExecutionError: Foreign receipt, paths, host/account or process scope.
         """
         control = self._control(expected)
         if expected["name"] != name:
@@ -328,7 +311,7 @@ class LocalBackend:
     def __init__(
         self, config, *, controller=None, context=None, resolver=resolve_executable
     ) -> None:
-        """@brief Select current native account; inject scopes/processes for offline proof."""
+        """Select current native account; inject scopes/processes for offline proof."""
         from adore.config import validate_config
 
         issues = [
@@ -349,19 +332,21 @@ class LocalBackend:
         self.targets: dict[str, dict] = {}
 
     def executor_environment(self) -> dict[str, str]:
-        """@brief Return the actual selected native home/environment without auth copies.
-        @return Verified native operation result.
+        """
+        Return the actual selected native home/environment without auth copies.
+        Returns: Verified native operation result.
         """
         return dict(self.environment)
 
     def image_identity(self, image: str) -> str:
-        """@brief Local execution never inspects or creates executor images.
-        @param[in] image Absent in local mode.
+        """
+        Local execution never inspects or creates executor images.
+        image: Absent in local mode.
         """
         raise LocalExecutionError("local execution has no image identity")
 
     def _control(self, resource: dict) -> Path:
-        """@brief Resolve only the configured state-owned native control directory."""
+        """Resolve only the configured state-owned native control directory."""
         validate_local_resource(resource)
         io = Path(resource["io"])
         root = Path(self.config.state.store_root).resolve() / "runs"
@@ -381,11 +366,12 @@ class LocalBackend:
         return control
 
     def revalidate_for_retry(self, name: str, expected: dict, previous_policy: dict) -> None:
-        """@brief Refresh an owned native receipt after explicit Retry authorization.
-        @param[in] name Persisted resource name.
-        @param[in] expected Unchanged run resource identity.
-        @param[in] previous_policy Previously pinned local policy, checked by the conductor.
-        @exception LocalExecutionError Corrupt receipt or foreign ownership.
+        """
+        Refresh an owned native receipt after explicit Retry authorization.
+        name: Persisted resource name.
+        expected: Unchanged run resource identity.
+        previous_policy: Previously pinned local policy, checked by the conductor.
+        Raises LocalExecutionError: Corrupt receipt or foreign ownership.
         """
         control = self._control(expected)
         receipt = read_record(control / "runtime.json")
@@ -405,10 +391,11 @@ class LocalBackend:
         self.targets[name] = expected
 
     def verify_identity(self, name: str, expected: dict) -> dict:
-        """@brief Refuse state/config/resource drift before commands or controls.
-        @param[in] name Owned native resource or Job name.
-        @param[in] expected Pinned persisted native resource identity.
-        @return Verified native operation result.
+        """
+        Refuse state/config/resource drift before commands or controls.
+        name: Owned native resource or Job name.
+        expected: Pinned persisted native resource identity.
+        Returns: Verified native operation result.
         """
         control = self._control(expected)
         receipt = read_record(control / "runtime.json")
@@ -428,14 +415,15 @@ class LocalBackend:
         return expected
 
     def provision(self, name, repo, worktree, io, env, *, image=None) -> str:
-        """@brief Create/resume native control identity; no tools, images or recipes.
-        @param[in] name Existing run resource name.
-        @param[in] repo Main clone (owned by WorktreeManager).
-        @param[in] worktree Dedicated native ticket worktree.
-        @param[in] io Parent-owned native exchange directory.
-        @param[in] env Approved executor environment values.
-        @param[in] image Must be absent in local mode.
-        @return Created or resumed native target.
+        """
+        Create/resume native control identity; no tools, images or recipes.
+        name: Existing run resource name.
+        repo: Main clone (owned by WorktreeManager).
+        worktree: Dedicated native ticket worktree.
+        io: Parent-owned native exchange directory.
+        env: Approved executor environment values.
+        image: Must be absent in local mode.
+        Returns: Created or resumed native target.
         """
         if image is not None:
             raise LocalExecutionError("local execution cannot provision an image")
@@ -473,20 +461,22 @@ class LocalBackend:
         return outcome
 
     def resource_identity(self, name: str) -> dict:
-        """@brief Return verified native run identity, distinct from process leases.
-        @param[in] name Owned native resource or Job name.
-        @return Verified native operation result.
+        """
+        Return verified native run identity, distinct from process leases.
+        name: Owned native resource or Job name.
+        Returns: Verified native operation result.
         """
         if name not in self.targets:
             raise LocalExecutionError("local target is not bound")
         return dict(self.verify_identity(name, self.targets[name]))
 
     def bind(self, name: str, env: dict, expected: dict | None = None, *, secrets=()):
-        """@brief Bind native commands and paths to exact durable run ownership.
-        @param[in] name Owned native resource or Job name.
-        @param[in] env Controlled account environment and approved values.
-        @param[in] expected Pinned persisted native resource identity.
-        @return Verified native operation result.
+        """
+        Bind native commands and paths to exact durable run ownership.
+        name: Owned native resource or Job name.
+        env: Controlled account environment and approved values.
+        expected: Pinned persisted native resource identity.
+        Returns: Verified native operation result.
         """
         resource = expected or self.targets.get(name)
         if resource is None:
@@ -495,10 +485,11 @@ class LocalBackend:
         return LocalTarget(self, name, env, resource, secrets=secrets)
 
     def verify_required_tools(self, name: str, checks, *, env: dict) -> None:
-        """@brief Check only executor availability; project tools remain user-owned.
-        @param[in] name Owned native resource or Job name.
-        @param[in] checks Empty; project tools are user-owned.
-        @param[in] env Controlled account environment and approved values.
+        """
+        Check only executor availability; project tools remain user-owned.
+        name: Owned native resource or Job name.
+        checks: Empty; project tools are user-owned.
+        env: Controlled account environment and approved values.
         """
         if checks:
             raise LocalExecutionError(
@@ -511,7 +502,7 @@ class LocalBackend:
         self.verify_scope(name, env)
 
     def verify_scope(self, name: str, env: dict) -> None:
-        """@brief Verify a simple command can enter and drain the native scope."""
+        """Verify a simple command can enter and drain the native scope."""
         target = self.bind(name, env)
         # A bounded native command proves the service account can create and
         # release its process scope before any project code starts.
@@ -522,9 +513,10 @@ class LocalBackend:
             raise LocalPrerequisiteError("node-invalid", checked.exit_code)
 
     def interrupt(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Terminate only verified native command scope, never a bare PID.
-        @param[in] name Owned native resource or Job name.
-        @param[in] expected Pinned persisted native resource identity.
+        """
+        Terminate only verified native command scope, never a bare PID.
+        name: Owned native resource or Job name.
+        expected: Pinned persisted native resource identity.
         """
         resource = expected or self.targets.get(name)
         if resource is None:
@@ -533,18 +525,20 @@ class LocalBackend:
         self.controller.interrupt(self._control(resource), resource["id"], resource["host"])
 
     def stop(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Park without a live process; retain worktree, evidence and identity.
-        @param[in] name Owned native resource or Job name.
-        @param[in] expected Pinned persisted native resource identity.
+        """
+        Park without a live process; retain worktree, evidence and identity.
+        name: Owned native resource or Job name.
+        expected: Pinned persisted native resource identity.
         """
         self.interrupt(name, expected=expected)
         resource = expected or self.targets[name]
         self.controller.recover(self._control(resource), resource["id"], resource["host"])
 
     def remove(self, name: str, *, expected: dict | None = None) -> None:
-        """@brief Release only verified run control; preserve all installed tools/auth.
-        @param[in] name Owned native resource or Job name.
-        @param[in] expected Pinned persisted native resource identity.
+        """
+        Release only verified run control; preserve all installed tools/auth.
+        name: Owned native resource or Job name.
+        expected: Pinned persisted native resource identity.
         """
         resource = expected or self.targets.get(name)
         if resource is None:
@@ -561,7 +555,7 @@ class LocalBackend:
 
 
 class LocalTarget:
-    """@brief Native argv/file target carrying the existing backend path contract."""
+    """Native argv/file target carrying the existing backend path contract."""
 
     def __init__(self, backend: LocalBackend, name: str, env: dict, resource: dict,
                  *, secrets=()) -> None:
@@ -580,7 +574,7 @@ class LocalTarget:
         self.output_limit = 65536
 
     def auth_available(self) -> bool:
-        """@brief Check only the selected provider's injected project credential."""
+        """Check only the selected provider's injected project credential."""
         provider = self.backend.config.executor.provider
         if provider == "chatgpt":
             return bool(self.env.get("OPENAI_API_KEY"))
@@ -588,14 +582,14 @@ class LocalTarget:
                 or bool(self.env.get(credential_variable(provider) or "")))
 
     def _secrets(self) -> list[str]:
-        """@brief Collect the approved injected credentials for redaction."""
+        """Collect the approved injected credentials for redaction."""
         return sorted(set(self.launch_secrets) | {
             self.env[key] for key in secret_names(self.backend.config.executor, "local")
             if self.env.get(key)
         }, key=len, reverse=True)
 
     def pi_argv(self, model, provider, *, web=False, notice="", thinking=""):
-        """@brief Build fixed RPC argv for the exact native Node and Pi installation."""
+        """Build fixed RPC argv for the exact native Node and Pi installation."""
         from adore.executor.launcher import pi_rpc_argv
 
         self.backend.verify_identity(self.name, self.resource)
@@ -605,7 +599,7 @@ class LocalTarget:
 
     @contextmanager
     def pi_session(self, argv, placements):
-        """@brief Prepare isolated Pi settings and lend owned binary process pipes."""
+        """Prepare isolated Pi settings and lend owned binary process pipes."""
         backend = self.backend
         backend.verify_identity(self.name, self.resource)
         control = backend._control(self.resource)
@@ -621,20 +615,22 @@ class LocalTarget:
                 yield process
 
     def redact(self, text: str) -> str:
-        """@brief Remove known account/provider values before retained file evidence.
-        @param[in] text Evidence text to redact before retention.
-        @return Verified native operation result.
+        """
+        Remove known account/provider values before retained file evidence.
+        text: Evidence text to redact before retention.
+        Returns: Verified native operation result.
         """
         for value in self._secrets():
             text = text.replace(value, "[REDACTED]")
         return text
 
     def read_output(self, path: Path, *, optional: bool = False) -> str:
-        """@brief Validate and redact bounded native file evidence before retention.
-        @param[in] path Owned exchange or questions file.
-        @param[in] optional Permit an absent questions file.
-        @return Strict UTF-8 redacted evidence.
-        @exception LocalExecutionError Missing, linked, oversized or corrupt output.
+        """
+        Validate and redact bounded native file evidence before retention.
+        path: Owned exchange or questions file.
+        optional: Permit an absent questions file.
+        Returns: Strict UTF-8 redacted evidence.
+        Raises LocalExecutionError: Missing, linked, oversized or corrupt output.
         """
         try:
             from adore.aegis import AEGIS_STDOUT_FILE, MAX_JSON_BYTES
@@ -660,12 +656,13 @@ class LocalTarget:
             raise LocalExecutionError("native output evidence missing or corrupt") from exc
 
     def run_files(self, argv, stdout: Path, stderr: Path, *, timeout=None) -> CommandResult:
-        """@brief Execute native argv with owned scopes and bounded redacted file output.
-        @param[in] argv Native argv; no shell interpretation.
-        @param[in] stdout Owned bounded stdout file.
-        @param[in] stderr Owned bounded stderr file.
-        @param[in] timeout Positive finite wall-time bound.
-        @return Verified native operation result.
+        """
+        Execute native argv with owned scopes and bounded redacted file output.
+        argv: Native argv; no shell interpretation.
+        stdout: Owned bounded stdout file.
+        stderr: Owned bounded stderr file.
+        timeout: Positive finite wall-time bound.
+        Returns: Verified native operation result.
         """
         backend = self.backend
         from adore.aegis import AEGIS_STDOUT_FILE, MAX_JSON_BYTES
@@ -697,7 +694,7 @@ class LocalTarget:
         return result
 
     def __call__(self, argv, *, timeout=None) -> CommandResult:
-        """@brief Run one backend command with its same controlled native environment."""
+        """Run one backend command with its same controlled native environment."""
         directory = Path(self.paths.io) / ("native-command-" + uuid4().hex)
         directory.mkdir()
         stdout, stderr = directory / "stdout.txt", directory / "stderr.txt"
@@ -709,11 +706,12 @@ class LocalTarget:
 
 @contextmanager
 def local_probe(config, env_file: Path | None = None):
-    """@brief Yield the same owned native target/environment for explicit bounded probes.
-    @param[in] config Selected local configuration.
-    @param[in] env_file Approved provider values, reused only in memory.
-    @return Context yielding backend, target, worktree and exchange directory.
-    @exception LocalExecutionError Unconfirmed cleanup preserves the temporary workspace.
+    """
+    Yield the same owned native target/environment for explicit bounded probes.
+    config: Selected local configuration.
+    env_file: Approved provider values, reused only in memory.
+    Returns: Context yielding backend, target, worktree and exchange directory.
+    Raises LocalExecutionError: Unconfirmed cleanup preserves the temporary workspace.
     """
     from adore.util import load_env_file
 
@@ -738,11 +736,12 @@ def local_probe(config, env_file: Path | None = None):
 
 
 def validate_local_probe(value: object, ready: bool) -> dict:
-    """@brief Refuse corrupt or contradictory optional prerequisite evidence.
-    @param[in] value Untrusted persisted diagnostic object.
-    @param[in] ready Authoritative executor_cli check.
-    @return Closed diagnostic with no external text.
-    @exception ValueError Unknown keys, types, reasons or inconsistent status.
+    """
+    Refuse corrupt or contradictory optional prerequisite evidence.
+    value: Untrusted persisted diagnostic object.
+    ready: Authoritative executor_cli check.
+    Returns: Closed diagnostic with no external text.
+    Raises ValueError: Unknown keys, types, reasons or inconsistent status.
     """
     if (not isinstance(value, dict) or set(value) != {"ready", "reason", "exit_code"}
             or type(value["ready"]) is not bool or value["ready"] is not ready
@@ -759,10 +758,11 @@ def validate_local_probe(value: object, ready: bool) -> dict:
 
 
 def local_probe_failure(error: Exception, fallback: str = "runtime-error") -> str:
-    """@brief Classify known native failures without exposing arbitrary exception text.
-    @param[in] error Native boundary failure.
-    @param[in] fallback Current failed phase, used for unclassified failures.
-    @return Closed cause; raw provider/OS/credential strings never escape.
+    """
+    Classify known native failures without exposing arbitrary exception text.
+    error: Native boundary failure.
+    fallback: Current failed phase, used for unclassified failures.
+    Returns: Closed cause; raw provider/OS/credential strings never escape.
     """
     if isinstance(error, PermissionError):
         return "permission-denied"
@@ -796,10 +796,11 @@ def local_probe_failure(error: Exception, fallback: str = "runtime-error") -> st
 
 def probe_local_executor(config, env_file: Path | None = None, *,
                          chatgpt_dir: Path | None = None) -> dict:
-    """@brief Measure installed executor/version/auth and preserve a safe failed phase.
-    @param[in] config Validated current-account configuration.
-    @param[in] env_file Selected approved provider values.
-    @return Closed ready/reason/exit_code evidence after verified cleanup.
+    """
+    Measure installed executor/version/auth and preserve a safe failed phase.
+    config: Validated current-account configuration.
+    env_file: Selected approved provider values.
+    Returns: Closed ready/reason/exit_code evidence after verified cleanup.
     """
     value = {"ready": False, "reason": "scope-error", "exit_code": None}
     phase = "scope-error"
@@ -825,6 +826,3 @@ def probe_local_executor(config, env_file: Path | None = None, *,
         if isinstance(exc, (LocalPrerequisiteError, PiInstallationError)):
             value["exit_code"] = exc.exit_code
     return validate_local_probe(value, value["ready"])
-
-
-# END OF FILE

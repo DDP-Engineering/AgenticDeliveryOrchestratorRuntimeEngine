@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 export type ExecutionPlan = { schema: 1; backend: "container" | "local"; selection: string; image: string; image_source: "profile" | "recipe" | "local"; source_sha256: string; fingerprint: string; steps: Array<{ name: string; run: string }> };
 export type PreparationEvidence = { status: "pending" | "running" | "success" | "failed" | "interrupted" | "cancelled"; attempts: number; image: string; fingerprint: string; steps: Array<{ index: number; name: string; started_at: string; finished_at: string; exit_code: number; timed_out: boolean; cancelled: boolean }> };
 const selection = (value: string) => {

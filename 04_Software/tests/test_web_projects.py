@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_projects.py
-@brief Project directory search and status contract tests.
-@details Authorized project cards expose configuration state and last activity.
-"""
+"""Project directory search and status contract tests."""
 
 import json
 from pathlib import Path
@@ -28,7 +15,7 @@ from tests.execution_records import execution_record
 
 
 def test_project_directory_filters_with_grants_and_status(tmp_path):
-    """@brief Search and state filters operate only on authorized projects."""
+    """Search and state filters operate only on authorized projects."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = profiles.create("alpha", description="Core service", repo="org/alpha",
                             store_root=str(tmp_path / "alpha-state"))
@@ -72,7 +59,7 @@ def test_project_directory_filters_with_grants_and_status(tmp_path):
 
 
 def test_project_directory_rejects_bad_filters_and_corrupt_activity(tmp_path):
-    """@brief Bad queries and malformed persisted times fail with typed errors."""
+    """Bad queries and malformed persisted times fail with typed errors."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -91,7 +78,7 @@ def test_project_directory_rejects_bad_filters_and_corrupt_activity(tmp_path):
 
 
 def test_web_project_has_stable_absolute_worktree_root(tmp_path, monkeypatch):
-    """@brief Web jobs use one worktree path regardless of worker cwd."""
+    """Web jobs use one worktree path regardless of worker cwd."""
     import adore.web.app as web_app
 
     def offline_wizard(*args, **kwargs):

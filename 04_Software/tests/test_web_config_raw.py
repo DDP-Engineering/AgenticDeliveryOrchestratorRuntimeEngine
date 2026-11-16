@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_web_config_raw.py
-@brief      Administrator original TOML download and trust boundaries.
-@details    Offline HTTP tests preserve exact bytes and prevent denied disclosure.
-"""
+"""Administrator original TOML download and trust boundaries."""
 
-# IMPORTS
 from hashlib import sha1
 from io import BytesIO
 import json
@@ -29,7 +15,6 @@ import pytest
 
 from tests.configuration_client import TestClient
 
-# CONSTANTS
 _REVISION = "a" * 40
 _MANIFEST = "docker/build.json"
 _DOCKERFILE = "docker/Dockerfile"
@@ -37,10 +22,9 @@ _IMAGE = "registry.example:5000/example/executor:Reviewed"
 _SOURCE = "assets/input.bin"
 
 
-# LOCAL HELPERS
 @pytest.fixture
 def docker_project(raw_project, tmp_path):
-    """@brief Create a Docker project and a fake immutable Git object database."""
+    """Create a Docker project and a fake immutable Git object database."""
     profiles, path, raw = raw_project
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -59,7 +43,7 @@ def docker_project(raw_project, tmp_path):
     commands = []
 
     def runner(argv, *, cwd, timeout, env):
-        """@brief Model exact Git paths and binary archive output without external commands."""
+        """Model exact Git paths and binary archive output without external commands."""
         commands.append(argv)
         assert Path(cwd) == repo and timeout <= 30
         assert env["GIT_NO_LAZY_FETCH"] == "1"
@@ -95,7 +79,7 @@ def docker_project(raw_project, tmp_path):
 
 # PUBLIC CONTRACT TESTS
 def test_export_docker_build_bundle_contains_only_declared_bytes(docker_project):
-    """@brief Admin ZIP has the original TOML, relative Compose paths and exact Git blobs."""
+    """Admin ZIP has the original TOML, relative Compose paths and exact Git blobs."""
     profiles, _, raw, _, blobs, commands, runner = docker_project
     with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
@@ -133,7 +117,7 @@ def test_export_docker_build_bundle_contains_only_declared_bytes(docker_project)
     ("inline", "build_config_has_secrets"),
 ])
 def test_export_docker_build_refuses_unsafe_definition(docker_project, invalid, error):
-    """@brief Bad registrations fail closed and the standalone export remains available."""
+    """Bad registrations fail closed and the standalone export remains available."""
     profiles, path, raw, manifest, blobs, commands, runner = docker_project
     if invalid == "unregistered":
         path.write_bytes(raw.replace(f'{_MANIFEST}@{_REVISION}'.encode(), b""))
@@ -164,7 +148,7 @@ def test_export_docker_build_refuses_unsafe_definition(docker_project, invalid, 
 
 @pytest.fixture
 def raw_project(tmp_path):
-    """@brief Create an isolated saved profile with a private inline fixture field."""
+    """Create an isolated saved profile with a private inline fixture field."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
@@ -178,7 +162,7 @@ def raw_project(tmp_path):
 
 
 def test_admin_raw_configuration_preserves_original_bytes(raw_project):
-    """@brief Both read forms retain saved bytes, private fields and config revision."""
+    """Both read forms retain saved bytes, private fields and config revision."""
     profiles, path, raw = raw_project
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
@@ -203,7 +187,7 @@ def test_admin_raw_configuration_preserves_original_bytes(raw_project):
     ids=["empty", "invalid-toml", "invalid-utf8", "oversized"],
 )
 def test_raw_configuration_corruption_withholds_bytes(raw_project, payload):
-    """@brief Empty, malformed, invalid UTF-8 and oversized files fail closed."""
+    """Empty, malformed, invalid UTF-8 and oversized files fail closed."""
     profiles, path, _ = raw_project
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
@@ -214,7 +198,7 @@ def test_raw_configuration_corruption_withholds_bytes(raw_project, payload):
 
 
 def test_raw_configuration_denied_roles_and_missing_source(raw_project):
-    """@brief Anonymous and Dev reads disclose nothing; missing source is typed."""
+    """Anonymous and Dev reads disclose nothing; missing source is typed."""
     profiles, path, _ = raw_project
     app = create_app(profiles.home)
     with TestClient(app) as client:
@@ -240,13 +224,13 @@ def test_raw_configuration_denied_roles_and_missing_source(raw_project):
 
 
 def test_raw_configuration_changed_source_fails_closed(raw_project, monkeypatch):
-    """@brief Concurrent saved-file replacement cannot produce a mixed snapshot."""
+    """Concurrent saved-file replacement cannot produce a mixed snapshot."""
     profiles, path, raw = raw_project
     original_open = Path.open
     reads = 0
 
     def changing_open(source, *args, **kwargs):
-        """@brief Simulate an external writer replacing the configured file."""
+        """Simulate an external writer replacing the configured file."""
         nonlocal reads
         if source == path and args and args[0] == "rb":
             reads += 1
@@ -261,6 +245,3 @@ def test_raw_configuration_changed_source_fails_closed(raw_project, monkeypatch)
         response = client.get("/api/v1/projects/alpha/config/raw")
         assert response.status_code == 409
         assert response.json()["detail"]["code"] == "stale_config_revision"
-
-
-# END OF FILE

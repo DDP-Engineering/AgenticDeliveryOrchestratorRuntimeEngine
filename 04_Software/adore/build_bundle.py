@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    build_bundle.py
-@brief   Export reviewed executor build inputs from an immutable Git revision.
-@details Reads only declared regular Git blobs through an injectable runner.
-         Working files, external credentials and container runtimes are never read.
-"""
+"""Export reviewed executor build inputs from an immutable Git revision."""
 
-# IMPORTS
 from hashlib import sha1, sha256
 import json
 import os
@@ -34,35 +19,30 @@ from adore.recipe_sources import (
 )
 from adore.util import CommandResult, CommandRunner, run_command
 
-# CONSTANTS
 _GIT_DIGEST = re.compile(r"(?:[a-f0-9]{40}|[a-f0-9]{64})")
 _GIT_SELECTION = {"GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE", "GIT_NAMESPACE",
                   "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES"}
 
 
-
-# DATA MODELS / TYPEDEFINITIONS
 class BuildBundleError(ValueError):
-    """@brief Safe export rejection containing a stable, non-secret code."""
+    """Safe export rejection containing a stable, non-secret code."""
 
     def __init__(self, code: str = "build_definition_invalid"):
-        """@brief Retain the operator-facing error code without source contents."""
+        """Retain the operator-facing error code without source contents."""
         super().__init__(code)
         self.code = code
 
 
-# LOCAL HELPERS
 def _path(value: object) -> str:
-    """@brief Accept a portable repository file path and exclude credential paths."""
+    """Accept a portable repository file path and exclude credential paths."""
     try:
         return source_path(value)
     except RecipeError as exc:
         raise BuildBundleError() from exc
 
 
-
 def _git(runner: CommandRunner, repo: str, *argv: str, timeout: int = 15) -> CommandResult:
-    """@brief Read the local Git object database without a partial-clone fetch."""
+    """Read the local Git object database without a partial-clone fetch."""
     env = {key: value for key, value in os.environ.items() if key.upper() not in _GIT_SELECTION}
     env.update(GIT_NO_LAZY_FETCH="1", GIT_TERMINAL_PROMPT="0", GIT_NO_REPLACE_OBJECTS="1")
     result = runner(["git", *argv], cwd=repo, timeout=timeout, env=env)
@@ -73,7 +53,7 @@ def _git(runner: CommandRunner, repo: str, *argv: str, timeout: int = 15) -> Com
 
 def _inputs(repo: str, revision: str, paths: list[str],
             runner: CommandRunner) -> dict[str, tuple[bytes, int]]:
-    """@brief Read bounded, exact regular Git blobs, rejecting archive transformations."""
+    """Read bounded, exact regular Git blobs, rejecting archive transformations."""
     result = _git(runner, repo, "ls-tree", "-l", "-z", "--full-tree", revision, "--", *paths)
     if len(result.stdout) > 65536:
         raise BuildBundleError("build_source_unavailable")
@@ -132,20 +112,19 @@ def _inputs(repo: str, revision: str, paths: list[str],
 
 
 def _unique_fields(pairs: list[tuple]) -> dict:
-    """@brief Reject duplicate manifest fields rather than replacing a reviewed value."""
+    """Reject duplicate manifest fields rather than replacing a reviewed value."""
     fields = dict(pairs)
     if len(fields) != len(pairs):
         raise BuildBundleError()
     return fields
 
 
-# PUBLIC API
 def definition_parts(value: str) -> tuple[str, str] | None:
     """
-    @brief Validate an optional reviewed manifest reference.
-    @param[in] value Repository-relative JSON manifest followed by @full-commit.
-    @return Manifest path and immutable revision, or None when not registered.
-    @exception BuildBundleError For unsafe paths or mutable or malformed references.
+    Validate an optional reviewed manifest reference.
+    value: Repository-relative JSON manifest followed by @full-commit.
+    Returns: Manifest path and immutable revision, or None when not registered.
+    Raises BuildBundleError: For unsafe paths or mutable or malformed references.
     """
     if value == "":
         return None
@@ -161,11 +140,11 @@ def definition_parts(value: str) -> tuple[str, str] | None:
 
 def read_git_recipe(config, *, runner: CommandRunner = run_command):
     """
-    @brief Read exact declared Git blobs as an executor source definition.
-    @param[in] config Saved image and immutable build-manifest reference.
-    @param[in] runner Injectable bounded Git command reader.
-    @return Validated in-memory recipe retaining source revision provenance.
-    @exception BuildBundleError For missing, unsafe or transformed Git sources.
+    Read exact declared Git blobs as an executor source definition.
+    config: Saved image and immutable build-manifest reference.
+    runner: Injectable bounded Git command reader.
+    Returns: Validated in-memory recipe retaining source revision provenance.
+    Raises BuildBundleError: For missing, unsafe or transformed Git sources.
     """
     from adore.recipe_sources import Definition, Recipe, image_dependencies
 
@@ -214,18 +193,17 @@ def read_git_recipe(config, *, runner: CommandRunner = run_command):
         raise BuildBundleError() from exc
 
 
-
 def export_build_bundle(config, raw: bytes, *, runner: CommandRunner = run_command,
                         home=None) -> bytes:
     """
-    @brief Export saved configuration and a complete retained/Git/bundled image graph.
-    @param[in] config Loaded current project configuration.
-    @param[in] raw Exact standalone raw-export bytes.
-    @param[in] runner Injectable bounded Git reader; never invokes a runtime.
-    @param[in] home Trusted ADORE recipe catalog home.
-    @return Portable source ZIP with Compose and every required local base definition.
-    @exception BuildBundleError For unavailable container mode or invalid Git inputs.
-    @exception RecipeError For unsafe, corrupt, cyclic or incomplete recipe sources.
+    Export saved configuration and a complete retained/Git/bundled image graph.
+    config: Loaded current project configuration.
+    raw: Exact standalone raw-export bytes.
+    runner: Injectable bounded Git reader; never invokes a runtime.
+    home: Trusted ADORE recipe catalog home.
+    Returns: Portable source ZIP with Compose and every required local base definition.
+    Raises BuildBundleError: For unavailable container mode or invalid Git inputs.
+    Raises RecipeError: For unsafe, corrupt, cyclic or incomplete recipe sources.
     """
     from adore.executor_recipes import resolve_recipe
     from adore.recipe_sources import recipe_archive
@@ -233,6 +211,3 @@ def export_build_bundle(config, raw: bytes, *, runner: CommandRunner = run_comma
     if config.execution.backend != "container":
         raise BuildBundleError("build_definition_unavailable")
     return recipe_archive(resolve_recipe(config, home=home, runner=runner), config_raw=raw)
-
-
-# END OF FILE

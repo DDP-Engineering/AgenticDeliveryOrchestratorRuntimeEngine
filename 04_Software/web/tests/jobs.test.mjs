@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { safeEvidenceLink, readJobPage, readJobDetail, activityAge, commandAllowed, stableExecutionDrift } from "../src/jobModel.ts";
@@ -95,6 +89,11 @@ test("stable execution drift routes to confirmed restart and keeps volatile Retr
   assert.equal(commandAllowed({ ...failed, project_archived: true }, "restart"), false);
   assert.equal(commandAllowed({ ...failed, state_revision: undefined }, "restart"), false);
   assert.equal(commandAllowed({ ...failed, lifecycle: "working" }, "restart"), false);
+  const cancelled = { ...failed, lifecycle: "cancelled" };
+  assert.equal(commandAllowed(cancelled, "restart"), true);
+  assert.equal(commandAllowed(cancelled, "retry"), false);
+  assert.equal(commandAllowed({ ...cancelled, restarted_run_id: "one-r1" }, "restart"), false);
+  assert.equal(commandAllowed({ ...cancelled, state_revision: undefined }, "restart"), false);
   assert.equal(commandAllowed({ ...failed, outcome: "RETRY_REVALIDATION_FAILED: local environment drifted" }, "retry"), true);
   assert.throws(() => readJobPage({ ...page(), items: [{ ...job(), state_revision: "wrong" }] }, [id]));
 });
@@ -106,6 +105,9 @@ test("retained old branches are localized as successful recovery evidence", asyn
   for (const locale of ["en", "fr", "de", "ro"]) {
     assert.equal(operationResultText("restart:retained", locale), recoveryCopy[locale].retained);
     assert.notEqual(operationResultText("restart:retained", locale), recoveryCopy[locale].failed);
+    assert.equal(operationResultText("restart:rejected", locale), recoveryCopy[locale].rejected);
+    assert.equal(operationResultText("restart:failed", locale), recoveryCopy[locale].failed);
+    assert.notEqual(recoveryCopy[locale].rejected, recoveryCopy[locale].failed);
   }
 });
 

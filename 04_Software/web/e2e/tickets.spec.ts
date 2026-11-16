@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
 import { cleanupBrowserPage } from "./lifecycle";
@@ -672,4 +666,37 @@ test("ticket mode labels and help use all four locales without resetting source"
     await expect(page.locator("#reading-bodies")).toBeVisible();
     await expect(page.locator(".help-article")).toContainText(source);
   }
+});
+
+
+for (const scope of ["global", "project"] as const) for (const immediate of [false, true]) test(`cancelled ticket offers workflow-aware restart and opens its new job in ${scope} scope (immediate=${immediate})`, async ({ page }) => {
+  await signIn(page);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = projects.find((item: {name: string}) => item.name === "alpha");
+  let oldRun = "", posted = 0;
+  await page.route(`**/api/v1/projects/${alpha.id}/tickets`, async route => {
+    const response = await route.fetch(), data = await response.json();
+    const ticket = data.tickets.find((item: {iid: number}) => item.iid === 24);
+    oldRun = ticket.job.run_id; ticket.job.lifecycle = "cancelled";
+    ticket.job.state_revision = "a".repeat(64);
+    await route.fulfill({ response, json: data });
+  });
+  await page.route("**/api/v1/projects/*/operations/restart", async route => {
+    expect(route.request().postDataJSON()).toMatchObject({run_id:oldRun,workflow:"direct",confirmed:true,state_revision:"a".repeat(64)});
+    posted++; await route.fulfill({ json: immediate ? {
+      id:996,status:"succeeded",result:"completed",admitted_run_id:oldRun+"-r1",
+    } : {id:996,status:"pending"} });
+  });
+  await page.route("**/api/v1/operations/996", route => route.fulfill({ json: {
+    id:996,status:"succeeded",result:"completed",admitted_run_id:oldRun+"-r1",
+  } }));
+  await page.goto(scope === "global" ? `/tickets?project=${alpha.id}` : `/projects/${alpha.id}/tickets`);
+  const row = page.getByRole("row").filter({has:page.getByText("#24",{exact:true})});
+  await row.getByRole("button",{name:"Restart job",exact:true}).click();
+  const confirm = page.locator(".ticket-start-confirm");
+  await confirm.getByLabel("Workflow",{exact:true}).selectOption("direct");
+  page.once("dialog",dialog=>dialog.accept());
+  await confirm.getByRole("button",{name:"Restart job",exact:true}).click();
+  await expect(page).toHaveURL(new RegExp("run="+oldRun+"-r1"));
+  expect(posted).toBe(1);
 });

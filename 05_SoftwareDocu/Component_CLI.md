@@ -1,11 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details.
-SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: CLI (`adore/cli.py`)
 
 > Component documentation per `component_documentation_template.md`.
@@ -273,7 +265,7 @@ Focused proof: tests/test_retry_revalidation.py and CLI mutation-lock tests.
 
 ## Confirmed drift recovery
 
-`delete <run-id> --force` uses verified resource/worktree and exact remote-branch cleanup before deleting state. Typed native, Git, storage and forge failures return nonzero with actionable guidance. `--owned-resources` explicitly authorizes release using the saved native plan/receipt despite changed executable/environment settings; it never authorizes another host/account, foreign receipt or human-owned job. `restart <run-id> --force --expected-revision <sha256>` requires the confirmed failed state under the selected run lock and then manually admits its ticket with current settings, preserving monitoring pause. A busy run remains protected; explicit cancellation or handoff uses a durable request. Offline proof: `tests/test_drift_recovery.py`.
+`delete <run-id> --force` uses verified resource/worktree and exact remote-branch cleanup before deleting state. Typed native, Git, storage and forge failures return nonzero with actionable guidance. `--owned-resources` explicitly authorizes release using the saved native plan/receipt despite changed executable/environment settings; it never authorizes another host/account, foreign receipt or human-owned job. `restart <run-id> --force --expected-revision <sha256>` requires confirmed failed or latest cancelled state under the selected run lock, then manually admits its ticket with current settings while preserving monitoring pause. Cancelled restart retains state and recorded evidence under the earlier execution identity; failed abandonment removes the failed execution after verified cleanup. A busy run remains protected; explicit cancellation or handoff uses a durable request. Offline proof: `tests/test_drift_recovery.py`.
 
 
 The CLI delete boundary records a durable uncertain receipt in the home deletion audit before cleanup, then confirms it only after successful job removal. It refuses corrupt or unavailable receipts before cleanup and reports an unconfirmed post-delete receipt without asserting the job remains. CLI identity is not a web user.
@@ -345,3 +337,7 @@ missing saved ownership never grants a sweep. Per-run conduct logs are independe
 ## Explicit manual workflow
 
 Run accepts `--workflow aegis|direct` only with `--once --ticket`; Restart accepts the same override for its replacement job. Both forward typed selection to the conductor. Polling uses the project default; Retry accepts no override. Invalid choices/ambiguous polling fail before admission. Terminal Start/Restart evidence and ownership fences are retained.
+
+## Cancelled restart admission
+
+`restart RUN --force --expected-revision SHA256` accepts a confirmed failed or latest cancelled execution. Cancelled restart keeps the original state/IO/metrics and allocates a fresh generation. `--workflow` chooses the fresh execution; `--admit-only` returns after durable dispatch admission for the web run pool. Ordinary Retry still retains workflow and conversation. Existing bounded result metadata remains bound to the confirmed previous run and ticket.

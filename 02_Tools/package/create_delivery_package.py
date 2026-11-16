@@ -1,22 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       create_delivery_package.py
-@brief      Build a native, self-contained ADORE user distribution.
-@details    Checks the release, compiles/licenses the frontend, provisions CPython,
-            installs locked wheels and writes only an archive/hash to 07_Delivery.
-"""
+"""Build a native, self-contained ADORE user distribution."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 import hashlib
 import json
@@ -35,29 +21,32 @@ import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from bundle_native_tools import prepare_native_tools
 
-# CONSTANTS
 REPO = Path(__file__).resolve().parents[2]
 PYTHON_VERSION = "3.12.13"
 MAX_FILES = 60000
 MAX_BYTES = 1024 * 1024 * 1024
-USER_DOC_SOURCES = {"README.md": "User_Guide.md",
-                    "Administrator_Guide.md": "Administrator_Guide.md",
-                    "Troubleshooting.md": "Troubleshooting.md"}
+USER_DOC_SOURCES = {
+    "README.md": "User_Guide.md",
+    "Administrator_Guide.md": "Administrator_Guide.md",
+    "Troubleshooting.md": "Troubleshooting.md",
+}
 USER_DOC_FILES = tuple(USER_DOC_SOURCES)
 
 
-# PUBLIC API
 def copy_user_documentation(destination: Path, *, source: Path | None = None) -> None:
-    """@brief Copy only the curated end-user guides into a portable distribution.
-    @param[in] destination Documentation directory inside the staged package.
-    @param[in] source Guide source directory; defaults to repository user documentation.
-    @exception RuntimeError A required guide is missing or linked.
-    @note Additional source files are ignored; internal material never joins by default.
+    """
+    Copy only the curated end-user guides into a portable distribution.
+    destination: Documentation directory inside the staged package.
+    source: Guide source directory; defaults to repository user documentation.
+    Raises RuntimeError: A required guide is missing or linked.
+    Note: Additional source files are ignored; internal material never joins by default.
     """
     source = source or REPO / "01_Documentation"
     guides = {name: source / filename for name, filename in USER_DOC_SOURCES.items()}
-    if source.is_symlink() or not source.is_dir() or any(
-        path.is_symlink() or not path.is_file() for path in guides.values()
+    if (
+        source.is_symlink()
+        or not source.is_dir()
+        or any(path.is_symlink() or not path.is_file() for path in guides.values())
     ):
         raise RuntimeError("required portable user guide missing or linked")
     destination.mkdir()
@@ -66,28 +55,38 @@ def copy_user_documentation(destination: Path, *, source: Path | None = None) ->
 
 
 def run(argv: list[str], cwd: Path) -> str:
-    """@brief Run a build command with a thirty-minute upper bound.
-    @param[in] argv Build command and argument vector.
-    @param[in] cwd Working directory.
-    @return Captured standard output.
-    @exception subprocess.SubprocessError The command fails or exceeds its limit.
     """
-    result = subprocess.run(argv, cwd=cwd, check=True, text=True,
-                            stdout=subprocess.PIPE, timeout=1800)
+    Run a build command with a thirty-minute upper bound.
+    argv: Build command and argument vector.
+    cwd: Working directory.
+    Returns: Captured standard output.
+    Raises subprocess.SubprocessError: The command fails or exceeds its limit.
+    """
+    result = subprocess.run(
+        argv, cwd=cwd, check=True, text=True, stdout=subprocess.PIPE, timeout=1800
+    )
     return result.stdout
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief Build one host-matched ZIP or TAR.GZ without changing host Python.
-    @param[in] argv Optional command arguments.
-    @return Zero after verification and complete archive publication.
-    @exception RuntimeError Runtime layout or resource limits are invalid.
+    """
+    Build one host-matched ZIP or TAR.GZ without changing host Python.
+    argv: Optional command arguments.
+    Returns: Zero after verification and complete archive publication.
+    Raises RuntimeError: Runtime layout or resource limits are invalid.
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runtime-mode", choices=("offline", "online"), default="offline",
-                        help="offline bundles Node/Pi; online installs Pi later with host Node/npm")
-    parser.add_argument("--use-existing-web-assets", action="store_true",
-                        help="use the already built, fingerprint-verified frontend")
+    parser.add_argument(
+        "--runtime-mode",
+        choices=("offline", "online"),
+        default="offline",
+        help="offline bundles Node/Pi; online installs Pi later with host Node/npm",
+    )
+    parser.add_argument(
+        "--use-existing-web-assets",
+        action="store_true",
+        help="use the already built, fingerprint-verified frontend",
+    )
     options = parser.parse_args(argv)
     system = platform.system().lower()
     if system not in {"windows", "linux"} or platform.machine().lower() not in {"amd64", "x86_64"}:
@@ -100,13 +99,20 @@ def main(argv: list[str] | None = None) -> int:
     if not options.use_existing_web_assets:
         print(run([sys.executable, str(REPO / "02_Tools/build/build_web_assets.py")], REPO).strip())
     for checker in ("check_release_notes.py",):
-        print(run([sys.executable, str(REPO / "02_Tools/package/release_checks" / checker)], REPO).strip())
-    from release_checks.stamp_web_assets import fingerprint, STAMP
+        print(
+            run(
+                [sys.executable, str(REPO / "02_Tools/package/release_checks" / checker)], REPO
+            ).strip()
+        )
+    from release_checks.stamp_web_assets import STAMP, fingerprint
 
     static = software / "adore/web/static"
     if json.loads((static / STAMP).read_text(encoding="utf-8")) != fingerprint(REPO, static):
         raise RuntimeError("web assets do not match current sources; build them before packaging")
-    command = [sys.executable, str(REPO / "02_Tools/package/release_checks/check_release_consistency.py")]
+    command = [
+        sys.executable,
+        str(REPO / "02_Tools/package/release_checks/check_release_consistency.py"),
+    ]
     if options.use_existing_web_assets:
         command.append("--use-existing-web-assets")
     print(run(command, REPO).strip())
@@ -126,30 +132,95 @@ def main(argv: list[str] | None = None) -> int:
         bundle.mkdir()
         managed = work / "managed"
         print(f"Preparing CPython {PYTHON_VERSION} for {system}/x64", flush=True)
-        run([uv, "python", "install", PYTHON_VERSION, "--install-dir", str(managed),
-             "--no-bin", "--no-registry", "--no-progress"], REPO)
+        run(
+            [
+                uv,
+                "python",
+                "install",
+                PYTHON_VERSION,
+                "--install-dir",
+                str(managed),
+                "--no-bin",
+                "--no-registry",
+                "--no-progress",
+            ],
+            REPO,
+        )
         roots = sorted({path.resolve() for path in managed.glob("cpython-*") if path.is_dir()})
         if len(roots) != 1:
             raise RuntimeError("expected exactly one managed CPython distribution")
         runtime = bundle / "python"
-        shutil.copytree(roots[0], runtime, symlinks=False,
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo",
-                                                     "test", "tests", "idlelib", "turtledemo",
-                                                     "tkinter", "tcl", "include"))
+        shutil.copytree(
+            roots[0],
+            runtime,
+            symlinks=False,
+            ignore=shutil.ignore_patterns(
+                "__pycache__",
+                "*.pyc",
+                "*.pyo",
+                "test",
+                "tests",
+                "idlelib",
+                "turtledemo",
+                "tkinter",
+                "tcl",
+                "include",
+            ),
+        )
         interpreter = runtime / ("python.exe" if system == "windows" else "bin/python3.12")
         wheels = work / "wheels"
-        run([uv, "build", "--wheel", "--python", str(interpreter),
-             "--out-dir", str(wheels), str(software)], REPO)
+        run(
+            [
+                uv,
+                "build",
+                "--wheel",
+                "--python",
+                str(interpreter),
+                "--out-dir",
+                str(wheels),
+                str(software),
+            ],
+            REPO,
+        )
         requirements = work / "requirements.txt"
-        requirements.write_text(run([
-            uv, "export", "--frozen", "--extra", "web", "--no-dev", "--no-hashes",
-            "--no-emit-project", "--format", "requirements-txt",
-        ], software), encoding="utf-8")
-        wheel, = wheels.glob("adore-*.whl")
-        run([uv, "pip", "install", "--python", str(interpreter), "--system",
-             "--break-system-packages",
-             "--no-deps", "--no-build", "--link-mode", "copy",
-             "-r", str(requirements), str(wheel)], REPO)
+        requirements.write_text(
+            run(
+                [
+                    uv,
+                    "export",
+                    "--frozen",
+                    "--extra",
+                    "web",
+                    "--no-dev",
+                    "--no-hashes",
+                    "--no-emit-project",
+                    "--format",
+                    "requirements-txt",
+                ],
+                software,
+            ),
+            encoding="utf-8",
+        )
+        (wheel,) = wheels.glob("adore-*.whl")
+        run(
+            [
+                uv,
+                "pip",
+                "install",
+                "--python",
+                str(interpreter),
+                "--system",
+                "--break-system-packages",
+                "--no-deps",
+                "--no-build",
+                "--link-mode",
+                "copy",
+                "-r",
+                str(requirements),
+                str(wheel),
+            ],
+            REPO,
+        )
         # Console-script shebangs point into build staging. Public wrappers use -m.
         scripts = runtime / ("Scripts" if system == "windows" else "bin")
         if scripts.exists():
@@ -162,18 +233,33 @@ def main(argv: list[str] | None = None) -> int:
                     entry.unlink()
         for metadata in runtime.rglob("direct_url.json"):
             metadata.unlink()
-        site_packages = Path(run([str(interpreter), "-I", "-B", "-c",
-                                  'import sysconfig; print(sysconfig.get_path("purelib"))'],
-                                 bundle).strip())
+        site_packages = Path(
+            run(
+                [
+                    str(interpreter),
+                    "-I",
+                    "-B",
+                    "-c",
+                    'import sysconfig; print(sysconfig.get_path("purelib"))',
+                ],
+                bundle,
+            ).strip()
+        )
         if not site_packages.resolve().is_relative_to(runtime.resolve()):
             raise RuntimeError("bundled Python site-packages escaped its runtime")
         marker = (REPO / "02_Tools/package/launcher_templates/adore_portable.pth").read_text()
         (site_packages / "adore_portable.pth").write_text(
-            marker.replace("sys._adore_offline_delivery = True",
-                           f"sys._adore_offline_delivery = {options.runtime_mode == 'offline'}"),
-            encoding="utf-8")
-        native_tools = (prepare_native_tools(site_packages / "adore/_native_tools", work, system)
-                        if options.runtime_mode == "offline" else {})
+            marker.replace(
+                "sys._adore_offline_delivery = True",
+                f"sys._adore_offline_delivery = {options.runtime_mode == 'offline'}",
+            ),
+            encoding="utf-8",
+        )
+        native_tools = (
+            prepare_native_tools(site_packages / "adore/_native_tools", work, system)
+            if options.runtime_mode == "offline"
+            else {}
+        )
         for cache in list(runtime.rglob("__pycache__")):
             shutil.rmtree(cache)
         for cache in list(runtime.rglob("*.pyc")) + list(runtime.rglob("*.pyo")):
@@ -181,34 +267,68 @@ def main(argv: list[str] | None = None) -> int:
         # Python loads a few bootstrap modules before processing .pth files.
         # Stable hash-based caches keep even isolated child startup read-only
         # after ZIP/TAR timestamps change, with no build-path code filenames.
-        run([str(interpreter), "-I", "-B", "-m", "compileall", "-q",
-             "-x", r"[/\\]_native_tools[/\\]",
-             "--invalidation-mode", "unchecked-hash", "-s", str(runtime), str(runtime)], bundle)
+        run(
+            [
+                str(interpreter),
+                "-I",
+                "-B",
+                "-m",
+                "compileall",
+                "-q",
+                "-x",
+                r"[/\\]_native_tools[/\\]",
+                "--invalidation-mode",
+                "unchecked-hash",
+                "-s",
+                str(runtime),
+                str(runtime),
+            ],
+            bundle,
+        )
         for source in (REPO / "02_Tools/package/launcher_templates").iterdir():
-            if (source.is_file() and source.suffix != ".pth"
-                    and (system == "windows" or source.suffix != ".cmd")):
+            if (
+                source.is_file()
+                and source.suffix != ".pth"
+                and (system == "windows" or source.suffix != ".cmd")
+            ):
                 if system == "windows" and source.suffix == ".sh":
                     continue
                 shutil.copy2(source, bundle / source.name)
                 if source.suffix == ".sh":
                     (bundle / source.name).chmod(0o755)
         shutil.copy2(REPO / "LICENSE.txt", bundle / "LICENSE.txt")
+        shutil.copy2(REPO / "REUSE.toml", bundle / "REUSE.toml")
+        shutil.copytree(REPO / "LICENSES", bundle / "LICENSES")
         copy_user_documentation(bundle / "Documentation")
         azure_guide = (REPO / "01_Documentation/Azure_DevOps_Services.md").read_text(
-            encoding="utf-8")
+            encoding="utf-8"
+        )
         (bundle / "Azure_DevOps_Services.md").write_text(
-            azure_guide.replace("../04_Software/config.azure-devops.example.toml",
-                                "config.azure-devops.example.toml"), encoding="utf-8")
-        shutil.copy2(software / "config.azure-devops.example.toml",
-                     bundle / "config.azure-devops.example.toml")
+            azure_guide.replace(
+                "../04_Software/config.azure-devops.example.toml",
+                "config.azure-devops.example.toml",
+            ),
+            encoding="utf-8",
+        )
+        shutil.copy2(
+            software / "config.azure-devops.example.toml",
+            bundle / "config.azure-devops.example.toml",
+        )
         files = sorted(path for path in bundle.rglob("*") if path.is_file())
         if len(files) > MAX_FILES or sum(path.stat().st_size for path in files) > MAX_BYTES:
-            raise RuntimeError(f"portable distribution exceeds the 60000-file / 1 GiB build limit "
-                               f"({len(files)} files, {sum(path.stat().st_size for path in files)} bytes)")
+            raise RuntimeError(
+                f"portable distribution exceeds the 60000-file / 1 GiB build limit "
+                f"({len(files)} files, {sum(path.stat().st_size for path in files)} bytes)"
+            )
         manifest = {
-            "schema": 1, "version": version, "system": system, "architecture": "x64",
+            "schema": 1,
+            "version": version,
+            "system": system,
+            "architecture": "x64",
             "external_forge_tools": {
-                "github": ["gh"], "gitlab": ["glab"], "gitea": ["tea"],
+                "github": ["gh"],
+                "gitlab": ["glab"],
+                "gitea": ["tea"],
                 "azure_devops": ["az", "azure-devops (official az extension; Services only)"],
             },
             "python_version": PYTHON_VERSION,
@@ -216,12 +336,14 @@ def main(argv: list[str] | None = None) -> int:
             "native_tools": native_tools,
             "python_source": "https://github.com/astral-sh/python-build-standalone",
             "lock_sha256": hashlib.sha256((software / "uv.lock").read_bytes()).hexdigest(),
-            "files": {path.relative_to(bundle).as_posix():
-                      hashlib.sha256(path.read_bytes()).hexdigest()
-                      for path in files},
+            "files": {
+                path.relative_to(bundle).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in files
+            },
         }
-        (bundle / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n",
-                                              encoding="utf-8")
+        (bundle / "manifest.json").write_text(
+            json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+        )
         run([str(interpreter), "-I", "-B", str(bundle / "launch.py"), "--verify"], bundle)
         staged = work / archive.name
         if system == "windows":
@@ -234,8 +356,9 @@ def main(argv: list[str] | None = None) -> int:
                 handle.add(bundle, arcname=name)
         # The native build workspace may be on another volume (notably WSL).
         # Publish via a complete temporary file on the delivery volume.
-        with tempfile.NamedTemporaryFile(prefix=archive.name + ".", suffix=".tmp",
-                                         dir=output, delete=False) as destination:
+        with tempfile.NamedTemporaryFile(
+            prefix=archive.name + ".", suffix=".tmp", dir=output, delete=False
+        ) as destination:
             publication = Path(destination.name)
             try:
                 with staged.open("rb") as source:
@@ -249,13 +372,18 @@ def main(argv: list[str] | None = None) -> int:
         finally:
             publication.unlink(missing_ok=True)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    # REUSE-IgnoreStart
     archive.with_name(archive.name + ".sha256").write_text(
         "# Copyright (c) 2026 DDP Engineering\n"
         "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
         "# Commercial use requires a separate commercial license.\n"
         "# See the LICENSE.txt file for full license details. "
         "SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n"
-        f"{digest}  {archive.name}\n", encoding="utf-8", newline="\n")
+        f"{digest}  {archive.name}\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    # REUSE-IgnoreEnd
     print(f"Created {archive.relative_to(REPO)} ({archive.stat().st_size:,} bytes)", flush=True)
     return 0
 
@@ -266,5 +394,3 @@ if __name__ == "__main__":
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
         print(f"Packaging failed: {error}", file=sys.stderr)
         raise SystemExit(1) from error
-
-# END OF FILE

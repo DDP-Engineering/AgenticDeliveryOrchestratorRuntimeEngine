@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_profile_cli.py
-@brief Smoke tests for `adore profile ...` and `--profile` resolution, driven
-       through main() against a tmp ADORE_HOME.
-"""
+"""Smoke tests for `adore profile ...` and `--profile` resolution, driven"""
 
 from __future__ import annotations
 
@@ -22,10 +9,7 @@ from adore.metrics import RunSummary, record_summary
 from adore.profiles import ProfileStore
 import pytest
 
-# IMPORTS
 from tests.execution_records import execution_record
-
-# CONSTANTS
 
 MINIMAL_CONFIG = """
 [platform]
@@ -46,11 +30,9 @@ reviewers = ["dan.pasare"]
 store_root = "{state}"
 """
 
-# HELPER FUNCTIONS
-
 
 def test_cli_previews_reviewed_plan_without_setup(tmp_path, monkeypatch, capsys) -> None:
-    """@brief CLI preview uses exact Git source and executes no project commands."""
+    """CLI preview uses exact Git source and executes no project commands."""
     import adore.cli as cli_module
 
     from tests.test_preparation import SourceRunner
@@ -74,10 +56,10 @@ def test_cli_previews_reviewed_plan_without_setup(tmp_path, monkeypatch, capsys)
 
 def _home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """
-    @brief      A tmp ADORE home wired into the environment for main().
-    @param[in]  tmp_path pytest tmp dir.
-    @param[in]  monkeypatch Fixture to set ADORE_HOME.
-    @return     The home path.
+    A tmp ADORE home wired into the environment for main().
+    tmp_path: pytest tmp dir.
+    monkeypatch: Fixture to set ADORE_HOME.
+    Returns: The home path.
     """
     home = tmp_path / "home"
     monkeypatch.setenv("ADORE_HOME", str(home))
@@ -86,10 +68,10 @@ def _home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _ready_profile(home: Path, name: str = "proj") -> ProfileStore:
     """
-    @brief      Create a profile with a valid config.toml + metadata.
-    @param[in]  home The ADORE home.
-    @param[in]  name Profile name.
-    @return     The store (rooted at home).
+    Create a profile with a valid config.toml + metadata.
+    home: The ADORE home.
+    name: Profile name.
+    Returns: The store (rooted at home).
     """
     store = ProfileStore(home)
     cfg = store.config_path(name)
@@ -105,18 +87,14 @@ def _ready_profile(home: Path, name: str = "proj") -> ProfileStore:
 
 
 def test_profile_list_empty(tmp_path: Path, monkeypatch, capsys) -> None:
-    """
-    @brief   `adore profile list` on an empty home is clean (exit 0).
-    """
+    """`adore profile list` on an empty home is clean (exit 0)."""
     _home(tmp_path, monkeypatch)
     assert main(["profile", "list"]) == EXIT_OK
     assert "no profiles" in capsys.readouterr().out
 
 
 def test_profile_list_and_show(tmp_path: Path, monkeypatch, capsys) -> None:
-    """
-    @brief   list shows the profile row; show prints metadata + config path.
-    """
+    """list shows the profile row; show prints metadata + config path."""
     home = _home(tmp_path, monkeypatch)
     _ready_profile(home)
     assert main(["profile", "list"]) == EXIT_OK
@@ -130,7 +108,7 @@ def test_profile_list_and_show(tmp_path: Path, monkeypatch, capsys) -> None:
 
 def test_profile_use_activates_and_resolves(tmp_path: Path, monkeypatch, capsys) -> None:
     """
-    @brief   `use` sets the active profile; a later bare command resolves it
+    `use` sets the active profile; a later bare command resolves it
              and records a use (use_count bumped).
     """
     home = _home(tmp_path, monkeypatch)
@@ -145,7 +123,7 @@ def test_profile_use_activates_and_resolves(tmp_path: Path, monkeypatch, capsys)
 
 def test_profile_flag_resolves_and_touches(tmp_path: Path, monkeypatch, capsys) -> None:
     """
-    @brief   `--profile NAME` resolves that profile's config for any command
+    `--profile NAME` resolves that profile's config for any command
              and bumps its use counter; an unknown profile fails cleanly.
     """
     home = _home(tmp_path, monkeypatch)
@@ -160,7 +138,7 @@ def test_profile_flag_resolves_and_touches(tmp_path: Path, monkeypatch, capsys) 
 
 def test_profile_path(tmp_path: Path, monkeypatch, capsys) -> None:
     """
-    @brief   `path` prints the config path for a named / active profile, and
+    `path` prints the config path for a named / active profile, and
              errors when neither is available.
     """
     home = _home(tmp_path, monkeypatch)
@@ -175,9 +153,7 @@ def test_profile_path(tmp_path: Path, monkeypatch, capsys) -> None:
 
 
 def test_profile_rename(tmp_path: Path, monkeypatch, capsys) -> None:
-    """
-    @brief   rename moves the profile; the new name resolves, the old does not.
-    """
+    """rename moves the profile; the new name resolves, the old does not."""
     home = _home(tmp_path, monkeypatch)
     _ready_profile(home)
     assert main(["profile", "rename", "proj", "proj2"]) == EXIT_OK
@@ -189,7 +165,7 @@ def test_profile_rename(tmp_path: Path, monkeypatch, capsys) -> None:
 
 def test_profile_delete_needs_force(tmp_path: Path, monkeypatch, capsys) -> None:
     """
-    @brief   delete refuses without --force, removes with it, and reports an
+    delete refuses without --force, removes with it, and reports an
              unknown profile.
     """
     home = _home(tmp_path, monkeypatch)
@@ -204,7 +180,7 @@ def test_profile_delete_needs_force(tmp_path: Path, monkeypatch, capsys) -> None
 
 def test_profile_stats_render_in_list_and_show(tmp_path: Path, monkeypatch, capsys) -> None:
     """
-    @brief   Seeding the profile's metrics DB surfaces RUNS/MERGED in `list`
+    Seeding the profile's metrics DB surfaces RUNS/MERGED in `list`
              and the full stats block (success_rate) in `show`; a profile with
              no DB renders zeros, not an error.
     """
@@ -228,7 +204,7 @@ def test_profile_stats_render_in_list_and_show(tmp_path: Path, monkeypatch, caps
 
 def test_explicit_config_still_wins(tmp_path: Path, monkeypatch, capsys) -> None:
     """
-    @brief   Regression: an explicit -c file behaves exactly as before and
+    Regression: an explicit -c file behaves exactly as before and
              overrides any active profile (single-config users unaffected).
     """
     home = _home(tmp_path, monkeypatch)
@@ -242,11 +218,8 @@ def test_explicit_config_still_wins(tmp_path: Path, monkeypatch, capsys) -> None
     assert str(other) in out and "OK" in out
 
 
-# END OF FILE
-
-
 def _purge_stub(monkeypatch: pytest.MonkeyPatch, calls: list[str]) -> None:
-    """@brief Replace the container/worktree sweep with a recorder (no Docker in tests)."""
+    """Replace the container/worktree sweep with a recorder (no Docker in tests)."""
     from adore.orchestrator import Orchestrator
 
     def purge(self) -> dict:
@@ -259,7 +232,7 @@ def _purge_stub(monkeypatch: pytest.MonkeyPatch, calls: list[str]) -> None:
 
 def test_profile_delete_remove_resources_sweeps_then_deletes(tmp_path: Path, monkeypatch,
                                                              capsys) -> None:
-    """@brief Resource removal runs under the lock before the profile disappears."""
+    """Resource removal runs under the lock before the profile disappears."""
     import json
 
     from adore.state import RunState, StateStore
@@ -279,7 +252,7 @@ def test_profile_delete_remove_resources_sweeps_then_deletes(tmp_path: Path, mon
 
 def test_profile_delete_remove_resources_keeps_external_state(tmp_path: Path, monkeypatch,
                                                               capsys) -> None:
-    """@brief A state folder outside ADORE home is reported and left in place."""
+    """A state folder outside ADORE home is reported and left in place."""
     import json
 
     home = _home(tmp_path, monkeypatch)
@@ -301,7 +274,7 @@ def test_profile_delete_remove_resources_keeps_external_state(tmp_path: Path, mo
 
 def test_profile_delete_remove_resources_refuses_unsafe_states(tmp_path: Path, monkeypatch,
                                                                capsys) -> None:
-    """@brief Unfinished runs, a held lock or an invalid config delete nothing."""
+    """Unfinished runs, a held lock or an invalid config delete nothing."""
     from adore.state import RunState, StateStore
 
     home = _home(tmp_path, monkeypatch)
@@ -337,7 +310,7 @@ def test_profile_delete_remove_resources_refuses_unsafe_states(tmp_path: Path, m
 def test_profile_delete_remove_resources_reports_failed_profile_removal(tmp_path: Path,
                                                                        monkeypatch,
                                                                        capsys) -> None:
-    """@brief If the profile folder cannot be removed, the report says so and exit fails."""
+    """If the profile folder cannot be removed, the report says so and exit fails."""
     import json
 
     home = _home(tmp_path, monkeypatch)

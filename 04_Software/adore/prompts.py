@@ -1,27 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    prompts.py
-@brief   Eager, fail-closed catalog of application-owned agent prompt fragments.
-@details Fixed UTF-8 Markdown resources live beside this module. Their leading
-         license comment is removed exactly; body whitespace is never normalized.
-         Named string.Template values are inserted once as literal caller data.
-"""
+"""Eager, fail-closed catalog of application-owned agent prompt fragments."""
 
-# IMPORTS
 from pathlib import Path
 from string import Template
 from types import MappingProxyType
 
-# CONSTANTS
 PROMPT_ROOT = Path(__file__).with_name("prompts")
+# REUSE-IgnoreStart
 LEGAL_PREFIX = (
     "<!--\n"
     "Copyright (c) 2026 DDP Engineering\n"
@@ -31,6 +15,7 @@ LEGAL_PREFIX = (
     "SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n"
     "-->\n"
 )
+# REUSE-IgnoreEnd
 FRAGMENTS = (
     "live/instruction.md",
     "direct/implementation.md",
@@ -61,24 +46,22 @@ FRAGMENTS = (
     "system/server-internet.md",
 )
 
-# PUBLIC API
-
 
 class PromptError(RuntimeError):
-    """@brief A named prompt resource cannot be loaded or rendered safely."""
+    """A named prompt resource cannot be loaded or rendered safely."""
 
 
 class PromptCatalog:
     """
-    @brief   Load and validate the complete fixed catalog before use.
-    @details Construction is the only read boundary; rendering never rereads files.
+    Load and validate the complete fixed catalog before use.
+    Construction is the only read boundary; rendering never rereads files.
              No partial catalog or fallback is published when a resource is bad.
     """
 
     def __init__(self) -> None:
         """
-        @brief Load every required resource, including unused conditional fragments.
-        @exception PromptError A file is missing, unreadable, non-UTF-8, has an
+        Load every required resource, including unused conditional fragments.
+        Raises PromptError: A file is missing, unreadable, non-UTF-8, has an
                    invalid legal prefix or contains invalid dollar syntax.
         """
         templates = {}
@@ -97,11 +80,11 @@ class PromptCatalog:
 
     def render(self, fragment: str, **values: str) -> str:
         """
-        @brief Render a loaded fragment with strict, single-pass substitution.
-        @param[in] fragment Required catalog-relative Markdown filename.
-        @param[in] values Named literal data; extra values are ignored.
-        @return Body text with exactly the original resource whitespace.
-        @exception PromptError Unknown fragment or a required value is missing.
+        Render a loaded fragment with strict, single-pass substitution.
+        fragment: Required catalog-relative Markdown filename.
+        values: Named literal data; extra values are ignored.
+        Returns: Body text with exactly the original resource whitespace.
+        Raises PromptError: Unknown fragment or a required value is missing.
         """
         try:
             template = self._templates[fragment]
@@ -111,6 +94,3 @@ class PromptCatalog:
             return template.substitute(values)
         except KeyError as exc:
             raise PromptError(f"{fragment}: missing placeholder {exc.args[0]}") from exc
-
-
-# END OF FILE

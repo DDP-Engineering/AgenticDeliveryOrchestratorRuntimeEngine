@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, describeError } from "./errors";
 import { messages, type Locale } from "./i18n";
@@ -11,6 +5,7 @@ import { safeEvidenceLink } from "./jobModel";
 import { startVisiblePolling } from "./polling";
 import { keptLabels, outcomeText } from "./operationReason";
 import { jobCopy } from "./jobCopy";
+import { recoveryCopy } from "./recoveryCopy";
 import { WorkflowChoice, type Workflow } from "./WorkflowChoice";
 import { fill, ticketCopy, operationResultText } from "./ticketCopy";
 import { SortHeader } from "./SortHeader";
@@ -20,7 +15,7 @@ import { ForgeMarkdown } from "./forgeMarkdown";
 import type { TicketBodyMode } from "./ticketPreferences";
 
 type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string) => Promise<T>;
-type TicketJob = { run_id: string; lifecycle: string };
+type TicketJob = { run_id: string; lifecycle: string; state_revision?: string };
 type Ticket = {
   iid: number; title: string; description: string; labels: string[]; author: string; web_url: string;
   updated_at: string; startable: boolean; reason: string | null; job: TicketJob | null;
@@ -29,16 +24,17 @@ type Ticket = {
 type TicketList = { read_at: string; truncated: boolean; ready_label: string; priority_labels: string[]; tickets: Ticket[] };
 type StartResult = { operation_id: number; status: Operation["status"]; labels_added: string[] };
 type Comment = { author: string; created_at: string; body: string };
-type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string };
+type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string; admitted_run_id?: string };
 type StopResult = { cancel_operation_id: number | null; ready_label: "removed" | "absent" | "failed"; ready_label_error: string | null };
 /** A notice follows one queued operation; `labels` are those its Start added to the ticket. */
-type Notice = { lines: string[]; operation?: Operation; labels?: string[] };
+type Notice = { lines: string[]; operation?: Operation; labels?: string[]; restartProject?: string };
 type CommentState = { state: "loading" } | { state: "ready"; comments: Comment[] } | { state: "error"; error: unknown };
 type Project = { id: string; name: string; display_name?: string; archived: boolean };
 type Props = {
   /** One project in the hub or for a selected scope; every authorized project for All projects. */
   projects: Project[]; showProject?: boolean; automatic?: boolean; locale: Locale; csrf: string; request: Request;
   bodyMode: TicketBodyMode; modeBusy: boolean; onBodyMode: (mode: TicketBodyMode) => void;
+  onOpenJob?: (project: string, run: string) => void;
 };
 /** One ticket row keeps its owning project and that project's label policy. */
 type Row = { key: string; project: Project; list: TicketList; ticket: Ticket };
@@ -65,7 +61,8 @@ function readTicketList(value: unknown): TicketList {
     if (!item || !Number.isSafeInteger(item.iid) || item.iid < 1 || ![item.title, item.description, item.author, item.web_url, item.updated_at].every(text) ||
       !Array.isArray(item.labels) || !item.labels.every(text) || typeof item.startable !== "boolean" ||
       !(item.reason === null || REASONS.includes(item.reason)) || item.startable !== (item.reason === null) ||
-      !(job === null || job && text(job.run_id) && text(job.lifecycle)) ||
+      !(job === null || job && text(job.run_id) && text(job.lifecycle) &&
+        (job.state_revision === undefined || text(job.state_revision) && /^[a-f0-9]{64}$/.test(job.state_revision))) ||
       ![item.can_start, item.adds_ready_label, item.needs_priority].every(flag => typeof flag === "boolean") ||
       !item.can_start && (item.adds_ready_label || item.needs_priority) ||
       !(item.blocked_by === null ? item.can_start : !item.can_start && BLOCKERS.includes(item.blocked_by))) throw invalid();
@@ -87,6 +84,8 @@ function readComments(value: unknown, iid: number): Comment[] {
 
 function readOperation(value: unknown): Operation {
   const operation = value as Operation;
+  if (operation?.admitted_run_id !== undefined &&
+    (typeof operation.admitted_run_id !== "string" || !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,159})?$/.test(operation.admitted_run_id))) throw invalid();
   if (!operation || !Number.isSafeInteger(operation.id) || operation.id < 1 ||
     !["pending", "running", "succeeded", "failed", "uncertain"].includes(operation.status) ||
     [operation.result, operation.reason, operation.detail].some(value => value !== undefined && !text(value))) throw invalid();
@@ -109,7 +108,7 @@ function readStop(value: unknown): StopResult {
 }
 
 /** Shared scoped tickets table: automatic/manual reads, sortable columns and isolated actions. */
-export function TicketWorkspace({ projects, showProject = false, automatic = false, locale, csrf, request, bodyMode, modeBusy, onBodyMode }: Props) {
+export function TicketWorkspace({ projects, showProject = false, automatic = false, locale, csrf, request, bodyMode, modeBusy, onBodyMode, onOpenJob }: Props) {
   const copy = ticketCopy[locale];
   const t = messages[locale];
   const [lists, setLists] = useState<Array<{ project: Project; list: TicketList }> | null>(null);
@@ -222,8 +221,23 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
     const current=()=>mounted.current && generation===actionGeneration.current && scopeKey===scopeRef.current;
     const iid = row.ticket.iid;
     if (busyFor(row.project.id) || row.project.archived || workflow === null) return;
+    const cancelled = row.ticket.job?.lifecycle === "cancelled";
+    if (cancelled && (!row.ticket.job?.state_revision || !window.confirm(
+      recoveryCopy[locale].restartJobConfirm.replace("{ticket}", String(iid))))) return;
     setBusy(row.project.id,true); setCommandStatusError(false); setActionError(null); setNotice(null); setStarting(null);
     try {
+      if (cancelled) {
+        const operation = readOperation(await request(`${base(row.project)}/operations/restart`, "POST", {
+          run_id: row.ticket.job!.run_id, state_revision: row.ticket.job!.state_revision,
+          confirmed: true, workflow, idempotency_key: crypto.randomUUID(),
+        }, csrf));
+        if (current()) {
+          setNotice({ lines: [named(row, recoveryCopy[locale].restartJob)], operation, restartProject: row.project.id });
+          setQueued(items => [...items, row.key]);
+          if (operation.status === "succeeded" && operation.admitted_run_id) onOpenJob?.(row.project.id, operation.admitted_run_id);
+        }
+        return;
+      }
       const result = readStart(await request(`${base(row.project)}/tickets/${iid}/start`, "POST", { idempotency_key: crypto.randomUUID(), workflow, ...(chosen ? { priority: chosen } : {}) }, csrf));
       const lines = [...(result.labels_added.length ? [fill(copy.labelsAdded, { labels: result.labels_added.join(", ") })] : []), named(row, fill(copy.startQueued, { iid, id: result.operation_id })), copy.startEffect];
       if (current()) { setNotice({ lines, operation: { id: result.operation_id, status: result.status }, labels: result.labels_added }); setQueued(items => [...items, row.key]); }
@@ -238,7 +252,7 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
     setConfirm(null);
     setWorkflow(null);
     setPriority(row.list.priority_labels.at(-1) ?? "");
-    setStarting({ row, needsPriority: row.ticket.needs_priority });
+    setStarting({ row, needsPriority: row.ticket.job?.lifecycle === "cancelled" ? false : row.ticket.needs_priority });
   };
 
   const retry = async (row: Row) => {
@@ -280,7 +294,10 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
       try {
         const current = readOperation(await request(`/operations/${operation.id}`));
         if (current.id !== operation.id) throw invalid();
-        if (active && currentSequence === sequence) { setCommandStatusError(false); setNotice(value => value && value.operation?.id === current.id ? { ...value, operation: current } : value); }
+        if (active && currentSequence === sequence) {
+          setCommandStatusError(false); setNotice(value => value && value.operation?.id === current.id ? { ...value, operation: current } : value);
+          if (current.status === "succeeded" && current.admitted_run_id && notice?.restartProject) onOpenJob?.(notice.restartProject, current.admitted_run_id);
+        }
       } catch { if (active && currentSequence === sequence) setCommandStatusError(true); }
     };
     void poll();
@@ -335,7 +352,7 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
               <td><div className="button-row ticket-actions">
                 {ticket.job?.lifecycle === "failed"
                   ? <button className="primary" type="button" disabled={busyFor(project.id) || project.archived || queued.includes(row.key)} onClick={() => void retry(row)}>{copy.retry}</button>
-                  : <button className="primary" type="button" disabled={busyFor(project.id) || project.archived || !ticket.can_start || queued.includes(row.key)} onClick={() => requestStart(row)}>{copy.start}</button>}
+                  : <button className="primary" type="button" disabled={busyFor(project.id) || project.archived || (ticket.job?.lifecycle === "cancelled" ? !ticket.job.state_revision : !ticket.can_start) || queued.includes(row.key)} onClick={() => requestStart(row)}>{ticket.job?.lifecycle === "cancelled" ? recoveryCopy[locale].restartJob : copy.start}</button>}
                 <button className="ghost" type="button" disabled={busyFor(project.id) || project.archived || !stoppable(row)} onClick={() => { setStarting(null); setConfirm(row); }}>{copy.stop}</button>
                 <button className="ghost" type="button" aria-expanded={open} aria-controls={detailId} onClick={() => void toggle(row)}>{open ? copy.hide : copy.details}</button>
               </div></td>
@@ -344,7 +361,7 @@ export function TicketWorkspace({ projects, showProject = false, automatic = fal
             {starting?.row.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-start-confirm" role="alertdialog" aria-label={copy.startTicket}>
               <WorkflowChoice key={row.key} project={row.project.id} locale={locale} request={request} value={workflow} onChange={setWorkflow} showHelp={false} />
               {starting.needsPriority && <label>{copy.priority}<select aria-label={copy.priority} value={priority} onChange={event => setPriority(event.target.value)}>{row.list.priority_labels.map(label => <option key={label} value={label}>{label}</option>)}</select></label>}
-              <div className="button-row"><button className="primary" type="button" disabled={busyFor(row.project.id) || workflow === null || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
+              <div className="button-row"><button className="primary" type="button" disabled={busyFor(row.project.id) || workflow === null || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{ticket.job?.lifecycle === "cancelled" ? recoveryCopy[locale].restartJob : copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
             </div></td></tr>}
             {confirm?.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-stop-confirm" role="alertdialog" aria-label={copy.stopTicket}>
               <p>{named(row, fill(copy.stopConfirm, { iid: ticket.iid, label: row.list.ready_label }))}</p>

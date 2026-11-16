@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_server.py
-@brief Web listener exposure boundary.
-@details A reverse proxy must carry remote login traffic over TLS.
-"""
+"""Web listener exposure boundary."""
 
 import sqlite3
 
@@ -23,7 +10,7 @@ import pytest
 
 
 def test_loopback_listener_starts(tmp_path, monkeypatch):
-    """@brief The supported local listener delegates to Uvicorn."""
+    """The supported local listener delegates to Uvicorn."""
     calls = []
     monkeypatch.setattr("adore.web.server.uvicorn.run", lambda app, **kwargs: calls.append(kwargs))
     assert main(["--home", str(tmp_path), "--host", "127.0.0.1", "--port", "18765"]) == 0
@@ -33,7 +20,7 @@ def test_loopback_listener_starts(tmp_path, monkeypatch):
 
 
 def test_tls_login_cookie_and_untrusted_forwarded_header(tmp_path):
-    """@brief HTTPS gets a Secure cookie; a raw forwarding header is ignored."""
+    """HTTPS gets a Secure cookie; a raw forwarding header is ignored."""
     app = create_app(tmp_path)
     with TestClient(app, base_url="https://adore.internal") as client:
         response = client.post("/api/v1/session", json={
@@ -50,7 +37,7 @@ def test_tls_login_cookie_and_untrusted_forwarded_header(tmp_path):
 
 
 def test_non_loopback_plain_listener_is_rejected(capsys):
-    """@brief The CLI refuses a network-facing HTTP bind."""
+    """The CLI refuses a network-facing HTTP bind."""
     with pytest.raises(SystemExit) as exit_info:
         main(["--host", "0.0.0.0"])
     assert exit_info.value.code == 2
@@ -58,7 +45,7 @@ def test_non_loopback_plain_listener_is_rejected(capsys):
 
 
 def test_api_health_and_worker_readiness_are_distinct(tmp_path):
-    """@brief Live HTTP alone does not claim the control worker is ready."""
+    """Live HTTP alone does not claim the control worker is ready."""
     app = create_app(tmp_path)
     with TestClient(app) as client:
         assert client.get("/api/v1/health").json() == {"status": "alive"}
@@ -87,7 +74,7 @@ def test_api_health_and_worker_readiness_are_distinct(tmp_path):
 
 
 def test_corrupt_or_stale_worker_heartbeat_fails_readiness(tmp_path):
-    """@brief Persisted clock corruption and a stopped worker fail closed."""
+    """Persisted clock corruption and a stopped worker fail closed."""
     app = create_app(tmp_path)
     web = app.state.web_store
     owner = web.register_worker("supervisor")
@@ -106,7 +93,7 @@ def test_corrupt_or_stale_worker_heartbeat_fails_readiness(tmp_path):
 
 
 def test_about_includes_bundled_third_party_notices(tmp_path):
-    """@brief About exposes release/license text and bundled dependency notices."""
+    """About exposes release/license text and bundled dependency notices."""
     with TestClient(create_app(tmp_path)) as client:
         response = client.get("/api/v1/about")
         assert response.status_code == 200

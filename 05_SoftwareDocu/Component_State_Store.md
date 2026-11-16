@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # State Store Component
 
 ## 1. Purpose
@@ -23,7 +16,7 @@ audit log. The closed run-state schema is `1`.
   lock whose PID is provably gone may be removed;
 - derive stable run IDs (`derive_run_id`: `<platform>-<repo with / as ->-<ticket>`)
   and match exactly one project's run IDs (`run_id_pattern`, digits-only ticket
-  part) so cleanup can tell its own resources from other projects';
+  part with an optional positive `-rN` execution generation);
 - preserve active/historical task ids, stage/path/type, counters, incidents,
   outbox, validation evidence, candidate fingerprint, approval and MR state;
 - report corrupt runs without silently reinitializing them;
@@ -31,6 +24,13 @@ audit log. The closed run-state schema is `1`.
   suppressing unrelated I/O failures or changing direct-load errors.
 
 ## 3. Data Contract
+
+`latest_run_id(base)` validates retained members of a ticket family and returns
+the highest generation, refusing corrupt, linked or misbound history. Cancelled
+restarts keep the old directory/IO unchanged and allocate a fresh identity.
+`restarted-from` / `restart-admitted` journal entries link the executions without
+another stored schema, migration or moving private session files. Normal Start
+still refuses an existing family. Explicit deletion can remove old generations.
 
 Every `state.json` contains `schema_version: 1`. Missing/wrong schema, unknown
 keys and missing keys raise `StateError`; there are no migrations, so state of

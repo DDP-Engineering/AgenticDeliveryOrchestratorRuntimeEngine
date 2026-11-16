@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import type {Locale} from "./i18n";
 
 export const instructionCopy:Record<Locale,{title:string;text:string;now:string;after:string;queued:string;delivered:string;meaning:string;wait:string;limit:string;notWorking:string;failed:string;rejected:string;notice:string;full:string;busy:string}>={

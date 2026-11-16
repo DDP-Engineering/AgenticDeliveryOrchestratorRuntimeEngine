@@ -1,11 +1,6 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Software component documentation
+
+Current implementation reference: **ADORE 0.18.0** (2026-11-16).
 
 This folder describes the implementation that exists in the checkout. It is the
 entry point for component ownership, data contracts, dependencies and recovery
@@ -25,6 +20,9 @@ Each distinct implementation contract has one owner below. Link to it rather tha
 copying the same workflow, API or UI details into several files. Exact setting
 names, CLI arguments and image pins remain in their canonical references/code.
 The API's generated OpenAPI describes exact HTTP route shapes.
+
+The [Python test infrastructure](Component_Test_Infrastructure.md) documents
+worker isolation, immutable fixture caching and test-only password hashing.
 
 Every stored format has one current schema. Unsupported stores are refused with
 operator deletion guidance, never migrated or silently recreated. Components
@@ -58,7 +56,7 @@ must document their actual refusal/recovery boundaries.
 | [Execution](Component_Execution.md) | Backend interface, immutable resources and preparation runner |
 | [Isolation](Component_Isolation.md) | Git worktrees, checkpoints, container mounts and egress |
 | [Local Execution](Component_Local_Execution.md) | Managed native Pi, process ownership and cleanup |
-| [Executor Launcher](Component_Executor_Launcher.md) | Fresh Pi RPC sessions, bounded recordings and archives |
+| [Executor Launcher](Component_Executor_Launcher.md) | Persistent Pi conversation, bounded RPC processes, recordings and archives |
 | [Instructions](Component_Instructions.md) | Durable queued/live messages and acknowledged delivery |
 | [Package Permissions](Component_Package_Permissions.md) | Explicit container package-manager authority |
 

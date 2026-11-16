@@ -1,31 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file forge_labels.py
-@brief Create the project's missing ADORE labels in its repository.
-@details GitHub and Gitea refuse to add a label that the repository does not
-         define, so a new project needs its labels first. ADORE reads the
-         repository's labels once and creates only the missing ones named by
-         the project's settings, each with a colour and a short description.
-         Existing labels are never changed or deleted.
-"""
+"""Create the project's missing ADORE labels in its repository."""
 
 from __future__ import annotations
 
-# IMPORTS
 from dataclasses import dataclass
 
 from adore.config import Config
 from adore.forge.base import Forge, ForgeError
 
-# CONSTANTS
 _LIFECYCLE = "1D76DB"
 _CONTROL = "5319E7"
 _PRIORITY = {"priority_high": "B60205", "priority_medium": "FBCA04", "priority_low": "0E8A16"}
@@ -35,7 +16,7 @@ _TYPE = "D4C5F9"
 
 @dataclass(frozen=True)
 class LabelSpec:
-    """@brief One label ADORE needs: name, colour (hex without #) and description."""
+    """One label ADORE needs: name, colour (hex without #) and description."""
 
     name: str
     color: str
@@ -44,9 +25,9 @@ class LabelSpec:
 
 def project_labels(config: Config) -> list[LabelSpec]:
     """
-    @brief      The labels the project's settings name, once each (case-insensitive).
-    @param[in]  config Effective project configuration.
-    @return     Label specifications in a stable order.
+    The labels the project's settings name, once each (case-insensitive).
+    config: Effective project configuration.
+    Returns: Label specifications in a stable order.
     """
     labels = config.labels
     lifecycle = labels.lifecycle
@@ -84,8 +65,8 @@ def project_labels(config: Config) -> list[LabelSpec]:
 
 def failure_reason(exc: ForgeError) -> str:
     """
-    @brief      The forge's own reason for a refused label, without the command line.
-    @details    The error text also carries the whole argv (name, colour,
+    The forge's own reason for a refused label, without the command line.
+    The error text also carries the whole argv (name, colour,
                 description), which would push the cause out of a short reason.
     """
     summary = str(exc).split(" | ", 1)[0].strip()  # the message, without argv or stderr
@@ -95,11 +76,11 @@ def failure_reason(exc: ForgeError) -> str:
 
 def ensure_labels(forge: Forge, specs: list[LabelSpec]) -> dict:
     """
-    @brief      Create the missing labels; report created, existing and failed ones.
-    @param[in]  forge Credential-scoped forge adapter of the project.
-    @param[in]  specs Labels the project needs.
-    @return     {"created": [...], "existing": [...], "failed": [{"name", "reason"}]}.
-    @exception  ForgeError When the existing labels cannot be read (nothing is created).
+    Create the missing labels; report created, existing and failed ones.
+    forge: Credential-scoped forge adapter of the project.
+    specs: Labels the project needs.
+    Returns: {"created": [...], "existing": [...], "failed": [{"name", "reason"}]}.
+    Raises ForgeError: When the existing labels cannot be read (nothing is created).
     """
     from adore.forge.azure_devops import AzureDevOpsForge
 
@@ -121,6 +102,3 @@ def ensure_labels(forge: Forge, specs: list[LabelSpec]) -> dict:
         present.add(spec.name.casefold())
         report["created"].append(spec.name)
     return report
-
-
-# END OF FILE

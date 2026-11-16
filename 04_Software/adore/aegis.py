@@ -1,26 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file aegis.py
-@brief Typed client for the agent-driven AEGIS companion CLI.
-@details ADORE invokes ``python .agentic/aegis.py`` inside the isolated
-         worktree. AEGIS owns task journals and workflow instructions; ADORE
-         creates tasks, reads schema-1 status/check documents, and fails
-         loudly when the CLI or persisted journal
-         crosses the documented trust boundary incorrectly. It speaks the
-         documented CLI and schema, with no alternate-contract fallback.
-"""
+"""Typed client for the agent-driven AEGIS companion CLI."""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 import json
@@ -31,8 +12,6 @@ from typing import Any
 
 from adore.executor.base import ExecTarget
 from adore.util import CommandResult
-
-# CONSTANTS
 
 AEGIS_CLI = ".agentic/aegis.py"
 #: The AEGIS major line ADORE speaks. A major bump is the signal that the
@@ -91,28 +70,27 @@ DEVIATION_RE = re.compile(
     rf"(?=(?:{'|'.join(STATUS_STAGES)})\b[ \t]*(?::|[ \t][-\u2013\u2014][ \t]))"
 )
 
-# DATA MODELS / TYPEDEFINITIONS
 
 
 class AegisError(RuntimeError):
-    """@brief Base class for unusable AEGIS interactions."""
+    """Base class for unusable AEGIS interactions."""
 
 
 class AegisProtocolError(AegisError):
-    """@brief AEGIS returned an unsupported or malformed CLI response."""
+    """AEGIS returned an unsupported or malformed CLI response."""
 
 
 class AegisTimeoutError(AegisError):
-    """@brief One AEGIS command exceeded ADORE's invocation bound."""
+    """One AEGIS command exceeded ADORE's invocation bound."""
 
 
 class AegisTaskError(AegisError):
-    """@brief A task journal/status document violated the public contract."""
+    """A task journal/status document violated the public contract."""
 
 
 @dataclass(frozen=True)
 class AegisProbe:
-    """@brief Validated installed AEGIS release and machine schema."""
+    """Validated installed AEGIS release and machine schema."""
 
     version: str
     major: int
@@ -123,7 +101,7 @@ class AegisProbe:
 
 @dataclass(frozen=True)
 class ChecklistItem:
-    """@brief One current-stage task-journal checklist item."""
+    """One current-stage task-journal checklist item."""
 
     done: bool
     item: str
@@ -131,7 +109,7 @@ class ChecklistItem:
 
 @dataclass(frozen=True)
 class AegisTask:
-    """@brief Validated schema-1 view of one AEGIS task journal."""
+    """Validated schema-1 view of one AEGIS task journal."""
 
     task_id: str
     title: str
@@ -145,22 +123,22 @@ class AegisTask:
 
     @property
     def task_type(self) -> str:
-        """@brief Return the journal's feature/fix/change type."""
+        """Return the journal's feature/fix/change type."""
         return self.header["type"]
 
     @property
     def path(self) -> str:
-        """@brief Return the journal's full/quick workflow path."""
+        """Return the journal's full/quick workflow path."""
         return self.header["path"]
 
     @property
     def branch(self) -> str:
-        """@brief Return the branch recorded in the journal."""
+        """Return the branch recorded in the journal."""
         return self.header["branch"]
 
     @property
     def requirements(self) -> tuple[str, ...]:
-        """@brief Return comma-separated requirement ids as normalized values."""
+        """Return comma-separated requirement ids as normalized values."""
         return tuple(
             item.strip()
             for item in self.header.get("requirements", "").split(",")
@@ -169,7 +147,7 @@ class AegisTask:
 
     @property
     def deviations(self) -> tuple[str, ...]:
-        """@brief Recorded `DEVIATION <stage>` log entries, token stripped, in order."""
+        """Recorded `DEVIATION <stage>` log entries, token stripped, in order."""
         found = []
         for entry in self.log:
             match = DEVIATION_RE.search(entry)
@@ -180,7 +158,7 @@ class AegisTask:
 
 @dataclass(frozen=True)
 class AegisFinding:
-    """@brief One structured AEGIS check finding."""
+    """One structured AEGIS check finding."""
 
     level: str
     check: str
@@ -190,7 +168,7 @@ class AegisFinding:
 
 @dataclass(frozen=True)
 class AegisCommandRun:
-    """@brief One configured command considered by ``check --run``."""
+    """One configured command considered by ``check --run``."""
 
     name: str
     status: str
@@ -201,7 +179,7 @@ class AegisCommandRun:
 
 @dataclass(frozen=True)
 class AegisCheck:
-    """@brief Validated complete schema-1 check result."""
+    """Validated complete schema-1 check result."""
 
     exit_code: int
     task_id: str | None
@@ -217,15 +195,14 @@ class AegisCheck:
 
     @property
     def executed_runs(self) -> tuple[AegisCommandRun, ...]:
-        """@brief Configured commands that actually executed."""
+        """Configured commands that actually executed."""
         return tuple(item for item in self.runs if item.status != "skipped")
 
 
-# HELPER FUNCTIONS
 
 
 def _bounded_text(value: Any, field: str, *, empty: bool = False) -> str:
-    """@brief Read one bounded string from a trust-boundary document."""
+    """Read one bounded string from a trust-boundary document."""
     if not isinstance(value, str) or (not empty and not value.strip()):
         raise AegisProtocolError(f"AEGIS field {field!r} must be a string")
     if len(value.encode("utf-8")) > MAX_TEXT_BYTES:
@@ -234,7 +211,7 @@ def _bounded_text(value: Any, field: str, *, empty: bool = False) -> str:
 
 
 def _repository_path(value: Any, field: str) -> str:
-    """@brief Validate one normalized repository-relative POSIX path."""
+    """Validate one normalized repository-relative POSIX path."""
     text = _bounded_text(value, field)
     if "\\" in text or ":" in text:
         raise AegisProtocolError(f"AEGIS path {field!r} is not repository-relative")
@@ -251,8 +228,8 @@ def _repository_path(value: Any, field: str) -> str:
 
 def allowed_transition(previous: str, current: str, path: str) -> bool:
     """
-    @brief Decide whether an executor-authored stage transition is documented.
-    @details AEGIS owns backward routing within the selected full/quick path.
+    Decide whether an executor-authored stage transition is documented.
+    AEGIS owns backward routing within the selected full/quick path.
              A stage may remain current, advance once or return to an earlier
              stage. A done task may return only to validate for governed
              revalidation. Unknown paths and stages fail closed.
@@ -271,13 +248,13 @@ def allowed_transition(previous: str, current: str, path: str) -> bool:
 
 def logged_stages(log: Sequence[str]) -> frozenset[str]:
     """
-    @brief      Stages that carry a Log entry of their own in a task journal.
-    @details    AEGIS writes one Log line per stage it completes, opened by the
+    Stages that carry a Log entry of their own in a task journal.
+    AEGIS writes one Log line per stage it completes, opened by the
                 stage name after an optional date. Matching is anchored to the
                 start of an entry so prose merely mentioning a stage cannot be
                 mistaken for evidence that the stage ran.
-    @param[in]  log The task journal's Log entries.
-    @return     The stage names with an entry of their own.
+    log: The task journal's Log entries.
+    Returns: The stage names with an entry of their own.
     """
     found = {
         match.group(1)
@@ -291,8 +268,8 @@ def evidenced_transition(
     previous: str, current: str, path: str, log: Sequence[str]
 ) -> bool:
     """
-    @brief      Whether a multi-stage forward jump is backed by the journal.
-    @details    An executor is instructed to stop after one stage, but a model
+    Whether a multi-stage forward jump is backed by the journal.
+    An executor is instructed to stop after one stage, but a model
                 may run the whole task in a single session instead. That is a
                 contract DEVIATION, not a skipped stage, and the two must not
                 share a verdict: refusing both discards completed, correct work
@@ -306,11 +283,11 @@ def evidenced_transition(
                 every stage from `previous` up to `current` carries its own Log
                 entry. A genuine skip leaves gaps and stays refused, so the
                 trust boundary is unchanged.
-    @param[in]  previous The stage ADORE last recorded.
-    @param[in]  current The stage the journal now reports.
-    @param[in]  path The selected full/quick workflow path.
-    @param[in]  log The task journal's Log entries.
-    @return     True when the jump is evidenced and may be accepted.
+    previous: The stage ADORE last recorded.
+    current: The stage the journal now reports.
+    path: The selected full/quick workflow path.
+    log: The task journal's Log entries.
+    Returns: True when the jump is evidenced and may be accepted.
     """
     sequence = QUICK_STAGES if path == "quick" else FULL_STAGES
     if previous not in sequence or current not in sequence:
@@ -322,11 +299,10 @@ def evidenced_transition(
     return all(stage in done for stage in sequence[start:end])
 
 
-# PUBLIC API
 
 
 class AegisClient:
-    """@brief Typed AEGIS client using direct or file-transport execution."""
+    """Typed AEGIS client using direct or file-transport execution."""
 
     def __init__(
         self,
@@ -335,10 +311,10 @@ class AegisClient:
         io_dir: str | Path | None = None,
     ) -> None:
         """
-        @brief      Bind the client to a direct or container execution seam.
-        @param[in]  execute Command executor, normally a bound container exec.
-        @param[in]  python_command Python command in the target environment.
-        @param[in]  io_dir Host side of the run's `/adore/io` mount. When set,
+        Bind the client to a direct or container execution seam.
+        execute: Command executor, normally a bound container exec.
+        python_command: Python command in the target environment.
+        io_dir: Host side of the run's `/adore/io` mount. When set,
                            AEGIS commands and results cross the runtime boundary
                            through bounded files so raw arguments never enter
                            the WSL-wrapped container argv.
@@ -348,7 +324,7 @@ class AegisClient:
         self.io_dir = Path(io_dir) if io_dir is not None else None
 
     def probe(self) -> AegisProbe:
-        """@brief Prove the payload is a supported AEGIS major with schema 1."""
+        """Prove the payload is a supported AEGIS major with schema 1."""
         result = self._run(["--version"], timeout=DEFAULT_TIMEOUT)
         match = VERSION_RE.fullmatch(result.stdout.strip())
         if match is None:
@@ -376,7 +352,7 @@ class AegisClient:
         )
 
     def create_task(self, title: str, task_type: str) -> str:
-        """@brief Create a task journal and return its validated task id."""
+        """Create a task journal and return its validated task id."""
         if task_type not in RUN_KINDS:
             raise AegisProtocolError(f"unsupported AEGIS task type {task_type!r}")
         clean = title.strip()
@@ -394,7 +370,7 @@ class AegisClient:
         return task_id
 
     def list_tasks(self, *, include_done: bool = True) -> tuple[AegisTask, ...]:
-        """@brief List task summaries and fail on any unreadable journal."""
+        """List task summaries and fail on any unreadable journal."""
         argv = ["status"]
         if include_done:
             argv.append("--all")
@@ -404,7 +380,7 @@ class AegisClient:
         return tuple(self.task_status(item["id"]) for item in summaries)
 
     def task_status(self, task_id: str) -> AegisTask:
-        """@brief Return a fully validated view of one task journal."""
+        """Return a fully validated view of one task journal."""
         self._task_id(task_id)
         payload, _ = self._json(["status", task_id, "--json"])
         if payload.get("command") != "status" or not isinstance(payload.get("task"), dict):
@@ -419,7 +395,7 @@ class AegisClient:
         run: bool = False,
         timeout: float | None = None,
     ) -> AegisCheck:
-        """@brief Run the advisory or strict AEGIS check catalog."""
+        """Run the advisory or strict AEGIS check catalog."""
         argv = ["check"]
         if task_id is not None:
             self._task_id(task_id)
@@ -440,7 +416,6 @@ class AegisClient:
         )
         return self._decode_check(payload, result.exit_code, task_id, strict)
 
-    # LOCAL HELPERS
 
     def _command(self, argv: Sequence[str]) -> list[str]:
         return [self.python_command, AEGIS_CLI, *argv]
@@ -480,11 +455,11 @@ class AegisClient:
         timeout: float | None,
     ) -> CommandResult:
         """
-        @brief      Invoke AEGIS through the host-mounted run exchange directory.
-        @param[in]  command Complete AEGIS command tokens.
-        @param[in]  timeout Wall-clock execution bound.
-        @return     Container exit/timeout data with bounded file output.
-        @exception  AegisProtocolError When exchange setup or output is unusable.
+        Invoke AEGIS through the host-mounted run exchange directory.
+        command: Complete AEGIS command tokens.
+        timeout: Wall-clock execution bound.
+        Returns: Container exit/timeout data with bounded file output.
+        Raises AegisProtocolError: When exchange setup or output is unusable.
         """
         assert self.io_dir is not None  # construction chooses this path
         from adore.execution import SHELL_HEADER, ExecutionPaths
@@ -538,12 +513,12 @@ class AegisClient:
     @staticmethod
     def _read_exchange(path: Path, stream: str, limit: int) -> str:
         """
-        @brief      Read one required bounded AEGIS exchange artifact.
-        @param[in]  path Host exchange-file path.
-        @param[in]  stream Diagnostic stream name.
-        @param[in]  limit Maximum accepted byte count.
-        @return     UTF-8-decoded content; invalid bytes remain visible as U+FFFD.
-        @exception  AegisProtocolError When the artifact is absent, unreadable,
+        Read one required bounded AEGIS exchange artifact.
+        path: Host exchange-file path.
+        stream: Diagnostic stream name.
+        limit: Maximum accepted byte count.
+        Returns: UTF-8-decoded content; invalid bytes remain visible as U+FFFD.
+        Raises AegisProtocolError: When the artifact is absent, unreadable,
                     or exceeds its bound.
         """
         try:
@@ -760,6 +735,3 @@ class AegisClient:
             runs=tuple(runs),
             raw=dict(payload),
         )
-
-
-# END OF FILE

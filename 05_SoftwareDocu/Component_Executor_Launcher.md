@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: Executor launcher
 
 ## Purpose and sources
@@ -59,6 +52,9 @@ launched job, missing required history, foreign identity and corrupt records rai
 Windows inherits the existing account-owned job directory controls.
 
 RPC checks `get_state` identity and a usage baseline before sending the prompt.
+Those two startup checks share a 30-second window, bounded by any shorter stage
+deadline and still cancellable. The final usage cross-check keeps its separate
+five-second grace; startup does not extend implementation or shutdown limits.
 Prompt acceptance makes history mandatory and saves the ticket fingerprint. Pi
 owns transcript persistence and compaction; temporary native settings remain
 separate and container/WSL targets use the existing IO bind mount.

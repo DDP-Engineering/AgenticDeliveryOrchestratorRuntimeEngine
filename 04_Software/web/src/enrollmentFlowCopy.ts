@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import type { Locale } from "./i18n";
 const en = {
   subscription: "Uses this server’s ChatGPT sign-in. No API key is needed. You can sign in after creation in Agent and model.",

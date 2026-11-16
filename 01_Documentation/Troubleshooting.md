@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Troubleshooting
 
 ## The interface does not open
@@ -30,24 +23,24 @@ and rerun the check. Unverified means there is no current evidence of success.
 | Check | What to verify |
 |---|---|
 | Git or repository access | Git is installed; the remote URL, SSH key or HTTPS access works under the ADORE OS account. |
-| Forge CLI or authentication | The selected tea/gh/glab is available and signed in to the intended server. The Gitea tea login field is a saved login name. |
+| Forge CLI or authentication | The selected tea/gh/glab or Azure CLI with azure-devops is available and authenticated for the intended scope. The Gitea tea login field is a saved login name. |
 | Container runtime | The selected Docker/Podman runtime is available to that account and the chosen image already exists locally. |
 | Executor | The selected native installation or image contains the agent and required project tools. |
 | Local Linux process control | A writable delegated cgroup-v2 root with `cgroup.kill` is configured in Advanced. |
-| AEGIS or target branch | The target repository contains its required AEGIS installation and the selected branch exists. |
+| AEGIS or target branch | The selected branch exists. With AEGIS requires a usable installation; Without AEGIS bypasses it even when installed. |
 | Model connection | The model ID, existing executor sign-in or configured provider credentials and endpoint are correct. Use the separate connection test when required. |
 
-## An executor is not detected
+## Managed Pi is unavailable
 
-Confirm that it is installed for the account shown in **Runs as**, on the ADORE
-computer. Choose **Detect installed executors** after correcting installation or
-PATH. A process inherits its environment when started; restart ADORE after
-changing the host's PATH.
+Run `adore pi verify` on the ADORE host under its service account. The offline
+package includes the managed Node/Pi installation; extract the whole archive.
+For online/source installations prepare Node/npm, then run `adore pi install`
+and `adore pi verify`. Pi is the only supported executor; a manually entered
+launch command or another personal Pi installation is not a replacement.
 
-You can open **Advanced** and enter the native executable or full command
-manually. On Windows, use the real `.exe` or the installed Node/JavaScript pair.
-Detection does not install tools, sign in or test model access. Leave home and
-PATH overrides empty unless you intentionally use a prepared custom environment.
+Verify provider authentication separately in **Agent and model**. Use **Test AI
+connection** only when you want a real provider request. A successful local
+installation check alone does not prove model access.
 
 ## A clone folder cannot be selected
 
@@ -70,6 +63,15 @@ Pausing monitoring stops new automatic pickup. Use job actions explicitly to
 cancel or release existing work. Keep evidence and worktrees while diagnosing a
 failure; avoid editing run-state files or deleting process records by hand.
 The in-app job lifecycle help explains each state and its available actions.
+
+## A cancelled job cannot start again
+
+Open its **Restart job** action in Jobs or Tickets, choose the workflow and
+confirm. Only the latest cancelled execution can restart; an older execution
+links to its newer job. Restart requires an open eligible ticket, capacity and
+verified cleanup. Required cancellation notifications must finish first. Refresh
+Job details if the confirmed state changed. The earlier conversation is retained;
+it is not resumed in the fresh execution.
 
 ## Settings cannot be saved
 

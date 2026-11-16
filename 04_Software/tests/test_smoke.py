@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_smoke.py
-@brief Smoke tests: package version, executor factory, and the CLI end-to-end.
-@details Drives `adore` through main() against a real config file in a tmp dir,
-         so config loading, validation, state store, and command wiring are
-         exercised together.
-"""
+"""Smoke tests: package version, executor factory, and the CLI end-to-end."""
 
 from __future__ import annotations
 
@@ -30,10 +15,7 @@ from adore.process_log import ProcessLogger, process_log_path
 from adore.state import RunState, StateStore
 import pytest
 
-# IMPORTS
 from tests.execution_records import execution_record
-
-# CONSTANTS
 
 VALID_CONFIG = """
 [platform]
@@ -52,17 +34,15 @@ model = "gpt-5.4-fast"
 reviewers = ["dan.pasare"]
 """
 
-# HELPER FUNCTIONS
-
 
 def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
     """
-    @brief      Write a config.toml with a tmp-scoped state and worktree root.
-    @details    The worktree root is tmp-scoped so operator commands that
+    Write a config.toml with a tmp-scoped state and worktree root.
+    The worktree root is tmp-scoped so operator commands that
                 sweep it (`adore cleanup`) never touch the real worktrees/.
-    @param[in]  tmp_path pytest tmp dir.
-    @param[in]  text TOML content.
-    @return     The config path as a string for the CLI.
+    tmp_path: pytest tmp dir.
+    text: TOML content.
+    Returns: The config path as a string for the CLI.
     """
     store_root = (tmp_path / ".adore").as_posix()
     worktree_root = (tmp_path / "worktrees").as_posix()
@@ -76,7 +56,7 @@ def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
 
 
 class FakeMutationEngine:
-    """@brief Record CLI mutation calls without touching external systems."""
+    """Record CLI mutation calls without touching external systems."""
 
     def __init__(self, store=None) -> None:
         self.calls: list[tuple] = []
@@ -112,7 +92,7 @@ class FakeMutationEngine:
         return True
 
     def delete(self, run_id: str, *, owned_resources: bool = False) -> None:
-        """@brief Record the guarded deletion boundary and emulate state removal."""
+        """Record the guarded deletion boundary and emulate state removal."""
         if self.store is not None:
             with StateStore(self.store.root).run_lock(run_id):
                 self.store.delete_run(run_id)
@@ -124,25 +104,19 @@ class FakeMutationEngine:
 
 
 def test_version_present() -> None:
-    """
-    @brief   The package exposes a non-empty version string.
-    """
+    """The package exposes a non-empty version string."""
     assert isinstance(__version__, str)
     assert __version__
 
 
 def test_build_executor_pi() -> None:
-    """
-    @brief   The factory returns the Pi executor, ADORE's only coding agent.
-    """
+    """The factory returns the Pi executor, ADORE's only coding agent."""
     executor = build_executor("openai/gpt-5.4-fast")
     assert isinstance(executor, PiExecutor)
 
 
 def test_cli_config_validate_ok(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """
-    @brief   `adore config validate` passes on a valid file.
-    """
+    """`adore config validate` passes on a valid file."""
     assert main(["-c", _config_file(tmp_path), "config", "validate"]) == EXIT_OK
     assert "OK" in capsys.readouterr().out
 
@@ -150,9 +124,7 @@ def test_cli_config_validate_ok(tmp_path: Path, capsys: pytest.CaptureFixture[st
 def test_cli_config_validate_reports_issues(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """
-    @brief   `adore config validate` lists issues and exits 1.
-    """
+    """`adore config validate` lists issues and exits 1."""
     bad = VALID_CONFIG.replace('kind = "gitlab"', 'kind = "bitbucket"')
     assert main(["-c", _config_file(tmp_path, bad), "config", "validate"]) == EXIT_ERROR
     assert "[platform] kind" in capsys.readouterr().out
@@ -161,9 +133,7 @@ def test_cli_config_validate_reports_issues(
 def test_cli_missing_config_is_a_clean_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """
-    @brief   A missing config file prints a hint instead of a traceback.
-    """
+    """A missing config file prints a hint instead of a traceback."""
     assert main(["-c", str(tmp_path / "nope.toml"), "status"]) == EXIT_ERROR
     assert "not found" in capsys.readouterr().out
 
@@ -173,7 +143,7 @@ def test_cli_run_once_reports_an_unexpected_fault_without_a_traceback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   `run --loop` survives an unexpected fault and keeps polling, so a
+    `run --loop` survives an unexpected fault and keeps polling, so a
              single pass must not be noisier for the same cause. `--once` is
              what cron and Task Scheduler call, where a traceback is just a
              nonzero exit with an ugly log.
@@ -192,9 +162,7 @@ def test_cli_run_once_reports_an_unexpected_fault_without_a_traceback(
 def test_cli_status_pause_resume_runs(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """
-    @brief   status/pause/resume/runs work together against the state store.
-    """
+    """status/pause/resume/runs work together against the state store."""
     config = _config_file(tmp_path)
     assert main(["-c", config, "status"]) == EXIT_OK
     assert "paused : no" in capsys.readouterr().out
@@ -212,7 +180,7 @@ def test_cli_reset_guardrail_and_cleanup_report(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   reset refuses without --force (design 8c), fails cleanly on an
+    reset refuses without --force (design 8c), fails cleanly on an
              unknown run with --force, and cleanup prints a JSON report.
     """
     config = _config_file(tmp_path)
@@ -232,8 +200,8 @@ def test_cli_reset_accepts_only_current_stages_and_publishing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], target: str, code: int,
 ) -> None:
     """
-    @brief   `reset --to` names a conducted AEGIS stage or publishing.
-    @details AEGIS 0.15.0 has no deliver stage and done is no reset target, so
+    `reset --to` names a conducted AEGIS stage or publishing.
+    AEGIS 0.15.0 has no deliver stage and done is no reset target, so
              the CLI refuses both and the saved run keeps its pointer.
     """
     config_path = _config_file(tmp_path)
@@ -256,7 +224,7 @@ def test_cli_config_set_updates_existing_key_and_preserves_comments(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   `config set` replaces an existing scalar in place, keeps comments
+    `config set` replaces an existing scalar in place, keeps comments
              and other keys, and infers the value type (here: int).
     """
     text = VALID_CONFIG + "\n[budgets]\nmax_iterations = 20  # a comment\n"
@@ -273,7 +241,7 @@ def test_cli_config_set_adds_missing_section(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   Setting a key in an absent section appends the table; the result
+    Setting a key in an absent section appends the table; the result
              still validates.
     """
     config = _config_file(tmp_path)  # VALID_CONFIG has no [budgets]
@@ -287,7 +255,7 @@ def test_cli_config_set_refuses_when_result_is_invalid(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   An edit that would make the config invalid is refused and the file
+    An edit that would make the config invalid is refused and the file
              is left byte-for-byte unchanged (validate before write).
     """
     config = _config_file(tmp_path)
@@ -302,7 +270,7 @@ def test_cli_config_set_rejects_secret_key(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   A secret-looking key is refused and the operator is pointed at
+    A secret-looking key is refused and the operator is pointed at
              .env; config.toml only holds secret NAMES, never values.
     """
     config = _config_file(tmp_path)
@@ -314,7 +282,7 @@ def test_cli_config_set_rejects_bad_key_and_missing_value(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   A key without a section, and a missing value, both fail closed with
+    A key without a section, and a missing value, both fail closed with
              a usage/format message rather than a traceback.
     """
     config = _config_file(tmp_path)
@@ -328,7 +296,7 @@ def test_cli_stats_and_export_work_empty(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   stats/export on an empty store answer cleanly (exit 0), and
+    stats/export on an empty store answer cleanly (exit 0), and
              report on an unknown run errors cleanly.
     """
     config = _config_file(tmp_path)
@@ -342,7 +310,7 @@ def test_cli_stats_and_export_work_empty(
 def test_cli_report_and_rebuild_reject_conflicting_usage(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """@brief CLI metrics fail with a typed message on versioned replay conflict."""
+    """CLI metrics fail with a typed message on versioned replay conflict."""
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
     store.save(RunState(run_id="a-clean", ticket_iid=2, lifecycle="done",
@@ -367,7 +335,7 @@ def test_cli_report_and_rebuild_reject_conflicting_usage(
 def test_cli_rebuild_replays_usage_idempotently_without_changing_run_state(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """@brief Historical rebuild upserts known evidence and preserves journals."""
+    """Historical rebuild upserts known evidence and preserves journals."""
     config = _config_file(tmp_path)
     state = StateStore(tmp_path / ".adore")
     state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done",
@@ -396,27 +364,23 @@ def test_cli_run_once_writes_process_log(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    @brief   `adore run --once` preserves stdout and appends the same run-owned
+    `adore run --once` preserves stdout and appends the same run-owned
              lines to `<store_root>/adore.log`.
     """
     config = _config_file(tmp_path)
 
     class FakeEngine:
-        """
-        @brief   Minimal engine for run-command CLI smoke coverage.
-        """
+        """Minimal engine for run-command CLI smoke coverage."""
 
         def __init__(self) -> None:
-            """
-            @brief   Initialize with the same log slot Orchestrator exposes.
-            """
+            """Initialize with the same log slot Orchestrator exposes."""
             self.log = print
 
         def poll_once(self, *, dry_run: bool = False) -> dict:
             """
-            @brief      Emit one engine line and return a summary.
-            @param[in]  dry_run Whether the CLI requested dry-run.
-            @return     Poll summary.
+            Emit one engine line and return a summary.
+            dry_run: Whether the CLI requested dry-run.
+            Returns: Poll summary.
             """
             self.log("engine line")
             return {"picked": None, "dry_run": dry_run}
@@ -440,7 +404,7 @@ def test_cli_engine_prefers_profile_env_then_falls_back_to_cwd(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    @brief   Engine commands pass the config-adjacent `.env` when present and
+    Engine commands pass the config-adjacent `.env` when present and
              otherwise the cwd fallback, independent of the selected config.
     """
     profile_dir = tmp_path / "profile"
@@ -455,7 +419,7 @@ def test_cli_engine_prefers_profile_env_then_falls_back_to_cwd(
     selected: list[Path] = []
 
     class FakeEngine:
-        """@brief Minimal dry-run engine for env-path selection."""
+        """Minimal dry-run engine for env-path selection."""
 
         def __init__(self) -> None:
             self.log = print
@@ -492,11 +456,11 @@ def test_cli_run_once_reserves_lock_advice_for_lock_contention(
     expected: str,
     has_lock_hint: bool,
 ) -> None:
-    """@brief Non-lock RuntimeErrors keep their text without lock-removal advice."""
+    """Non-lock RuntimeErrors keep their text without lock-removal advice."""
     config = _config_file(tmp_path)
 
     class FailingEngine:
-        """@brief Minimal run-once engine raising one scripted failure."""
+        """Minimal run-once engine raising one scripted failure."""
 
         def __init__(self) -> None:
             self.log = print
@@ -531,11 +495,11 @@ def test_cli_single_ticket_run_names_why_it_started_nothing(
     outcome: dict | Exception,
     code: str | None,
 ) -> None:
-    """@brief `run --once --ticket N` prints one stable reason line when it starts no job."""
+    """`run --once --ticket N` prints one stable reason line when it starts no job."""
     config = _config_file(tmp_path)
 
     class TicketEngine:
-        """@brief Minimal single-ticket engine returning one scripted pass."""
+        """Minimal single-ticket engine returning one scripted pass."""
 
         def __init__(self) -> None:
             self.log = print
@@ -562,11 +526,11 @@ def test_cli_single_ticket_run_names_why_it_started_nothing(
 def test_cli_run_once_without_ticket_prints_no_not_started_line(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A polling pass that picks nothing is normal and names no ticket."""
+    """A polling pass that picks nothing is normal and names no ticket."""
     config = _config_file(tmp_path)
 
     class PausedEngine:
-        """@brief Engine whose pass finds pickup stopped."""
+        """Engine whose pass finds pickup stopped."""
 
         def __init__(self) -> None:
             self.log = print
@@ -596,7 +560,7 @@ def test_cli_operator_mutations_refuse_a_live_lock(
     monkeypatch: pytest.MonkeyPatch,
     argv: list[str],
 ) -> None:
-    """@brief Run ownership blocks mutations; Cancel only queues a request to its live owner."""
+    """Run ownership blocks mutations; Cancel only queues a request to its live owner."""
     from contextlib import ExitStack
 
     config = _config_file(tmp_path)
@@ -641,7 +605,7 @@ def test_cli_operator_mutations_acquire_and_release_the_lock(
     argv: list[str],
     expected: tuple,
 ) -> None:
-    """@brief Every successful operator mutation releases its acquired lock."""
+    """Every successful operator mutation releases its acquired lock."""
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
     store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="failed",
@@ -661,7 +625,7 @@ def test_cli_logs_remain_available_while_lock_is_held(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief Read-only journal inspection does not contend with the conductor."""
+    """Read-only journal inspection does not contend with the conductor."""
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
     store.journal("run-1", "picked", ticket=1)
@@ -680,7 +644,7 @@ def test_cli_logs_remain_available_while_lock_is_held(
 
 def test_process_log_rotates(tmp_path: Path) -> None:
     """
-    @brief   The ADORE process log keeps a bounded current file and numbered
+    The ADORE process log keeps a bounded current file and numbered
              backups with the newest backup at `.1`.
     """
     path = tmp_path / "adore.log"
@@ -700,7 +664,7 @@ def test_cli_run_ops_on_unknown_run_fail_cleanly(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   retry/cancel/logs/delete on an unknown run print a clean error
+    retry/cancel/logs/delete on an unknown run print a clean error
              (no traceback, no network) and exit 1; delete additionally
              requires --force.
     """
@@ -716,9 +680,7 @@ def test_cli_run_ops_on_unknown_run_fail_cleanly(
 def test_cli_invalid_toml_is_a_clean_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """
-    @brief   A syntactically broken config prints a readable error, exit 1.
-    """
+    """A syntactically broken config prints a readable error, exit 1."""
     path = tmp_path / "config.toml"
     path.write_text("[platform\nbroken =", encoding="utf-8")
     assert main(["-c", str(path), "status"]) == EXIT_ERROR
@@ -727,7 +689,7 @@ def test_cli_invalid_toml_is_a_clean_error(
 
 def test_cli_surfaces_corrupt_runs(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """
-    @brief   A run with unreadable state stays visible in `runs` and `status`
+    A run with unreadable state stays visible in `runs` and `status`
              instead of disappearing or crashing the command.
     """
     config = _config_file(tmp_path)
@@ -747,9 +709,9 @@ def test_cli_surfaces_corrupt_runs(tmp_path: Path, capsys: pytest.CaptureFixture
 
 def _answers_file(tmp_path: Path) -> str:
     """
-    @brief      Write a valid non-interactive answers file + a clone dir.
-    @param[in]  tmp_path pytest tmp dir.
-    @return     The answers file path.
+    Write a valid non-interactive answers file + a clone dir.
+    tmp_path: pytest tmp dir.
+    Returns: The answers file path.
     """
     clone = tmp_path / "clone"
     (clone / ".git").mkdir(parents=True)
@@ -770,7 +732,7 @@ def test_cli_init_via_main_writes_profile(
     adore_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   `adore init <name> --answers FILE` creates a profile through the CLI
+    `adore init <name> --answers FILE` creates a profile through the CLI
              wiring; `profile list` then shows it.
     """
     assert main(["init", "smoketest", "--answers", _answers_file(tmp_path)]) == EXIT_OK
@@ -782,9 +744,7 @@ def test_cli_init_via_main_writes_profile(
 def test_cli_init_answers_file_errors(
     adore_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """
-    @brief   A missing or invalid --answers file is a clean error (exit 1).
-    """
+    """A missing or invalid --answers file is a clean error (exit 1)."""
     assert main(["init", "p", "--answers", str(tmp_path / "nope.toml")]) == EXIT_ERROR
     assert "not found" in capsys.readouterr().out
     bad = tmp_path / "bad.toml"
@@ -797,7 +757,7 @@ def test_cli_init_wizard_error_exits_one(
     adore_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   A wizard failure (existing profile without --force) surfaces as a
+    A wizard failure (existing profile without --force) surfaces as a
              clean `init failed:` error, exit 1.
     """
     answers = _answers_file(tmp_path)
@@ -807,12 +767,9 @@ def test_cli_init_wizard_error_exits_one(
     assert "init failed" in capsys.readouterr().out
 
 
-# END OF FILE
-
-
 @pytest.mark.parametrize("reason", ["at_capacity", "workflow_unavailable", "held"])
 def test_cli_manual_start_emits_safe_terminal_reason(tmp_path, monkeypatch, capsys, reason):
-    """@brief The worker receives the concrete admission refusal without raw logs."""
+    """The worker receives the concrete admission refusal without raw logs."""
     import json
 
     from adore import cli
@@ -835,7 +792,7 @@ def test_cli_manual_start_emits_safe_terminal_reason(tmp_path, monkeypatch, caps
 def test_cli_manual_start_binds_exceptions_and_success(
     tmp_path, monkeypatch, capsys, failure, reason, workflow,
 ):
-    """@brief Terminal evidence identifies the gate while excluding raw fault details."""
+    """Terminal evidence identifies the gate while excluding raw fault details."""
     import json
 
     for arguments in (["run", "--once", "--workflow", "invalid"],

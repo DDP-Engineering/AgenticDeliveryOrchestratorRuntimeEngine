@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { ProjectCapacity, WorkerStatus as WorkerRoles } from "./ProjectCapacity";
 import { CapacityTable } from "./CapacityTable";
 import { readDraft, writeDraft, clearDraft, clearPrivateDrafts } from "./settingsDrafts";
@@ -1375,7 +1369,7 @@ export default function App() {
           </section></ProjectDeleteDialog>}
           </>}
           {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${session.user.role}:${selected}`} refresh={viewRefresh} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
-          {projectTab === "tickets" && selectedProject && <TicketWorkspace automatic key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />}
+          {projectTab === "tickets" && selectedProject && <TicketWorkspace automatic key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} onOpenJob={openJob} />}
           {projectTab === "jobs" && selectedProject && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
           {projectTab === "statistics" && statisticsView(true)}
           {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
@@ -1410,7 +1404,7 @@ export default function App() {
             </div>}
             <label className="jobs-scope" htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>
           </div>
-          {page === "tickets" ? <TicketWorkspace key={session.user.id} automatic projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
+          {page === "tickets" ? <TicketWorkspace key={session.user.id} automatic projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} onOpenJob={openJob} />
             : jobsView === "capacity" ? <CapacityTable projects={jobScopeProject?[jobScopeProject]:projects} locale={locale} request={request} t={t} refresh={viewRefresh} paginate={table=><PagedTable alwaysControls t={t}>{table}</PagedTable>}/> : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" />}
         </>}
 
@@ -1421,12 +1415,12 @@ export default function App() {
             <Chips className="audit-limits" items={[[t("auditDays"), auditPolicy.retention_days == null ? t("unlimitedValue") : formatNumber(auditPolicy.retention_days)], [t("auditMib"), auditPolicy.max_bytes == null ? t("unlimitedValue") : formatNumber(auditPolicy.max_bytes / 1024**2)]]} />
             <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form></>}</section>
           <section className="panel wide-panel" role="status" aria-live="polite">
-            <div className="system-status-row">
-              <WorkerRoles locale={locale} projects={projects} request={request}/>
+            <WorkerRoles locale={locale} projects={projects} request={request}/>
+            <div className="system-storage-status">
               <span className="system-indicator"><span>{t("storageStatus")}</span><strong className={`readiness readiness-${storageError ? "error" : storageStatus?.low ? "unavailable" : storageStatus ? "ready" : "checking"}`}>{t(storageError ? "storageCheckFailed" : storageStatus?.low ? "storageLow" : storageStatus ? "storageHealthy" : "workerChecking")}</strong></span>
-            </div>
             {storageGroups.length === 1 ? <p className="muted">{t("storageShared").replace("{free}", gib(storageGroups[0].free)).replace("{total}", gib(storageGroups[0].total))}</p>
               : storageGroups.length > 1 && <PagedTable t={t}><table><thead><tr><th>{t("storageVolume")}</th><th>{t("storageFree")}</th><th>{t("status")}</th></tr></thead><tbody>{storageGroups.map(group => <tr key={group.id}><td>{group.names.join(", ")}</td><td>{gib(group.free)} GiB</td><td>{t(group.low ? "storageLow" : "storageHealthy")}</td></tr>)}</tbody></table></PagedTable>}
+            </div>
           </section>
         </div>}
 

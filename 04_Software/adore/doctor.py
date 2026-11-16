@@ -1,31 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file doctor.py
-@brief Environment detection + prerequisite guidance for assisted setup
-       (Assisted_Config_And_Profiles_Plan, task 2).
-@details The data/text layer beneath the `adore init` wizard (task 3) and a
-         future `adore doctor` command. It PROBES the host for the tools ADORE
-         needs - git, a container runtime (docker/podman, optionally inside
-         WSL), the platform CLI (glab/gh/tea) and its auth, the executor CLI -
-         and
-         returns typed results; and it supplies the exact, OS-specific
-         install/setup instructions to print when something is missing. Every
-         probe goes through the injectable CommandRunner (never a raw
-         subprocess here), so the whole module is unit-testable offline with a
-         fake runner; no prompting and no network calls of its own live here.
-"""
+"""Environment detection + prerequisite guidance for assisted setup"""
 
 from __future__ import annotations
 
-# IMPORTS
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
@@ -37,8 +13,6 @@ from time import monotonic
 from adore.aegis import MINIMUM_SERIES, SUPPORTED_MAJOR, VERSION_RE
 from adore.gitea_auth import GiteaAuthError, portable_tea_runner
 from adore.util import CommandResult, CommandRunner, run_command, strict_json_loads
-
-# CONSTANTS
 
 # Component keys for guidance_for(); also the tool names probed.
 GIT = "git"
@@ -220,14 +194,10 @@ GUIDANCE: dict[str, dict[str, str]] = {
     },
 }
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 @dataclass
 class ToolStatus:
-    """
-    @brief   Whether one CLI tool is present, and its reported version.
-    """
+    """Whether one CLI tool is present, and its reported version."""
 
     name: str
     present: bool
@@ -237,9 +207,7 @@ class ToolStatus:
 
 @dataclass
 class AuthStatus:
-    """
-    @brief   Whether the platform CLI is present AND authenticated.
-    """
+    """Whether the platform CLI is present AND authenticated."""
 
     kind: str            # gitlab | github | gitea
     cli: str             # glab | gh | tea
@@ -250,9 +218,7 @@ class AuthStatus:
 
 @dataclass
 class RuntimeDetection:
-    """
-    @brief   Host container-runtime availability (+ WSL distros on Windows).
-    """
+    """Host container-runtime availability (+ WSL distros on Windows)."""
 
     docker: ToolStatus
     podman: ToolStatus
@@ -262,8 +228,8 @@ class RuntimeDetection:
 @dataclass
 class AegisStatus:
     """
-    @brief   Whether a target repository carries a usable AEGIS payload.
-    @details The Python companion CLI must exist, report a supported version, and
+    Whether a target repository carries a usable AEGIS payload.
+    The Python companion CLI must exist, report a supported version, and
              return a valid schema-1 status-list payload with no unreadable
              journals. `detail` carries the bounded failure reason.
     """
@@ -278,8 +244,8 @@ class AegisStatus:
     @property
     def ok(self) -> bool:
         """
-        @brief   True when the repository is governed by usable AEGIS.
-        @return  Readiness flag.
+        True when the repository is governed by usable AEGIS.
+        Returns: Readiness flag.
         """
         return (
             self.wrapper_present
@@ -290,9 +256,7 @@ class AegisStatus:
 
 @dataclass
 class EnvironmentReport:
-    """
-    @brief   Aggregate of every probe, for the wizard and `adore doctor`.
-    """
+    """Aggregate of every probe, for the wizard and `adore doctor`."""
 
     os_key: str
     git: ToolStatus
@@ -302,15 +266,12 @@ class EnvironmentReport:
     executor: ToolStatus
 
 
-# HELPER FUNCTIONS
-
-
 def aegis_version_supported(version: str) -> bool:
     """
-    @brief      Whether reported `aegis --version` text is in the supported range.
-    @param[in]  version Raw text reported by the companion CLI.
-    @return     True when the major matches and the minor is at or above the floor.
-    @details    Delegates to the client's regex and constants rather than keeping
+    Whether reported `aegis --version` text is in the supported range.
+    version: Raw text reported by the companion CLI.
+    Returns: True when the major matches and the minor is at or above the floor.
+    Delegates to the client's regex and constants rather than keeping
                 a second pattern here: one gate, one place to change. Doctor once
                 carried its own copy, which silently went stale.
     """
@@ -323,9 +284,9 @@ def aegis_version_supported(version: str) -> bool:
 
 def _os_key(system_name: str) -> str:
     """
-    @brief      Normalize a platform.system() value to an ADORE OS key.
-    @param[in]  system_name Raw platform name (e.g. "Windows", "Linux").
-    @return     "windows" | "linux" | "macos" | "other".
+    Normalize a platform.system() value to an ADORE OS key.
+    system_name: Raw platform name (e.g. "Windows", "Linux").
+    Returns: "windows" | "linux" | "macos" | "other".
     """
     name = system_name.strip().lower()
     if name.startswith("win"):
@@ -339,14 +300,14 @@ def _os_key(system_name: str) -> str:
 
 def _probe(runner: CommandRunner, name: str, argv: list[str]) -> ToolStatus:
     """
-    @brief      Probe a tool via `<tool> --version` (or similar) through runner.
-    @details    Exit 127 (binary missing, per run_command's convention) means
+    Probe a tool via `<tool> --version` (or similar) through runner.
+    Exit 127 (binary missing, per run_command's convention) means
                 absent; a clean exit yields the first stdout line as version; a
                 present-but-erroring tool is reported present with a detail.
-    @param[in]  runner Injectable command runner.
-    @param[in]  name Component name (also the ToolStatus name).
-    @param[in]  argv Command to run.
-    @return     The ToolStatus.
+    runner: Injectable command runner.
+    name: Component name (also the ToolStatus name).
+    argv: Command to run.
+    Returns: The ToolStatus.
     """
     result = runner(argv)
     if result.exit_code == 127:
@@ -357,34 +318,31 @@ def _probe(runner: CommandRunner, name: str, argv: list[str]) -> ToolStatus:
     return ToolStatus(name=name, present=True, detail=(result.stderr.strip() or "error"))
 
 
-# PUBLIC API
-
-
 def detect_os() -> str:
     """
-    @brief   The current host's ADORE OS key.
-    @return  "windows" | "linux" | "macos" | "other".
+    The current host's ADORE OS key.
+    Returns: "windows" | "linux" | "macos" | "other".
     """
     return _os_key(platform.system())
 
 
 def detect_git(runner: CommandRunner = run_command) -> ToolStatus:
     """
-    @brief      Whether git is available on the host.
-    @param[in]  runner Injectable command runner.
-    @return     The ToolStatus for git.
+    Whether git is available on the host.
+    runner: Injectable command runner.
+    Returns: The ToolStatus for git.
     """
     return _probe(runner, GIT, ["git", "--version"])
 
 
 def detect_wsl_distros(runner: CommandRunner = run_command) -> list[str]:
     """
-    @brief      Installed WSL distro names (Windows only; else empty).
-    @details    `wsl -l -q` emits UTF-16 on some hosts; run_command decodes as
+    Installed WSL distro names (Windows only; else empty).
+    `wsl -l -q` emits UTF-16 on some hosts; run_command decodes as
                 UTF-8, so null bytes are stripped and blank lines dropped before
                 returning the names (robust to that quirk).
-    @param[in]  runner Injectable command runner.
-    @return     Distro names, or [] when WSL is absent.
+    runner: Injectable command runner.
+    Returns: Distro names, or [] when WSL is absent.
     """
     result = runner(["wsl", "-l", "-q"])
     if result.exit_code == 127 or not result.ok:
@@ -397,11 +355,11 @@ def detect_runtimes(
     runner: CommandRunner = run_command, *, os_key: str | None = None
 ) -> RuntimeDetection:
     """
-    @brief      Host container-runtime availability.
-    @param[in]  runner Injectable command runner.
-    @param[in]  os_key Host OS key (defaults to detect_os()); WSL distros are
+    Host container-runtime availability.
+    runner: Injectable command runner.
+    os_key: Host OS key (defaults to detect_os()); WSL distros are
                        only probed on Windows.
-    @return     The RuntimeDetection.
+    Returns: The RuntimeDetection.
     """
     key = os_key or detect_os()
     docker = _probe(runner, DOCKER, ["docker", "--version"])
@@ -411,9 +369,10 @@ def detect_runtimes(
 
 
 def inventory_runtime_argv(command: str) -> list[str] | None:
-    """@brief Resolve a standard runtime command for read-only inventory probes.
-    @param[in] command Configured runtime command.
-    @return Fixed native or WSL prefix, or None for unsupported commands.
+    """
+    Resolve a standard runtime command for read-only inventory probes.
+    command: Configured runtime command.
+    Returns: Fixed native or WSL prefix, or None for unsupported commands.
     """
     if command in _CONTAINER_CLIS:
         return [command]
@@ -430,10 +389,11 @@ def inventory_runtime_argv(command: str) -> list[str] | None:
 
 
 def discover_container_commands(runner: CommandRunner = run_command) -> list[str]:
-    """@brief Suggest Docker and Podman commands whose version probes succeed.
-    @param[in] runner Injectable host command runner.
-    @return Native commands first, then commands in detected Windows WSL distros.
-    @note Both the number of distros and the total probe duration are bounded.
+    """
+    Suggest Docker and Podman commands whose version probes succeed.
+    runner: Injectable host command runner.
+    Returns: Native commands first, then commands in detected Windows WSL distros.
+    Note: Both the number of distros and the total probe duration are bounded.
     """
     deadline = monotonic() + _RUNTIME_DISCOVERY_SECONDS
 
@@ -461,11 +421,11 @@ def discover_container_commands(runner: CommandRunner = run_command) -> list[str
 
 def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolStatus:
     """
-    @brief      Whether the platform CLI for this kind is present.
-    @param[in]  kind gitlab (glab), github (gh), gitea (tea) or azure_devops (az).
-    @param[in]  runner Injectable command runner.
-    @return     The ToolStatus for the host CLI and Azure extension when required.
-    @exception  ValueError When kind is unsupported.
+    Whether the platform CLI for this kind is present.
+    kind: gitlab (glab), github (gh), gitea (tea) or azure_devops (az).
+    runner: Injectable command runner.
+    Returns: The ToolStatus for the host CLI and Azure extension when required.
+    Raises ValueError: When kind is unsupported.
     """
     cli = _CLI_FOR_KIND.get(kind)
     if cli is None:
@@ -488,14 +448,14 @@ def auth_status(
     platform=None,
 ) -> AuthStatus:
     """
-    @brief      Verify platform authentication using its account probe.
-    @details    Gitea shares portable current-account discovery and requires a
+    Verify platform authentication using its account probe.
+    Gitea shares portable current-account discovery and requires a
                 successful HTTP response with a valid, unambiguous identity.
-    @param[in]  kind "gitlab", "github" or "gitea".
-    @param[in]  runner Injectable command runner.
-    @param[in]  external_auth False when the caller already owns credential authority.
-    @return     Presence and verified authentication, with value-free Gitea guidance.
-    @exception  ValueError When kind is unsupported.
+    kind: "gitlab", "github" or "gitea".
+    runner: Injectable command runner.
+    external_auth: False when the caller already owns credential authority.
+    Returns: Presence and verified authentication, with value-free Gitea guidance.
+    Raises ValueError: When kind is unsupported.
     """
     if kind == "azure_devops":
         from adore.forge.azure_devops import AzureDevOpsForge
@@ -552,18 +512,18 @@ def detect_aegis(
     aegis_python: str = "python",
 ) -> AegisStatus:
     """
-    @brief      Probe a target repository for a usable AEGIS payload.
-    @details    Uses the configured workflow interpreter for both probes.
+    Probe a target repository for a usable AEGIS payload.
+    Uses the configured workflow interpreter for both probes.
                 Absence is direct-workflow information and runs no commands;
                 AegisStatus.ok still means usable AEGIS, not overall readiness.
                 A present payload requires supported `aegis` version output
                 and a schema-1 `status --all --json` document. ADORE
                 refuses malformed output, unknown versions/schemas and any
                 unreadable journal before ticket pickup.
-    @param[in]  repo_path Local clone the runs are created from.
-    @param[in]  runner Injectable command runner.
-    @param[in]  aegis_python Workflow interpreter executable (default: python).
-    @return     The AegisStatus.
+    repo_path: Local clone the runs are created from.
+    runner: Injectable command runner.
+    aegis_python: Workflow interpreter executable (default: python).
+    Returns: The AegisStatus.
     """
     root = Path(repo_path).expanduser()
     wrapper = root / AEGIS_WRAPPER
@@ -624,8 +584,8 @@ def detect_aegis(
 
 def detect_gitignore(repo_path: str | Path) -> ToolStatus:
     """
-    @brief      Whether the target clone carries a `.gitignore`.
-    @details    ADORE's per-stage checkpoints run `git add -A`, which is what
+    Whether the target clone carries a `.gitignore`.
+    ADORE's per-stage checkpoints run `git add -A`, which is what
                 captures the governed artifacts and any new source the executor
                 wrote. It cannot tell those apart from bytecode and tool caches;
                 only the repository's own `.gitignore` can. Without one, a
@@ -633,8 +593,8 @@ def detect_gitignore(repo_path: str | Path) -> ToolStatus:
                 fifteen changed files for a two-file change (live finding
                 2026-09-18), consuming the `max_files_touched` budget and
                 giving the reviewer noise to read past.
-    @param[in]  repo_path Local clone the run worktrees are created from.
-    @return     The ToolStatus for the ignore file.
+    repo_path: Local clone the run worktrees are created from.
+    Returns: The ToolStatus for the ignore file.
     """
     root = Path(repo_path).expanduser()
     if not root.is_dir():
@@ -656,8 +616,8 @@ def detect_push_access(
     remote: str = "origin",
 ) -> ToolStatus:
     """
-    @brief      Whether HOST git can reach the target remote.
-    @details    `WorktreeManager.push` is ADORE's only remote-writing git call
+    Whether HOST git can reach the target remote.
+    `WorktreeManager.push` is ADORE's only remote-writing git call
                 and runs on the host with the host's own credentials, which are
                 entirely separate from the glab/gh/tea auth probed elsewhere -
                 `detect_git` only proves the binary exists. Unprobed, an
@@ -667,10 +627,10 @@ def detect_push_access(
                 candidate that the resulting PUSH_FAILED discards.
                 `git ls-remote` performs the same authentication and ref
                 negotiation as a push while writing nothing.
-    @param[in]  repo_path Local clone the run worktrees are created from.
-    @param[in]  runner Injectable command runner.
-    @param[in]  remote Remote name ADORE pushes to.
-    @return     The ToolStatus for remote access.
+    repo_path: Local clone the run worktrees are created from.
+    runner: Injectable command runner.
+    remote: Remote name ADORE pushes to.
+    Returns: The ToolStatus for remote access.
     """
     root = Path(repo_path).expanduser()
     if not root.is_dir():
@@ -695,9 +655,10 @@ def detect_push_access(
 
 
 def detect_executor(runner: CommandRunner = run_command) -> ToolStatus:
-    """@brief Verify ADORE's pinned native Pi without consulting a global Pi.
-    @param[in] runner Injectable command runner.
-    @return Installed Pi version or a safe remediation message.
+    """
+    Verify ADORE's pinned native Pi without consulting a global Pi.
+    runner: Injectable command runner.
+    Returns: Installed Pi version or a safe remediation message.
     """
     from adore.pi_installation import PiInstallationError, verify_pi
 
@@ -712,11 +673,11 @@ def detect_executor(runner: CommandRunner = run_command) -> ToolStatus:
 
 def detect_all(kind: str, runner: CommandRunner = run_command) -> EnvironmentReport:
     """
-    @brief      Run every probe once, for the wizard / a future `adore doctor`.
-    @param[in]  kind Platform kind ("gitlab" | "github" | "gitea") for the
+    Run every probe once, for the wizard / a future `adore doctor`.
+    kind: Platform kind ("gitlab" | "github" | "gitea") for the
                      CLI/auth probes.
-    @param[in]  runner Injectable command runner.
-    @return     The aggregate EnvironmentReport.
+    runner: Injectable command runner.
+    Returns: The aggregate EnvironmentReport.
     """
     key = detect_os()
     return EnvironmentReport(
@@ -731,10 +692,10 @@ def detect_all(kind: str, runner: CommandRunner = run_command) -> EnvironmentRep
 
 def auth_component_for_kind(kind: str) -> str:
     """
-    @brief      The guidance component key for a platform kind's auth setup.
-    @param[in]  kind "gitlab" | "github" | "gitea".
-    @return     GLAB_AUTH / GH_AUTH / TEA_AUTH.
-    @exception  ValueError When kind is not gitlab/github/gitea.
+    The guidance component key for a platform kind's auth setup.
+    kind: "gitlab" | "github" | "gitea".
+    Returns: GLAB_AUTH / GH_AUTH / TEA_AUTH.
+    Raises ValueError: When kind is not gitlab/github/gitea.
     """
     component = _AUTH_COMPONENT_FOR_KIND.get(kind)
     if component is None:
@@ -744,14 +705,14 @@ def auth_component_for_kind(kind: str) -> str:
 
 def guidance_for(component: str, os_key: str) -> str:
     """
-    @brief      OS-specific install/setup text for a prerequisite component.
-    @details    Components with a "*" entry share one instruction for all OSes
+    OS-specific install/setup text for a prerequisite component.
+    Components with a "*" entry share one instruction for all OSes
                 (e.g. token creation); otherwise Windows gets its own text and
                 every non-Windows OS falls back to the Linux instructions
                 (the plan targets Windows + Ubuntu).
-    @param[in]  component A component key (GIT, DOCKER, GLAB_AUTH, ...).
-    @param[in]  os_key OS key from detect_os() / _os_key().
-    @return     The guidance text (a helpful fallback for unknown components).
+    component: A component key (GIT, DOCKER, GLAB_AUTH, ...).
+    os_key: OS key from detect_os() / _os_key().
+    Returns: The guidance text (a helpful fallback for unknown components).
     """
     entry = GUIDANCE.get(component)
     if not entry:
@@ -760,6 +721,3 @@ def guidance_for(component: str, os_key: str) -> str:
         return entry["*"]
     key = "windows" if os_key == "windows" else "linux"
     return entry.get(key, entry.get("linux", ""))
-
-
-# END OF FILE

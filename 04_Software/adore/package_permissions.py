@@ -1,28 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       package_permissions.py
-@brief      Container-only authorization for agent-owned package installation.
-@details    This fixed script configures sudo permission; it never installs
-            packages or selects dependencies. Package hooks have container-root
-            authority. The host interpreter never executes this script.
-"""
-
-# IMPORTS
+"""Container-only authorization for agent-owned package installation."""
 
 
-# CONSTANTS
 PACKAGE_AUTHORIZATION_ACK = "adore-system-packages-ready"
 
 # Use the image's root-owned OS Python, not the user-owned uv interpreter.
 # Neither script nor UID is read from the mounted worktree or IO directory.
+# REUSE-IgnoreStart
 PACKAGE_AUTHORIZATION_SCRIPT = r'''
 # Copyright (c) 2026 DDP Engineering
 # This software is licensed under the PolyForm Noncommercial License 1.0.0.
@@ -78,5 +61,4 @@ subprocess.run([sudo, '-u', '#' + str(uid), '--', sudo, '-n', '--', managers[0],
                 '--version'], check=True, capture_output=True, timeout=5)
 print('adore-system-packages-ready')
 '''
-
-# END OF FILE
+# REUSE-IgnoreEnd

@@ -1,0 +1,19 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-239792b2"
+title = "Refuse unproven cancelled restart"
+status = "active"
+requirement = "If confirmed state, latest-job identity, ownership or cleanup cannot be proven, ADORE shall refuse cancelled restart without overwriting retained history or admitting duplicate work."
+verification = "Exercise stale confirmation, duplicate restart, foreign resources and failed cleanup; assert no fresh admitted execution and retained cancelled evidence."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/state.py", "04_Software/adore/web/app.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/store.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_cancelled_restart_preserves_evidence_and_creates_fresh_job", "04_Software/tests/test_drift_recovery.py::test_web_restart_requires_confirmation_revision_and_rechecks_worker", "04_Software/tests/test_drift_recovery.py::test_owned_delete_refuses_foreign_or_unconfirmed_resources", "04_Software/tests/test_web_ownership.py::test_cancelled_restart_acknowledges_new_execution_and_retains_previous"]
+spec = ""
+priority = "normal"
+rationale = ""
+created = 2026-11-16
+updated = 2026-11-16

@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_container_timeout.py
-@brief      Public container timeout admission, evidence and recovery contracts.
-@details    Runtime output and lifecycle effects are injected; no external CLI
-            or real process is started by these unit tests.
-"""
+"""Public container timeout admission, evidence and recovery contracts."""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections import deque
 from dataclasses import asdict
 import json
@@ -30,21 +15,19 @@ import pytest
 
 from tests.test_orchestrator import FakeAegis, FakeExecutor, make_engine, make_run, task
 
-# CONSTANTS
 NAME = "owned-timeout-run"
 CID = "a" * 64
 IMAGE = "sha256:" + "b" * 64
 
 
-# DATA MODELS / TYPEDEFINITIONS
-
 class Runtime:
-    """@brief Inject authoritative runtime receipts and observable lifecycle effects."""
+    """Inject authoritative runtime receipts and observable lifecycle effects."""
 
     def __init__(self, results=(), fault=""):
-        """@brief Prepare a running resource and bounded result sequence.
-        @param[in] results Command results emitted by exec.
-        @param[in] fault Deliberately corrupt or fail one runtime boundary.
+        """
+        Prepare a running resource and bounded result sequence.
+        results: Command results emitted by exec.
+        fault: Deliberately corrupt or fail one runtime boundary.
         """
         self.results = deque(results)
         self.fault = fault
@@ -58,9 +41,10 @@ class Runtime:
         self.bindings = []
 
     def __call__(self, argv, **kwargs):
-        """@brief Simulate the external Docker-compatible CLI contract.
-        @param[in] argv Exact runtime argument vector.
-        @return An injected command or authoritative lifecycle receipt.
+        """
+        Simulate the external Docker-compatible CLI contract.
+        argv: Exact runtime argument vector.
+        Returns: An injected command or authoritative lifecycle receipt.
         """
         self.calls.append(list(argv))
         operation = argv[1]
@@ -113,13 +97,12 @@ class Runtime:
         raise AssertionError("unexpected runtime operation: " + repr(argv))
 
 
-# LOCAL HELPERS
-
 def bound(runtime, pinned=True):
-    """@brief Bind the public backend to one existing injected resource.
-    @param[in] runtime Runtime CLI double.
-    @param[in] pinned Supply durable identity pins or exercise legacy admission.
-    @return Backend, bound target and declared expected identity.
+    """
+    Bind the public backend to one existing injected resource.
+    runtime: Runtime CLI double.
+    pinned: Supply durable identity pins or exercise legacy admission.
+    Returns: Backend, bound target and declared expected identity.
     """
     manager = ContainerManager("docker", "image", "uv", "npm", runtime)
     backend = ContainerBackend(manager)
@@ -131,8 +114,9 @@ def bound(runtime, pinned=True):
 
 @pytest.mark.parametrize("pinned", [True, False])
 def test_timeout_parks_then_resumes_the_original_container(pinned):
-    """@brief A timeout settles writers and a later command resumes the same resource.
-    @param[in] pinned Exercise durable pins and legacy invocation ownership.
+    """
+    A timeout settles writers and a later command resumes the same resource.
+    pinned: Exercise durable pins and legacy invocation ownership.
     """
     original = CommandResult(exit_code=124, timed_out=True, stdout="original-out",
                              stderr="original-error")
@@ -154,8 +138,9 @@ def test_timeout_parks_then_resumes_the_original_container(pinned):
 
 @pytest.mark.parametrize("pinned", [True, False])
 def test_bound_commands_address_the_admitted_immutable_id(pinned):
-    """@brief Runtime name replacement cannot redirect admitted command dispatch.
-    @param[in] pinned Exercise both supported identity admission modes.
+    """
+    Runtime name replacement cannot redirect admitted command dispatch.
+    pinned: Exercise both supported identity admission modes.
     """
     runtime = Runtime()
     _backend, target, _expected = bound(runtime, pinned)
@@ -165,8 +150,9 @@ def test_bound_commands_address_the_admitted_immutable_id(pinned):
 
 
 def test_normal_provision_resumes_a_confirmed_timeout_resource(tmp_path):
-    """@brief Ordinary provisioning retains owned timeout state and the same ID.
-    @param[in] tmp_path Existing host mount roots for the injected container.
+    """
+    Ordinary provisioning retains owned timeout state and the same ID.
+    tmp_path: Existing host mount roots for the injected container.
     """
     runtime = Runtime([CommandResult(exit_code=124, timed_out=True)])
     backend, target, _expected = bound(runtime)
@@ -188,8 +174,9 @@ def test_normal_provision_resumes_a_confirmed_timeout_resource(tmp_path):
     {"container_id": CID, "image_id": "sha256:" + "d" * 64},
 ])
 def test_changed_caller_pins_cannot_restart_pending_recovery(expected):
-    """@brief Corrupt or changed caller ownership is rejected before restart.
-    @param[in] expected Changed identity presented after a confirmed timeout.
+    """
+    Corrupt or changed caller ownership is rejected before restart.
+    expected: Changed identity presented after a confirmed timeout.
     """
     runtime = Runtime([CommandResult(exit_code=124, timed_out=True)])
     backend, target, _expected = bound(runtime)
@@ -201,8 +188,9 @@ def test_changed_caller_pins_cannot_restart_pending_recovery(expected):
 
 @pytest.mark.parametrize("exit_code", [0, 1, 124])
 def test_ordinary_exits_do_not_trigger_timeout_recovery(exit_code):
-    """@brief Ordinary results preserve lifecycle even when exit124 is returned.
-    @param[in] exit_code An ordinary executor exit without timeout evidence.
+    """
+    Ordinary results preserve lifecycle even when exit124 is returned.
+    exit_code: An ordinary executor exit without timeout evidence.
     """
     original = CommandResult(exit_code=exit_code, stdout="output", stderr="stderr")
     runtime = Runtime([original])
@@ -213,8 +201,9 @@ def test_ordinary_exits_do_not_trigger_timeout_recovery(exit_code):
 
 @pytest.mark.parametrize("exit_code", [0, 124, 143])
 def test_recovery_preserves_timeout_result_fields(exit_code):
-    """@brief Lifecycle receipts cannot replace original timeout or stream data.
-    @param[in] exit_code Runtime-reported exit accompanying an actual timeout.
+    """
+    Lifecycle receipts cannot replace original timeout or stream data.
+    exit_code: Runtime-reported exit accompanying an actual timeout.
     """
     original = CommandResult(exit_code=exit_code, timed_out=True, stdout="out", stderr="err")
     runtime = Runtime([original])
@@ -227,8 +216,9 @@ def test_recovery_preserves_timeout_result_fields(exit_code):
     "after-id", "after-image", "after-corrupt", "stop-failed", "stop-noop", "stopped-id",
 ])
 def test_unconfirmed_timeout_cleanup_blocks_later_bound_execution(fault):
-    """@brief Unsafe runtime evidence cannot admit a new command or a replacement.
-    @param[in] fault Corrupt ownership, interruption or stopped-state evidence.
+    """
+    Unsafe runtime evidence cannot admit a new command or a replacement.
+    fault: Corrupt ownership, interruption or stopped-state evidence.
     """
     runtime = Runtime([CommandResult(exit_code=124, timed_out=True)], fault)
     backend, target, expected = bound(runtime)
@@ -246,8 +236,9 @@ def test_unconfirmed_timeout_cleanup_blocks_later_bound_execution(fault):
 
 @pytest.mark.parametrize("fault", ["start-failed", "start-noop"])
 def test_unconfirmed_restart_blocks_the_next_executor(fault):
-    """@brief Pending restart requires confirmed running identity before dispatch.
-    @param[in] fault Failed or contradictory restart receipt.
+    """
+    Pending restart requires confirmed running identity before dispatch.
+    fault: Failed or contradictory restart receipt.
     """
     runtime = Runtime([CommandResult(exit_code=124, timed_out=True)], fault)
     backend, target, expected = bound(runtime)
@@ -261,8 +252,9 @@ def test_unconfirmed_restart_blocks_the_next_executor(fault):
 
 @pytest.mark.parametrize("fault", ["before-id", "before-image", "before-corrupt"])
 def test_untrusted_initial_identity_dispatches_no_command(fault):
-    """@brief Existing identity trust boundaries remain closed before execution.
-    @param[in] fault Invalid or contradictory initial external identity.
+    """
+    Existing identity trust boundaries remain closed before execution.
+    fault: Invalid or contradictory initial external identity.
     """
     runtime = Runtime(fault=fault)
     _backend, target, _expected = bound(runtime)
@@ -277,8 +269,9 @@ def test_untrusted_initial_identity_dispatches_no_command(fault):
 
 @pytest.mark.parametrize("control", ["stop", "interrupt"])
 def test_operator_stop_cancels_pending_automatic_restart(control):
-    """@brief Explicit lifecycle control retains authority over a pending resume.
-    @param[in] control Operator-owned parking or cancellation action.
+    """
+    Explicit lifecycle control retains authority over a pending resume.
+    control: Operator-owned parking or cancellation action.
     """
     runtime = Runtime([CommandResult(exit_code=124, timed_out=True)])
     backend, target, expected = bound(runtime)
@@ -290,7 +283,7 @@ def test_operator_stop_cancels_pending_automatic_restart(control):
 
 
 def test_failed_admission_stays_blocked_until_operator_uses_a_fresh_backend():
-    """@brief Explicit release cannot silently reopen failed active admission."""
+    """Explicit release cannot silently reopen failed active admission."""
     runtime = Runtime([CommandResult(exit_code=124, timed_out=True)], "stop-failed")
     backend, target, expected = bound(runtime)
     with pytest.raises(ExecutionRecoveryError):
@@ -308,7 +301,7 @@ def test_failed_admission_stays_blocked_until_operator_uses_a_fresh_backend():
 
 
 def test_operator_interrupt_during_restart_prevents_executor_dispatch():
-    """@brief Cancellation arriving during deferred restart remains authoritative."""
+    """Cancellation arriving during deferred restart remains authoritative."""
     runtime = Runtime([CommandResult(exit_code=124, timed_out=True)])
     backend, target, expected = bound(runtime)
     assert target(["work"]).timed_out
@@ -323,29 +316,30 @@ def test_operator_interrupt_during_restart_prevents_executor_dispatch():
 def test_unconfirmed_recovery_is_terminal_without_another_executor_attempt(
     tmp_path, monkeypatch, cancel,
 ):
-    """@brief Failed recovery persists an infrastructure failure instead of retrying.
-    @param[in] tmp_path Isolated state store.
-    @param[in] monkeypatch Inject the offline AEGIS transport.
-    @param[in] cancel Give a concurrent operator cancellation precedence.
+    """
+    Failed recovery persists an infrastructure failure instead of retrying.
+    tmp_path: Isolated state store.
+    monkeypatch: Inject the offline AEGIS transport.
+    cancel: Give a concurrent operator cancellation precedence.
     """
     class Executor(FakeExecutor):
-        """@brief Report an unconfirmed owned-resource recovery."""
+        """Report an unconfirmed owned-resource recovery."""
 
         def run_gate(self, *args, **kwargs):
-            """@brief Record the launch and reject unsafe recovery."""
+            """Record the launch and reject unsafe recovery."""
             self.prompts.append("attempt")
             if cancel:
                 engine.store.request_cancel(run.run_id)
             raise ExecutionRecoveryError("container interruption unconfirmed")
 
     class Client(FakeAegis):
-        """@brief Keep the current build journal at the public client seam."""
+        """Keep the current build journal at the public client seam."""
 
         def __init__(self, *args):
             super().__init__([task("build")])
 
         def probe(self):
-            """@brief Accept the injected protocol without invoking a CLI."""
+            """Accept the injected protocol without invoking a CLI."""
             return SimpleNamespace(version="0.5.0", schema=1)
 
     monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
@@ -363,13 +357,9 @@ def test_unconfirmed_recovery_is_terminal_without_another_executor_attempt(
     assert len(executor.prompts) == 1
 
 
-# END OF FILE
-
-
-
 @pytest.mark.parametrize("unsafe", [False, True])
 def test_pi_rpc_timeout_settles_container_before_next_gate(tmp_path, monkeypatch, unsafe):
-    """@brief RPC timeout parks all container writers and refuses unconfirmed recovery."""
+    """RPC timeout parks all container writers and refuses unconfirmed recovery."""
     from adore.executor import pi_rpc
     from adore.executor.launcher import PiExecutor
 
@@ -397,7 +387,7 @@ def test_pi_rpc_timeout_settles_container_before_next_gate(tmp_path, monkeypatch
 
 
 def test_rpc_timeout_does_not_interrupt_a_replacement_after_unpinned_spawn():
-    """@brief The admitted streaming invocation remains the authority without durable pins."""
+    """The admitted streaming invocation remains the authority without durable pins."""
     runtime = Runtime()
     backend, target, _ = bound(runtime, False)
     backend.manager.spawn = lambda *a, **k: object()

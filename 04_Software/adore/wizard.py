@@ -1,32 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file wizard.py
-@brief The `adore init` assisted-configuration wizard (Assisted_Config_And_
-       Profiles_Plan, task 3).
-@details Detection-first, every prompt explicit (description + example +
-         default + validation, with friendly re-prompting). Walks the plan's
-         Phase A-I flow - environment/prerequisites, project identity, platform
-         & repo, local clone, branch conventions, runtime & executor, delivery,
-         budgets/policy - then writes a MINIMAL, valid `config.toml` into a
-         runtime-project profile and validates it (never saves an invalid one).
-         Fully injectable: the prompt reader (`Asker`), the output sink, the
-         command runner (for `doctor` probes) and the OS key are all
-         parameters, so the whole flow is unit-tested offline with a scripted
-         asker + a fake runner. A non-interactive `--answers FILE` path reuses
-         the same field keys (decision D7).
-"""
+"""The `adore init` assisted-configuration wizard (Assisted_Config_And_"""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 import math
@@ -56,8 +31,7 @@ from adore.pi_providers import (
 from adore.profiles import Profile, ProfileStore
 from adore.util import CommandRunner, run_command
 
-# CONSTANTS
-
+# REUSE-IgnoreStart
 _LICENSE_LINES = (
     "# Copyright (c) 2026 DDP Engineering",
     "# This software is licensed under the PolyForm Noncommercial License 1.0.0.",
@@ -65,6 +39,7 @@ _LICENSE_LINES = (
     "# See the LICENSE.txt file for full license details.",
     "# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
+# REUSE-IgnoreEnd
 _DEFAULT_PROVIDER = "openai"
 _DEFAULT_MODEL = "gpt-6.1-terra"
 _RECOMMENDED_BUDGETS = {
@@ -74,23 +49,19 @@ _RECOMMENDED_BUDGETS = {
     "max_files_touched": 120,
 }
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 class WizardError(RuntimeError):
-    """
-    @brief Raised when a required setup answer or assembled config is invalid.
-    """
+    """Raised when a required setup answer or assembled config is invalid."""
 
     def __init__(self, message: str, *, field: str = "config"):
-        """@brief Keep setup findings addressable without exposing answer values."""
+        """Keep setup findings addressable without exposing answer values."""
         super().__init__(message)
         self.field = field
 
 
 @dataclass
 class WizardSetup:
-    """@brief Validated local setup candidate, without publication or host probes."""
+    """Validated local setup candidate, without publication or host probes."""
 
     name: str
     document: str
@@ -100,7 +71,7 @@ class WizardSetup:
 @dataclass
 class FieldSpec:
     """
-    @brief   One explicit prompt: label, description, example, default,
+    One explicit prompt: label, description, example, default,
              optional fixed choices, and a validator returning an error or None.
     """
 
@@ -115,8 +86,8 @@ class FieldSpec:
 
 class ConsoleAsker:
     """
-    @brief   Interactive prompt reader over stdin/stdout (the real user).
-    @details Renders each FieldSpec (description, example, choices, default) and
+    Interactive prompt reader over stdin/stdout (the real user).
+    Renders each FieldSpec (description, example, choices, default) and
              reads one line; empty input means "accept the default".
     """
 
@@ -132,9 +103,9 @@ class ConsoleAsker:
 
     def read(self, spec: FieldSpec) -> str | None:
         """
-        @brief      Render a field and read one raw line.
-        @param[in]  spec The field to prompt.
-        @return     The stripped input, or None when the user just pressed Enter.
+        Render a field and read one raw line.
+        spec: The field to prompt.
+        Returns: The stripped input, or None when the user just pressed Enter.
         """
         self._out(f"\n{spec.prompt}")
         if spec.description:
@@ -154,8 +125,8 @@ class ConsoleAsker:
 
 class ScriptedAsker:
     """
-    @brief   Non-interactive reader over a mapping of field-key -> answer(s).
-    @details Backs both tests and `--answers FILE`. A value may be a single
+    Non-interactive reader over a mapping of field-key -> answer(s).
+    Backs both tests and `--answers FILE`. A value may be a single
              string or a queue (list) consumed across re-prompts. `interactive`
              controls whether a validation failure re-prompts (tests) or fails
              fast (an answers file, decision D7).
@@ -178,9 +149,9 @@ class ScriptedAsker:
 
     def read(self, spec: FieldSpec) -> str | None:
         """
-        @brief      Return the next scripted answer for a field, or None.
-        @param[in]  spec The field being asked.
-        @return     The answer string, or None to fall back to the default.
+        Return the next scripted answer for a field, or None.
+        spec: The field being asked.
+        Returns: The answer string, or None to fall back to the default.
         """
         self.reads.append(spec.key)
         queue = self.answers.get(spec.key)
@@ -193,12 +164,12 @@ class ScriptedAsker:
 
 
 def _require(value: str) -> str | None:
-    """@brief Non-empty check."""
+    """Non-empty check."""
     return None if value.strip() else "a value is required"
 
 
 def _valid_regex(value: str) -> str | None:
-    """@brief The value must compile as a regular expression."""
+    """The value must compile as a regular expression."""
     try:
         re.compile(value)
     except re.error as exc:
@@ -207,7 +178,7 @@ def _valid_regex(value: str) -> str | None:
 
 
 def _existing_dir(value: str) -> str | None:
-    """@brief The path must be an existing directory."""
+    """The path must be an existing directory."""
     if not value.strip():
         return "a path is required"
     if not Path(value).expanduser().is_dir():
@@ -216,7 +187,7 @@ def _existing_dir(value: str) -> str | None:
 
 
 def _runtime_ok(value: str) -> str | None:
-    """@brief Last token must be docker/podman (matches config validation)."""
+    """Last token must be docker/podman (matches config validation)."""
     tokens = value.split()
     if not tokens or tokens[-1] not in ("docker", "podman"):
         return 'must end in "docker" or "podman" (optionally wrapped, e.g. "wsl -d D -- docker")'
@@ -224,7 +195,7 @@ def _runtime_ok(value: str) -> str | None:
 
 
 def _positive_int(value: str) -> str | None:
-    """@brief A positive integer."""
+    """A positive integer."""
     try:
         if int(value) <= 0:
             return "must be a positive whole number"
@@ -234,7 +205,7 @@ def _positive_int(value: str) -> str | None:
 
 
 def _nonnegative_number(value: str) -> str | None:
-    """@brief A finite nonnegative number; zero explicitly disables the cost cap."""
+    """A finite nonnegative number; zero explicitly disables the cost cap."""
     try:
         number = float(value)
         if not math.isfinite(number) or number < 0:
@@ -245,7 +216,7 @@ def _nonnegative_number(value: str) -> str | None:
 
 
 def _nonnegative_int_list(value: str) -> str | None:
-    """@brief Validate a nonempty comma-separated nonnegative integer list."""
+    """Validate a nonempty comma-separated nonnegative integer list."""
     parts = [item.strip() for item in value.split(",")]
     if not parts or any(not item or not item.isdigit() for item in parts):
         return "use comma-separated nonnegative whole seconds, e.g. 5,30,120"
@@ -254,9 +225,9 @@ def _nonnegative_int_list(value: str) -> str | None:
 
 def _slugify(name: str) -> str:
     """
-    @brief      Derive a config slug from a display name (matches config rules).
-    @param[in]  name Display name.
-    @return     A lowercase [a-z][a-z0-9-]* slug (fallback "adore").
+    Derive a config slug from a display name (matches config rules).
+    name: Display name.
+    Returns: A lowercase [a-z][a-z0-9-]* slug (fallback "adore").
     """
     slug = re.sub(r"[^a-z0-9-]", "", name.lower())
     return slug if re.match(r"^[a-z][a-z0-9-]*$", slug) else PRODUCT_SLUG
@@ -264,10 +235,10 @@ def _slugify(name: str) -> str:
 
 def _resolve_choice(spec: FieldSpec, value: str) -> str:
     """
-    @brief      Resolve numbered choice input to the configured choice value.
-    @param[in]  spec The field whose choices are being resolved.
-    @param[in]  value Raw answer after default handling.
-    @return     The matching configured choice, or the original answer.
+    Resolve numbered choice input to the configured choice value.
+    spec: The field whose choices are being resolved.
+    value: Raw answer after default handling.
+    Returns: The matching configured choice, or the original answer.
     """
     if not spec.choices:
         return value
@@ -282,16 +253,16 @@ def _resolve_choice(spec: FieldSpec, value: str) -> str:
 
 def ask(spec: FieldSpec, asker: ConsoleAsker | ScriptedAsker, out: Callable[[str], None]) -> str:
     """
-    @brief      Prompt one field: read, apply default, validate, re-prompt.
-    @details    An empty read falls back to the default. `choices` accepts the
+    Prompt one field: read, apply default, validate, re-prompt.
+    An empty read falls back to the default. `choices` accepts the
                 exact choice text or a 1-based number. On a validation error the
                 interactive asker re-prompts; a non-interactive asker fails fast
                 with WizardError (D7).
-    @param[in]  spec The field to collect.
-    @param[in]  asker The prompt reader (Console/Scripted).
-    @param[in]  out Output sink for error lines.
-    @return     The validated string value.
-    @exception  WizardError When a non-interactive answer is invalid/missing.
+    spec: The field to collect.
+    asker: The prompt reader (Console/Scripted).
+    out: Output sink for error lines.
+    Returns: The validated string value.
+    Raises WizardError: When a non-interactive answer is invalid/missing.
     """
     while True:
         raw = asker.read(spec)
@@ -314,12 +285,12 @@ def ask(spec: FieldSpec, asker: ConsoleAsker | ScriptedAsker, out: Callable[[str
 
 def _toml_string(value: str) -> str:
     """
-    @brief      Encode a string as TOML, preferring literal quotes.
-    @details    Literal single-quoted strings do no escaping, which is ideal
+    Encode a string as TOML, preferring literal quotes.
+    Literal single-quoted strings do no escaping, which is ideal
                 for regexes and Windows paths (backslashes); a value that
                 contains a single quote or newline falls back to a basic string.
-    @param[in]  value The string.
-    @return     A TOML string token.
+    value: The string.
+    Returns: A TOML string token.
     """
     if "'" not in value and "\n" not in value:
         return f"'{value}'"
@@ -329,12 +300,12 @@ def _toml_string(value: str) -> str:
 
 def _toml_value(value: object) -> str:
     """
-    @brief      Encode a scalar / list / string map as a TOML value.
-    @details    Maps render as inline tables, which is what `[workflow]
+    Encode a scalar / list / string map as a TOML value.
+    Maps render as inline tables, which is what `[workflow]
                 kind_labels` needs and keeps the emitted file one table per
                 section.
-    @param[in]  value bool / int / float / str / list / dict.
-    @return     The TOML token.
+    value: bool / int / float / str / list / dict.
+    Returns: The TOML token.
     """
     if isinstance(value, bool):
         return "true" if value else "false"
@@ -357,11 +328,11 @@ def _emit_config_toml(
     sections: list[tuple[str, dict[str, object]]], profile_name: str, stamp: str
 ) -> str:
     """
-    @brief      Render the minimal profile config.toml (with license header).
-    @param[in]  sections Ordered (table-header, key->value) pairs.
-    @param[in]  profile_name The profile this config belongs to.
-    @param[in]  stamp Human timestamp for the generated-by comment.
-    @return     The complete TOML document text.
+    Render the minimal profile config.toml (with license header).
+    sections: Ordered (table-header, key->value) pairs.
+    profile_name: The profile this config belongs to.
+    stamp: Human timestamp for the generated-by comment.
+    Returns: The complete TOML document text.
     """
     lines = list(_LICENSE_LINES)
     lines.append("#")
@@ -377,9 +348,6 @@ def _emit_config_toml(
     return "\n".join(lines).rstrip() + "\n"
 
 
-# PUBLIC API
-
-
 def run_wizard(
     store: ProfileStore,
     *,
@@ -393,24 +361,24 @@ def run_wizard(
     pending_clone: bool = False,
 ) -> Profile | WizardSetup:
     """
-    @brief      Run the assisted-config flow and save a validated profile.
-    @details    Phases A-I from the plan. Detection is informational (prints
+    Run the assisted-config flow and save a validated profile.
+    Phases A-I from the plan. Detection is informational (prints
                 guidance for missing prerequisites, never blocks); the config
                 is assembled MINIMALLY (only the keys a project needs), written
                 to a temp file, loaded and validated, and only then committed to
                 the profile - an invalid config is never saved.
-    @param[in]  store The profile store to write into.
-    @param[in]  asker The prompt reader (Console for users, Scripted for tests
+    store: The profile store to write into.
+    asker: The prompt reader (Console for users, Scripted for tests
                       and --answers).
-    @param[in]  out Output sink (defaults to print).
-    @param[in]  runner Command runner for doctor probes (injectable).
-    @param[in]  os_key Host OS key (defaults to doctor.detect_os()).
-    @param[in]  name Profile name (asked when None).
-    @param[in]  force Overwrite an existing profile.
-    @param[in]  pending_clone Accept a clone path that ADORE creates only at creation.
-    @param[in]  prepare_only Return a validated candidate without writes or probes.
-    @return     The saved Profile, or WizardSetup when preparation is requested.
-    @exception  WizardError On abort, an existing profile without --force, or a
+    out: Output sink (defaults to print).
+    runner: Command runner for doctor probes (injectable).
+    os_key: Host OS key (defaults to doctor.detect_os()).
+    name: Profile name (asked when None).
+    force: Overwrite an existing profile.
+    pending_clone: Accept a clone path that ADORE creates only at creation.
+    prepare_only: Return a validated candidate without writes or probes.
+    Returns: The saved Profile, or WizardSetup when preparation is requested.
+    Raises WizardError: On abort, an existing profile without --force, or a
                 config that fails validation.
     """
     key = os_key or doctor.detect_os()
@@ -763,15 +731,12 @@ def run_wizard(
     return profile
 
 
-# LOCAL HELPERS
-
-
 def _suggest_runtime(os_key: str, runtimes: doctor.RuntimeDetection) -> str:
     """
-    @brief      Best-guess default runtime string from detection.
-    @param[in]  os_key Host OS key.
-    @param[in]  runtimes Detected runtimes.
-    @return     A runtime string (docker/podman, WSL-wrapped on Windows).
+    Best-guess default runtime string from detection.
+    os_key: Host OS key.
+    runtimes: Detected runtimes.
+    Returns: A runtime string (docker/podman, WSL-wrapped on Windows).
     """
     if os_key == "windows" and runtimes.wsl_distros:
         distro = runtimes.wsl_distros[0]
@@ -793,17 +758,17 @@ def _report_aegis(
     workflow_mode: str = "auto",
 ) -> None:
     """
-    @brief      Report whether the target clone carries usable AEGIS.
-    @details    An absent payload is direct-workflow information. Present but
+    Report whether the target clone carries usable AEGIS.
+    An absent payload is direct-workflow information. Present but
                 unusable AEGIS prints CHECK with its diagnostic and supported
                 contract, without preventing a valid profile from being saved.
                 The report never installs a payload or changes web readiness.
-    @param[in]  out Output sink.
-    @param[in]  runner Command runner for the probe.
-    @param[in]  repo_path Local clone to probe.
-    @param[in]  os_key Host OS key (selects guidance wording).
-    @param[in]  aegis_python Interpreter from the validated candidate configuration.
-    @param[in]  workflow_mode Validated new-job default; Direct skips the AEGIS probe.
+    out: Output sink.
+    runner: Command runner for the probe.
+    repo_path: Local clone to probe.
+    os_key: Host OS key (selects guidance wording).
+    aegis_python: Interpreter from the validated candidate configuration.
+    workflow_mode: Validated new-job default; Direct skips the AEGIS probe.
     """
     if workflow_mode == "direct":
         out("  [INFO] Direct selected: AEGIS is not probed or invoked")
@@ -840,13 +805,13 @@ def _report_environment(
     out: Callable[[str], None], runner: CommandRunner, os_key: str, kind: str
 ) -> None:
     """
-    @brief      Print a prerequisite report + guidance for anything missing.
-    @details    Informational only (never blocks): the wizard proceeds so a
+    Print a prerequisite report + guidance for anything missing.
+    Informational only (never blocks): the wizard proceeds so a
                 user can fix prerequisites in another terminal and continue.
-    @param[in]  out Output sink.
-    @param[in]  runner Command runner for probes.
-    @param[in]  os_key Host OS key.
-    @param[in]  kind Platform kind (selects glab/gh/tea).
+    out: Output sink.
+    runner: Command runner for probes.
+    os_key: Host OS key.
+    kind: Platform kind (selects glab/gh/tea).
     """
     out("\n--- Environment check (informational) ---")
     git = doctor.detect_git(runner)
@@ -867,12 +832,12 @@ def _report_environment(
 
 def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     """
-    @brief      Build the ordered, MINIMAL config sections from answers.
-    @details    Writes the fields validation requires plus any that differ from
+    Build the ordered, MINIMAL config sections from answers.
+    Writes the fields validation requires plus any that differ from
                 the dataclass defaults; true defaults are omitted so the file
                 stays small (decision D4).
-    @param[in]  a Collected answers (see run_wizard).
-    @return     Ordered (table-header, key->value) pairs.
+    a: Collected answers (see run_wizard).
+    Returns: Ordered (table-header, key->value) pairs.
     """
     sections: list[tuple[str, dict[str, object]]] = []
     if a["agent_name"] != PRODUCT_ACRONYM:
@@ -944,32 +909,32 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
 
 
 def _provider_ok(value: str) -> str | None:
-    """@brief Accept a Pi API-key provider id, chatgpt or custom."""
+    """Accept a Pi API-key provider id, chatgpt or custom."""
     if value in provider_ids():
         return None
     return 'unknown provider: use a Pi API-key provider id, "chatgpt" or "custom"'
 
 
 def _model_ok(value: str) -> str | None:
-    """@brief Accept one model id without spaces, quotes or control characters."""
+    """Accept one model id without spaces, quotes or control characters."""
     return None if MODEL_ID_RE.fullmatch(value) else "enter one model id without spaces"
 
 
 def _endpoint_url_ok(value: str) -> str | None:
-    """@brief Accept an endpoint address by the shared rule (pi_providers)."""
+    """Accept an endpoint address by the shared rule (pi_providers)."""
     return None if valid_endpoint_url(value) else "enter an http(s) address such as http://192.168.1.20:1234/v1"
 
 
 def _validate_or_raise(document: str, out: Callable[[str], None]) -> Config:
     """
-    @brief      Load + validate the emitted config; raise on any issue.
-    @details    Validates the ACTUAL written document (via a temp file) the same
+    Load + validate the emitted config; raise on any issue.
+    Validates the ACTUAL written document (via a temp file) the same
                 way the engine will at startup, so a saved profile is always
                 loadable and valid (never save an invalid one).
-    @param[in]  document The config.toml text.
-    @param[in]  out Output sink for the issue list.
-    @return     The loaded, validated candidate configuration.
-    @exception  WizardError When validation finds issues.
+    document: The config.toml text.
+    out: Output sink for the issue list.
+    Returns: The loaded, validated candidate configuration.
+    Raises WizardError: When validation finds issues.
     """
     with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False,
                                      encoding="utf-8") as handle:
@@ -991,7 +956,7 @@ def _validate_or_raise(document: str, out: Callable[[str], None]) -> Config:
 def _print_summary(
     out: Callable[[str], None], name: str, sections: list[tuple[str, dict[str, object]]]
 ) -> None:
-    """@brief Print the resolved config for confirmation."""
+    """Print the resolved config for confirmation."""
     out(f"\n=== Profile '{name}' - review ===")
     for header, mapping in sections:
         out(f"[{header}]")
@@ -1004,7 +969,7 @@ def _print_next_steps(
     out: Callable[[str], None], name: str, kind: str,
     provider: str, runtime: str, image: str,
 ) -> None:
-    """@brief Print OS-agnostic next steps after a successful write."""
+    """Print OS-agnostic next steps after a successful write."""
     out(f"\nProfile '{name}' created and validated.")
     out("Next steps:")
     variable = credential_variable(provider)
@@ -1019,6 +984,3 @@ def _print_next_steps(
     out(f"  3. Validate:  adore --profile {name} config validate")
     out(f"  4. Dry-run:   adore --profile {name} run --dry-run")
     out(f"  5. Make active (optional):  adore profile use {name}")
-
-
-# END OF FILE

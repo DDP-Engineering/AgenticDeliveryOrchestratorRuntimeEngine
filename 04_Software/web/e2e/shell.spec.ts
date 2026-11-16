@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { test, expect, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ context }) => {
@@ -505,4 +499,23 @@ test("deleting the last project returns to Projects with working enrollment and 
   await page.getByRole("button",{name:"Enroll new project",exact:true}).click();
   await expect(page).toHaveURL(/\/projects\/new$/);
   await expect(page.getByRole("heading",{name:"Repository and identity",exact:true})).toBeVisible();
+});
+
+
+test("system storage label, availability and capacity stay grouped", async ({ page }) => {
+  await signIn(page);
+  await nav(page).getByRole("link", { name: "System status", exact: true }).click();
+  const storage = page.locator(".system-storage-status");
+  await expect(storage).toContainText("Storage");
+  await expect(storage).toContainText("Space available");
+  await expect(storage).toContainText(/GiB free of/);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const bounds = await storage.boundingBox();
+    const value = await storage.locator("p").boundingBox();
+    expect(bounds).not.toBeNull(); expect(value).not.toBeNull();
+    expect(value!.x).toBeGreaterThanOrEqual(bounds!.x);
+    expect(value!.y + value!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  }
 });

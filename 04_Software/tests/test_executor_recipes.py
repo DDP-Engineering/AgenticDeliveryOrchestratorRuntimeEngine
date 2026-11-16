@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_executor_recipes.py
-@brief   Validate portable recipe input, retained sources and image dependency closure.
-@details Temporary files and source bytes replace all external runtime operations.
-"""
+"""Validate portable recipe input, retained sources and image dependency closure."""
 
-# IMPORTS
 from io import BytesIO
 import json
 from pathlib import Path
@@ -26,9 +12,8 @@ from adore.recipe_sources import RecipeError, parse_recipe, recipe_archive, reci
 import pytest
 
 
-# LOCAL HELPERS
 def source_zip(files, *, manifest=None):
-    """@brief Create a selected source archive, retaining caller-controlled entry names."""
+    """Create a selected source archive, retaining caller-controlled entry names."""
     buffer = BytesIO()
     with ZipFile(buffer, "w") as archive:
         if manifest is not None:
@@ -39,7 +24,7 @@ def source_zip(files, *, manifest=None):
 
 
 def config_for(image):
-    """@brief Select one image in a direct, container-backed configuration."""
+    """Select one image in a direct, container-backed configuration."""
     config = default_config()
     config.container.image = image
     config.execution.backend = "container"
@@ -48,7 +33,7 @@ def config_for(image):
 
 # PUBLIC CONTRACT TESTS
 def test_context_recipe_is_retained_and_reexported_exactly(tmp_path):
-    """@brief A context ZIP remains complete and independent of its original working files."""
+    """A context ZIP remains complete and independent of its original working files."""
     files = {
         "Dockerfile": b"FROM ubuntu:22.04\nCOPY setup.sh /setup.sh\n",
         "setup.sh": b"#!/bin/sh\nprintf 'project tooling'\n",
@@ -85,7 +70,7 @@ def test_context_recipe_is_retained_and_reexported_exactly(tmp_path):
     ],
 )
 def test_unsafe_recipe_input_is_refused_before_retention(tmp_path, bad):
-    """@brief Archive, file and source-reference trust boundaries reject corrupt input."""
+    """Archive, file and source-reference trust boundaries reject corrupt input."""
     files = {"Dockerfile": b"FROM scratch\n"}
     if bad == "traversal":
         files["../escape"] = b"bad"
@@ -125,7 +110,7 @@ def test_unsafe_recipe_input_is_refused_before_retention(tmp_path, bad):
 
 
 def test_image_chain_uses_all_local_sources_and_detects_missing_and_cycles(tmp_path):
-    """@brief Multi-stage external references and ARG-resolved local bases close transitively."""
+    """Multi-stage external references and ARG-resolved local bases close transitively."""
     store = RecipeStore(tmp_path)
     root = parse_recipe(
         b"ARG BASE=sample-middle:1\nFROM ${BASE} AS build\n"
@@ -156,7 +141,7 @@ def test_image_chain_uses_all_local_sources_and_detects_missing_and_cycles(tmp_p
 
 
 def test_built_in_base_is_available_without_commands_or_registration(tmp_path):
-    """@brief ADORE's own base and dependent projects include the shipped Pi tooling."""
+    """ADORE's own base and dependent projects include the shipped Pi tooling."""
     config = config_for("adore-executor-base:1.0.0")
     result = resolve_recipe(config, home=tmp_path)
     definition = result.definitions[config.container.image]
@@ -174,7 +159,7 @@ def test_built_in_base_is_available_without_commands_or_registration(tmp_path):
 
 @pytest.mark.parametrize("corruption", ["binding_schema", "binding_image", "object", "linked"])
 def test_corrupt_recipe_storage_is_not_repaired_or_hidden(tmp_path, corruption, monkeypatch):
-    """@brief Corrupt selected data names recovery and leaves unrelated definitions readable."""
+    """Corrupt selected data names recovery and leaves unrelated definitions readable."""
     store = RecipeStore(tmp_path)
     store.put(parse_recipe(b"FROM scratch\n", "sample-executor:1"), expected_digest=None)
     store.put(parse_recipe(b"FROM scratch\n", "other-executor:1"), expected_digest=None)
@@ -204,7 +189,7 @@ def test_corrupt_recipe_storage_is_not_repaired_or_hidden(tmp_path, corruption, 
 
 
 def test_unknown_variables_and_stage_cycles_are_not_treated_as_external_images():
-    """@brief Unsupported dynamic inputs cannot masquerade as complete portable sources."""
+    """Unsupported dynamic inputs cannot masquerade as complete portable sources."""
     for source in (
         b"FROM ${UNKNOWN}\n",
         b"FROM alpine AS stage\nFROM stage AS stage\n",
@@ -215,7 +200,7 @@ def test_unknown_variables_and_stage_cycles_are_not_treated_as_external_images()
 
 
 def test_registered_public_named_base_is_retained_in_the_export(tmp_path):
-    """@brief An explicitly retained local base wins over its public-looking image name."""
+    """An explicitly retained local base wins over its public-looking image name."""
     store = RecipeStore(tmp_path)
     store.put(
         parse_recipe(b"FROM scratch\nLABEL local=base\n", "ubuntu:22.04"), expected_digest=None
@@ -226,7 +211,7 @@ def test_registered_public_named_base_is_retained_in_the_export(tmp_path):
 
 
 def test_maximum_context_roundtrips_with_export_metadata():
-    """@brief Export metadata does not consume the declared 16 MiB build-input allowance."""
+    """Export metadata does not consume the declared 16 MiB build-input allowance."""
     dockerfile = b"FROM scratch\n"
     files = {
         "Dockerfile": dockerfile,
@@ -241,7 +226,7 @@ def test_maximum_context_roundtrips_with_export_metadata():
 
 
 def test_long_portable_context_paths_roundtrip_after_export_prefixing():
-    """@brief A maximum-length source path remains valid in the exported context directory."""
+    """A maximum-length source path remains valid in the exported context directory."""
     name = "x" * 240
     original = parse_recipe(
         source_zip({"Dockerfile": b"FROM scratch\n", name: b"input"}), "sample-executor:1"
@@ -251,7 +236,7 @@ def test_long_portable_context_paths_roundtrip_after_export_prefixing():
 
 
 def test_corrupt_compressed_bytes_raise_a_typed_recipe_error():
-    """@brief Broken deflate input cannot escape as an untyped decompressor exception."""
+    """Broken deflate input cannot escape as an untyped decompressor exception."""
     buffer = BytesIO()
     with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
         archive.writestr("Dockerfile", b"FROM scratch\n")
@@ -263,7 +248,7 @@ def test_corrupt_compressed_bytes_raise_a_typed_recipe_error():
 
 
 def test_atomic_recipe_binding_write_failure_keeps_previous_definition(tmp_path, monkeypatch):
-    """@brief A failed association replacement cannot erase the previous verified source."""
+    """A failed association replacement cannot erase the previous verified source."""
     from adore import executor_recipes
 
     store = RecipeStore(tmp_path)
@@ -273,7 +258,7 @@ def test_atomic_recipe_binding_write_failure_keeps_previous_definition(tmp_path,
     replace = executor_recipes.os.replace
 
     def unavailable(source, destination):
-        """@brief Model a failed final filesystem replacement only."""
+        """Model a failed final filesystem replacement only."""
         if Path(destination) == binding:
             raise OSError("fixture storage unavailable")
         return replace(source, destination)
@@ -292,7 +277,7 @@ def test_atomic_recipe_binding_write_failure_keeps_previous_definition(tmp_path,
 def test_prepared_project_selects_its_effective_image_without_changing_configuration(
     tmp_path, monkeypatch
 ):
-    """@brief Preparation selects the same effective image as readiness."""
+    """Preparation selects the same effective image as readiness."""
     from adore import preparation
 
     config = config_for("configured-base:1")
@@ -319,13 +304,13 @@ def test_prepared_project_selects_its_effective_image_without_changing_configura
     ],
 )
 def test_invalid_instructions_and_literal_secret_defaults_are_refused(source):
-    """@brief Recognizable literal credentials and invalid syntax are not retained as recipes."""
+    """Recognizable literal credentials and invalid syntax are not retained as recipes."""
     with pytest.raises(RecipeError):
         parse_recipe(source, "sample-executor:1")
 
 
 def test_embedded_base_sources_are_reusable_without_overwriting_existing_bindings(tmp_path):
-    """@brief A complete snapshot supplies reusable bases and keeps its pinned inputs."""
+    """A complete snapshot supplies reusable bases and keeps its pinned inputs."""
     manifest = {
         "schema": 1,
         "image": "sample-executor:1",
@@ -372,7 +357,7 @@ def test_embedded_base_sources_are_reusable_without_overwriting_existing_binding
 
 
 def test_unrelated_embedded_definitions_are_not_published_as_global_recipes():
-    """@brief A portable upload cannot attach unrelated image definitions implicitly."""
+    """A portable upload cannot attach unrelated image definitions implicitly."""
     manifest = {
         "schema": 1,
         "image": "sample-executor:1",
@@ -392,11 +377,11 @@ def test_unrelated_embedded_definitions_are_not_published_as_global_recipes():
 
 
 def test_recipe_store_lock_io_failure_is_typed(tmp_path, monkeypatch):
-    """@brief Unavailable metadata storage is not an untyped service exception."""
+    """Unavailable metadata storage is not an untyped service exception."""
     from adore import executor_recipes
 
     def unavailable(_store):
-        """@brief Model a failed lock-file create at the filesystem boundary."""
+        """Model a failed lock-file create at the filesystem boundary."""
         raise OSError("fixture storage unavailable")
 
     monkeypatch.setattr(executor_recipes.StateStore, "acquire_lock", unavailable)
@@ -407,7 +392,7 @@ def test_recipe_store_lock_io_failure_is_typed(tmp_path, monkeypatch):
 
 
 def test_stage_arguments_do_not_hide_a_local_from_dependency(tmp_path):
-    """@brief FROM uses global ARG values even after a stage redeclares the name."""
+    """FROM uses global ARG values even after a stage redeclares the name."""
     recipe = parse_recipe(
         b"ARG BASE=sample-local:1\nFROM ubuntu:24.04 AS build\n"
         b"ARG BASE=ubuntu:24.04\nFROM ${BASE}\n",
@@ -420,7 +405,7 @@ def test_stage_arguments_do_not_hide_a_local_from_dependency(tmp_path):
 
 
 def test_loopback_registry_requires_its_local_recipe(tmp_path):
-    """@brief A host-local registry is not an external portable build prerequisite."""
+    """A host-local registry is not an external portable build prerequisite."""
     recipe = parse_recipe(b"FROM 127.0.0.1:5000/sample:1\n", "sample-executor:1")
     RecipeStore(tmp_path).put(recipe, expected_digest=None)
     assert recipe_status(config_for(recipe.image), home=tmp_path)["missing_images"] == [
@@ -430,7 +415,7 @@ def test_loopback_registry_requires_its_local_recipe(tmp_path):
 
 @pytest.mark.parametrize("field", ["source", "src"])
 def test_run_bind_context_sources_must_be_present(field):
-    """@brief Default-context RUN bind mounts require the selected source bytes."""
+    """Default-context RUN bind mounts require the selected source bytes."""
     dockerfile = (
         "FROM ubuntu:24.04\nRUN --mount=type=bind,"
         + field
@@ -446,7 +431,7 @@ def test_run_bind_context_sources_must_be_present(field):
 
 
 def test_stage_environment_selects_actual_context_source():
-    """@brief ENV precedence and unrelated-stage boundaries cannot hide missing COPY files."""
+    """ENV precedence and unrelated-stage boundaries cannot hide missing COPY files."""
     dockerfile = (
         b"ARG FILE=present.txt\nFROM ubuntu:24.04\nENV FILE=missing.txt\nCOPY ${FILE} /input\n"
     )
@@ -478,7 +463,7 @@ def test_stage_environment_selects_actual_context_source():
 
 @pytest.mark.parametrize("failure", ["missing_object", "corrupt_object", "object_collision"])
 def test_reported_object_recovery_allows_a_fresh_attachment(tmp_path, failure):
-    """@brief Deleting exactly the reported catalog removes dangling links and restores saves."""
+    """Deleting exactly the reported catalog removes dangling links and restores saves."""
     import shutil
 
     home = tmp_path / "home"
@@ -504,6 +489,3 @@ def test_reported_object_recovery_allows_a_fresh_attachment(tmp_path, failure):
     assert store.get(recipe.image) is None
     store.put(recipe, expected_digest=None)
     assert store.get(recipe.image).definitions == recipe.definitions
-
-
-# END OF FILE

@@ -1,26 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_azure_cli.py
-@brief      Deterministic Azure SDK locations and shell-free Windows launch contracts.
-@details    The JSON fixture is a resource-location subset of Microsoft's public
-            azure-devops-cli-extension recording:
-            azext_devops/tests/latest/integrationtests/recordings/test_invoke_command_basic.yaml.
-            It retains competing same-name locations, not handpicked unique names.
-            SDK bootstrap/transport and process creation are faked; no credentials,
-            installed Azure tooling or network are used.
-"""
-# IMPORTS
+"""Deterministic Azure SDK locations and shell-free Windows launch contracts."""
 import json
+import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 from types import ModuleType, SimpleNamespace
@@ -34,19 +17,17 @@ import pytest
 
 from tests.test_azure_devops import SCOPE, pull, work_item
 
-# CONSTANTS
 METADATA = json.loads(
     (Path(__file__).parent / "fixtures/azure_resource_locations.json").read_text())
 
-# LOCAL HELPERS
 @pytest.fixture
 def sdk(monkeypatch, tmp_path):
-    """@brief Bootstrap a fake installed extension, with real server route metadata."""
+    """Bootstrap a fake installed extension, with real server route metadata."""
     sent, replies = [], []
     credentials = object()
 
     class Client:
-        """@brief Resolve the exact SDK location ID against competing official routes."""
+        """Resolve the exact SDK location ID against competing official routes."""
         def __init__(self, url, creds):
             assert url == "https://dev.azure.com/contoso"
             assert creds is credentials
@@ -57,7 +38,7 @@ def sdk(monkeypatch, tmp_path):
                       **request["route_values"]}
 
             def substitute(match):
-                """@brief Model optional and catch-all SDK route substitution."""
+                """Model optional and catch-all SDK route substitution."""
                 key = match[1].lstrip("*")
                 return quote(str(values.get(key, "")), safe="/" if match[1][0] == "*" else "")
 
@@ -95,7 +76,7 @@ def sdk(monkeypatch, tmp_path):
 
 
 def spec(area, resource, **route):
-    """@brief Build a scoped request at the public CLI bridge boundary."""
+    """Build a scoped request at the public CLI bridge boundary."""
     return {"organization": SCOPE["organization"], "area": area, "resource": resource,
             "method": "GET", "route": {"project": "Payments", **route}, "query": {},
             "body": None, "version": "7.1", "media_type": "application/json"}
@@ -129,7 +110,7 @@ def spec(area, resource, **route):
 def test_locations_ignore_metadata_order_and_same_name_competitors(sdk, monkeypatch,
                                                                   area, resource, route, path,
                                                                   reverse):
-    """@brief All resource families use exact official routes, even with duplicate names."""
+    """All resource families use exact official routes, even with duplicate names."""
     monkeypatch.setattr(sys.modules[__name__], "METADATA", METADATA[::-1] if reverse else METADATA)
     if area == "git":
         route = {"repositoryId": "backend", **route}
@@ -141,7 +122,7 @@ def test_locations_ignore_metadata_order_and_same_name_competitors(sdk, monkeypa
 
 
 def test_public_adapter_work_item_patch_and_pr_publication_reach_exact_endpoints(sdk):
-    """@brief Exercise adapter serialization through SDK dispatch, not just mocked JSON."""
+    """Exercise adapter serialization through SDK dispatch, not just mocked JSON."""
     sent, replies = sdk
     replies.extend([work_item(), work_item(**{"System.Tags": "human-owned; agent-ready; P2; new"}),
                     pull(), {"value": []}])
@@ -149,7 +130,8 @@ def test_public_adapter_work_item_patch_and_pr_publication_reach_exact_endpoints
     def runner(argv, **kwargs):
         assert kwargs["timeout"] == 60
         path = Path(argv[-1])
-        assert path.stat().st_mode & 0o077 == 0
+        if os.name == "posix":
+            assert path.stat().st_mode & 0o077 == 0
         request = json.loads(path.read_text(encoding="utf-8"))
         return CommandResult(stdout=json.dumps(azure_cli.sdk_request(request)))
 
@@ -168,14 +150,14 @@ def test_public_adapter_work_item_patch_and_pr_publication_reach_exact_endpoints
 @pytest.mark.parametrize("change", [{"resource": "unknown"}, {"method": "DELETE"},
     {"route": {}}, {"organization": "https://server/tfs"}])
 def test_sdk_boundary_rejects_unknown_locations_and_unscoped_requests(sdk, change):
-    """@brief Invalid requests never reach a transport or rely on CLI defaults."""
+    """Invalid requests never reach a transport or rely on CLI defaults."""
     with pytest.raises((KeyError, ValueError)):
         azure_cli.sdk_request({**spec("wit", "workItems", id=25), **change})
     assert not sdk[0]
 
 
 def test_sdk_errors_and_unexpected_json_are_value_free(sdk, tmp_path, capsys):
-    """@brief Child errors cannot echo credentials, payloads or SDK streams."""
+    """Child errors cannot echo credentials, payloads or SDK streams."""
     path = tmp_path / "request.json"
     path.write_text(json.dumps(spec("wit", "workItems", id=25)), encoding="utf-8")
     for value in (RuntimeError("PAT-DO-NOT-LOG"), ["PAT-DO-NOT-LOG"]):
@@ -186,7 +168,7 @@ def test_sdk_errors_and_unexpected_json_are_value_free(sdk, tmp_path, capsys):
 
 
 def test_windows_cli_probe_and_arguments_bypass_cmd_safely(monkeypatch, tmp_path):
-    """@brief The standard MSI launcher works without cmd expansion or shell quoting."""
+    """The standard MSI launcher works without cmd expansion or shell quoting."""
     root = tmp_path / "Program Files" / "Azure CLI2"
     (root / "wbin").mkdir(parents=True)
     launcher = root / "wbin" / "az.CMD"
@@ -220,7 +202,7 @@ def test_windows_cli_probe_and_arguments_bypass_cmd_safely(monkeypatch, tmp_path
 
 def test_cli_runtime_resolution_supports_zip_and_posix_but_refuses_shell_wrappers(
         monkeypatch, tmp_path):
-    """@brief Only known Python layouts are used; arbitrary shell text is not executed."""
+    """Only known Python layouts are used; arbitrary shell text is not executed."""
     monkeypatch.setattr(sys, "platform", "win32")
     (tmp_path / "bin").mkdir()
     launcher = tmp_path / "bin" / "az.cmd"
@@ -232,7 +214,7 @@ def test_cli_runtime_resolution_supports_zip_and_posix_but_refuses_shell_wrapper
     monkeypatch.setattr(sys, "platform", "linux")
     python = tmp_path / "bin" / "python3"
     python.touch()
-    launcher.write_text(f"#!{python}\n", encoding="utf-8")
+    launcher.write_text(f"#!{shlex.quote(python.as_posix())}\n", encoding="utf-8")
     assert azure_cli.azure_python() == str(python)
     launcher.write_text("#!/bin/sh\nexec arbitrary shell text\n", encoding="utf-8")
     with pytest.raises(OSError):
@@ -240,7 +222,7 @@ def test_cli_runtime_resolution_supports_zip_and_posix_but_refuses_shell_wrapper
 
 
 def test_bridge_request_and_sdk_entry_points_return_only_json(monkeypatch, sdk, tmp_path, capsys):
-    """@brief Both process entry modes preserve successful JSON without forwarding stderr."""
+    """Both process entry modes preserve successful JSON without forwarding stderr."""
     path = tmp_path / "request.json"
     path.write_text(json.dumps(spec("wit", "workItems", id=25)), encoding="utf-8")
     sdk[1].append({"id": 25})
@@ -255,7 +237,7 @@ def test_bridge_request_and_sdk_entry_points_return_only_json(monkeypatch, sdk, 
 
 
 def test_bridge_bounds_child_and_sanitizes_launch_failure(monkeypatch, tmp_path, capsys):
-    """@brief Missing tooling and hung SDK children cannot escape the parent CLI contract."""
+    """Missing tooling and hung SDK children cannot escape the parent CLI contract."""
     monkeypatch.setattr(azure_cli, "azure_python", lambda: "/azure/python")
 
     def execute(argv, **kwargs):
@@ -269,8 +251,9 @@ def test_bridge_bounds_child_and_sanitizes_launch_failure(monkeypatch, tmp_path,
     assert "PAT-DO-NOT-LOG" not in capsys.readouterr().err
 
 def test_official_sdk_dispatch_when_optional_host_libraries_are_available(monkeypatch):
-    """@brief Run Microsoft's real resolver/URL/version code with HTTP and auth disabled.
-    @note Optional host-tool libraries are not application/test dependencies. This
+    """
+    Run Microsoft's real resolver/URL/version code with HTTP and auth disabled.
+    Note: Optional host-tool libraries are not application/test dependencies. This
           test skips offline when they are absent; it never installs anything.
     """
     core = pytest.importorskip("azure.cli.core")
@@ -295,7 +278,7 @@ def test_official_sdk_dispatch_when_optional_host_libraries_are_available(monkey
     sent = []
 
     def transport(self, request, headers=None, **kwargs):
-        """@brief Stop before HTTP/auth while retaining the actual SDK-built URL."""
+        """Stop before HTTP/auth while retaining the actual SDK-built URL."""
         sent.append((request.method, request.url, headers))
         return SimpleNamespace(json=lambda: {"value": []}, headers={})
 
@@ -324,5 +307,3 @@ def test_official_sdk_dispatch_when_optional_host_libraries_are_available(monkey
             if resource == "wiql":
                 assert url.endswith("/wit/wiql")
     assert len(sent) == 72
-
-# END OF FILE

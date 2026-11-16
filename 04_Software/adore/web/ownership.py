@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    ownership.py
-@brief   Explicit local worker identities and conservative process evidence.
-@details Heartbeats report availability; only demonstrated process death permits
-         recovery. PID birth prevents reuse from granting an old owner authority.
-"""
+"""Explicit local worker identities and conservative process evidence."""
 
 from __future__ import annotations
 
-# IMPORTS
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -24,23 +9,22 @@ import platform
 import re
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class WebStoreError(RuntimeError):
-    """@brief Invalid or corrupt web storage and account actions."""
+    """Invalid or corrupt web storage and account actions."""
 
 
 class OwnershipError(WebStoreError):
-    """@brief The caller no longer holds the required durable ownership."""
+    """The caller no longer holds the required durable ownership."""
 
     def __init__(self, message: str, *, reason: str = "ownership_lost") -> None:
-        """@brief Preserve a closed refusal code separately from diagnostic text."""
+        """Preserve a closed refusal code separately from diagnostic text."""
         self.reason = reason
         super().__init__(message)
 
 
 @dataclass(frozen=True)
 class WorkerOwner:
-    """@brief Immutable server-issued handle for one scoped owner incarnation."""
+    """Immutable server-issued handle for one scoped owner incarnation."""
 
     id: str
     generation: int
@@ -49,12 +33,12 @@ class WorkerOwner:
     run_id: str = ""
 
 
-# PUBLIC API
 def process_birth(pid: int) -> str | None:
-    """@brief Read process creation identity; None proves absence, errors do not.
-    @param[in] pid Positive local PID.
-    @return Immutable creation evidence, or None for a missing process.
-    @exception WebStoreError Creation identity cannot be established.
+    """
+    Read process creation identity; None proves absence, errors do not.
+    pid: Positive local PID.
+    Returns: Immutable creation evidence, or None for a missing process.
+    Raises WebStoreError: Creation identity cannot be established.
     """
     if type(pid) is not int or pid < 1:
         raise WebStoreError("worker process identity is corrupt")
@@ -89,6 +73,3 @@ def process_birth(pid: int) -> str | None:
         return None
     except (OSError, ValueError, IndexError) as exc:
         raise WebStoreError("worker process identity unavailable") from exc
-
-
-# END OF FILE

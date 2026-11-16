@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    analytics.py
-@brief   Shared strict sources, instant scope and measured web consumption.
-@details Reads preserve operational schema and recovery behavior. Summary-only
-         evidence without a date is explicit; malformed evidence fails closed.
-"""
+"""Shared strict sources, instant scope and measured web consumption."""
 
-# IMPORTS
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -27,7 +12,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from adore import metrics
 from adore.state import RunState, StateError, StateStore
 
-# CONSTANTS
 TERMINAL = {
     "done": {"done"},
     "failed": {"failed", "immediate-failure", "stage-failed", "notification-blocked"},
@@ -38,19 +22,18 @@ AMOUNTS = ("tokens_in", "tokens_out", "cache_read_tokens", "cache_write_tokens")
 MONEY = ("reported_cost_usd", "estimated_cost_usd")
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class AnalyticsError(ValueError):
-    """@brief Safe typed analytical failure without raw persisted values."""
+    """Safe typed analytical failure without raw persisted values."""
 
     def __init__(self, code: str, status: int = 503):
-        """@brief Retain public error code and HTTP status."""
+        """Retain public error code and HTTP status."""
         super().__init__(code)
         self.code, self.status = code, status
 
 
 @dataclass(frozen=True)
 class Scope:
-    """@brief One half-open instant scope derived from inclusive local dates."""
+    """One half-open instant scope derived from inclusive local dates."""
 
     zone: ZoneInfo
     granularity: str
@@ -60,13 +43,13 @@ class Scope:
     @classmethod
     def create(cls, day_from: date | None, day_to: date | None, timezone: str, granularity: str):
         """
-        @brief Resolve local midnights independently across offset changes.
-        @param[in] day_from Inclusive local first date or unbounded.
-        @param[in] day_to Inclusive local last date or unbounded.
-        @param[in] timezone IANA timezone name.
-        @param[in] granularity Day, Monday-week or month.
-        @return Validated instant scope.
-        @exception AnalyticsError Invalid range, timezone or grouping.
+        Resolve local midnights independently across offset changes.
+        day_from: Inclusive local first date or unbounded.
+        day_to: Inclusive local last date or unbounded.
+        timezone: IANA timezone name.
+        granularity: Day, Monday-week or month.
+        Returns: Validated instant scope.
+        Raises AnalyticsError: Invalid range, timezone or grouping.
         """
         if day_from and day_to and day_from > day_to:
             raise AnalyticsError("invalid_date_range", 422)
@@ -94,7 +77,7 @@ class Scope:
         return cls(zone, granularity, start, end)
 
     def includes(self, stamp: datetime | None) -> bool:
-        """@brief Match only observed instants, including the lower endpoint."""
+        """Match only observed instants, including the lower endpoint."""
         return (
             stamp is not None
             and (self.start is None or stamp >= self.start)
@@ -103,10 +86,10 @@ class Scope:
 
     def local_day(self, stamp: datetime) -> date:
         """
-        @brief Resolve observed dates with typed local-calendar overflow handling.
-        @param[in] stamp Validated aware UTC instant.
-        @return Its actual local calendar date, independently of grouping.
-        @exception AnalyticsError Instant is outside the local calendar range.
+        Resolve observed dates with typed local-calendar overflow handling.
+        stamp: Validated aware UTC instant.
+        Returns: Its actual local calendar date, independently of grouping.
+        Raises AnalyticsError: Instant is outside the local calendar range.
         """
         try:
             return stamp.astimezone(self.zone).date()
@@ -114,7 +97,7 @@ class Scope:
             raise AnalyticsError("metrics_corrupt") from exc
 
     def bucket(self, stamp: datetime) -> str:
-        """@brief Group an observed instant by local day, Monday-week or month."""
+        """Group an observed instant by local day, Monday-week or month."""
         day = self.local_day(stamp)
         if self.granularity == "week":
             day -= timedelta(days=day.weekday())
@@ -123,7 +106,7 @@ class Scope:
         return day.isoformat()
 
     def public(self, project_id: str) -> dict:
-        """@brief Describe the immutable project and canonical interval."""
+        """Describe the immutable project and canonical interval."""
         return {
             "project_ids": [project_id],
             "mode": "all_time" if not self.start and not self.end else "interval",
@@ -138,13 +121,12 @@ class Scope:
         }
 
 
-# LOCAL HELPERS
 def instant(value: object) -> datetime | None:
     """
-    @brief Return an aware observed instant.
-    @param[in] value Saved timestamp or missing value.
-    @return UTC instant, or None when no timestamp was recorded.
-    @exception AnalyticsError A naive, date-only or unparseable timestamp.
+    Return an aware observed instant.
+    value: Saved timestamp or missing value.
+    Returns: UTC instant, or None when no timestamp was recorded.
+    Raises AnalyticsError: A naive, date-only or unparseable timestamp.
     """
     if value is None or value == "":
         return None
@@ -161,22 +143,22 @@ def instant(value: object) -> datetime | None:
 
 def _object(raw: bytes, code: str) -> dict:
     """
-    @brief Decode strict objects, rejecting duplicate keys and nonfinite JSON.
-    @param[in] raw Persisted UTF-8 JSON bytes.
-    @param[in] code Safe public failure code.
-    @return One unambiguous object.
-    @exception AnalyticsError Invalid encoding, object shape or JSON.
+    Decode strict objects, rejecting duplicate keys and nonfinite JSON.
+    raw: Persisted UTF-8 JSON bytes.
+    code: Safe public failure code.
+    Returns: One unambiguous object.
+    Raises AnalyticsError: Invalid encoding, object shape or JSON.
     """
 
     def unique(pairs):
-        """@brief Reject ambiguous duplicate persisted keys."""
+        """Reject ambiguous duplicate persisted keys."""
         result = dict(pairs)
         if len(result) != len(pairs):
             raise ValueError
         return result
 
     def invalid(_value):
-        """@brief Reject nonfinite JSON constants."""
+        """Reject nonfinite JSON constants."""
         raise ValueError
 
     try:
@@ -190,9 +172,9 @@ def _object(raw: bytes, code: str) -> dict:
 
 def _validate_event(event: dict) -> None:
     """
-    @brief Validate relevant fields before any period or identity filtering.
-    @param[in] event Persisted journal object.
-    @exception AnalyticsError Unsupported schema or corrupt field evidence.
+    Validate relevant fields before any period or identity filtering.
+    event: Persisted journal object.
+    Raises AnalyticsError: Unsupported schema or corrupt field evidence.
     """
     if not isinstance(event.get("event"), str) or not event["event"]:
         raise AnalyticsError("metrics_corrupt")
@@ -235,24 +217,23 @@ def _validate_event(event: dict) -> None:
 
 def _historical_sources(sources: list[tuple], summaries: list) -> list[tuple]:
     """
-    @brief Include historical summary facts without fabricating runtime state.
-    @param[in] sources Actual runtime records and validated journals.
-    @param[in] summaries Persisted historical rows.
-    @return Actual records plus summary-only records with empty journals.
+    Include historical summary facts without fabricating runtime state.
+    sources: Actual runtime records and validated journals.
+    summaries: Persisted historical rows.
+    Returns: Actual records plus summary-only records with empty journals.
     """
     identities = {run.run_id for run, _ in sources}
     return [*sources, *((row, []) for row in summaries if row.run_id not in identities)]
 
 
-# PUBLIC API
 def read_sources(store: StateStore, *,
                  run_id: str | None = None) -> list[tuple[RunState, list[dict]]]:
     """
-    @brief Read complete state and JSONL without the tolerant operational reader.
-    @param[in] store Runtime store to inspect without mutation.
-    @param[in] run_id Optional exact run for a strict reread without rescanning other jobs.
-    @return Run and validated journal pairs in stable order.
-    @exception AnalyticsError Unsupported schema, corrupt/unreadable or linked source.
+    Read complete state and JSONL without the tolerant operational reader.
+    store: Runtime store to inspect without mutation.
+    run_id: Optional exact run for a strict reread without rescanning other jobs.
+    Returns: Run and validated journal pairs in stable order.
+    Raises AnalyticsError: Unsupported schema, corrupt/unreadable or linked source.
     """
     if run_id is not None and (not isinstance(run_id, str)
             or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", run_id)):
@@ -322,19 +303,19 @@ def read_sources(store: StateStore, *,
 
 def empty_amounts(admin: bool) -> dict:
     """
-    @brief Initialize measured amounts as unavailable, counters as zero.
-    @param[in] admin Whether to include authorized financial fields.
-    @return Mutable empty measurement projection.
+    Initialize measured amounts as unavailable, counters as zero.
+    admin: Whether to include authorized financial fields.
+    Returns: Mutable empty measurement projection.
     """
     return {"events": 0, **dict.fromkeys(AMOUNTS + (MONEY if admin else ()))}
 
 
 def add_amounts(target: dict, source: dict) -> None:
     """
-    @brief Sum available measurements, preserving unknown and measured zero.
-    @param[in,out] target Nullable accumulated fields.
-    @param[in] source Validated measurements and event count.
-    @exception AnalyticsError Monetary accumulation is nonfinite.
+    Sum available measurements, preserving unknown and measured zero.
+    target: Nullable accumulated fields.
+    source: Validated measurements and event count.
+    Raises AnalyticsError: Monetary accumulation is nonfinite.
     """
     for key, value in source.items():
         if key not in target or value is None:
@@ -347,11 +328,11 @@ def add_amounts(target: dict, source: dict) -> None:
 
 def measured(event: dict, prices: list[dict], admin: bool) -> dict:
     """
-    @brief Project numeric evidence with UTC-effective reported/estimated money.
-    @param[in] event Validated numeric usage event.
-    @param[in] prices Immutable ordered project price history.
-    @param[in] admin Whether financial fields are authorized.
-    @return Nullable measured amounts; no duplicate reported/estimated billing.
+    Project numeric evidence with UTC-effective reported/estimated money.
+    event: Validated numeric usage event.
+    prices: Immutable ordered project price history.
+    admin: Whether financial fields are authorized.
+    Returns: Nullable measured amounts; no duplicate reported/estimated billing.
     """
     value = {"events": 1, **{key: event.get(key) for key in AMOUNTS}}
     if not admin:
@@ -386,11 +367,11 @@ def measured(event: dict, prices: list[dict], admin: bool) -> dict:
 
 def lifecycle_times(run: RunState, events: list[dict], summary=None) -> tuple:
     """
-    @brief Select own lifecycle evidence, with recorded summary-only fallback.
-    @param[in] run Actual runtime or historical summary identity/lifecycle.
-    @param[in] events Strict ordered journal records.
-    @param[in] summary Recorded fallback dates when journal events are absent.
-    @return Nullable aware start and terminal instants.
+    Select own lifecycle evidence, with recorded summary-only fallback.
+    run: Actual runtime or historical summary identity/lifecycle.
+    events: Strict ordered journal records.
+    summary: Recorded fallback dates when journal events are absent.
+    Returns: Nullable aware start and terminal instants.
     """
     picked = next((e for e in events if e["event"] == "picked"), None)
     terminal = next(
@@ -427,17 +408,17 @@ def usage_report(
     summaries: list | None = None,
 ) -> dict:
     """
-    @brief Build one filtered daily/per-job consumption contract.
-    @param[in] sources Strict run/event pairs.
-    @param[in] project_id Authorized immutable project identity.
-    @param[in] scope Validated reporting interval and grouping.
-    @param[in] prices Authorized immutable prices.
-    @param[in] admin Financial permission.
-    @param[in] executor Exact observed executor filter or None.
-    @param[in] model Exact observed model filter or None.
-    @param[in] summaries Validated summary-only evidence without dated attribution.
-    @return Scoped aggregate, composite jobs, explicit lifetime and unallocated evidence.
-    @exception AnalyticsError Invalid filter.
+    Build one filtered daily/per-job consumption contract.
+    sources: Strict run/event pairs.
+    project_id: Authorized immutable project identity.
+    scope: Validated reporting interval and grouping.
+    prices: Authorized immutable prices.
+    admin: Financial permission.
+    executor: Exact observed executor filter or None.
+    model: Exact observed model filter or None.
+    summaries: Validated summary-only evidence without dated attribution.
+    Returns: Scoped aggregate, composite jobs, explicit lifetime and unallocated evidence.
+    Raises AnalyticsError: Invalid filter.
     """
     for key, value in (("executor", executor), ("model", model)):
         if value is not None and (
@@ -551,11 +532,11 @@ def usage_report(
 
 def duration_report(summaries: list, scope: Scope) -> dict:
     """
-    @brief Select validated terminal elapsed samples on the server.
-    @param[in] summaries Read-only persisted terminal summaries.
-    @param[in] scope Completion instant cohort.
-    @return Count, nullable mean/median, sum and exact sorted pooling samples.
-    @exception AnalyticsError Malformed or inconsistent observed span.
+    Select validated terminal elapsed samples on the server.
+    summaries: Read-only persisted terminal summaries.
+    scope: Completion instant cohort.
+    Returns: Count, nullable mean/median, sum and exact sorted pooling samples.
+    Raises AnalyticsError: Malformed or inconsistent observed span.
     """
     spans = []
     for row in summaries:
@@ -595,14 +576,14 @@ def metric_report(
     admin: bool,
 ) -> dict:
     """
-    @brief Derive compatible metric consumers from one scoped consumption view.
-    @param[in] sources Strict run/journal pairs.
-    @param[in] summaries Read-only summary evidence.
-    @param[in] project_id Authorized immutable project.
-    @param[in] scope Validated reporting scope.
-    @param[in] prices Authorized UTC-effective price history.
-    @param[in] admin Financial permission.
-    @return Scoped totals, daily lifecycle/usage, cohorts, samples and current stock.
+    Derive compatible metric consumers from one scoped consumption view.
+    sources: Strict run/journal pairs.
+    summaries: Read-only summary evidence.
+    project_id: Authorized immutable project.
+    scope: Validated reporting scope.
+    prices: Authorized UTC-effective price history.
+    admin: Financial permission.
+    Returns: Scoped totals, daily lifecycle/usage, cohorts, samples and current stock.
     """
     from dataclasses import asdict
 
@@ -672,7 +653,7 @@ def metric_report(
         )
 
     def bucket(stamp):
-        """@brief Initialize one consistently nullable grouped metric row."""
+        """Initialize one consistently nullable grouped metric row."""
         key = scope.bucket(stamp)
         return days.setdefault(
             key,
@@ -937,6 +918,3 @@ def metric_report(
         "granularity": scope.granularity,
         **({"revisions": revisions} if admin else {}),
     }
-
-
-# END OF FILE

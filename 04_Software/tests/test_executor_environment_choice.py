@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_executor_environment_choice.py
-@brief Choosing where the executor runs from the web interface.
-@details Administrators list the server's container images, choose the backend,
-         runtime and image at enrollment and in reviewed Settings edits; every
-         other environment key and image builds stay outside the web.
-"""
+"""Choosing where the executor runs from the web interface."""
 
 from __future__ import annotations
 
-# IMPORTS
 from hashlib import sha256
 from pathlib import Path
 
@@ -32,16 +16,14 @@ import pytest
 from tests.configuration_client import TestClient
 from tests.test_web_enrollment import _body, offline_wizard  # noqa: F401 - autouse fixture
 
-# CONSTANTS
 LISTING = (
     "adore-executor-base:pi-0.87.1\n<none>:<none>\nadore-executor-python:pi-0.87.1\n"
     "adore-executor-base:pi-0.87.1\n"
 )
 
 
-# LOCAL HELPERS
 class Runner:
-    """@brief Records commands and answers `images` with a fixed listing."""
+    """Records commands and answers `images` with a fixed listing."""
 
     def __init__(self, listing: str = LISTING, code: int = 0) -> None:
         self.calls: list[list[str]] = []
@@ -57,7 +39,7 @@ class Runner:
 
 
 def _project(tmp_path: Path) -> tuple[ProfileStore, Path]:
-    """@brief A stopped container profile from the example configuration."""
+    """A stopped container profile from the example configuration."""
     profiles = ProfileStore(tmp_path / "home")
     root = tmp_path / "state"
     profiles.create("alpha", store_root=str(root))
@@ -74,7 +56,7 @@ def _project(tmp_path: Path) -> tuple[ProfileStore, Path]:
 
 
 def _login(client: TestClient, user: str = "admin", password: str = "admin") -> dict:
-    """@brief The CSRF header of a fresh session."""
+    """The CSRF header of a fresh session."""
     reply = client.post("/api/v1/session", json={"username": user, "password": password})
     assert reply.status_code == 200, reply.text
     return {"X-CSRF-Token": reply.json()["csrf"]}
@@ -83,7 +65,7 @@ def _login(client: TestClient, user: str = "admin", password: str = "admin") -> 
 # TESTS
 @pytest.mark.parametrize("system", ["windows", "linux"])
 def test_runtime_inventory_lists_successful_probes_only(tmp_path, monkeypatch, system):
-    """@brief Discover working host and WSL CLI commands from fixed bounded probes."""
+    """Discover working host and WSL CLI commands from fixed bounded probes."""
     monkeypatch.setattr(doctor, "detect_os", lambda: system)
     calls = []
 
@@ -125,7 +107,7 @@ def test_runtime_inventory_lists_successful_probes_only(tmp_path, monkeypatch, s
 
 
 def test_runtime_inventory_empty_and_developer_cannot_probe(tmp_path, monkeypatch):
-    """@brief Probe failures are empty suggestions and developer requests launch nothing."""
+    """Probe failures are empty suggestions and developer requests launch nothing."""
     monkeypatch.setattr(doctor, "detect_os", lambda: "linux")
     runner = Runner()
     app = create_app(tmp_path, probe_runner=runner)
@@ -139,7 +121,7 @@ def test_runtime_inventory_empty_and_developer_cannot_probe(tmp_path, monkeypatc
 
 
 def test_wsl_image_listing_executes_only_the_fixed_inventory_prefix(tmp_path, monkeypatch):
-    """@brief WSL inventory maps the selected distro to direct argv and refuses extra flags."""
+    """WSL inventory maps the selected distro to direct argv and refuses extra flags."""
     monkeypatch.setattr(doctor, "detect_os", lambda: "windows")
     calls = []
     valid = "wsl -d 'Team Linux' -- docker"
@@ -171,7 +153,7 @@ def test_wsl_image_listing_executes_only_the_fixed_inventory_prefix(tmp_path, mo
 
 @pytest.mark.parametrize("runtime", ["docker", "podman"])
 def test_administrators_list_the_server_images(tmp_path, runtime):
-    """@brief Tagged images come back sorted and unique; untagged entries are dropped."""
+    """Tagged images come back sorted and unique; untagged entries are dropped."""
     profiles, _path = _project(tmp_path)
     runner = Runner()
     with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
@@ -187,7 +169,7 @@ def test_administrators_list_the_server_images(tmp_path, runtime):
 
 
 def test_image_listing_fails_soft_and_is_restricted(tmp_path):
-    """@brief A broken runtime is unavailable, an unknown one refused, developers excluded."""
+    """A broken runtime is unavailable, an unknown one refused, developers excluded."""
     profiles, _path = _project(tmp_path)
     app = create_app(profiles.home, probe_runner=Runner(code=1))
     app.state.web_store.create_user("dev", "longer-password", "developer")
@@ -212,7 +194,7 @@ def test_image_listing_fails_soft_and_is_restricted(tmp_path):
      ("container.runtime", "wsl -d Ubuntu --exec docker")],
 )
 def test_chosen_environment_keys_apply_through_review(tmp_path, key, value):
-    """@brief The image and runtime change through a reviewed candidate."""
+    """The image and runtime change through a reviewed candidate."""
     profiles, path = _project(tmp_path)
     with TestClient(create_app(profiles.home, probe_runner=Runner())) as client:
         headers = _login(client)
@@ -236,7 +218,7 @@ def test_chosen_environment_keys_apply_through_review(tmp_path, key, value):
 
 
 def test_invalid_runtime_candidate_is_refused(tmp_path):
-    """@brief Validation still applies to the chosen keys."""
+    """Validation still applies to the chosen keys."""
     profiles, path = _project(tmp_path)
     original = path.read_bytes()
     with TestClient(create_app(profiles.home, probe_runner=Runner())) as client:
@@ -258,7 +240,7 @@ def test_invalid_runtime_candidate_is_refused(tmp_path):
     "key", ["execution.preparation", "worktree.root", "container.uv_cache_volume"]
 )
 def test_other_environment_keys_stay_external(tmp_path, key):
-    """@brief Keys outside the chosen set keep the external-ownership refusal."""
+    """Keys outside the chosen set keep the external-ownership refusal."""
     profiles, path = _project(tmp_path)
     original = path.read_bytes()
     with TestClient(create_app(profiles.home, probe_runner=Runner())) as client:
@@ -274,7 +256,7 @@ def test_other_environment_keys_stay_external(tmp_path, key):
 
 
 def test_enrollment_accepts_api_key_mode_without_credential_names(tmp_path):
-    """@brief An executor whose image signs in by itself needs no forwarded variables."""
+    """An executor whose image signs in by itself needs no forwarded variables."""
     body = _body(
         tmp_path,
         model="openai-codex/gpt-6-sol",
@@ -299,7 +281,7 @@ def test_enrollment_accepts_api_key_mode_without_credential_names(tmp_path):
     ],
 )
 def test_chosen_values_must_be_an_image_or_runtime_command(tmp_path, key, value):
-    """@brief An option, spaces or a wrapped shell never reach the run command line."""
+    """An option, spaces or a wrapped shell never reach the run command line."""
     profiles, path = _project(tmp_path)
     original = path.read_bytes()
     with TestClient(create_app(profiles.home, probe_runner=Runner())) as client:
@@ -320,7 +302,7 @@ def test_chosen_values_must_be_an_image_or_runtime_command(tmp_path, key, value)
 
 
 def test_wsl_wrapped_runtime_stays_accepted(tmp_path):
-    """@brief The documented WSL wrapper remains a valid runtime command."""
+    """The documented WSL wrapper remains a valid runtime command."""
     profiles, _path = _project(tmp_path)
     with TestClient(create_app(profiles.home, probe_runner=Runner())) as client:
         headers = _login(client)
@@ -335,8 +317,3 @@ def test_wsl_wrapped_runtime_stays_accepted(tmp_path):
             },
         )
         assert stage.status_code == 200, stage.text
-
-
-
-
-# END OF FILE

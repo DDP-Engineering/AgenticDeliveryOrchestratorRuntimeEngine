@@ -1,22 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       azure_cli.py
-@brief      Shell-free Azure CLI launch and deterministic extension SDK requests.
-@details    Runs with the host Azure CLI's Python, not a new application dependency.
-            Authentication remains owned by the official azure-devops extension.
-            This file is also a standalone child entry point; import only stdlib.
-"""
+"""Shell-free Azure CLI launch and deterministic extension SDK requests."""
 from __future__ import annotations
 
-# IMPORTS
 import json
 import ntpath
 import os
@@ -27,7 +11,6 @@ import shutil
 import subprocess
 import sys
 
-# CONSTANTS
 # Microsoft v7.1 SDK location IDs. Resource names alone are NOT unique.
 # Sources: microsoft/azure-devops-python-api, v7_1/{git,work_item_tracking} clients.
 LOCATIONS = {
@@ -45,15 +28,15 @@ LOCATIONS = {
     ("git", "pullRequestIterationStatuses"): "75cf11c5-979f-4038-a76e-058a06adf2bf",
 }
 
-# PUBLIC API
 
 def azure_python(env: dict[str, str] | None = None, command: str = "az") -> str:
-    """@brief Locate the installed Azure CLI interpreter without executing a shell.
-    @param[in] env Effective child environment, including its account's PATH.
-    @param[in] command Azure launcher name/path to resolve.
-    @return Absolute Python executable in the selected Azure installation.
-    @exception OSError Missing CLI, unsupported launcher or missing interpreter.
-    @note Supports Windows MSI/ZIP/pip layouts and POSIX Python entry scripts.
+    """
+    Locate the installed Azure CLI interpreter without executing a shell.
+    env: Effective child environment, including its account's PATH.
+    command: Azure launcher name/path to resolve.
+    Returns: Absolute Python executable in the selected Azure installation.
+    Raises OSError: Missing CLI, unsupported launcher or missing interpreter.
+    Note: Supports Windows MSI/ZIP/pip layouts and POSIX Python entry scripts.
     """
     source = os.environ if env is None else env
     found = shutil.which(command, path=source.get("PATH", os.defpath))
@@ -87,11 +70,12 @@ def azure_python(env: dict[str, str] | None = None, command: str = "az") -> str:
 
 
 def windows_azure_argv(argv: list[str], env: dict[str, str]) -> list[str]:
-    """@brief Bypass az.cmd with its bundled Python; never parse human args as cmd text.
-    @param[in] argv Original shell-free command arguments.
-    @param[in] env Effective child environment used to resolve the Azure installation.
-    @return Original argv, or an equivalent direct Azure Python invocation.
-    @exception OSError Azure installation cannot be resolved safely.
+    """
+    Bypass az.cmd with its bundled Python; never parse human args as cmd text.
+    argv: Original shell-free command arguments.
+    env: Effective child environment used to resolve the Azure installation.
+    Returns: Original argv, or an equivalent direct Azure Python invocation.
+    Raises OSError: Azure installation cannot be resolved safely.
     """
     if (sys.platform == "win32" and argv
             and ntpath.basename(argv[0]).lower() in {"az", "az.cmd", "az.bat"}):
@@ -100,11 +84,12 @@ def windows_azure_argv(argv: list[str], env: dict[str, str]) -> list[str]:
 
 
 def sdk_request(spec: dict) -> dict:
-    """@brief Send one request by immutable location ID through the official extension.
-    @param[in] spec Private request from AzureDevOpsForge, including exact scope.
-    @return JSON object with the response-header continuation token preserved.
-    @exception Exception SDK, installation, authentication or response failure.
-    @note Called only inside the Azure CLI runtime; imports never install extensions.
+    """
+    Send one request by immutable location ID through the official extension.
+    spec: Private request from AzureDevOpsForge, including exact scope.
+    Returns: JSON object with the response-header continuation token preserved.
+    Raises Exception: SDK, installation, authentication or response failure.
+    Note: Called only inside the Azure CLI runtime; imports never install extensions.
     """
     location = LOCATIONS[(spec["area"], spec["resource"])]
     if (not re.fullmatch(r"https://dev\.azure\.com/[A-Za-z0-9][A-Za-z0-9-]{0,49}",
@@ -140,10 +125,11 @@ def sdk_request(spec: dict) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief Execute a private request with a 55-second inner child bound.
-    @param[in] argv Internal mode and request-file path, never shell command text.
-    @return Zero on success, one on value-free failure.
-    @note The parent CommandRunner owns the outer 60-second bound.
+    """
+    Execute a private request with a 55-second inner child bound.
+    argv: Internal mode and request-file path, never shell command text.
+    Returns: Zero on success, one on value-free failure.
+    Note: The parent CommandRunner owns the outer 60-second bound.
     """
     args = sys.argv[1:] if argv is None else argv
     try:
@@ -173,5 +159,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# END OF FILE

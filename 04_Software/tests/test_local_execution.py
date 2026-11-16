@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_local_execution.py
-@brief   Native local configuration, ownership, transport and account contracts.
-@details Injects every process/CLI boundary; no model, container or real CLI runs.
-"""
+"""Native local configuration, ownership, transport and account contracts."""
 
-# IMPORTS
 from contextlib import contextmanager
 import io
 import json
@@ -35,11 +21,9 @@ from adore.preparation import resolve_plan, validate_plan
 from adore.util import CommandResult
 import pytest
 
-# LOCAL HELPERS
-
 
 def local_fixture(tmp_path, monkeypatch):
-    """@brief Select an injected installed native CLI and account without host calls."""
+    """Select an injected installed native CLI and account without host calls."""
     home, work, tools = [tmp_path / name for name in ("home", "work", "tools")]
     for directory in (home, work, tools):
         directory.mkdir()
@@ -77,7 +61,7 @@ def local_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr("adore.local_execution.NativeScopes", lambda *_args: None)
 
     class Controller:
-        """@brief Injected native command boundary records environment and redaction."""
+        """Injected native command boundary records environment and redaction."""
 
         calls = []
         controlled = []
@@ -122,7 +106,7 @@ def local_fixture(tmp_path, monkeypatch):
 
 
 def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
-    """@brief Explicit local mode retains defaults and fails closed on conflicts."""
+    """Explicit local mode retains defaults and fails closed on conflicts."""
     config = default_config()
     config.platform.repo = "owner/repo"
     config.worktree.repo_path = str(tmp_path)
@@ -143,10 +127,8 @@ def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
     assert validate_config(config) == []
 
 
-
-
 def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path, monkeypatch):
-    """@brief Only approved project credentials enter the native environment."""
+    """Only approved project credentials enter the native environment."""
     config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "forge-secret")
     monkeypatch.setenv("UNAPPROVED_SECRET", "unapproved")
@@ -176,7 +158,7 @@ def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path,
 
 @pytest.mark.parametrize("system", ["Windows", "Linux"])
 def test_native_python_utf8_overrides_ambient_encoding(tmp_path, monkeypatch, system):
-    """@brief Native Python uses UTF-8 without accepting ambient Python settings."""
+    """Native Python uses UTF-8 without accepting ambient Python settings."""
     config, context, *_ = local_fixture(tmp_path, monkeypatch)
     context["system"] = system
     monkeypatch.setenv("PYTHONUTF8", "0")
@@ -194,14 +176,14 @@ def test_native_python_utf8_overrides_ambient_encoding(tmp_path, monkeypatch, sy
 
 @pytest.mark.parametrize("system", ["Windows", "Linux"])
 def test_native_unicode_python_evidence_survives_capture(tmp_path, monkeypatch, system):
-    """@brief A bound native command retains non-ASCII JSON from a Python producer."""
+    """A bound native command retains non-ASCII JSON from a Python producer."""
     config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
     context["system"] = system
     backend = LocalBackend(config, context=context, controller=controller)
     payload = '{"reply":"café — răspuns 日本語"}'
 
     def python_output(argv, **kwargs):
-        """@brief Simulate the producer's stream encoding at the command boundary."""
+        """Simulate the producer's stream encoding at the command boundary."""
         encoding = kwargs["env"].get("PYTHONIOENCODING", "cp1252")
         kwargs["stdout"].write_bytes(payload.encode(encoding, errors="replace"))
         kwargs["stderr"].write_bytes(b"")
@@ -215,7 +197,7 @@ def test_native_unicode_python_evidence_survives_capture(tmp_path, monkeypatch, 
 
 
 def test_local_environment_keeps_windows_system_names(tmp_path, monkeypatch):
-    """@brief Windows machine/system names reach native commands; account names do not."""
+    """Windows machine/system names reach native commands; account names do not."""
     config, context, *_ = local_fixture(tmp_path, monkeypatch)
     system = {
         "PATHEXT": ".COM;.EXE;.BAT;.CMD",
@@ -241,7 +223,7 @@ def test_local_environment_keeps_windows_system_names(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("change", ["policy", "resource", "executable"])
 def test_local_identity_and_auth_fail_closed_before_native_commands(tmp_path, monkeypatch, change):
-    """@brief Drift and corrupt runtime input cannot authorize native commands."""
+    """Drift and corrupt runtime input cannot authorize native commands."""
     config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
     io_dir = Path(config.state.store_root) / "runs/run-1/io"
     backend.provision("run-1", work, work, io_dir, {})
@@ -258,7 +240,7 @@ def test_local_identity_and_auth_fail_closed_before_native_commands(tmp_path, mo
 
 
 def test_local_plan_and_native_resource_roundtrip_are_closed(tmp_path, monkeypatch):
-    """@brief Additive local state preserves its native identity and rejects corruption."""
+    """Additive local state preserves its native identity and rejects corruption."""
     from adore.state import RunState, StateError
 
     config, _, backend, _, work = local_fixture(tmp_path, monkeypatch)
@@ -288,7 +270,7 @@ def test_local_plan_and_native_resource_roundtrip_are_closed(tmp_path, monkeypat
 
 
 class Jobs:
-    """@brief Injected Win32 scope/PID-birth boundary, never a real process."""
+    """Injected Win32 scope/PID-birth boundary, never a real process."""
 
     def __init__(self):
         self.birth_value = "original-birth"
@@ -316,7 +298,7 @@ class Jobs:
     "change", ["pid", "scope", "run", "duplicate", "control-failure", "other-job"]
 )
 def test_local_scope_control_refuses_reused_process_identity(tmp_path, change):
-    """@brief Recovered controls fail closed at every persisted/native identity boundary."""
+    """Recovered controls fail closed at every persisted/native identity boundary."""
     jobs = Jobs()
     scopes = NativeScopes("Windows", windows=jobs)
     scope = scopes.create("b" * 32)
@@ -354,13 +336,13 @@ def test_local_scope_control_refuses_reused_process_identity(tmp_path, change):
 
 @pytest.mark.parametrize("mode", ["success", "nonzero", "timeout"])
 def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mode):
-    """@brief The native process boundary retains truthful bounded outcomes and ownership."""
+    """The native process boundary retains truthful bounded outcomes and ownership."""
     jobs = Jobs()
     scopes = NativeScopes("Windows", windows=jobs)
     control = tmp_path / "control"
 
     class Process:
-        """@brief Simulate only the trusted supervisor, with controlled completion."""
+        """Simulate only the trusted supervisor, with controlled completion."""
 
         pid = 42
         stdout = io.BytesIO(b"approved-secret " + b"x" * 70000)
@@ -405,7 +387,7 @@ def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mo
 
 @pytest.mark.parametrize("interrupted", [False, True])
 def test_native_rpc_stream_is_owned_before_release_and_drained(tmp_path, interrupted):
-    """@brief The real streaming controller uses binary pipes and a verified job lease."""
+    """The real streaming controller uses binary pipes and a verified job lease."""
     jobs = Jobs()
     scopes = NativeScopes("Windows", windows=jobs)
     control = tmp_path / "control"
@@ -451,7 +433,7 @@ def test_native_rpc_stream_is_owned_before_release_and_drained(tmp_path, interru
 def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
     tmp_path, monkeypatch, system,
 ):
-    """@brief The isolated Windows RPC launch uses only the managed Node and agent resources."""
+    """The isolated Windows RPC launch uses only the managed Node and agent resources."""
     from adore.executor.launcher import PiExecutor
     from adore.pi_installation import GUARD, managed_pi
 
@@ -520,7 +502,7 @@ def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
 
 
 def test_local_aegis_file_transport_uses_native_argv(tmp_path):
-    """@brief Public AEGIS status uses the same native target without a shell."""
+    """Public AEGIS status uses the same native target without a shell."""
     from adore.aegis import AegisClient
     from adore.execution import ExecutionPaths
 
@@ -530,7 +512,7 @@ def test_local_aegis_file_transport_uses_native_argv(tmp_path):
     calls = []
 
     class Target:
-        """@brief Native AEGIS file boundary."""
+        """Native AEGIS file boundary."""
 
         paths = ExecutionPaths(str(tmp_path), str(exchange), "")
 
@@ -551,7 +533,7 @@ def test_local_aegis_file_transport_uses_native_argv(tmp_path):
 def test_local_conductor_pins_target_parks_retries_and_never_lists_containers(
     tmp_path, monkeypatch
 ):
-    """@brief Public retry/cleanup keep native ownership and bypass every container boundary."""
+    """Public retry/cleanup keep native ownership and bypass every container boundary."""
     from types import SimpleNamespace
 
     from adore import orchestrator as module
@@ -577,7 +559,7 @@ def test_local_conductor_pins_target_parks_retries_and_never_lists_containers(
     containers.list_executors = lambda *args: pytest.fail("local container inventory")
 
     class Client(FakeAegis):
-        """@brief Native retry is evaluated using offline AEGIS contract evidence."""
+        """Native retry is evaluated using offline AEGIS contract evidence."""
 
         def __init__(self, *args):
             super().__init__([task("frame")])
@@ -612,7 +594,7 @@ def test_local_conductor_pins_target_parks_retries_and_never_lists_containers(
 
 
 def test_local_cleanup_failure_retains_worktree(tmp_path, monkeypatch):
-    """@brief Unconfirmed native control never permits project-file removal."""
+    """Unconfirmed native control never permits project-file removal."""
     from tests.test_orchestrator import make_engine, make_run
 
     config, _, backend, _, work = local_fixture(tmp_path, monkeypatch)
@@ -628,7 +610,7 @@ def test_local_cleanup_failure_retains_worktree(tmp_path, monkeypatch):
 
 
 def test_local_readiness_never_invokes_container_tools(tmp_path, monkeypatch):
-    """@brief Explicit host checks use the configured installed CLI and current account."""
+    """Explicit host checks use the configured installed CLI and current account."""
     from adore.web.app import _probe_setup
 
     config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
@@ -655,7 +637,7 @@ def test_local_readiness_never_invokes_container_tools(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("reason", ["node-missing", "node-incompatible", "pi-missing"])
 def test_readiness_reports_managed_pi_prerequisite(tmp_path, monkeypatch, reason):
-    """@brief Report the first closed prerequisite cause before running project tools."""
+    """Report the first closed prerequisite cause before running project tools."""
     from adore import pi_installation as managed
     from adore.local_execution import probe_local_executor
 
@@ -678,7 +660,7 @@ def test_readiness_reports_managed_pi_prerequisite(tmp_path, monkeypatch, reason
 def test_local_model_challenge_uses_the_managed_rpc_installation(
     tmp_path, monkeypatch, scenario,
 ):
-    """@brief The model connection probe sends the challenge through native RPC."""
+    """The model connection probe sends the challenge through native RPC."""
     from adore.web.model_connection import probe_model_connection
 
     config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
@@ -721,7 +703,7 @@ def test_local_model_challenge_uses_the_managed_rpc_installation(
 
 
 def test_local_assisted_setup_and_portable_rules_keep_machine_identity_local(tmp_path, monkeypatch):
-    """@brief Setup selects managed Pi without launching an installer."""
+    """Setup selects managed Pi without launching an installer."""
     import tomllib
 
     from adore.profiles import ProfileStore
@@ -764,7 +746,7 @@ def test_local_assisted_setup_and_portable_rules_keep_machine_identity_local(tmp
 
 @pytest.mark.parametrize("field", ["recipe", "egress", "secret"])
 def test_local_backend_refuses_unsafe_direct_profiles(tmp_path, monkeypatch, field):
-    """@brief Direct adapter users cannot bypass closed local configuration before launch."""
+    """Direct adapter users cannot bypass closed local configuration before launch."""
     config, context, _, controller, _ = local_fixture(tmp_path, monkeypatch)
     if field == "recipe":
         config.execution.preparation = "prepare.yml#setup@" + "a" * 40
@@ -778,7 +760,7 @@ def test_local_backend_refuses_unsafe_direct_profiles(tmp_path, monkeypatch, fie
 
 
 def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
-    """@brief Linux control uses the exact owned cgroup and refuses inode/scope drift."""
+    """Linux control uses the exact owned cgroup and refuses inode/scope drift."""
     root = tmp_path / "delegated"
     root.mkdir()
     (root / "cgroup.controllers").write_text("pids", encoding="utf-8")
@@ -840,7 +822,7 @@ def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
 
 
 def test_local_native_settings_accept_tools_path_and_refuse_launch_overrides(tmp_path, monkeypatch):
-    """@brief Reviewed project PATH does not permit a different Pi launcher."""
+    """Reviewed project PATH does not permit a different Pi launcher."""
     from hashlib import sha256
 
     from adore.web.app import ConfigEdit, HTTPException, _candidate_config_edit
@@ -867,7 +849,7 @@ def test_local_native_settings_accept_tools_path_and_refuse_launch_overrides(tmp
 
 
 def test_local_portable_export_excludes_all_native_settings(tmp_path, monkeypatch):
-    """@brief Portable packages retain only working rules from valid local profiles."""
+    """Portable packages retain only working rules from valid local profiles."""
     from adore.portable_settings import export_settings
 
     from tests.test_portable_settings import EXAMPLE
@@ -892,7 +874,7 @@ def test_local_portable_export_excludes_all_native_settings(tmp_path, monkeypatc
 
 
 def test_local_node_entrypoint_drift_refuses_execution(tmp_path, monkeypatch):
-    """@brief Explicit Windows npm entrypoints are pinned with the native executable."""
+    """Explicit Windows npm entrypoints are pinned with the native executable."""
     from adore.pi_installation import managed_pi
 
     config, _, backend, _, work = local_fixture(tmp_path, monkeypatch)
@@ -909,7 +891,7 @@ def test_local_node_entrypoint_drift_refuses_execution(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("operation", ["stop", "interrupt", "remove", "command"])
 def test_container_adapter_refuses_local_identity_before_cli(operation):
-    """@brief Backend drift cannot authorize any container CLI or native cleanup."""
+    """Backend drift cannot authorize any container CLI or native cleanup."""
 
     class Manager:
         def __getattr__(self, name):
@@ -925,7 +907,7 @@ def test_container_adapter_refuses_local_identity_before_cli(operation):
 
 @pytest.mark.parametrize("content", [b"\xff", b"x" * 65537], ids=["bad-utf8", "oversize"])
 def test_local_output_refuses_corrupt_retained_evidence(tmp_path, monkeypatch, content):
-    """@brief Native output must be bounded valid UTF-8 before evidence is returned."""
+    """Native output must be bounded valid UTF-8 before evidence is returned."""
     config, _, backend, controller, work = local_fixture(tmp_path, monkeypatch)
     exchange = Path(config.state.store_root) / "runs/run-1/io"
     backend.provision("run-1", work, work, exchange, {})
@@ -941,7 +923,7 @@ def test_local_output_refuses_corrupt_retained_evidence(tmp_path, monkeypatch, c
 
 
 def test_container_cleanup_retains_persisted_native_worktree(tmp_path, monkeypatch):
-    """@brief Restoring a container profile cannot release a native run's worktree."""
+    """Restoring a container profile cannot release a native run's worktree."""
     from tests.test_orchestrator import make_engine, make_run
 
     config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
@@ -979,7 +961,7 @@ def test_container_cleanup_retains_persisted_native_worktree(tmp_path, monkeypat
 def test_local_child_release_barrier_and_cancel_are_native(
     tmp_path, monkeypatch, cancel, streaming,
 ):
-    """@brief Trusted child starts argv only after release and honors pre-release cancellation."""
+    """Trusted child starts argv only after release and honors pre-release cancellation."""
     from types import SimpleNamespace
 
     from adore import local_child
@@ -1017,7 +999,7 @@ def test_local_child_release_barrier_and_cancel_are_native(
 
 @pytest.mark.parametrize("query_ok", [True, False])
 def test_windows_job_removal_confirms_all_descendants(tmp_path, query_ok):
-    """@brief Injected Win32 accounting controls drain confirmation, retaining handles on error."""
+    """Injected Win32 accounting controls drain confirmation, retaining handles on error."""
     from adore.local_process import WindowsJobs
 
     job = WindowsJobs.__new__(WindowsJobs)
@@ -1042,7 +1024,7 @@ def test_windows_job_removal_confirms_all_descendants(tmp_path, query_ok):
 
 @pytest.mark.parametrize("events", ["populated 0\nfrozen 0\n", "populated nonsense\n"])
 def test_linux_scope_removal_requires_closed_liveness(tmp_path, monkeypatch, events):
-    """@brief Owned cgroup removal accepts empty evidence and refuses corrupt liveness."""
+    """Owned cgroup removal accepts empty evidence and refuses corrupt liveness."""
     root = tmp_path / "delegated"
     root.mkdir()
     (root / "cgroup.controllers").write_text("pids", encoding="utf-8")
@@ -1064,7 +1046,7 @@ def test_linux_scope_removal_requires_closed_liveness(tmp_path, monkeypatch, eve
 
 
 def _tool_challenge_stream(tool, nonce, variant="ok"):
-    """@brief Event streams shaped like Pi 1.4.0 output."""
+    """Event streams shaped like Pi 1.4.0 output."""
     shell_output = "unrelated\n" if variant == "wrong-output" else f"{tool}\n"
     failed = variant == "failed"
     other = variant == "other-tool"  # the nonce printed by a tool that is not the shell
@@ -1119,7 +1101,7 @@ def _tool_challenge_stream(tool, nonce, variant="ok"):
     ],
 )
 def test_local_model_challenge_requires_a_completed_shell_call(variant, reason):
-    """@brief Completed RPC evidence needs the shell nonce and final assistant reply."""
+    """Completed RPC evidence needs the shell nonce and final assistant reply."""
     from adore.web.model_connection import _native_tool_response
 
     tool, nonce = "ADORE_TOOL_" + "a" * 32, "ADORE_OK_" + "b" * 32
@@ -1129,7 +1111,7 @@ def test_local_model_challenge_requires_a_completed_shell_call(variant, reason):
 
 
 def test_local_aegis_preserves_the_existing_json_exchange_bound(tmp_path, monkeypatch):
-    """@brief Native AEGIS stdout retains the established 4 MiB JSON bound."""
+    """Native AEGIS stdout retains the established 4 MiB JSON bound."""
     from adore.aegis import AEGIS_STDOUT_FILE, MAX_JSON_BYTES
 
     config, _, backend, controller, work = local_fixture(tmp_path, monkeypatch)
@@ -1151,7 +1133,7 @@ def test_local_aegis_preserves_the_existing_json_exchange_bound(tmp_path, monkey
 
 
 def test_local_review_apply_rechecks_native_identity_and_permissions(tmp_path, monkeypatch):
-    """@brief Local account fields change only through review; read-only context stays accurate."""
+    """Local account fields change only through review; read-only context stays accurate."""
     import re
 
     from adore.web.app import create_app
@@ -1182,6 +1164,3 @@ def test_local_review_apply_rechecks_native_identity_and_permissions(tmp_path, m
         assert staged.status_code == 200, staged.text
         # Staging writes nothing until the reviewed apply.
         assert path.read_bytes() == original
-
-
-# END OF FILE

@@ -1,28 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_config.py
-@brief Tests for typed config loading, derived names, and validation.
-@details Offline load/serialize controls and invalid human-authored configuration.
-"""
+"""Tests for typed config loading, derived names, and validation."""
 
 from __future__ import annotations
 
-# IMPORTS
 from pathlib import Path
 
 from adore.config import Config, egress_policy, load_config, validate_config
 from adore.pi_providers import secret_names
 import pytest
-
-# CONSTANTS
 
 MINIMAL_VALID = """
 [platform]
@@ -40,15 +24,13 @@ model = "gpt-5.4-fast"
 reviewers = ["dan.pasare"]
 """
 
-# HELPER FUNCTIONS
-
 
 def _write_config(tmp_path: Path, text: str) -> Path:
     """
-    @brief      Write a config.toml into the test dir.
-    @param[in]  tmp_path pytest tmp dir.
-    @param[in]  text TOML content.
-    @return     The config file path.
+    Write a config.toml into the test dir.
+    tmp_path: pytest tmp dir.
+    text: TOML content.
+    Returns: The config file path.
     """
     path = tmp_path / "config.toml"
     path.write_text(text, encoding="utf-8")
@@ -59,7 +41,7 @@ def _write_config(tmp_path: Path, text: str) -> Path:
 
 
 def test_pickup_and_review_defaults_and_explicit_overrides(tmp_path: Path) -> None:
-    """@brief Shared defaults apply only when the operator omits the values."""
+    """Shared defaults apply only when the operator omits the values."""
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert config.readiness.require_acceptance_criteria is False
     assert config.readiness.require_priority_label is True
@@ -83,9 +65,7 @@ def test_pickup_and_review_defaults_and_explicit_overrides(tmp_path: Path) -> No
 
 
 def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
-    """
-    @brief   A minimal file loads, defaults apply, and validation passes.
-    """
+    """A minimal file loads, defaults apply, and validation passes."""
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert validate_config(config) == []
     assert config.agent.name == "ADORE"
@@ -97,12 +77,11 @@ def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     assert config.review.trigger == "label"
 
 
-
 @pytest.mark.parametrize("value, valid", [
     (True, True), (False, True), ("false", False), (0, False),
 ])
 def test_publication_approval_policy_boolean_boundary(tmp_path, value, valid):
-    """@brief Approval is required by default and invalid policy fails validation."""
+    """Approval is required by default and invalid policy fails validation."""
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert config.delivery.require_human_approval is True
     config.delivery.require_human_approval = value
@@ -111,20 +90,14 @@ def test_publication_approval_policy_boolean_boundary(tmp_path, value, valid):
 
 @pytest.mark.parametrize("reviewers", ["alice", [1], ["--repo"], ["two names"]])
 def test_reviewer_config_requires_account_list(tmp_path, reviewers):
-    """@brief Human-authored reviewer configuration fails closed before forge invocation."""
+    """Human-authored reviewer configuration fails closed before forge invocation."""
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     config.delivery.reviewers = reviewers
     assert any("reviewers" in issue for issue in validate_config(config))
 
 
-
-
-
-
-
-
 def test_pi_is_the_only_executor_and_needs_only_a_provider_and_model(tmp_path: Path) -> None:
-    """@brief [executor] provider and model are valid; the Pi launch template is the default."""
+    """[executor] provider and model are valid; the Pi launch template is the default."""
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert validate_config(config) == []
     assert (config.executor.provider, config.executor.model) == ("openai", "gpt-5.4-fast")
@@ -134,7 +107,7 @@ def test_pi_is_the_only_executor_and_needs_only_a_provider_and_model(tmp_path: P
 
 def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
     """
-    @brief   slug, store_root, questions file, and metrics paths derive from
+    slug, store_root, questions file, and metrics paths derive from
              the agent name when unset.
     """
     config = load_config(_write_config(tmp_path, '[agent]\nname = "Robo"\n' + MINIMAL_VALID))
@@ -146,9 +119,7 @@ def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
 
 
 def test_explicit_values_are_never_overridden(tmp_path: Path) -> None:
-    """
-    @brief   Explicit store_root/questions_file win over derivation.
-    """
+    """Explicit store_root/questions_file win over derivation."""
     text = (
         MINIMAL_VALID.replace("[executor]\n", '[executor]\nquestions_file = "ASK.md"\n')
         + '\n[state]\nstore_root = ".custom"\n'
@@ -159,9 +130,7 @@ def test_explicit_values_are_never_overridden(tmp_path: Path) -> None:
 
 
 def test_validation_reports_bad_enums_and_missing_repo(tmp_path: Path) -> None:
-    """
-    @brief   Bad enum values and a missing repo each yield one issue.
-    """
+    """Bad enum values and a missing repo each yield one issue."""
     text = """
 [platform]
 kind = "bitbucket"
@@ -185,7 +154,7 @@ reviewers = ["r"]
 
 def test_platform_gitea_repo_shape_and_login_rules(tmp_path: Path) -> None:
     """
-    @brief   kind "gitea" is valid with an OWNER/REPO slug and an optional tea
+    kind "gitea" is valid with an OWNER/REPO slug and an optional tea
              login; a nested repo path fails closed (Gitea has no subgroups),
              and a login on glab/gh platforms is rejected (their auth binds to
              the host, so a silently ignored login would mislead).
@@ -214,9 +183,7 @@ def test_platform_gitea_repo_shape_and_login_rules(tmp_path: Path) -> None:
 
 
 def test_validation_requires_a_model_and_rejects_unknown_executor_keys(tmp_path: Path) -> None:
-    """
-    @brief   A missing model and an unknown executor key are reported without guessing defaults.
-    """
+    """A missing model and an unknown executor key are reported without guessing defaults."""
     text = """
 [platform]
 repo = "g/p"
@@ -233,9 +200,7 @@ reviewers = ["r"]
 
 
 def test_validation_catches_bad_durations(tmp_path: Path) -> None:
-    """
-    @brief   Unparseable durations are rejected.
-    """
+    """Unparseable durations are rejected."""
     text = MINIMAL_VALID + """
 [clarification]
 answer_timeout = "three days"
@@ -248,7 +213,7 @@ answer_timeout = "three days"
 
 @pytest.mark.parametrize("draft", ["true", "false"])
 def test_delivery_draft_accepts_both_booleans(tmp_path: Path, draft: str) -> None:
-    """@brief Both requested review states are valid human configuration."""
+    """Both requested review states are valid human configuration."""
     text = MINIMAL_VALID.replace(
         'reviewers = ["dan.pasare"]', f'reviewers = ["dan.pasare"]\ndraft = {draft}'
     )
@@ -259,7 +224,7 @@ def test_delivery_draft_accepts_both_booleans(tmp_path: Path, draft: str) -> Non
 
 @pytest.mark.parametrize("draft", ['"false"', '"true"', "0", "1", "[]"])
 def test_delivery_draft_rejects_non_booleans(tmp_path: Path, draft: str) -> None:
-    """@brief Truthy values cannot bypass the review-state boolean contract."""
+    """Truthy values cannot bypass the review-state boolean contract."""
     text = MINIMAL_VALID.replace(
         'reviewers = ["dan.pasare"]', f'reviewers = ["dan.pasare"]\ndraft = {draft}'
     )
@@ -270,7 +235,7 @@ def test_delivery_draft_rejects_non_booleans(tmp_path: Path, draft: str) -> None
 
 def test_per_gate_timeout_defaults_and_is_validated(tmp_path: Path) -> None:
     """
-    @brief   per_gate_timeout_seconds defaults to 1800 and is an independent
+    per_gate_timeout_seconds defaults to 1800 and is an independent
              positive knob from max_wall_clock_seconds (the whole-run ceiling).
     """
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
@@ -283,7 +248,7 @@ def test_per_gate_timeout_defaults_and_is_validated(tmp_path: Path) -> None:
 
 def test_file_budget_rejects_zero(tmp_path: Path) -> None:
     """
-    @brief   Human-configured file budgets fail closed at zero; the positive
+    Human-configured file budgets fail closed at zero; the positive
              default is covered by the minimal-config happy path.
     """
     bad = MINIMAL_VALID + "\n[budgets]\nmax_files_touched = 0\n"
@@ -293,7 +258,7 @@ def test_file_budget_rejects_zero(tmp_path: Path) -> None:
 
 def test_validation_accepts_positive_answer_timeout(
         tmp_path: Path) -> None:
-    """@brief Positive answer deadlines are accepted; zero and malformed durations are refused."""
+    """Positive answer deadlines are accepted; zero and malformed durations are refused."""
     text = MINIMAL_VALID + '\n[clarification]\nanswer_timeout = "12h"\n'
     assert validate_config(load_config(_write_config(tmp_path, text))) == []
     for timeout in ('0s', 'invalid'):
@@ -303,17 +268,13 @@ def test_validation_accepts_positive_answer_timeout(
 
 
 def test_validation_flags_unknown_sections(tmp_path: Path) -> None:
-    """
-    @brief   A typo'd section name is reported instead of silently ignored.
-    """
+    """A typo'd section name is reported instead of silently ignored."""
     issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + "\n[polling2]\n")))
     assert any("unknown section: [polling2]" in issue for issue in issues)
 
 
 def test_defaults_without_file_sections() -> None:
-    """
-    @brief   A bare Config carries the documented defaults.
-    """
+    """A bare Config carries the documented defaults."""
     config = Config()
     assert config.container.image == "adore-executor-base:1.0.0"
     assert config.container.egress.allowlist == []
@@ -327,7 +288,7 @@ def test_defaults_without_file_sections() -> None:
 
 def test_validation_rejects_bad_polling_and_slug(tmp_path: Path) -> None:
     """
-    @brief   Invalid slug, non-positive interval, and malformed quiet_hours
+    Invalid slug, non-positive interval, and malformed quiet_hours
              windows are each reported.
     """
     text = MINIMAL_VALID + """
@@ -344,11 +305,9 @@ quiet_hours = ["late night"]
     assert any("quiet_hours" in issue for issue in issues)
 
 
-
-
 def test_validation_checks_container_run_args(tmp_path: Path) -> None:
     """
-    @brief   run_args entries must be single option tokens; a bare word or a
+    run_args entries must be single option tokens; a bare word or a
              token with spaces (would corrupt the run argv) is reported,
              while a valid option like --userns=keep-id passes.
     """
@@ -366,7 +325,7 @@ def test_container_selinux_relabel_accepts_shared_and_defaults_off(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   selinux_relabel defaults to off and accepts "shared", the mode an
+    selinux_relabel defaults to off and accepts "shared", the mode an
              SELinux-enforcing host needs so container_t can read the bind
              mounts.
     """
@@ -386,7 +345,7 @@ def test_container_selinux_relabel_rejects_the_private_label(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   The private SELinux `Z` label is refused, and the message says
+    The private SELinux `Z` label is refused, and the message says
              why: it labels content per container, so the repository clone
              every run shares would be locked to whichever container mounted
              it first.
@@ -402,11 +361,9 @@ selinux_relabel = "Z"
     assert "clone" in relabel_issues[0]
 
 
-
-
 def test_container_runtime_env_defaults_and_validation(tmp_path: Path) -> None:
     """
-    @brief   [container] runtime_env is a non-secret customization surface:
+    [container] runtime_env is a non-secret customization surface:
              uv copy-link mode defaults on, while managed git env cannot be
              overridden by human config.
     """
@@ -439,7 +396,7 @@ GIT_DIR = "/tmp/nope"
 
 def test_container_required_tool_checks_validation(tmp_path: Path) -> None:
     """
-    @brief   required_tool_checks accepts shell-free command strings and
+    required_tool_checks accepts shell-free command strings and
              rejects malformed or shell-controlled entries.
     """
     valid = MINIMAL_VALID + """
@@ -467,20 +424,20 @@ required_tool_checks = ["", "--version", "make --version && rm -rf /", "untermin
 
 def _with_executor(text: str) -> str:
     """
-    @brief      MINIMAL_VALID with extra lines in its [executor] table.
-    @param[in]  text TOML lines for [executor] (a following table may come after them).
-    @return     The configuration text.
+    MINIMAL_VALID with extra lines in its [executor] table.
+    text: TOML lines for [executor] (a following table may come after them).
+    Returns: The configuration text.
     """
     return MINIMAL_VALID.replace('model = "gpt-5.4-fast"\n', 'model = "gpt-5.4-fast"\n' + text)
 
 
 def _with_provider(provider: str, model: str, extra: str = "") -> str:
     """
-    @brief      MINIMAL_VALID with another provider and model.
-    @param[in]  provider `[executor] provider`.
-    @param[in]  model `[executor] model`.
-    @param[in]  extra TOML appended after the [executor] table.
-    @return     The configuration text.
+    MINIMAL_VALID with another provider and model.
+    provider: `[executor] provider`.
+    model: `[executor] model`.
+    extra: TOML appended after the [executor] table.
+    Returns: The configuration text.
     """
     return MINIMAL_VALID.replace(
         'provider = "openai"\nmodel = "gpt-5.4-fast"\n',
@@ -489,7 +446,7 @@ def _with_provider(provider: str, model: str, extra: str = "") -> str:
 
 def test_internet_defaults_off_with_exa_search(tmp_path: Path) -> None:
     """
-    @brief   Without the keys internet access is off and search is Exa;
+    Without the keys internet access is off and search is Exa;
              every search choice loads unchanged with internet on.
     """
     defaulted = load_config(_write_config(tmp_path, MINIMAL_VALID))
@@ -505,9 +462,7 @@ def test_internet_defaults_off_with_exa_search(tmp_path: Path) -> None:
 
 
 def test_internet_and_search_values_are_validated(tmp_path: Path) -> None:
-    """
-    @brief   A non-boolean switch and an unknown search provider are refused by name.
-    """
+    """A non-boolean switch and an unknown search provider are refused by name."""
     config = load_config(_write_config(tmp_path, _with_executor(
         'internet = "yes"\n\n[executor.web]\nsearch = "google"\nextra = 1\n')))
     issues = validate_config(config)
@@ -516,11 +471,9 @@ def test_internet_and_search_values_are_validated(tmp_path: Path) -> None:
     assert any("[executor.web] unknown key 'extra'" in issue for issue in issues)
 
 
-
-
 def test_container_egress_rejects_bad_allowlist_entries(tmp_path: Path) -> None:
     """
-    @brief   The extra allowlist fails closed on unsafe host patterns; an
+    The extra allowlist fails closed on unsafe host patterns; an
              empty one is the default.
     """
     invalid = load_config(_write_config(tmp_path, MINIMAL_VALID + """
@@ -533,7 +486,7 @@ allowlist = ["https://api.openai.com", "gitlab.example.com/path", "bad host", "o
 
 def test_egress_policy_off_admits_only_the_provider_hosts(tmp_path: Path) -> None:
     """
-    @brief   Internet off derives allowlist-proxy egress with the provider's
+    Internet off derives allowlist-proxy egress with the provider's
              hosts plus the configured extra hosts; on derives open egress.
     """
     off = load_config(_write_config(tmp_path, MINIMAL_VALID + """
@@ -564,7 +517,7 @@ allowlist = ["pypi.org"]
 
 def test_search_key_reaches_only_an_internet_on_run(tmp_path: Path) -> None:
     """
-    @brief   BRAVE_API_KEY / TAVILY_API_KEY are launch secrets only with
+    BRAVE_API_KEY / TAVILY_API_KEY are launch secrets only with
              internet on and that search provider.
     """
     def names(text: str) -> list[str]:
@@ -585,9 +538,7 @@ def test_search_key_reaches_only_an_internet_on_run(tmp_path: Path) -> None:
 
 
 def test_container_egress_proxy_env_is_managed(tmp_path: Path) -> None:
-    """
-    @brief   Humans cannot override ADORE-managed proxy env through runtime_env.
-    """
+    """Humans cannot override ADORE-managed proxy env through runtime_env."""
     text = MINIMAL_VALID + """
 [container.runtime_env]
 HTTPS_PROXY = "http://example.invalid:3128"
@@ -598,7 +549,7 @@ HTTPS_PROXY = "http://example.invalid:3128"
 
 def test_workflow_defaults_are_valid_and_documented(tmp_path: Path) -> None:
     """
-    @brief   An absent [workflow] section is valid and yields the documented
+    An absent [workflow] section is valid and yields the documented
              defaults: feature runs, the bug/fix/change label map, and the
              quick label.
     """
@@ -618,7 +569,7 @@ def test_workflow_defaults_are_valid_and_documented(tmp_path: Path) -> None:
 
 def test_workflow_rejects_kinds_aegis_does_not_conduct(tmp_path: Path) -> None:
     """
-    @brief   Only feature/fix/change may be started by ADORE. An unknown kind
+    Only feature/fix/change may be started by ADORE. An unknown kind
              and the interactive "adoption" kind are both rejected, in
              default_kind and in the label map.
     """
@@ -648,7 +599,7 @@ def test_quick_label_is_only_a_frame_hint(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   The hint stays valid even when framing ultimately selects full;
+    The hint stays valid even when framing ultimately selects full;
              ADORE never preselects the path from this label.
     """
     dead = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
@@ -679,7 +630,7 @@ def test_stage_timeout_overrides_must_name_stages_and_positive_seconds(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   An override key that is not an AEGIS stage, or a non-positive
+    An override key that is not an AEGIS stage, or a non-positive
              value, is rejected rather than silently ignored.
     """
     issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
@@ -702,8 +653,8 @@ def test_stage_timeout_overrides_accept_current_stages_and_reject_unknown(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   Timeout overrides accept the current five-stage domain.
-    @details Unknown stage names are rejected before execution.
+    Timeout overrides accept the current five-stage domain.
+    Unknown stage names are rejected before execution.
     """
     accepted = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow.stage_timeout_overrides]
@@ -723,7 +674,7 @@ unsupported_stage = 900
 
 
 def test_recovery_and_approval_settings_fail_closed(tmp_path: Path) -> None:
-    """@brief Retry limits, backoff and approval identity are validated."""
+    """Retry limits, backoff and approval identity are validated."""
     text = MINIMAL_VALID.replace(
         'reviewers = ["dan.pasare"]',
         'reviewers = ["dan.pasare"]\napproval_label = "agent-ready"',
@@ -741,7 +692,7 @@ retry_backoff_seconds = []
 
 
 def test_executor_cannot_receive_forge_credentials(tmp_path: Path) -> None:
-    """@brief Executor env allowlists reject host forge credential names."""
+    """Executor env allowlists reject host forge credential names."""
     text = MINIMAL_VALID.replace(
         "[executor]\n",
         '[executor]\nenv_keys = ["OPENAI_API_KEY", "GITHUB_TOKEN", "GITLAB_TOKEN"]\n')
@@ -749,12 +700,9 @@ def test_executor_cannot_receive_forge_credentials(tmp_path: Path) -> None:
     assert any("must not expose forge credentials" in item for item in issues)
 
 
-# END OF FILE
-
-
 @pytest.mark.parametrize("cap", ["0", "0.0", "6.5", "-1", "nan", "inf", "true", '\"free\"'])
 def test_cost_cap_zero_is_explicit_opt_out_and_invalid_inputs_fail_closed(tmp_path, cap):
-    """@brief Only finite nonnegative numeric cost caps pass configuration validation."""
+    """Only finite nonnegative numeric cost caps pass configuration validation."""
     text = MINIMAL_VALID + "\n[budgets]\nmax_cost_usd = " + cap + "\n"
     cfg = load_config(_write_config(tmp_path, text))
     issues = validate_config(cfg)

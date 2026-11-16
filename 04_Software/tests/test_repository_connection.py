@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_repository_connection.py
-@brief Administrator host-readiness probe contract tests.
-@details External command output is faked and never returned to the browser.
-"""
+"""Administrator host-readiness probe contract tests."""
 
 import json
 from pathlib import Path
@@ -31,7 +18,7 @@ from tests.configuration_client import TestClient
     ({"PRIVATE": "CLI-SECRET"}, "gitea_auth_invalid"),
 ])
 def test_portable_gitea_missing_auth_api_is_safe(tmp_path, monkeypatch, metadata, code):
-    """@brief Ticket reads expose a closed recovery cause; readiness remains a failed check."""
+    """Ticket reads expose a closed recovery cause; readiness remains a failed check."""
     profiles = project(tmp_path, "gitea")
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty-config"))
 
@@ -56,7 +43,7 @@ def test_portable_gitea_missing_auth_api_is_safe(tmp_path, monkeypatch, metadata
 
 
 def project(tmp_path, provider="gitlab"):
-    """@brief Create an offline project with real API identity/config storage."""
+    """Create an offline project with real API identity/config storage."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", store_root=str(tmp_path / "state"))
     path = profiles.config_path("alpha")
@@ -70,7 +57,7 @@ def project(tmp_path, provider="gitlab"):
 
 @pytest.mark.parametrize("provider", ["gitlab", "github", "gitea"])
 def test_connect_verifies_then_saves_scoped_account(tmp_path, provider):
-    """@brief All providers save only after account and exact repository checks."""
+    """All providers save only after account and exact repository checks."""
     profiles = project(tmp_path, provider)
     calls = []
     repo = "mygroup/myproject"
@@ -116,7 +103,7 @@ def test_connect_verifies_then_saves_scoped_account(tmp_path, provider):
 
 
 def test_repository_connection_invalidates_previous_readiness(tmp_path, monkeypatch):
-    """@brief A new scoped account never inherits the previous forge-auth result."""
+    """A new scoped account never inherits the previous forge-auth result."""
     import adore.web.app as web_app
 
     profiles = project(tmp_path)
@@ -171,7 +158,7 @@ def test_repository_connection_invalidates_previous_readiness(tmp_path, monkeypa
     ],
 )
 def test_connection_rejects_untrusted_inputs_without_commands(tmp_path, server, token, allow):
-    """@brief Malformed server/token never reaches an external command."""
+    """Malformed server/token never reaches an external command."""
     profiles = project(tmp_path)
 
     def runner(*args, **kwargs):
@@ -194,7 +181,7 @@ def test_connection_rejects_untrusted_inputs_without_commands(tmp_path, server, 
 @pytest.mark.parametrize("provider", ["gitea", "github", "gitlab"])
 @pytest.mark.parametrize("failure", ["exit", "timeout", "json", "repository", "account"])
 def test_failed_verification_retains_existing_credentials(tmp_path, provider, failure):
-    """@brief Every external trust boundary rejects without replacing existing auth."""
+    """Every external trust boundary rejects without replacing existing auth."""
     profiles = project(tmp_path, provider)
     path = profiles.profile_dir("alpha") / "repository-auth.json"
     path.write_text("old-protected-record", encoding="utf-8")
@@ -234,7 +221,7 @@ def test_failed_verification_retains_existing_credentials(tmp_path, provider, fa
     "status", ["", "HTTP/1.1 401 Unauthorized", "HTTP/1.1 200 OK\nHTTP/1.1 503 Unavailable"]
 )
 def test_tea_zero_exit_requires_final_success_http_status(tmp_path, status):
-    """@brief Tea zero exit cannot hide a missing or final failure HTTP status."""
+    """Tea zero exit cannot hide a missing or final failure HTTP status."""
     profiles = project(tmp_path, "gitea")
 
     def runner(argv, **kwargs):
@@ -255,7 +242,7 @@ def test_tea_zero_exit_requires_final_success_http_status(tmp_path, status):
 
 
 def test_connection_requires_admin_csrf_and_idle_project(tmp_path):
-    """@brief Browser identity and conductor lock protect credential replacement."""
+    """Browser identity and conductor lock protect credential replacement."""
     from adore.state import StateStore
 
     profiles = project(tmp_path)
@@ -308,7 +295,7 @@ def test_connection_requires_admin_csrf_and_idle_project(tmp_path):
 def test_saved_auth_binds_worker_and_readiness_without_executor_leak(
     tmp_path, provider, monkeypatch
 ):
-    """@brief Saved credentials are actually used by production engine and readiness."""
+    """Saved credentials are actually used by production engine and readiness."""
     from adore import orchestrator as module
     from adore.config import load_config
     from adore.repository_auth import project_runner, save_connection
@@ -379,7 +366,7 @@ def test_saved_auth_binds_worker_and_readiness_without_executor_leak(
 
 @pytest.mark.parametrize("corruption", ["json", "scope", "identity", "unknown", "duplicate"])
 def test_corrupt_scoped_credentials_never_fall_back(tmp_path, corruption):
-    """@brief Malformed or drifted secret records block readiness before any CLI."""
+    """Malformed or drifted secret records block readiness before any CLI."""
     from adore.config import load_config
     from adore.repository_auth import save_connection
 
@@ -424,7 +411,7 @@ def test_corrupt_scoped_credentials_never_fall_back(tmp_path, corruption):
 
 
 def test_secret_storage_failure_preserves_old_record_and_redacts_audit(tmp_path, monkeypatch):
-    """@brief Atomic replacement failure leaves old bytes and no request secret in audit."""
+    """Atomic replacement failure leaves old bytes and no request secret in audit."""
     from adore import repository_auth as auth
     from adore.config import load_config
 
@@ -478,7 +465,7 @@ def test_secret_storage_failure_preserves_old_record_and_redacts_audit(tmp_path,
 
 
 def test_config_drift_during_login_refuses_save(tmp_path):
-    """@brief A changed config snapshot cannot acquire old verification credentials."""
+    """A changed config snapshot cannot acquire old verification credentials."""
     profiles = project(tmp_path)
     path = profiles.config_path("alpha")
 
@@ -505,7 +492,7 @@ def test_config_drift_during_login_refuses_save(tmp_path):
 
 
 def test_http_requires_acknowledgement_and_keeps_other_projects_unchanged(tmp_path):
-    """@brief Local HTTP Gitea is explicit and does not alter another project or exports."""
+    """Local HTTP Gitea is explicit and does not alter another project or exports."""
     profiles = project(tmp_path, "gitea")
     profiles.create("beta")
     beta_before = (profiles.profile_dir("beta") / "profile.json").read_bytes()
@@ -560,7 +547,7 @@ def test_http_requires_acknowledgement_and_keeps_other_projects_unchanged(tmp_pa
 def test_gitea_readiness_uses_supported_scoped_user_api(
     tmp_path, payload, status, expected, caplog
 ):
-    """@brief Saved named tea login uses a supported API and rejects bad evidence."""
+    """Saved named tea login uses a supported API and rejects bad evidence."""
     from adore.config import load_config
     from adore.repository_auth import save_connection
 
@@ -585,7 +572,7 @@ def test_gitea_readiness_uses_supported_scoped_user_api(
     calls = []
 
     def runner(argv, *, cwd=None, timeout=None, env=None):
-        """@brief Model tea whoami's unsupported flag and API response boundary."""
+        """Model tea whoami's unsupported flag and API response boundary."""
         calls.append(list(argv))
         if argv[:2] == ["tea", "whoami"]:
             return CommandResult(

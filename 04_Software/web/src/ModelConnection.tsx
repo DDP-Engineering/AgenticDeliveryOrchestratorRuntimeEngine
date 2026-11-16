@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "./i18n";
 import { modelConnectionCopy, modelGuidance, validModelEvidence, type ModelEvidence } from "./modelEvidence";

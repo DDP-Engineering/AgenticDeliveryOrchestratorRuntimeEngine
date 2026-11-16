@@ -1,8 +1,5 @@
 <!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details.
+SPDX-FileCopyrightText: 2026 DDP Engineering
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
@@ -125,8 +122,8 @@ python .agentic/aegis.py init --git
 ```
 
 Afterward, edit `.agentic/aegis.toml` so `[commands]`, `[layout]`, optional
-`[interaction]`, `[diagrams]`, `[records]`, and `[check]` settings describe the
-repository.
+`[interaction]`, `[diagrams]`, `[records]`, `[context]`, and `[check]` settings
+describe the repository.
 
 ## `task`
 
@@ -217,24 +214,23 @@ A header key written twice keeps its first written value: an empty template
 line never hides a value written on another line, and the writers update the
 first line. `pause` and `advance` print a note, never a refusal, when frame,
 specify or design stops with its own section still empty, and for a record an
-edit put out of shape: a repeated header key, a quick path without the
-requirement IDs it restores, or Rulings lines that `ruling` did not write.
+edit put out of shape: a repeated header key, or Rulings lines that `ruling`
+did not write.
 
 ## `advance`
 
 ```text
-python .agentic/aegis.py advance <TASK-id|id> [--to STAGE] [--path {full,quick}] [--skipped]
+python .agentic/aegis.py advance <TASK-id|id> [--to STAGE] [--skipped]
                                  [--reason TEXT] [--next TEXT] [--read PATH]
                                  [--changed TEXT] [--evidence TEXT] [--issues TEXT]
 ```
 
 **Description:** Record a stage transition. Without `--to`, the next stage is
-the one after the current stage on the journal's path: full is frame, specify,
-design, build, validate, done; quick is frame, build, validate, done. The
-header stage changes, the Done checklist becomes the destination step's
-"Done when" list, one Log line records the transition, and the State says
-what to do next. `--path` records the chosen path before the next stage is
-worked out. `--to` an earlier stage records a return: the State waits for the
+the one after the current stage in frame, specify, design, build, validate,
+done. The header stage changes, the Done checklist becomes the destination
+step's "Done when" list, one Log line records the transition, and the State
+says what to do next. A `path:` header line in an older journal is kept and
+no longer changes the order. `--to` an earlier stage records a return: the State waits for the
 user and enabled review verdicts are cleared while the consumed round is kept.
 `--skipped` records a skipped stage. Reaching `done` closes the implementation
 guidance; commit, push and integration belong to the developer.
@@ -251,7 +247,7 @@ an earlier one must change.
 
 ```text
 python .agentic/aegis.py advance TASK-8b12
-python .agentic/aegis.py advance TASK-8b12 --path quick --reason "one function, existing tests"
+python .agentic/aegis.py advance TASK-8b12 --skipped --reason "REQ-FUNC-1a2b3c4d covers it"
 python .agentic/aegis.py advance TASK-8b12 --to specify --reason "a missing error case"
 python .agentic/aegis.py advance TASK-8b12 --evidence "check --strict --run exit 0"
 ```
@@ -514,7 +510,7 @@ presence of the two project context files. It
 does not call Git, run commands, write files, advance stages, or infer approval.
 Two calls against unchanged files are byte-identical.
 
-The fixed output order is: `AEGIS brief`, Task, Stage, Path, Branch/base,
+The fixed output order is: `AEGIS brief`, Task, Stage, Branch/base,
 Parent, Requirements, Context, Checklist, State, Outcome, Interaction, Review,
 Diagrams, Active rulings, Visible children, Read next, and Details. Scalar
 values are limited to 240 characters; at most eight active rulings and twenty
@@ -650,6 +646,21 @@ with the setting: sidecars still tracked while it is `false`, or the block
 still present while it is `true`. AEGIS never untracks a file; `init` prints
 the `git rm --cached` command for a human to run.
 
+Current-state pages have a size budget:
+
+```toml
+[context]
+page_kb = 24
+```
+
+`page_kb` applies to `.agentic/context/project.md`, `environment.md` and each
+knowledge page. These pages are read at every frame, so a page that grows by a
+section per task costs every later task. `check` reports a page above the
+budget as `context-size` and a level-two heading written twice in one page as
+`duplicate-heading`; both are warnings, never refusals. `init` writes 24. A
+missing value or `0` means no budget; a negative or non-integer value warns
+and also means no budget.
+
 ## `check`
 
 ```text
@@ -692,6 +703,8 @@ Options:
   the proof costs - it reports the commands and their limits without
   starting any of them, and is never itself evidence;
 - use `--strict --run` after the final candidate is stable or in CI;
+- `uncovered-source` runs only with `--task`: changes made outside AEGIS need
+  no requirement, so the whole-branch diff says nothing about coverage;
 - use `--json` only when a script needs structured results.
 
 **Examples:**
@@ -1005,9 +1018,8 @@ requirement, with its status, how it is verified, and its spec where it has
 one. Then the task journals whose `requirements:` header lists any of them.
 
 The path may be repo-relative or absolute, with native or forward separators.
-A path no requirement covers is reported plainly, and said to be a finding
-when it sits inside the configured `source` or `tests` globs — ungoverned
-code in a governed area is worth knowing about.
+A path no requirement covers is reported plainly. Code that only direct
+changes touched, outside AEGIS, has no requirement, and that is not a defect.
 
 **When to use:** Reading unfamiliar code and asking "why is this here, and
 what am I allowed to change?". It is the register read backwards: `req` and

@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { ApiError } from "./errors.ts";
 
 export type AgentSession = {id:string;stage:string;attempt:number;start_at:string|null;end_at:string|null;outcome:"succeeded"|"failed"|"timed_out"|null;exit_code:number|null;live?:boolean;archive_id?:string};

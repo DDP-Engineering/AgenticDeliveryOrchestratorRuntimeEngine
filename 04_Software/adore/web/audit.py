@@ -1,28 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file audit.py
-@brief Closed structured audit evidence and redaction contract.
-@details Values are allowlisted before persistence and checked again on reads.
-         Arbitrary text, nested credential metadata and environment values are redacted.
-"""
+"""Closed structured audit evidence and redaction contract."""
 
 from __future__ import annotations
 
-# IMPORTS
 from datetime import datetime
 import json
 import math
 import re
 
-# CONSTANTS
 FIELDS = {
     "schema",
     "actor",
@@ -55,18 +39,16 @@ _SAFE_FIELDS = {
 _SAFE_WORDS = {"admin", "developer", "active", "stopped", "[redacted]"}
 
 
-# DATA MODELS / TYPEDEFINITIONS
 class AuditError(ValueError):
-    """@brief Invalid or corrupt structured audit evidence."""
+    """Invalid or corrupt structured audit evidence."""
 
 
-# PUBLIC API
 def redact(value, *, depth: int = 0):
     """
-    @brief Recursively project closed nonsecret values; arbitrary strings are redacted.
-    @param[in] value Known before/after metadata, never a raw request body.
-    @param[in] depth Bounded recursion depth.
-    @return Redacted JSON-compatible evidence.
+    Recursively project closed nonsecret values; arbitrary strings are redacted.
+    value: Known before/after metadata, never a raw request body.
+    depth: Bounded recursion depth.
+    Returns: Redacted JSON-compatible evidence.
     """
     if depth > 8:
         return "[redacted]"
@@ -109,7 +91,7 @@ def evidence(
     before=None,
     after=None,
 ) -> dict:
-    """@brief Construct and validate a closed redacted server-owned event payload."""
+    """Construct and validate a closed redacted server-owned event payload."""
     value = dict(
         schema=1,
         actor=actor,
@@ -129,7 +111,7 @@ def evidence(
 
 
 def validate(value: dict) -> dict:
-    """@brief Fail closed on malformed persisted evidence or nonredacted values."""
+    """Fail closed on malformed persisted evidence or nonredacted values."""
     if (
         not isinstance(value, dict)
         or set(value) != FIELDS
@@ -169,13 +151,13 @@ def validate(value: dict) -> dict:
 
 
 def decode(raw: str) -> dict:
-    """@brief Decode a bounded persisted payload with the exact evidence schema."""
+    """Decode a bounded persisted payload with the exact evidence schema."""
     try:
         if not isinstance(raw, str) or len(raw) > 131072:
             raise ValueError("invalid size")
 
         def pairs(items):
-            """@brief Reject ambiguous duplicate fields at each JSON nesting depth."""
+            """Reject ambiguous duplicate fields at each JSON nesting depth."""
             result = {}
             for key, item in items:
                 if key in result:
@@ -189,7 +171,7 @@ def decode(raw: str) -> dict:
 
 
 def instant(value: str) -> str:
-    """@brief Validate a timezone-aware UTC instant used for half-open filtering."""
+    """Validate a timezone-aware UTC instant used for half-open filtering."""
     try:
         stamp = datetime.fromisoformat(value)
         if stamp.tzinfo is None or stamp.utcoffset().total_seconds() != 0:
@@ -197,6 +179,3 @@ def instant(value: str) -> str:
         return stamp.isoformat()
     except (TypeError, ValueError, AttributeError) as exc:
         raise AuditError("invalid audit period") from exc
-
-
-# END OF FILE

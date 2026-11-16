@@ -1,38 +1,22 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       build_web_assets.py
-@brief      Build ADORE's licensed production web assets from prepared sources.
-@details    Uses the locked frontend environment, runs type checking and Vite,
-            then stamps the application assets. Does not install dependencies,
-            run tests, package archives or start services.
-"""
+"""Build ADORE's licensed production web assets from prepared sources."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 
-# CONSTANTS
 REPO = Path(__file__).resolve().parents[2]
 
 
-# PUBLIC API
 def main(argv: list[str] | None = None) -> int:
-    """@brief Build production frontend assets within a thirty-minute limit.
-    @param[in] argv Optional command arguments; only standard help is supported.
-    @return Zero after building, one for missing prerequisites or build failure.
+    """
+    Build production frontend assets within a thirty-minute limit.
+    argv: Optional command arguments; only standard help is supported.
+    Returns: Zero after building, one for missing prerequisites or build failure.
     """
     argparse.ArgumentParser(description=__doc__).parse_args(argv)
     web = REPO / "04_Software/web"
@@ -52,5 +36,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# END OF FILE

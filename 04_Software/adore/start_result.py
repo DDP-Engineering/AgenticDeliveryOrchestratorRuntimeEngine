@@ -1,26 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    start_result.py
-@brief   Bound terminal results for manual ticket admission and explicit Retry.
-@details The CLI emits one final versioned line. The worker accepts only bounded,
-         duplicate-free evidence bound to the requested ticket and process exit.
-"""
+"""Bound terminal results for manual ticket admission and explicit Retry."""
 
-# IMPORTS
 import json
 
 from adore.selection import INELIGIBILITY_REASONS
 from adore.util import strict_json_loads
 
-# CONSTANTS
 START_PREFIX = "ADORE_START_RESULT "
 RETRY_PREFIX = "ADORE_RETRY_RESULT "
 RETRY_REASONS = frozenset({
@@ -37,17 +21,16 @@ START_REASONS = frozenset(INELIGIBILITY_REASONS) | {
 }
 
 
-# DATA MODELS
 class StartResultError(ValueError):
-    """@brief Missing or corrupt terminal admission evidence."""
+    """Missing or corrupt terminal admission evidence."""
 
 
-# PUBLIC API
 def emit_start_result(ticket: int, exit_code: int, reason: str) -> None:
-    """@brief Emit a closed reason with no CLI/forge/executor text.
-    @param[in] ticket Requested positive ticket identity.
-    @param[in] exit_code Actual CLI exit code.
-    @param[in] reason Allowlisted admission outcome.
+    """
+    Emit a closed reason with no CLI/forge/executor text.
+    ticket: Requested positive ticket identity.
+    exit_code: Actual CLI exit code.
+    reason: Allowlisted admission outcome.
     """
     if reason not in START_REASONS:
         reason = "engine_fault"
@@ -56,12 +39,13 @@ def emit_start_result(ticket: int, exit_code: int, reason: str) -> None:
 
 
 def read_start_result(stdout: str, *, ticket: int, exit_code: int) -> str:
-    """@brief Validate only the final bounded result line, ignoring preceding logs.
-    @param[in] stdout Captured untrusted process output.
-    @param[in] ticket Requested identity to bind.
-    @param[in] exit_code Observed process exit to bind.
-    @return Allowlisted reason.
-    @exception StartResultError Invalid, ambiguous or mismatched evidence.
+    """
+    Validate only the final bounded result line, ignoring preceding logs.
+    stdout: Captured untrusted process output.
+    ticket: Requested identity to bind.
+    exit_code: Observed process exit to bind.
+    Returns: Allowlisted reason.
+    Raises StartResultError: Invalid, ambiguous or mismatched evidence.
     """
     try:
         line = stdout[-2048:].rstrip().splitlines()[-1]
@@ -81,10 +65,11 @@ def read_start_result(stdout: str, *, ticket: int, exit_code: int) -> str:
         raise StartResultError("invalid manual start result") from exc
 
 def emit_retry_result(run_id: str, exit_code: int, reason: str) -> None:
-    """@brief Emit a closed Retry reason, bound to the requested job and exit code.
-    @param[in] run_id Requested job identity.
-    @param[in] exit_code Actual process exit.
-    @param[in] reason Allowlisted operation outcome; no raw process diagnostics.
+    """
+    Emit a closed Retry reason, bound to the requested job and exit code.
+    run_id: Requested job identity.
+    exit_code: Actual process exit.
+    reason: Allowlisted operation outcome; no raw process diagnostics.
     """
     if reason not in RETRY_REASONS:
         reason = "engine_fault"
@@ -93,12 +78,13 @@ def emit_retry_result(run_id: str, exit_code: int, reason: str) -> None:
 
 
 def read_retry_result(stdout: str, *, run_id: str, exit_code: int) -> str:
-    """@brief Read only bounded final evidence matching the requested Retry.
-    @param[in] stdout Captured untrusted CLI output.
-    @param[in] run_id Requested job identity.
-    @param[in] exit_code Observed process exit.
-    @return Allowlisted Retry reason.
-    @exception StartResultError Missing, corrupt or mismatched terminal evidence.
+    """
+    Read only bounded final evidence matching the requested Retry.
+    stdout: Captured untrusted CLI output.
+    run_id: Requested job identity.
+    exit_code: Observed process exit.
+    Returns: Allowlisted Retry reason.
+    Raises StartResultError: Missing, corrupt or mismatched terminal evidence.
     """
     try:
         line = stdout[-2048:].rstrip().splitlines()[-1]
@@ -127,7 +113,7 @@ RESTART_REASONS = frozenset({
 
 def emit_restart_result(run_id: str, revision: str, exit_code: int, reason: str,
                         picked: int | None = None, retained: bool = False) -> None:
-    """@brief Emit one terminal restart outcome bound to job, revision and exit."""
+    """Emit one terminal restart outcome bound to job, revision and exit."""
     if reason not in RESTART_REASONS:
         reason = "engine_fault"
     print(
@@ -149,8 +135,9 @@ def emit_restart_result(run_id: str, revision: str, exit_code: int, reason: str,
 def read_restart_result(
     stdout: str, *, run_id: str, revision: str, exit_code: int, ticket: int
 ) -> tuple[str, bool]:
-    """@brief Validate the final closed restart result against the queued request.
-    @exception StartResultError Missing, ambiguous or mismatched evidence.
+    """
+    Validate the final closed restart result against the queued request.
+    Raises StartResultError: Missing, ambiguous or mismatched evidence.
     """
     try:
         line = stdout[-4096:].rstrip().splitlines()[-1]
@@ -179,6 +166,3 @@ def read_restart_result(
         return value["reason"], value["retained"]
     except (ValueError, IndexError, TypeError, KeyError) as exc:
         raise StartResultError("invalid restart result") from exc
-
-
-# END OF FILE

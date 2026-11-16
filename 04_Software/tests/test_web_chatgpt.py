@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_chatgpt.py
-@brief Sign in with ChatGPT from the web interface: routes, roles, audit and readiness.
-@details The fake helper of `test_chatgpt` stands in for Pi in the executor
-         image; no network, no real token.
-"""
+"""Sign in with ChatGPT from the web interface: routes, roles, audit and readiness."""
 
 from __future__ import annotations
 
@@ -35,7 +21,7 @@ REDIRECT = f"{CALLBACK}?code=fake-code-77&state={STATE}&client_id=x"
 
 
 def app_for(tmp_path, *options: str, local: bool = False, popen=None):
-    """@brief A web app with a ChatGPT project and the fake helper."""
+    """A web app with a ChatGPT project and the fake helper."""
     profiles = project(tmp_path)
     set_executor(profiles, "chatgpt", "gpt-5.6-luna")
     if local:
@@ -54,20 +40,20 @@ def app_for(tmp_path, *options: str, local: bool = False, popen=None):
 
 
 def sign_in(client: TestClient, username: str = "admin", password: str = "admin") -> dict:
-    """@brief Start a browser session and return the CSRF header."""
+    """Start a browser session and return the CSRF header."""
     csrf = client.post("/api/v1/session",
                        json={"username": username, "password": password}).json()["csrf"]
     return {"X-CSRF-Token": csrf}
 
 
 def audit_text(profiles) -> str:
-    """@brief Every audit row, as text."""
+    """Every audit row, as text."""
     with sqlite3.connect(profiles.home / "web.db") as connection:
         return json.dumps(connection.execute("SELECT * FROM audit").fetchall())
 
 
 def test_admin_signs_the_server_in_and_out(tmp_path):
-    """@brief Link out, wrong state refused, redirect in, signed in, disconnected."""
+    """Link out, wrong state refused, redirect in, signed in, disconnected."""
     app, profiles, runtime = app_for(tmp_path)
     directory = profiles.home / "chatgpt"
     with TestClient(app) as client:
@@ -113,7 +99,7 @@ def test_admin_signs_the_server_in_and_out(tmp_path):
 ])
 def test_an_openai_refusal_ends_the_sign_in_with_its_code(tmp_path, address, options, status,
                                                           code):
-    """@brief Each refusal has one code, ends the sign-in and is audited without values."""
+    """Each refusal has one code, ends the sign-in and is audited without values."""
     app, profiles, _ = app_for(tmp_path, *options)
     with TestClient(app) as client:
         headers = sign_in(client)
@@ -129,7 +115,7 @@ def test_an_openai_refusal_ends_the_sign_in_with_its_code(tmp_path, address, opt
 
 
 def test_cancel_and_paste_without_pending_sign_in(tmp_path):
-    """@brief Cancel ends the helper; a paste without a sign-in and a local run are refused."""
+    """Cancel ends the helper; a paste without a sign-in and a local run are refused."""
     app, _, runtime = app_for(tmp_path)
     with TestClient(app) as client:
         headers = sign_in(client)
@@ -151,7 +137,7 @@ def test_cancel_and_paste_without_pending_sign_in(tmp_path):
 def test_container_prerequisite_failure_does_not_start_sign_in(
     tmp_path, stage, code, outcome, runtime,
 ):
-    """@brief Report container setup precisely before any OAuth helper or credential effect."""
+    """Report container setup precisely before any OAuth helper or credential effect."""
     profiles = project(tmp_path)
     set_executor(profiles, "chatgpt", "gpt-5.6-luna")
     path = profiles.config_path("alpha")
@@ -189,7 +175,7 @@ def test_container_prerequisite_failure_does_not_start_sign_in(
 
 
 def test_a_helper_that_cannot_start_is_unavailable(tmp_path, monkeypatch):
-    """@brief An image without ADORE's helper fails the start with a typed code."""
+    """An image without ADORE's helper fails the start with a typed code."""
     monkeypatch.setenv("FAKE_HELPER_FAIL", "1")
     app, _, _ = app_for(tmp_path)
     with TestClient(app) as client:
@@ -206,7 +192,7 @@ def test_a_helper_that_cannot_start_is_unavailable(tmp_path, monkeypatch):
     ("DELETE", "/api/v1/chatgpt-sign-in", None),
 ])
 def test_routes_are_admin_only_and_changes_need_csrf(tmp_path, method, path, body):
-    """@brief Developers get 403 admin_required; a change without CSRF gets 403."""
+    """Developers get 403 admin_required; a change without CSRF gets 403."""
     app, profiles, runtime = app_for(tmp_path)
     user = app.state.web_store.create_user("dev", "longer-password", "developer")
     app.state.web_store.set_memberships(user["id"], ["alpha"])
@@ -226,7 +212,7 @@ def test_routes_are_admin_only_and_changes_need_csrf(tmp_path, method, path, bod
 
 
 def test_readiness_reports_the_sign_in_for_chatgpt_projects_only(tmp_path):
-    """@brief executor_sign_in follows the server's status; other providers omit it."""
+    """executor_sign_in follows the server's status; other providers omit it."""
     def offline(argv, **_kwargs):
         return CommandResult(list(argv), 127)
 
@@ -255,7 +241,7 @@ def test_readiness_reports_the_sign_in_for_chatgpt_projects_only(tmp_path):
 
 
 def test_readiness_reflects_the_internet_switch(tmp_path, monkeypatch):
-    """@brief Off adds the proxy image check; On with Brave adds the key check; exa neither."""
+    """Off adds the proxy image check; On with Brave adds the key check; exa neither."""
     from tests.test_model_connection import set_internet
 
     proxy_present = {"value": False}
@@ -295,7 +281,7 @@ def test_readiness_reflects_the_internet_switch(tmp_path, monkeypatch):
 
 
 def test_a_chatgpt_connection_result_holds_only_while_signed_in(tmp_path, monkeypatch):
-    """@brief Disconnecting hides the saved Test AI connection result of ChatGPT projects."""
+    """Disconnecting hides the saved Test AI connection result of ChatGPT projects."""
     from adore.state import StateStore
 
     app, profiles, _ = app_for(tmp_path)
@@ -316,7 +302,7 @@ def test_a_chatgpt_connection_result_holds_only_while_signed_in(tmp_path, monkey
 
 
 def test_a_second_start_replaces_the_pending_sign_in(tmp_path):
-    """@brief Starting again ends the first helper; only the new sign-in waits."""
+    """Starting again ends the first helper; only the new sign-in waits."""
     app, _, runtime = app_for(tmp_path)
     with TestClient(app) as client:
         headers = sign_in(client)
@@ -334,11 +320,10 @@ def test_a_second_start_replaces_the_pending_sign_in(tmp_path):
                           json={"redirect_url": REDIRECT}).json()["status"] == "signed-in"
 
 
-# END OF FILE
 
 
 def test_native_admin_uses_managed_helper_without_container(tmp_path, monkeypatch):
-    """@brief Native projects can complete the same admin/CSRF-bound OAuth flow."""
+    """Native projects can complete the same admin/CSRF-bound OAuth flow."""
     from pathlib import Path
     import subprocess
     import sys
@@ -392,7 +377,7 @@ def test_native_admin_uses_managed_helper_without_container(tmp_path, monkeypatc
 def test_native_callback_completion_is_observed_without_manual_submit(
     tmp_path, monkeypatch, answer, status, code
 ):
-    """@brief Status observes and audits Pi callback completion or a closed refusal."""
+    """Status observes and audits Pi callback completion or a closed refusal."""
     from pathlib import Path
     import subprocess
     import sys

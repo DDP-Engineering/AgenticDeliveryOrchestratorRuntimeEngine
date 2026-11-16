@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    local_child.py
-@brief   Trusted native launcher with a durable-ownership release barrier.
-@details Requires only Python. Joins the Linux scope before starting any child;
-         Windows parent assigns its Job before publishing the release marker.
-"""
+"""Trusted native launcher with a durable-ownership release barrier."""
 
-# IMPORTS
 import json
 import os
 from pathlib import Path
@@ -22,16 +7,14 @@ import subprocess
 import sys
 import time
 
-# PUBLIC API
-
 
 def main(path: str, *, streaming: bool = False) -> int:
     """
-    @brief Start one native argv command only after the parent's ownership receipt.
-    @param[in] path Parent-owned immutable launch envelope.
-    @param[in] streaming Forward the parent's stdin pipe for RPC.
-    @return Authoritative command exit status.
-    @exception ValueError Invalid trusted transport.
+    Start one native argv command only after the parent's ownership receipt.
+    path: Parent-owned immutable launch envelope.
+    streaming: Forward the parent's stdin pipe for RPC.
+    Returns: Authoritative command exit status.
+    Raises ValueError: Invalid trusted transport.
     """
     envelope = json.loads(Path(path).read_text(encoding="utf-8"))
     if set(envelope) != {"argv", "cwd", "release", "scope"}:
@@ -74,5 +57,3 @@ def main(path: str, *, streaming: bool = False) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1], streaming=sys.argv[2:] == ["rpc"]))
-
-# END OF FILE

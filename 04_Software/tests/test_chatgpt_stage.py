@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_chatgpt_stage.py
-@brief A ChatGPT stage gets only a short-lived access token, in that gate's environment.
-@details The conductor is wired with fakes; the token source stands in for the
-         helper container that refreshes the server's sign-in.
-"""
+"""A ChatGPT stage gets only a short-lived access token, in that gate's environment."""
 
 from __future__ import annotations
 
@@ -26,7 +12,7 @@ TOKEN = "eyJ-fake-access-token-for-one-stage"
 
 
 class RecordingExecutor(FakeExecutor):
-    """@brief Keep the bound target each gate received."""
+    """Keep the bound target each gate received."""
 
     def __init__(self) -> None:
         super().__init__(GateRun(exit_code=0))
@@ -38,7 +24,7 @@ class RecordingExecutor(FakeExecutor):
 
 
 def chatgpt_engine(tmp_path, source):
-    """@brief A conductor for a ChatGPT project with an injected token source."""
+    """A conductor for a ChatGPT project with an injected token source."""
     executor = RecordingExecutor()
     engine, *_ = make_engine(tmp_path, executor=executor)
     engine.config.executor.provider = "chatgpt"
@@ -51,7 +37,7 @@ def chatgpt_engine(tmp_path, source):
 
 
 def test_the_stage_token_reaches_only_this_gate_and_is_redacted(tmp_path):
-    """@brief OPENAI_API_KEY in the gate env, valid for the stage limit plus the margin."""
+    """OPENAI_API_KEY in the gate env, valid for the stage limit plus the margin."""
     asked: list[int] = []
     engine, executor, run = chatgpt_engine(tmp_path, lambda seconds: asked.append(seconds) or TOKEN)
     result = engine._launch_stage(run, engine.forge.ticket, task("build"))
@@ -64,7 +50,7 @@ def test_the_stage_token_reaches_only_this_gate_and_is_redacted(tmp_path):
 
 
 def test_a_stage_override_sets_the_requested_token_life(tmp_path):
-    """@brief The stage's own limit decides how long the token must last."""
+    """The stage's own limit decides how long the token must last."""
     asked: list[int] = []
     engine, _, run = chatgpt_engine(tmp_path, lambda seconds: asked.append(seconds) or TOKEN)
     engine.config.workflow.stage_timeout_overrides = {"build": 2400}
@@ -79,7 +65,7 @@ def test_a_stage_override_sets_the_requested_token_life(tmp_path):
     ("unavailable", "could not be reached"),
 ])
 def test_no_token_fails_the_attempt_without_starting_pi(tmp_path, code, words):
-    """@brief The attempt fails with the cause sentence; Pi never starts."""
+    """The attempt fails with the cause sentence; Pi never starts."""
     def refuse(_seconds):
         raise ChatGptError(code)
 
@@ -90,11 +76,8 @@ def test_no_token_fails_the_attempt_without_starting_pi(tmp_path, code, words):
 
 
 def test_an_api_key_project_gets_no_token(tmp_path):
-    """@brief Only provider chatgpt asks for a ChatGPT token."""
+    """Only provider chatgpt asks for a ChatGPT token."""
     engine, executor, run = chatgpt_engine(tmp_path, lambda _s: pytest.fail("token requested"))
     engine.config.executor.provider = "openai"
     engine._launch_stage(run, engine.forge.ticket, task("build"))
     assert "OPENAI_API_KEY" not in executor.targets[0].env
-
-
-# END OF FILE

@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_run_concurrency.py
-@brief Offline project admission and owned-run concurrency contracts.
-@details Uses only injected offline fakes; no forge, git, container or model is
-         contacted. The tests focus on observable contracts and fail-closed
-         trust boundaries rather than private implementation structure.
-"""
+"""Offline project admission and owned-run concurrency contracts."""
 
 from __future__ import annotations
 
-# IMPORTS
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
@@ -34,14 +18,13 @@ from tests.test_orchestrator import direct_edit, direct_engine, make_engine, mak
 
 @pytest.fixture(autouse=True)
 def offline_probe(monkeypatch):
-    """@brief Concurrency proof never invokes target repository or host commands."""
+    """Concurrency proof never invokes target repository or host commands."""
     from adore.orchestrator import Orchestrator
     monkeypatch.setattr(Orchestrator, '_probe_repository_payload', lambda self, *args: None)
 
 
-# PUBLIC API
 def test_admission_releases_project_lock_before_conduction(tmp_path, monkeypatch):
-    """@brief A second admission proceeds while another run executes."""
+    """A second admission proceeds while another run executes."""
     first, forge, *_ = make_engine(tmp_path)
     first.config.polling.max_concurrent_runs = 2
     forge.ticket.labels = ['P1', 'agent-ready']
@@ -74,7 +57,7 @@ def test_admission_releases_project_lock_before_conduction(tmp_path, monkeypatch
 
 
 def test_admission_only_is_atomic_and_pause_preserving(tmp_path):
-    """@brief Explicit admission preserves pause and enforces capacity and uniqueness."""
+    """Explicit admission preserves pause and enforces capacity and uniqueness."""
     engine, forge, *_ = make_engine(tmp_path)
     forge.ticket.labels = ['P1', 'agent-ready']
     engine.store.pause()
@@ -88,7 +71,7 @@ def test_admission_only_is_atomic_and_pause_preserving(tmp_path):
 
 
 def test_foreign_run_lock_protects_reconciliation_and_cancel(tmp_path):
-    """@brief A live conductor cannot be cancelled or diagnosed stale by a peer."""
+    """A live conductor cannot be cancelled or diagnosed stale by a peer."""
     engine, *_ = make_engine(tmp_path)
     run = make_run(engine)
     peer, *_ = make_engine(tmp_path)
@@ -103,7 +86,7 @@ def test_foreign_run_lock_protects_reconciliation_and_cancel(tmp_path):
 
 
 def test_durable_foreign_owner_skips_all_reconciliation(tmp_path):
-    """@brief Unknown/live durable ownership prevents effects even without a local lock."""
+    """Unknown/live durable ownership prevents effects even without a local lock."""
     engine, *_ = make_engine(tmp_path)
     run = make_run(engine)
     run.updated_at = '2020-01-01T00:00:00+00:00'
@@ -114,7 +97,7 @@ def test_durable_foreign_owner_skips_all_reconciliation(tmp_path):
 
 
 def test_retry_at_capacity_preserves_failed_state(tmp_path):
-    """@brief Retry cannot bypass another execution reservation."""
+    """Retry cannot bypass another execution reservation."""
     engine, forge, *_ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = 'failed'
@@ -126,7 +109,7 @@ def test_retry_at_capacity_preserves_failed_state(tmp_path):
 
 
 def test_owned_run_refuses_foreign_target_and_changed_config(tmp_path):
-    """@brief Single-run execution checks target and exact configuration before effects."""
+    """Single-run execution checks target and exact configuration before effects."""
     engine, *_ = make_engine(tmp_path)
     run = make_run(engine)
     engine.owned_run_id = run.run_id + '-other'
@@ -138,7 +121,7 @@ def test_owned_run_refuses_foreign_target_and_changed_config(tmp_path):
 
 
 def test_run_locks_are_exclusive_reentrant_and_crash_released(tmp_path):
-    """@brief Independent stores cannot mutate the same run at once."""
+    """Independent stores cannot mutate the same run at once."""
     first, second = StateStore(tmp_path), StateStore(tmp_path)
     with (first.run_lock('run-7'), first.run_lock('run-7'),
           pytest.raises(LockHeldError), second.run_lock('run-7')):
@@ -150,7 +133,7 @@ def test_run_locks_are_exclusive_reentrant_and_crash_released(tmp_path):
 
 
 def test_two_direct_executions_advance_without_cross_run_mutation(tmp_path, monkeypatch):
-    """@brief Independent conductors finish real fake-agent runs while a peer is blocked."""
+    """Independent conductors finish real fake-agent runs while a peer is blocked."""
     import adore.orchestrator as module
     one, two = tmp_path / 'one', tmp_path / 'two'
     one.mkdir()
@@ -195,7 +178,7 @@ def test_two_direct_executions_advance_without_cross_run_mutation(tmp_path, monk
 
 @pytest.mark.parametrize('trigger', ['clarification', 'review', 'approval', 'restart'])
 def test_all_resume_boundaries_keep_capacity(tmp_path, trigger):
-    """@brief Waiting jobs and destructive restart do not bypass a busy project."""
+    """Waiting jobs and destructive restart do not bypass a busy project."""
     engine, forge, worktrees, containers, executor = make_engine(tmp_path)
     run = make_run(engine)
     other = replace(run, run_id=run.run_id + '-other', ticket_iid=8)
@@ -235,7 +218,7 @@ def test_all_resume_boundaries_keep_capacity(tmp_path, trigger):
 
 
 def test_queued_time_does_not_consume_active_budget(tmp_path, monkeypatch):
-    """@brief First conduction starts its active clock after the admission wait."""
+    """First conduction starts its active clock after the admission wait."""
     engine, forge, *_ = make_engine(tmp_path)
     forge.ticket.labels = ['P1', 'agent-ready']
     result = engine.poll_once(ticket_iid=7, admit_only=True)
@@ -257,14 +240,14 @@ def test_queued_time_does_not_consume_active_budget(tmp_path, monkeypatch):
 
 
 def _hold_run_lock(root, entered):
-    """@brief Child process holds only an isolated test-store lifecycle lock."""
+    """Child process holds only an isolated test-store lifecycle lock."""
     with StateStore(root).run_lock('run-7'):
         entered.set()
         Event().wait(30)
 
 
 def test_process_death_releases_kernel_run_lock(tmp_path):
-    """@brief Kernel ownership survives stale metadata and ends with the actual process."""
+    """Kernel ownership survives stale metadata and ends with the actual process."""
     context = multiprocessing.get_context('spawn')
     entered = context.Event()
     process = context.Process(target=_hold_run_lock, args=(str(tmp_path), entered))
@@ -281,7 +264,7 @@ def test_process_death_releases_kernel_run_lock(tmp_path):
 
 
 def test_cli_conduct_targets_one_run_and_refuses_changed_revision(tmp_path, monkeypatch):
-    """@brief CLI dispatch builds one engine and never polls or claims a different ticket."""
+    """CLI dispatch builds one engine and never polls or claims a different ticket."""
     from adore import cli
     engine, forge, *_ = make_engine(tmp_path)
     engine.config.polling.max_concurrent_runs = 2
@@ -305,7 +288,7 @@ def test_cli_conduct_targets_one_run_and_refuses_changed_revision(tmp_path, monk
 
 
 def test_corrupt_state_blocks_atomic_admission(tmp_path):
-    """@brief Corrupt persisted capacity evidence cannot be treated as a free slot."""
+    """Corrupt persisted capacity evidence cannot be treated as a free slot."""
     engine, forge, *_ = make_engine(tmp_path)
     run = make_run(engine)
     (engine.store.run_dir(run.run_id) / 'state.json').write_text('{}')
@@ -316,7 +299,7 @@ def test_corrupt_state_blocks_atomic_admission(tmp_path):
 
 
 def test_cleanup_keeps_execution_slot_until_backend_stop_finishes(tmp_path, monkeypatch):
-    """@brief Waiting approval frees executor capacity only after its cleanup boundary."""
+    """Waiting approval frees executor capacity only after its cleanup boundary."""
     one, two = tmp_path / 'one', tmp_path / 'two'
     one.mkdir()
     two.mkdir()
@@ -352,7 +335,7 @@ def test_cleanup_keeps_execution_slot_until_backend_stop_finishes(tmp_path, monk
 
 
 def test_reduced_limit_preserves_admitted_jobs_and_blocks_new_work(tmp_path, monkeypatch):
-    """@brief A lower limit prevents only later execution reservations."""
+    """A lower limit prevents only later execution reservations."""
     engine, forge, *_ = make_engine(tmp_path)
     engine.config.polling.max_concurrent_runs = 2
     forge.ticket.labels = ['P1', 'agent-ready']
@@ -370,7 +353,7 @@ def test_reduced_limit_preserves_admitted_jobs_and_blocks_new_work(tmp_path, mon
 
 
 def test_dispatch_evidence_refuses_corrupt_input_and_uncertain_replay(tmp_path, monkeypatch):
-    """@brief Durable started evidence prevents replay even if the audit journal was torn."""
+    """Durable started evidence prevents replay even if the audit journal was torn."""
     engine, forge, *_ = make_engine(tmp_path)
     forge.ticket.labels = ['P1', 'agent-ready']
     result = engine.poll_once(ticket_iid=7, admit_only=True)
@@ -391,7 +374,7 @@ def test_dispatch_evidence_refuses_corrupt_input_and_uncertain_replay(tmp_path, 
 
 
 def test_initial_allocation_reserves_capacity_without_holding_admission(tmp_path, monkeypatch):
-    """@brief An uninitialized reservation is visible while Git allocation blocks."""
+    """An uninitialized reservation is visible while Git allocation blocks."""
     engine, forge, trees, *_ = make_engine(tmp_path)
     peer, other, *_ = make_engine(tmp_path)
     forge.ticket.labels = ['P1', 'agent-ready']
@@ -423,7 +406,7 @@ def test_initial_allocation_reserves_capacity_without_holding_admission(tmp_path
 
 
 def test_retry_cli_reports_capacity_without_mutating_failed_job(tmp_path, monkeypatch, capsys):
-    """@brief The closed CLI result explains the actual reservation refusal."""
+    """The closed CLI result explains the actual reservation refusal."""
     from adore import cli
     from adore.start_result import read_retry_result
     engine, *_ = make_engine(tmp_path)
@@ -440,7 +423,7 @@ def test_retry_cli_reports_capacity_without_mutating_failed_job(tmp_path, monkey
 
 
 def _conduct_in_process(root, iid, entered, release, results):
-    """@brief Run the ordinary conductor in a fresh offline process with owned fakes."""
+    """Run the ordinary conductor in a fresh offline process with owned fakes."""
     from pathlib import Path
 
     import adore.orchestrator as module
@@ -470,7 +453,7 @@ def _conduct_in_process(root, iid, entered, release, results):
 
 
 def test_two_processes_conduct_one_project_without_stale_diagnosis(tmp_path):
-    """@brief Real process isolation keeps two bounded fake-agent executions independent."""
+    """Real process isolation keeps two bounded fake-agent executions independent."""
     context = multiprocessing.get_context('spawn')
     entered, release, results = context.Event(), context.Event(), context.Queue()
     for iid in (7, 8):
@@ -503,7 +486,7 @@ def test_two_processes_conduct_one_project_without_stale_diagnosis(tmp_path):
 
 
 def test_cleanup_skips_foreign_run_and_retains_ownership_through_effects(tmp_path, monkeypatch):
-    """@brief Ordinary cleanup cannot remove a busy run or race a fresh reset."""
+    """Ordinary cleanup cannot remove a busy run or race a fresh reset."""
     engine, _, _, containers, _ = make_engine(tmp_path)
     peer, *_ = make_engine(tmp_path)
     run = make_run(engine)
@@ -526,7 +509,7 @@ def test_cleanup_skips_foreign_run_and_retains_ownership_through_effects(tmp_pat
 
 
 def test_uncertain_publication_is_not_replayed_by_later_polls(tmp_path, monkeypatch):
-    """@brief An orphaned publisher remains failed until explicit operator recovery."""
+    """An orphaned publisher remains failed until explicit operator recovery."""
     engine, _, _, _, executor = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle, run.stage = 'publishing', 'done'
@@ -544,7 +527,7 @@ def test_uncertain_publication_is_not_replayed_by_later_polls(tmp_path, monkeypa
 def test_manual_and_automatic_admission_keep_ticket_unique_during_initialization(
     tmp_path, monkeypatch,
 ):
-    """@brief Automatic pickup cannot duplicate an explicit Start before state is saved."""
+    """Automatic pickup cannot duplicate an explicit Start before state is saved."""
     engine, forge, trees, *_ = make_engine(tmp_path)
     peer, other, *_ = make_engine(tmp_path)
     engine.config.polling.max_concurrent_runs = peer.config.polling.max_concurrent_runs = 2
@@ -579,7 +562,7 @@ def test_manual_and_automatic_admission_keep_ticket_unique_during_initialization
     '[polling\nbroken',
 ])
 def test_invalid_current_capacity_refuses_admission(tmp_path, content):
-    """@brief Human configuration corruption cannot authorize an executor reservation."""
+    """Human configuration corruption cannot authorize an executor reservation."""
     engine, forge, _, _, executor = make_engine(tmp_path)
     path = tmp_path / 'config.toml'
     path.write_text(content)
@@ -603,7 +586,7 @@ def test_invalid_current_capacity_refuses_admission(tmp_path, content):
     'x' * 4097,
 ])
 def test_corrupt_dispatch_never_grants_initial_execution(tmp_path, monkeypatch, raw):
-    """@brief Current persisted dispatch evidence fails closed at every parsing boundary."""
+    """Current persisted dispatch evidence fails closed at every parsing boundary."""
     engine, _, _, _, executor = make_engine(tmp_path)
     run = make_run(engine)
     engine.store.save_dispatch(run.run_id, engine.configuration_revision())
@@ -620,7 +603,7 @@ def test_corrupt_dispatch_never_grants_initial_execution(tmp_path, monkeypatch, 
 
 
 def test_unavailable_lifecycle_lock_storage_is_a_typed_refusal(tmp_path):
-    """@brief An unusable configured state location cannot bypass lifecycle exclusion."""
+    """An unusable configured state location cannot bypass lifecycle exclusion."""
     store = StateStore(tmp_path)
     store.locks_root.parent.mkdir(parents=True, exist_ok=True)
     store.locks_root.write_text('not a lock directory')
@@ -629,7 +612,7 @@ def test_unavailable_lifecycle_lock_storage_is_a_typed_refusal(tmp_path):
 
 
 def test_admit_only_does_not_reconcile_an_existing_resumable_job(tmp_path, monkeypatch):
-    """@brief Admission-only never observes or resumes another job's answer/revision."""
+    """Admission-only never observes or resumes another job's answer/revision."""
     engine, forge, *_ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle, run.parked_polls, run.parked_at = 'parked-clarification', 1, run.updated_at
@@ -646,7 +629,7 @@ def test_admit_only_does_not_reconcile_an_existing_resumable_job(tmp_path, monke
 
 
 def test_initial_queue_clock_is_zero_before_dispatch_and_after_cancel(tmp_path):
-    """@brief Cancellation of an undispatched admission never freezes queue time as work."""
+    """Cancellation of an undispatched admission never freezes queue time as work."""
     engine, forge, *_ = make_engine(tmp_path)
     forge.ticket.labels = ['P1', 'agent-ready']
     run_id = engine.poll_once(ticket_iid=7, admit_only=True)['run_id']
@@ -661,7 +644,7 @@ def test_initial_queue_clock_is_zero_before_dispatch_and_after_cancel(tmp_path):
 
 
 def test_start_crash_cannot_restore_queued_time_to_retry_budget(tmp_path, monkeypatch):
-    """@brief Clock activation is durable before the first claim effect may crash."""
+    """Clock activation is durable before the first claim effect may crash."""
     class SimulatedCrash(BaseException):
         pass
     engine, forge, *_ = make_engine(tmp_path)
@@ -689,7 +672,7 @@ def test_start_crash_cannot_restore_queued_time_to_retry_budget(tmp_path, monkey
 
 
 def test_bound_run_cancel_refuses_a_foreign_target_before_marker_fallback(tmp_path):
-    """@brief A single-run conductor cannot request mutation of another run."""
+    """A single-run conductor cannot request mutation of another run."""
     engine, *_ = make_engine(tmp_path)
     run = make_run(engine)
     other = replace(run, run_id=run.run_id + '-other', ticket_iid=8)
@@ -701,7 +684,7 @@ def test_bound_run_cancel_refuses_a_foreign_target_before_marker_fallback(tmp_pa
 
 
 def test_cli_cancel_reports_request_until_saved_stop(tmp_path, monkeypatch, capsys):
-    """@brief Standalone CLI does not confirm a cancellation marker as an actual stop."""
+    """Standalone CLI does not confirm a cancellation marker as an actual stop."""
     from adore import cli
     engine, *_ = make_engine(tmp_path)
     run = make_run(engine)
@@ -720,7 +703,7 @@ def test_cli_cancel_reports_request_until_saved_stop(tmp_path, monkeypatch, caps
     {'execution_pending': 'true'}, {'execution_pending': True, 'iterations': 1},
 ])
 def test_pending_execution_clock_flag_refuses_corrupt_state(tmp_path, change):
-    """@brief Corrupt pending authority cannot hide executor consumption."""
+    """Corrupt pending authority cannot hide executor consumption."""
     engine, forge, *_ = make_engine(tmp_path)
     forge.ticket.labels = ['P1', 'agent-ready']
     run_id = engine.poll_once(ticket_iid=7, admit_only=True)['run_id']
@@ -735,7 +718,7 @@ def test_pending_execution_clock_flag_refuses_corrupt_state(tmp_path, change):
 
 
 def test_current_state_requires_pending_clock_field_without_repair(tmp_path):
-    """@brief Earlier stored shapes are refused with the exact run directory to delete."""
+    """Earlier stored shapes are refused with the exact run directory to delete."""
     engine, *_ = make_engine(tmp_path)
     run = make_run(engine)
     path = engine.store.run_dir(run.run_id) / 'state.json'
@@ -750,7 +733,7 @@ def test_current_state_requires_pending_clock_field_without_repair(tmp_path):
 
 
 def test_jobs_projection_freezes_pending_execution_budget(tmp_path):
-    """@brief Jobs reads the pending clock from current state without dispatch/file inference."""
+    """Jobs reads the pending clock from current state without dispatch/file inference."""
     from adore.web.jobs import read_job_budget, read_jobs
 
     from tests.test_web_jobs import _fixture, _state
@@ -767,7 +750,7 @@ def test_jobs_projection_freezes_pending_execution_budget(tmp_path):
 def test_cancel_native_admission_before_provision_requires_proven_absence(
     tmp_path, monkeypatch, unrecorded_control,
 ):
-    """@brief A queued native job owns no process yet; unrecorded control still blocks cleanup."""
+    """A queued native job owns no process yet; unrecorded control still blocks cleanup."""
     from adore.isolation import IsolationError
     from adore.local_execution import LocalBackend
 

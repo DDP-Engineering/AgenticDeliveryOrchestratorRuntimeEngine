@@ -59,3 +59,9 @@ Alegeți **Aplică filtre**; aceasta revine la prima pagină. Pagina raportează
 Fiecare rând afișează **Cine**, **Ce**, **Când** și **Rezultat**: **Pregătit**, **Aplicat**, **Eliminat**, **Respins** sau **Incert**. Pregătit înseamnă că un candidat a fost pregătit, nu aplicat. **Incert** înseamnă că gazda nu a putut confirma finalizarea; inspectați resursa reală înainte de a recupera. **Dovadă** deschide un rând sub eveniment cu **Înainte**, **După / candidat**, **Operație**, precum și **Revizie de bază** și **Revizie candidat** când sunt înregistrate. **Valoarea anterioară nu a fost înregistrată** înseamnă necunoscut, nu gol. Parolele și valorile de mediu nu sunt afișate niciodată.
 
 Istoricul modificărilor se păstrează nelimitat, cu excepția cazului în care setați limite în [Starea sistemului](#system-status). Nu există descărcare sau export al istoricului modificărilor. Un Dev vede modificările operaționale doar pentru proiectele atribuite; evenimentele de cont, acces, preț și politică rămân la administratori.
+
+## Capacitatea de stocare {#storage-capacity}
+
+Starea stocării și capacitatea liberă/totală măsurată sunt grupate sub lista workerelor. Un volum fizic comun apare o singură dată; volumele separate apar în tabel.
+
+Retenția auditului limitează evenimentele administrative. Istoricul joburilor nu expiră automat; ștergerea sa este o acțiune separată.

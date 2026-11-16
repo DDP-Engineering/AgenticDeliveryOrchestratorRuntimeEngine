@@ -1,25 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file config.py
-@brief Load and validate ADORE configuration from config.toml.
-@details Parses config.toml with the standard-library tomllib into typed
-         section dataclasses (one per section of Configuration_Reference.md).
-         Missing keys fall back to the documented defaults; names derived from
-         the agent slug (state dir, questions file) are resolved at load time.
-         Secrets are read from the environment, never from here.
-"""
+"""Load and validate ADORE configuration from config.toml."""
 
 from __future__ import annotations
 
-# IMPORTS
 from dataclasses import asdict, dataclass, field, fields
 import json
 import math
@@ -62,8 +44,6 @@ from adore.util import (
     background_process_options,
     parse_duration,
 )
-
-# CONSTANTS
 
 _QUIET_HOURS_RE = re.compile(r"^\d{2}:\d{2}-\d{2}:\d{2}$")
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
@@ -141,14 +121,12 @@ KNOWN_SECTIONS = frozenset(
     }
 )
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 @dataclass
 class AgentConfig:
     """
-    @brief   [agent] - bot identity; the slug derives every local name.
-    @details email is the git commit author email used inside the executor
+    [agent] - bot identity; the slug derives every local name.
+    email is the git commit author email used inside the executor
              container (Security_And_Credentials.md); derived from the
              slug when empty.
     """
@@ -161,8 +139,8 @@ class AgentConfig:
 @dataclass
 class PlatformConfig:
     """
-    @brief   [platform] - which Git-platform adapter and repository to use.
-    @details `login` names the tea login (`tea logins list`) for kind
+    [platform] - which Git-platform adapter and repository to use.
+    `login` names the tea login (`tea logins list`) for kind
              "gitea", where one CLI can hold several instance/account logins;
              empty uses tea's default login. Meaningless for glab/gh (their
              auth binds to the host), so validation rejects it there.
@@ -182,8 +160,8 @@ class PlatformConfig:
 @dataclass
 class StateConfig:
     """
-    @brief   [state] - where run state lives.
-    @details The status comment is always one comment edited in place, with the
+    [state] - where run state lives.
+    The status comment is always one comment edited in place, with the
              lifecycle labels; there is no per-change mode.
     """
 
@@ -192,9 +170,7 @@ class StateConfig:
 
 @dataclass
 class PollingConfig:
-    """
-    @brief   [polling] - poll loop cadence and concurrency.
-    """
+    """[polling] - poll loop cadence and concurrency."""
 
     mode: str = "loop"
     poll_interval_seconds: int = 60
@@ -206,9 +182,7 @@ class PollingConfig:
 
 @dataclass
 class ReadinessConfig:
-    """
-    @brief   [readiness] - selection filter applied after eligibility.
-    """
+    """[readiness] - selection filter applied after eligibility."""
 
     require_acceptance_criteria: bool = False
     require_priority_label: bool = True
@@ -216,9 +190,7 @@ class ReadinessConfig:
 
 @dataclass
 class LifecycleLabels:
-    """
-    @brief   [labels.lifecycle] - orchestrator-managed run-state labels.
-    """
+    """[labels.lifecycle] - orchestrator-managed run-state labels."""
 
     ready: str = "agent-ready"
     working: str = "agent-working"
@@ -231,9 +203,7 @@ class LifecycleLabels:
 
 @dataclass
 class SelectionLabels:
-    """
-    @brief   [labels.selection] - human-managed priority/type labels.
-    """
+    """[labels.selection] - human-managed priority/type labels."""
 
     priority_high: str = "P1"
     priority_medium: str = "P2"
@@ -244,17 +214,15 @@ class SelectionLabels:
 
     def priority_order(self) -> list[str]:
         """
-        @brief   Priority labels from highest to lowest.
-        @return  Ordered label list used for queue ranking.
+        Priority labels from highest to lowest.
+        Returns: Ordered label list used for queue ranking.
         """
         return [self.priority_high, self.priority_medium, self.priority_low]
 
 
 @dataclass
 class ControlLabels:
-    """
-    @brief   [labels.control] - human overrides checked before eligibility.
-    """
+    """[labels.control] - human overrides checked before eligibility."""
 
     hold: str = "agent-hold"
     exclude: str = "no-agent"
@@ -262,9 +230,7 @@ class ControlLabels:
 
 @dataclass
 class LabelsConfig:
-    """
-    @brief   [labels.*] - all label categories; roles, never hard-coded strings.
-    """
+    """[labels.*] - all label categories; roles, never hard-coded strings."""
 
     lifecycle: LifecycleLabels = field(default_factory=LifecycleLabels)
     selection: SelectionLabels = field(default_factory=SelectionLabels)
@@ -274,8 +240,8 @@ class LabelsConfig:
 @dataclass
 class ExecutorEndpointConfig:
     """
-    @brief   [executor.endpoint] - an OpenAI-compatible endpoint for `provider = "custom"`.
-    @details `base_url` is the address as seen from where Pi runs (inside the
+    [executor.endpoint] - an OpenAI-compatible endpoint for `provider = "custom"`.
+    `base_url` is the address as seen from where Pi runs (inside the
              container); `api` is the Pi API type the endpoint speaks. Its
              optional key is a credential (ADORE_ENDPOINT_API_KEY), never a
              value here.
@@ -288,8 +254,8 @@ class ExecutorEndpointConfig:
 @dataclass
 class ExecutorWebConfig:
     """
-    @brief   [executor.web] - the web search Pi uses while internet access is on.
-    @details `search` is exa (no key), brave or tavily (key in the project's
+    [executor.web] - the web search Pi uses while internet access is on.
+    `search` is exa (no key), brave or tavily (key in the project's
              credential store as BRAVE_API_KEY or TAVILY_API_KEY) or none (no
              web tools; downloads through bash still work).
     """
@@ -300,8 +266,8 @@ class ExecutorWebConfig:
 @dataclass
 class ExecutorConfig:
     """
-    @brief   [executor] - how ADORE launches Pi, its only coding agent.
-    @details `provider` is a Pi API-key provider id, `chatgpt` or `custom`
+    [executor] - how ADORE launches Pi, its only coding agent.
+    `provider` is a Pi API-key provider id, `chatgpt` or `custom`
              (an OpenAI-compatible endpoint described by [executor.endpoint]);
              `model` is the model id within that provider. `internet` is the
              project's "Internet access for the agent": false limits a
@@ -327,8 +293,8 @@ class ExecutorConfig:
 @dataclass
 class ContainerEgressConfig:
     """
-    @brief   [container.egress] - the proxy behind which an internet-off run sits.
-    @details `[executor] internet` decides the run's network access
+    [container.egress] - the proxy behind which an internet-off run sits.
+    `[executor] internet` decides the run's network access
              (`egress_policy`); this section holds the per-run proxy's image,
              port and network prefix, the hosts reached without the proxy and
              `allowlist`, extra hosts an internet-off run may reach besides
@@ -345,8 +311,8 @@ class ContainerEgressConfig:
 @dataclass
 class EgressPolicy:
     """
-    @brief   The network access of one run's executor container.
-    @details Derived from the configuration by `egress_policy`, never read
+    The network access of one run's executor container.
+    Derived from the configuration by `egress_policy`, never read
              from a file. open: unrestricted; allowlist-proxy: HTTP/HTTPS only
              through a per-run proxy that admits `allowlist`; none: no network.
     """
@@ -361,9 +327,7 @@ class EgressPolicy:
 
 @dataclass
 class ClarificationConfig:
-    """
-    @brief   [clarification] - park/resume bounds and timeouts.
-    """
+    """[clarification] - park/resume bounds and timeouts."""
 
     max_rounds: int = 3
     answer_timeout: str = "72h"
@@ -371,8 +335,8 @@ class ClarificationConfig:
 
     def answer_timeout_seconds(self) -> int:
         """
-        @brief   The hard answer timeout parsed to seconds.
-        @return  Seconds after parked_at before the run is released.
+        The hard answer timeout parsed to seconds.
+        Returns: Seconds after parked_at before the run is released.
         """
         return parse_duration(self.answer_timeout)
 
@@ -380,8 +344,8 @@ class ClarificationConfig:
 @dataclass
 class ExecutionConfig:
     """
-    @brief   [execution] - shared backend and reviewed container preparation.
-    @details Preparation is path#job@full-commit; empty disables preparation.
+    [execution] - shared backend and reviewed container preparation.
+    Preparation is path#job@full-commit; empty disables preparation.
              Bounds apply to setup independently of the total run budget.
     """
 
@@ -395,8 +359,8 @@ class ExecutionConfig:
 @dataclass
 class LocalConfig:
     """
-    @brief   [local] - managed Pi under the current server account.
-    @details Optionally overrides PATH for project tools. Scope delegation is
+    [local] - managed Pi under the current server account.
+    Optionally overrides PATH for project tools. Scope delegation is
              configured by the server operator.
     """
 
@@ -407,8 +371,8 @@ class LocalConfig:
 @dataclass
 class ContainerConfig:
     """
-    @brief   [container] - execution isolation and parked-container TTL.
-    @details run_args are extra option tokens for `<runtime> run` (e.g.
+    [container] - execution isolation and parked-container TTL.
+    run_args are extra option tokens for `<runtime> run` (e.g.
              "--userns=keep-id" for rootless podman - live finding
              2026-07-04 - or resource limits like "--memory=2g").
              runtime_env is the non-secret environment injected into both
@@ -420,7 +384,7 @@ class ContainerConfig:
              selinux_relabel adds the SELinux relabel suffix ADORE's host bind
              mounts need on an enforcing host; see SELINUX_RELABEL_MODES for
              why only the shared label is offered.
-    @details `parked_state` was removed (review finding ADORE-ARCH-007): it
+    `parked_state` was removed (review finding ADORE-ARCH-007): it
              was validated but never consulted at runtime - `keep_parked` is
              the field parking actually reads - so a redundant, misleading
              twin was deleted rather than kept as permanent dead config.
@@ -446,8 +410,8 @@ class ContainerConfig:
 @dataclass
 class WorktreeConfig:
     """
-    @brief   [worktree] - local clone of the target repo and worktree root.
-    @details repo_path is the local clone that per-run worktrees are created
+    [worktree] - local clone of the target repo and worktree root.
+    repo_path is the local clone that per-run worktrees are created
              from; it is mounted (with the worktree) into the executor
              container. Required for the isolation layer. branch_template
              names the run branch ({slug}, {run_id}, {iid} placeholders) so
@@ -464,8 +428,8 @@ class WorktreeConfig:
 @dataclass
 class WorkflowConfig:
     """
-    @brief   [workflow] - new-job default and AEGIS task label mapping.
-    @details `mode` selects auto detection or Direct; manual choices take precedence.
+    [workflow] - new-job default and AEGIS task label mapping.
+    `mode` selects auto detection or Direct; manual choices take precedence.
              `kind_labels` maps a ticket label to an AEGIS task type; fix/bug
              labels win over change, then configured feature labels, with
              `default_kind` used when none match. The quick label is a framing
@@ -488,7 +452,7 @@ class WorkflowConfig:
 
 @dataclass
 class RecoveryConfig:
-    """@brief [recovery] - bounded stage and transient failure handling."""
+    """[recovery] - bounded stage and transient failure handling."""
 
     max_stage_failures: int = 3
     max_transient_retries: int = 3
@@ -498,8 +462,8 @@ class RecoveryConfig:
 @dataclass
 class BudgetsConfig:
     """
-    @brief   [budgets] - hard bounds so a run can never thrash forever.
-    @details `per_gate_timeout_seconds` bounds ONE executor launch (the
+    [budgets] - hard bounds so a run can never thrash forever.
+    `per_gate_timeout_seconds` bounds ONE executor launch (the
              wall-clock a single gate/fix relaunch may take);
              `max_wall_clock_seconds` bounds cumulative active work, excluding waits. They
              are independent knobs - a generous per-gate limit no longer forces
@@ -519,9 +483,7 @@ class BudgetsConfig:
 
 @dataclass
 class DeliveryConfig:
-    """
-    @brief   [delivery] - draft MR/PR boundary; never merges.
-    """
+    """[delivery] - draft MR/PR boundary; never merges."""
 
     target_branch: str = "develop"
     draft: bool = True
@@ -535,8 +497,8 @@ class DeliveryConfig:
 @dataclass
 class ReviewConfig:
     """
-    @brief   [review] - post-MR revise loop triggers and bounds.
-    @details `on_pipeline_failure` decides what a red forge pipeline on the
+    [review] - post-MR revise loop triggers and bounds.
+    `on_pipeline_failure` decides what a red forge pipeline on the
              published draft does. "revise" starts a governed repair round on
              the SAME bounded path the revise label uses, so the repair still
              follows the project publication approval policy;
@@ -552,9 +514,7 @@ class ReviewConfig:
 
 @dataclass
 class ReconcileConfig:
-    """
-    @brief   [reconcile] - reactions to external ticket changes.
-    """
+    """[reconcile] - reactions to external ticket changes."""
 
     on_ticket_deleted: str = "abort-cleanup"
     on_ticket_closed: str = "cancel"
@@ -563,9 +523,7 @@ class ReconcileConfig:
 
 @dataclass
 class MetricsConfig:
-    """
-    @brief   [metrics] - stdlib-only statistics capture.
-    """
+    """[metrics] - stdlib-only statistics capture."""
 
     enabled: bool = True
     db_path: str = ""
@@ -577,8 +535,8 @@ class MetricsConfig:
 @dataclass
 class Config:
     """
-    @brief   Parsed, typed ADORE configuration (one attribute per section).
-    @details Derived defaults (store_root, questions_file, metrics paths) are
+    Parsed, typed ADORE configuration (one attribute per section).
+    Derived defaults (store_root, questions_file, metrics paths) are
              resolved from the agent slug at load time. The raw mapping is kept
              for validation of unknown sections and for `adore config show`.
     """
@@ -607,8 +565,8 @@ class Config:
 
     def to_dict(self) -> dict[str, Any]:
         """
-        @brief   Resolved configuration as a plain nested mapping.
-        @return  Mapping suitable for JSON output (`adore config show`).
+        Resolved configuration as a plain nested mapping.
+        Returns: Mapping suitable for JSON output (`adore config show`).
         """
         result = {
             name: asdict(getattr(self, name))
@@ -637,17 +595,14 @@ class Config:
         return result
 
 
-# HELPER FUNCTIONS
-
-
 def _build_section(cls: type, data: Any) -> Any:
     """
-    @brief      Build one section dataclass from a raw mapping.
-    @details    Unknown keys are left out here and refused by validate_config;
+    Build one section dataclass from a raw mapping.
+    Unknown keys are left out here and refused by validate_config;
                 known keys override the documented defaults.
-    @param[in]  cls The section dataclass type.
-    @param[in]  data Raw mapping from tomllib (or anything else -> defaults).
-    @return     A populated section instance.
+    cls: The section dataclass type.
+    data: Raw mapping from tomllib (or anything else -> defaults).
+    Returns: A populated section instance.
     """
     if not isinstance(data, dict):
         return cls()
@@ -658,9 +613,9 @@ def _build_section(cls: type, data: Any) -> Any:
 
 def _build_labels(data: Any) -> LabelsConfig:
     """
-    @brief      Build the nested [labels.*] categories.
-    @param[in]  data Raw [labels] mapping.
-    @return     A populated LabelsConfig.
+    Build the nested [labels.*] categories.
+    data: Raw [labels] mapping.
+    Returns: A populated LabelsConfig.
     """
     if not isinstance(data, dict):
         return LabelsConfig()
@@ -673,11 +628,11 @@ def _build_labels(data: Any) -> LabelsConfig:
 
 def _build_executor(data: Any) -> ExecutorConfig:
     """
-    @brief      Build [executor] including [executor.endpoint] and [executor.web].
-    @details    A non-table endpoint or web value is left at its defaults and
+    Build [executor] including [executor.endpoint] and [executor.web].
+    A non-table endpoint or web value is left at its defaults and
                 refused by validate_config.
-    @param[in]  data Raw [executor] mapping.
-    @return     A populated ExecutorConfig.
+    data: Raw [executor] mapping.
+    Returns: A populated ExecutorConfig.
     """
     if not isinstance(data, dict):
         return ExecutorConfig()
@@ -690,9 +645,9 @@ def _build_executor(data: Any) -> ExecutorConfig:
 
 def _build_container(data: Any) -> ContainerConfig:
     """
-    @brief      Build [container] including the nested [container.egress].
-    @param[in]  data Raw [container] mapping.
-    @return     A populated ContainerConfig.
+    Build [container] including the nested [container.egress].
+    data: Raw [container] mapping.
+    Returns: A populated ContainerConfig.
     """
     if not isinstance(data, dict):
         return ContainerConfig()
@@ -702,13 +657,11 @@ def _build_container(data: Any) -> ContainerConfig:
     return section
 
 
-
-
 def _valid_hostname_pattern(value: str) -> bool:
     """
-    @brief      Check an egress allowlist hostname or leading wildcard.
-    @param[in]  value Hostname pattern, optionally starting with "*.".
-    @return     True when the pattern is syntactically safe.
+    Check an egress allowlist hostname or leading wildcard.
+    value: Hostname pattern, optionally starting with "*.".
+    Returns: True when the pattern is syntactically safe.
     """
     host = value[2:] if value.startswith("*.") else value
     if not host or len(host) > 253 or host.endswith(".") or "." not in host:
@@ -718,9 +671,9 @@ def _valid_hostname_pattern(value: str) -> bool:
 
 def _valid_no_proxy_entry(value: str) -> bool:
     """
-    @brief      Check a NO_PROXY entry accepted by ADORE config validation.
-    @param[in]  value Hostname, leading wildcard, localhost, or loopback IP.
-    @return     True when the value is syntactically safe.
+    Check a NO_PROXY entry accepted by ADORE config validation.
+    value: Hostname, leading wildcard, localhost, or loopback IP.
+    Returns: True when the value is syntactically safe.
     """
     if value in ("localhost", "127.0.0.1", "::1"):
         return True
@@ -729,12 +682,12 @@ def _valid_no_proxy_entry(value: str) -> bool:
 
 def _derive_names(config: Config) -> None:
     """
-    @brief      Resolve slug-derived defaults left empty in the file.
-    @details    slug <- lowercase agent name; email <- "<slug>-bot@local";
+    Resolve slug-derived defaults left empty in the file.
+    slug <- lowercase agent name; email <- "<slug>-bot@local";
                 store_root <- ".<slug>"; questions_file <-
                 "<SLUG>_QUESTIONS.md"; metrics paths under the store root.
                 Explicit values are never overridden.
-    @param[in,out] config The configuration to complete in place.
+    config: The configuration to complete in place.
     """
     if not config.agent.slug:
         config.agent.slug = (
@@ -756,15 +709,13 @@ def _derive_names(config: Config) -> None:
         config.metrics.html_out = f"{store}/metrics/stats.html"
 
 
-# PUBLIC API
-
-
 def requested_workflow(default: str, override: str | None = None) -> str:
-    """@brief Resolve a new job's trusted request before inspecting AEGIS.
-    @param[in] default Project mode: auto or direct.
-    @param[in] override Optional manual selection: aegis or direct.
-    @return The requested mode; auto still needs repository observation.
-    @exception ValueError Invalid project mode or manual selection.
+    """
+    Resolve a new job's trusted request before inspecting AEGIS.
+    default: Project mode: auto or direct.
+    override: Optional manual selection: aegis or direct.
+    Returns: The requested mode; auto still needs repository observation.
+    Raises ValueError: Invalid project mode or manual selection.
     """
     if default not in ("auto", "direct") or override not in (None, "aegis", "direct"):
         raise ValueError("invalid requested workflow")
@@ -773,10 +724,10 @@ def requested_workflow(default: str, override: str | None = None) -> str:
 
 def default_config() -> Config:
     """
-    @brief   ADORE's built-in configuration, as a file that sets nothing gets it.
-    @details Name-derived defaults are resolved from the default agent name
+    ADORE's built-in configuration, as a file that sets nothing gets it.
+    Name-derived defaults are resolved from the default agent name
              (slug `adore`, `.adore` state root and the paths under it).
-    @return  A new default configuration.
+    Returns: A new default configuration.
     """
     config = Config()
     _derive_names(config)
@@ -785,14 +736,14 @@ def default_config() -> Config:
 
 def load_config(path: str | Path) -> Config:
     """
-    @brief      Load configuration from a TOML file into typed sections.
-    @details    Missing keys take the documented defaults and unknown keys
+    Load configuration from a TOML file into typed sections.
+    Missing keys take the documented defaults and unknown keys
                 are left out, so `adore config validate` reports every problem,
                 unknown keys included, in one pass instead of dying on the first.
-    @param[in]  path Path to config.toml.
-    @return     Config with runtime-only absolute source_path metadata.
-    @exception  FileNotFoundError When the file does not exist.
-    @exception  tomllib.TOMLDecodeError When the file is not valid TOML.
+    path: Path to config.toml.
+    Returns: Config with runtime-only absolute source_path metadata.
+    Raises FileNotFoundError: When the file does not exist.
+    Raises tomllib.TOMLDecodeError: When the file is not valid TOML.
     """
     with Path(path).open("rb") as handle:
         raw = tomllib.load(handle)
@@ -825,9 +776,9 @@ def load_config(path: str | Path) -> Config:
 
 def valid_reviewers(value: object) -> bool:
     """
-    @brief Validate a list of forge account names before CLI submission; empty requests no review.
-    @param[in] value Human-authored reviewer list.
-    @return True for bounded names without whitespace, controls or option prefixes.
+    Validate a list of forge account names before CLI submission; empty requests no review.
+    value: Human-authored reviewer list.
+    Returns: True for bounded names without whitespace, controls or option prefixes.
     """
     return isinstance(value, list) and all(
         isinstance(name, str) and 1 <= len(name) <= 255 and not name.startswith("-")
@@ -839,14 +790,14 @@ def valid_reviewers(value: object) -> bool:
 def branch_naming_preview(template: str, rule: str, slug: str, *,
                           run_id: str = "sample-run-1", iid: int = 1) -> dict[str, Any]:
     """
-    @brief Render an example or actual job branch and check the optional Python regex.
-    @param[in] template Branch template using only slug, run_id and iid fields.
-    @param[in] rule Optional repository naming regex; empty disables this check.
-    @param[in] slug Effective agent slug from the selected configuration.
-    @param[in] run_id Actual identity for bounded admission checks; defaults to the example.
-    @param[in] iid Actual positive ticket identity; defaults to the example.
-    @return Explicit sample identity, name, match result and closed issue codes.
-    @note An example proves this identity only; it creates no branch or config.
+    Render an example or actual job branch and check the optional Python regex.
+    template: Branch template using only slug, run_id and iid fields.
+    rule: Optional repository naming regex; empty disables this check.
+    slug: Effective agent slug from the selected configuration.
+    run_id: Actual identity for bounded admission checks; defaults to the example.
+    iid: Actual positive ticket identity; defaults to the example.
+    Returns: Explicit sample identity, name, match result and closed issue codes.
+    Note: An example proves this identity only; it creates no branch or config.
           Regex execution is isolated and bounded to one second, failing closed.
     """
     result: dict[str, Any] = {"template": template, "rule": rule, "slug": slug,
@@ -914,12 +865,12 @@ def branch_naming_preview(template: str, rule: str, slug: str, *,
 
 def _unknown_key_issues(raw: dict) -> list[str]:
     """
-    @brief      Name every config.toml key this build does not read.
-    @details    There is no compatibility while ADORE is in development: a key
+    Name every config.toml key this build does not read.
+    There is no compatibility while ADORE is in development: a key
                 left by an earlier build is refused, not silently ignored.
                 [local] and [execution] are checked by their own validators.
-    @param[in]  raw Parsed config.toml mapping.
-    @return     One issue per unknown key, naming the key to remove.
+    raw: Parsed config.toml mapping.
+    Returns: One issue per unknown key, naming the key to remove.
     """
     issues: list[str] = []
 
@@ -969,13 +920,13 @@ def _unknown_key_issues(raw: dict) -> list[str]:
 
 def _chatgpt_issues(config: Config) -> list[str]:
     """
-    @brief      Refuse what a ChatGPT subscription cannot run.
-    @details    ADORE mints a ChatGPT access token before every stage through
+    Refuse what a ChatGPT subscription cannot run.
+    ADORE mints a ChatGPT access token before every stage through
                 the trusted helper and pinned Pi; the token
                 lasts about an hour and is not refreshed during a stage, so a
                 stage limit above MAX_STAGE_SECONDS is refused too.
-    @param[in]  config Loaded configuration with `provider = "chatgpt"`.
-    @return     One issue per problem, naming the key.
+    config: Loaded configuration with `provider = "chatgpt"`.
+    Returns: One issue per problem, naming the key.
     """
     issues: list[str] = []
     overrides = config.workflow.stage_timeout_overrides
@@ -990,15 +941,15 @@ def _chatgpt_issues(config: Config) -> list[str]:
 
 def _provider_issues(config: Config) -> list[str]:
     """
-    @brief      Validate [executor] provider, model and [executor.endpoint].
-    @details    The provider is a Pi API-key provider from the shipped catalog,
+    Validate [executor] provider, model and [executor.endpoint].
+    The provider is a Pi API-key provider from the shipped catalog,
                 `chatgpt` or `custom`; [executor.endpoint] is present exactly
                 for `custom`, with an http(s) base URL that carries no user
                 info, query or fragment (a key is a credential, never a URL
                 part) and a supported Pi API type. A local run cannot use an
                 endpoint: it has no ADORE-owned agent directory for models.json.
-    @param[in]  config Loaded configuration (with its raw mapping).
-    @return     One issue per problem, naming the key.
+    config: Loaded configuration (with its raw mapping).
+    Returns: One issue per problem, naming the key.
     """
     executor = config.executor
     issues: list[str] = []
@@ -1053,14 +1004,14 @@ def _provider_issues(config: Config) -> list[str]:
 
 def egress_policy(config: Config) -> EgressPolicy:
     """
-    @brief      The network access of the project's executor containers.
-    @details    Internet off: the per-run allowlist proxy admitting the
+    The network access of the project's executor containers.
+    Internet off: the per-run allowlist proxy admitting the
                 provider's hosts (`provider_hosts`) and `[container.egress]
                 allowlist`, deduplicated and sorted. Internet on: open egress.
                 Used for every stage container and the Test AI connection; a
                 local run is not restricted by it.
-    @param[in]  config Validated configuration.
-    @return     The derived EgressPolicy.
+    config: Validated configuration.
+    Returns: The derived EgressPolicy.
     """
     egress = config.container.egress
     if config.executor.internet is True:
@@ -1075,9 +1026,9 @@ def egress_policy(config: Config) -> EgressPolicy:
 
 def validate_budgets(config: Config) -> list[str]:
     """
-    @brief Validate only the closed budget table and its provider timeout bound.
-    @param[in] config Typed configuration; other settings are separately validated/pinned.
-    @return Human-readable issues, without subprocesses or host/runtime checks.
+    Validate only the closed budget table and its provider timeout bound.
+    config: Typed configuration; other settings are separately validated/pinned.
+    Returns: Human-readable issues, without subprocesses or host/runtime checks.
     """
     issues = []
     raw = config.raw.get("budgets", {})
@@ -1107,13 +1058,13 @@ def validate_budgets(config: Config) -> list[str]:
 
 def validate_config(config: Config) -> list[str]:
     """
-    @brief      Validate a Config and return a list of human-readable issues.
-    @details    Structural and cross-field checks per Configuration_Reference:
+    Validate a Config and return a list of human-readable issues.
+    Structural and cross-field checks per Configuration_Reference:
                 enum values, positive bounds, parseable durations, and a
                 Pi model and launch template. Run at startup so typos
                 are caught before the poll loop starts.
-    @param[in]  config The configuration to validate.
-    @return     Empty list when valid; otherwise one message per issue.
+    config: The configuration to validate.
+    Returns: Empty list when valid; otherwise one message per issue.
     """
     issues: list[str] = []
 
@@ -1602,6 +1553,3 @@ def validate_config(config: Config) -> list[str]:
         check(bool(config.metrics.db_path.strip()), "[metrics] db_path is required when enabled")
 
     return issues
-
-
-# END OF FILE

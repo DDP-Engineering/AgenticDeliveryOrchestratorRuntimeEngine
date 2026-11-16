@@ -58,3 +58,9 @@ Choisissez **Appliquer les filtres** ; cela revient à la première page. La pag
 Chaque ligne affiche **Qui**, **Quoi**, **Quand** et **Résultat** : **Préparé**, **Appliqué**, **Abandonné**, **Refusé** ou **Incertain**. Préparé signifie qu’un candidat a été préparé, pas appliqué. **Incertain** signifie que l’hôte n’a pas pu confirmer l’achèvement ; examinez la ressource réelle avant de rétablir la situation. **Preuve** ouvre une ligne sous l’événement avec **Avant**, **Après / candidat**, l’**Opération**, ainsi que la **Révision de base** et la **Révision candidate** lorsqu’elles sont enregistrées. **Valeur précédente non enregistrée** signifie inconnue, pas vide. Les mots de passe et les valeurs d’environnement ne sont jamais affichés.
 
 L’historique des changements est conservé indéfiniment, sauf si vous définissez des limites sous [État du système](#system-status). L’historique des changements ne peut être ni téléchargé ni exporté. Un Dev ne voit les changements opérationnels que pour les projets attribués ; les événements de compte, d’accès, de tarif et de politique restent réservés aux administrateurs.
+
+## Capacité de stockage {#storage-capacity}
+
+L’état du stockage et les capacités libre/totale mesurées sont regroupés sous les workers. Un volume physique partagé est affiché une seule fois ; les volumes distincts figurent dans le tableau.
+
+La rétention d’audit limite les événements administratifs. L’historique des travaux n’expire pas automatiquement ; sa suppression est une action distincte.

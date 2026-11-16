@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_errors.py
-@brief Web API error-body contract tests.
-@details Every rejected request carries a stable snake_case code that the
-         browser can localize, with diagnostics kept in an optional message.
-"""
+"""Web API error-body contract tests."""
 
-# IMPORTS
 import re
 
 from adore.profiles import ProfileStore
@@ -23,18 +8,16 @@ from adore.web.store import WebStoreError
 
 from tests.configuration_client import TestClient
 
-# CONSTANTS
 _CODE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
-# LOCAL HELPERS
 def _admin(client: TestClient) -> dict:
     login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
     return {"X-CSRF-Token": login.json()["csrf"]}
 
 
 def _code(response, status: int, code: str) -> dict:
-    """@brief Assert one error response and return its detail object."""
+    """Assert one error response and return its detail object."""
     assert response.status_code == status, response.text
     detail = response.json()["detail"]
     assert isinstance(detail, dict) and _CODE.fullmatch(detail["code"])
@@ -51,7 +34,7 @@ def _code(response, status: int, code: str) -> dict:
 
 # TESTS
 def test_account_failures_return_stable_codes(tmp_path):
-    """@brief Account-store sentences become identifiers with unchanged statuses."""
+    """Account-store sentences become identifiers with unchanged statuses."""
     app = create_app(tmp_path / "home")
     with TestClient(app) as client:
         headers = _admin(client)
@@ -81,7 +64,7 @@ def test_account_failures_return_stable_codes(tmp_path):
 
 
 def test_request_validation_returns_invalid_request_with_field_reasons(tmp_path):
-    """@brief Body validation failures name fields without echoing input values."""
+    """Body validation failures name fields without echoing input values."""
     app = create_app(tmp_path / "home")
     with TestClient(app) as client:
         headers = _admin(client)
@@ -92,7 +75,7 @@ def test_request_validation_returns_invalid_request_with_field_reasons(tmp_path)
 
 
 def test_unknown_api_routes_return_coded_errors(tmp_path):
-    """@brief API paths never fall through to the browser application shell."""
+    """API paths never fall through to the browser application shell."""
     app = create_app(tmp_path / "home")
     with TestClient(app) as client:
         _admin(client)
@@ -102,7 +85,7 @@ def test_unknown_api_routes_return_coded_errors(tmp_path):
 
 
 def test_price_and_operation_conflicts_return_stable_codes(tmp_path):
-    """@brief Price and queue store conflicts keep 409 with identifiers."""
+    """Price and queue store conflicts keep 409 with identifiers."""
     home = tmp_path / "home"
     ProfileStore(home).create("alpha")
     app = create_app(home)
@@ -122,7 +105,7 @@ def test_price_and_operation_conflicts_return_stable_codes(tmp_path):
 
 
 def test_project_setup_failure_keeps_diagnostic_in_message(tmp_path):
-    """@brief Wizard explanations survive beside a stable creation code."""
+    """Wizard explanations survive beside a stable creation code."""
     app = create_app(tmp_path / "home")
     with TestClient(app) as client:
         headers = _admin(client)
@@ -133,7 +116,7 @@ def test_project_setup_failure_keeps_diagnostic_in_message(tmp_path):
 
 
 def test_unmapped_store_failure_returns_request_rejected(tmp_path, monkeypatch):
-    """@brief An unexpected store sentence is never used as a code."""
+    """An unexpected store sentence is never used as a code."""
     app = create_app(tmp_path / "home")
 
     def odd_failure(_user_id: int, *, actor_id: int | None = None) -> None:
@@ -145,6 +128,3 @@ def test_unmapped_store_failure_returns_request_rejected(tmp_path, monkeypatch):
         detail = _code(client.post("/api/v1/users/1/enable", headers=headers),
                        404, "request_rejected")
         assert detail["message"] == "odd store failure"
-
-
-# END OF FILE

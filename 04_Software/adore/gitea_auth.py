@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    gitea_auth.py
-@brief   Portable current-account tea authentication discovery and recovery.
-@details Reads bounded CLI metadata and config-file presence, never credential
-         contents. Scoped credentials remain the repository_auth boundary.
-"""
+"""Portable current-account tea authentication discovery and recovery."""
 
 from __future__ import annotations
 
-# IMPORTS
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -28,7 +13,6 @@ from urllib.parse import urlsplit
 from adore.forge.base import ForgeError
 from adore.util import DEFAULT_COMMAND_TIMEOUT, CommandRunner, run_command, strict_json_loads
 
-# CONSTANTS
 _NAME = re.compile(r"[A-Za-z0-9_.-]{1,128}")
 _MAX_METADATA = 1048576
 _GUIDANCE = (
@@ -36,21 +20,19 @@ _GUIDANCE = (
     "then Verify and connect and Check host prerequisites."
 )
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 class GiteaAuthError(ForgeError):
-    """@brief Closed authentication cause with value-free operator recovery guidance."""
+    """Closed authentication cause with value-free operator recovery guidance."""
 
     def __init__(self, code: str):
-        """@brief Preserve a safe code independently of external CLI output."""
+        """Preserve a safe code independently of external CLI output."""
         super().__init__(f"{code}: {_GUIDANCE}")
         self.code = code
 
 
 @dataclass(frozen=True)
 class TeaLogin:
-    """@brief Non-secret CLI metadata; token and unknown fields are discarded."""
+    """Non-secret CLI metadata; token and unknown fields are discarded."""
 
     name: str
     url: str
@@ -58,11 +40,8 @@ class TeaLogin:
     ssh_host: str = ""
 
 
-# LOCAL HELPERS
-
-
 def _metadata(text: str) -> list[TeaLogin]:
-    """@brief Reject ambiguous metadata before interpreting any authentication choice."""
+    """Reject ambiguous metadata before interpreting any authentication choice."""
     try:
         if len(text.encode("utf-8")) > _MAX_METADATA:
             raise ValueError
@@ -110,7 +89,7 @@ def _metadata(text: str) -> list[TeaLogin]:
 
 
 def _roots(env: dict[str, str]) -> list[Path]:
-    """@brief Enumerate standard absolute account roots only; no application caches."""
+    """Enumerate standard absolute account roots only; no application caches."""
     windows = platform.system() == "Windows"
     home = env.get("USERPROFILE" if windows else "HOME")
     candidates = [env.get("LOCALAPPDATA"), env.get("APPDATA")] if windows else []
@@ -127,7 +106,7 @@ def _roots(env: dict[str, str]) -> list[Path]:
 
 
 def _missing(result, login: str) -> bool:
-    """@brief Recognize only exact CLI errors proving no HTTP operation occurred."""
+    """Recognize only exact CLI errors proving no HTTP operation occurred."""
     return (
         result.exit_code == 1
         and not result.timed_out
@@ -140,9 +119,6 @@ def _missing(result, login: str) -> bool:
     )
 
 
-# PUBLIC API
-
-
 def discover_tea_logins(
     runner: CommandRunner = run_command,
     *,
@@ -150,12 +126,12 @@ def discover_tea_logins(
     timeout: float = 8,
 ) -> tuple[list[TeaLogin], dict[str, str]]:
     """
-    @brief      Discover current-account metadata within one bounded CLI budget.
-    @param[in]  runner Injected CLI boundary.
-    @param[in]  env Optional authoritative replacement environment.
-    @param[in]  timeout Total discovery budget, capped at eight seconds.
-    @return     Safe metadata and its child-only environment.
-    @exception  GiteaAuthError Unavailable or malformed external metadata.
+    Discover current-account metadata within one bounded CLI budget.
+    runner: Injected CLI boundary.
+    env: Optional authoritative replacement environment.
+    timeout: Total discovery budget, capped at eight seconds.
+    Returns: Safe metadata and its child-only environment.
+    Raises GiteaAuthError: Unavailable or malformed external metadata.
     """
     source = dict(os.environ if env is None else env)
     # Normalize case because Windows environment lookup is case-insensitive.
@@ -189,15 +165,15 @@ def discover_tea_logins(
 
 def portable_tea_runner(runner: CommandRunner, *, login: str = "") -> CommandRunner:
     """
-    @brief      Recover external tea API commands from pre-HTTP missing-login errors.
-    @param[in]  runner Unscoped command boundary; protected credentials bypass this helper.
-    @param[in]  login Configured authoritative login name, or default/sole selection.
-    @return     Runner preserving successful, non-tea and HTTP-failed operations.
-    @exception  GiteaAuthError Missing, ambiguous or invalid metadata; no unsafe fallback.
+    Recover external tea API commands from pre-HTTP missing-login errors.
+    runner: Unscoped command boundary; protected credentials bypass this helper.
+    login: Configured authoritative login name, or default/sole selection.
+    Returns: Runner preserving successful, non-tea and HTTP-failed operations.
+    Raises GiteaAuthError: Missing, ambiguous or invalid metadata; no unsafe fallback.
     """
 
     def external(argv, *, cwd=None, timeout=None, env=None):
-        """@brief Retry the same API operation once, retaining a finite total bound."""
+        """Retry the same API operation once, retaining a finite total bound."""
         if list(argv[:2]) != ["tea", "api"]:
             return runner(argv, cwd=cwd, timeout=timeout, env=env)
         limit = DEFAULT_COMMAND_TIMEOUT if timeout is None else timeout
@@ -243,6 +219,3 @@ def portable_tea_runner(runner: CommandRunner, *, login: str = "") -> CommandRun
         return result
 
     return external
-
-
-# END OF FILE

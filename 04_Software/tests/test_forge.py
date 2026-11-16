@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_forge.py
-@brief Tests for the GitLab/GitHub/Gitea adapters using a fake command runner.
-@details No real glab/gh/tea is invoked; the fake runner records every argv and
-         returns canned CLI output, so both the command construction and the
-         output parsing are verified offline.
-"""
+"""Tests for the GitLab/GitHub/Gitea adapters using a fake command runner."""
 
 from __future__ import annotations
 
-# IMPORTS
 import json
 from pathlib import Path
 
@@ -25,18 +9,14 @@ from adore.forge import ForgeError, GiteaForge, GitHubForge, GitLabForge, build_
 from adore.util import CommandResult
 import pytest
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 class FakeRunner:
-    """
-    @brief   Command runner double: records argv, replays canned results.
-    """
+    """Command runner double: records argv, replays canned results."""
 
     def __init__(self, *results: CommandResult) -> None:
         """
-        @brief      Queue the results to replay in order.
-        @param[in]  results CommandResults returned call by call.
+        Queue the results to replay in order.
+        results: CommandResults returned call by call.
         """
         self.results = list(results)
         self.calls: list[list[str]] = []
@@ -51,38 +31,35 @@ class FakeRunner:
         env: dict[str, str] | None = None,
     ) -> CommandResult:
         """
-        @brief      Record the call (argv + cwd) and pop the next result.
-        @param[in]  argv Command vector.
-        @param[in]  cwd Recorded (MR creation needs a git checkout).
-        @param[in]  timeout Ignored.
-        @param[in]  env Ignored.
-        @return     The next queued CommandResult.
+        Record the call (argv + cwd) and pop the next result.
+        argv: Command vector.
+        cwd: Recorded (MR creation needs a git checkout).
+        timeout: Ignored.
+        env: Ignored.
+        Returns: The next queued CommandResult.
         """
         self.calls.append([str(part) for part in argv])
         self.cwds.append(str(cwd) if cwd is not None else None)
         return self.results.pop(0)
 
 
-# HELPER FUNCTIONS
-
-
 def _ok(stdout: str = "") -> CommandResult:
     """
-    @brief      A successful canned result.
-    @param[in]  stdout Canned stdout.
-    @return     CommandResult with exit code 0.
+    A successful canned result.
+    stdout: Canned stdout.
+    Returns: CommandResult with exit code 0.
     """
     return CommandResult(exit_code=0, stdout=stdout)
 
 
 def _api_ok(stdout: str = "", status: int = 200, headers: str = "") -> CommandResult:
     """
-    @brief      A canned `tea api -i` result: body on stdout, status+headers
+    A canned `tea api -i` result: body on stdout, status+headers
                 on stderr, ALWAYS exit 0 (tea does not fail on HTTP errors).
-    @param[in]  stdout Canned response body.
-    @param[in]  status HTTP status code for the stderr status line.
-    @param[in]  headers Extra header lines for stderr (e.g. X-Total-Count).
-    @return     CommandResult mimicking tea api -i.
+    stdout: Canned response body.
+    status: HTTP status code for the stderr status line.
+    headers: Extra header lines for stderr (e.g. X-Total-Count).
+    Returns: CommandResult mimicking tea api -i.
     """
     stderr = f"HTTP/1.1 {status} X\n{headers}"
     return CommandResult(exit_code=0, stdout=stdout, stderr=stderr)
@@ -90,10 +67,10 @@ def _api_ok(stdout: str = "", status: int = 200, headers: str = "") -> CommandRe
 
 def _fail(stderr: str, exit_code: int = 1) -> CommandResult:
     """
-    @brief      A failing canned result.
-    @param[in]  stderr Canned stderr.
-    @param[in]  exit_code Non-zero exit code.
-    @return     The failing CommandResult.
+    A failing canned result.
+    stderr: Canned stderr.
+    exit_code: Non-zero exit code.
+    Returns: The failing CommandResult.
     """
     return CommandResult(exit_code=exit_code, stderr=stderr)
 
@@ -103,7 +80,7 @@ def _fail(stderr: str, exit_code: int = 1) -> CommandResult:
 
 @pytest.mark.parametrize("kind", ["github", "gitlab", "gitea"])
 def test_update_merge_request_body_changes_only_description(kind):
-    """@brief Direct candidate evidence replaces only the description through the injected CLI."""
+    """Direct candidate evidence replaces only the description through the injected CLI."""
     body = "Résumé ${literal} {x}\nVerification: not configured. This candidate is unverified."
     runner = FakeRunner(_api_ok("{}") if kind == "gitea" else _ok("{}"))
     forge = build_forge(kind, "grp/sub", runner=runner, **({"login": "home"}
@@ -123,7 +100,7 @@ def test_update_merge_request_body_changes_only_description(kind):
 @pytest.mark.parametrize("kind", ["github", "gitlab", "gitea"])
 @pytest.mark.parametrize("failure", ["exit", "timeout"])
 def test_update_merge_request_body_refuses_cli_failures(kind, failure):
-    """@brief Failed or timed-out description writes cannot acknowledge publication."""
+    """Failed or timed-out description writes cannot acknowledge publication."""
     result = (CommandResult(exit_code=0, timed_out=True, stderr="HTTP/1.1 200 OK\n")
               if failure == "timeout" else _fail("write refused"))
     forge = build_forge(kind, "owner/repo", runner=FakeRunner(result))
@@ -137,7 +114,7 @@ def test_update_merge_request_body_refuses_cli_failures(kind, failure):
     _ok("{}"),
 ])
 def test_gitea_update_merge_request_body_requires_http_success(result):
-    """@brief Only final 2xx acknowledges a description PATCH, regardless of tea's exit."""
+    """Only final 2xx acknowledges a description PATCH, regardless of tea's exit."""
     forge = GiteaForge("owner/repo", FakeRunner(result))
     with pytest.raises(ForgeError):
         forge.update_merge_request_body(17, "Candidate summary")
@@ -146,7 +123,7 @@ def test_gitea_update_merge_request_body_requires_http_success(result):
 @pytest.mark.parametrize("status", [200, 204, 299])
 @pytest.mark.parametrize("preamble", ["", "HTTP/1.1 100 Continue\nHTTP/2 302 Found\n"])
 def test_gitea_update_merge_request_body_accepts_final_2xx(status, preamble):
-    """@brief Final 2xx acknowledges the write even after informational/redirect preambles."""
+    """Final 2xx acknowledges the write even after informational/redirect preambles."""
     runner = FakeRunner(CommandResult(exit_code=0, stderr=f"{preamble}HTTP/2 {status} OK\n"))
     GiteaForge("owner/repo", runner).update_merge_request_body(17, "Candidate summary")
     assert len(runner.calls) == 1
@@ -157,7 +134,7 @@ def test_gitea_update_merge_request_body_accepts_final_2xx(status, preamble):
 
 def test_build_forge_selects_adapter() -> None:
     """
-    @brief   The factory maps kind to the right adapter, wires the gitea
+    The factory maps kind to the right adapter, wires the gitea
              login through, and rejects unknown kinds and a login on a
              platform that has no login concept.
     """
@@ -176,9 +153,7 @@ def test_build_forge_selects_adapter() -> None:
 
 
 def test_gitlab_list_ready_maps_json() -> None:
-    """
-    @brief   glab issue list JSON maps to normalized Tickets.
-    """
+    """glab issue list JSON maps to normalized Tickets."""
     payload = json.dumps(
         [
             {
@@ -211,9 +186,7 @@ def test_gitlab_list_ready_maps_json() -> None:
 
 
 def test_gitlab_get_ticket_returns_none_on_404() -> None:
-    """
-    @brief   A deleted ticket yields None; other failures raise ForgeError.
-    """
+    """A deleted ticket yields None; other failures raise ForgeError."""
     forge = GitLabForge("g/p", FakeRunner(_fail("404 Not Found")))
     assert forge.get_ticket(99) is None
     forge = GitLabForge("g/p", FakeRunner(_fail("connection refused")))
@@ -222,9 +195,7 @@ def test_gitlab_get_ticket_returns_none_on_404() -> None:
 
 
 def test_gitlab_post_comment_parses_note_id() -> None:
-    """
-    @brief   The note id comes from the "#note_<id>" URL glab prints.
-    """
+    """The note id comes from the "#note_<id>" URL glab prints."""
     runner = FakeRunner(_ok("https://gitlab.example/grp/proj/-/issues/14#note_9876\n"))
     note_id = GitLabForge("grp/proj", runner).post_comment(14, "[ADORE] hello")
     assert note_id == 9876
@@ -234,9 +205,7 @@ def test_gitlab_post_comment_parses_note_id() -> None:
 
 
 def test_gitlab_post_comment_falls_back_to_note_list() -> None:
-    """
-    @brief   When glab prints no URL, the id is recovered from the notes API.
-    """
+    """When glab prints no URL, the id is recovered from the notes API."""
     notes = json.dumps(
         [
             {"id": 1, "body": "older", "author": {"username": "x"}, "system": False},
@@ -249,7 +218,7 @@ def test_gitlab_post_comment_falls_back_to_note_list() -> None:
 
 def test_gitlab_edit_comment_uses_api_put() -> None:
     """
-    @brief   Note editing is `glab api --method PUT` with the encoded project
+    Note editing is `glab api --method PUT` with the encoded project
              path (glab has no note-edit subcommand; prereq report section 4)
              and the body as --raw-field (guaranteed string, no type
              inference).
@@ -265,9 +234,7 @@ def test_gitlab_edit_comment_uses_api_put() -> None:
 
 
 def test_gitlab_list_comments_flags_system_notes() -> None:
-    """
-    @brief   System notes are flagged so resume detection can skip them.
-    """
+    """System notes are flagged so resume detection can skip them."""
     notes = json.dumps(
         [
             {
@@ -292,7 +259,7 @@ def test_gitlab_list_comments_flags_system_notes() -> None:
 
 def test_gitlab_labels_and_mr() -> None:
     """
-    @brief   Label updates use --label/--unlabel; MR creation is draft with
+    Label updates use --label/--unlabel; MR creation is draft with
              reviewers and prints back the URL.
     """
     runner = FakeRunner(_ok(), _ok(), _ok("https://gitlab.example/g/p/-/merge_requests/7\n"))
@@ -319,9 +286,7 @@ def test_gitlab_labels_and_mr() -> None:
 
 
 def test_github_list_ready_maps_json() -> None:
-    """
-    @brief   gh issue list JSON (label objects, OPEN state) is normalized.
-    """
+    """gh issue list JSON (label objects, OPEN state) is normalized."""
     payload = json.dumps(
         [
             {
@@ -347,7 +312,7 @@ def test_github_list_ready_maps_json() -> None:
 
 def test_github_post_and_edit_comment() -> None:
     """
-    @brief   Comment id parses from the issuecomment URL; edits go through
+    Comment id parses from the issuecomment URL; edits go through
              the REST API with PATCH and a --raw-field string body.
     """
     runner = FakeRunner(
@@ -365,9 +330,7 @@ def test_github_post_and_edit_comment() -> None:
 
 
 def test_github_open_pr_draft() -> None:
-    """
-    @brief   PR creation is draft with head/base and returns the URL.
-    """
+    """PR creation is draft with head/base and returns the URL."""
     runner = FakeRunner(_ok("https://github.com/o/r/pull/12\n"))
     url = GitHubForge("o/r", runner).open_merge_request(
         "adore/run-3", "develop", "Draft: fix", "body", reviewers=["octo"]
@@ -385,7 +348,7 @@ def test_github_open_pr_draft() -> None:
     (GitLabForge, "https://gitlab.com/o/r/-/merge_requests/12"),
 ])
 def test_ready_review_omits_draft_flag(forge_type, url: str) -> None:
-    """@brief Ready review creation keeps head/base and omits the draft switch."""
+    """Ready review creation keeps head/base and omits the draft switch."""
     runner = FakeRunner(_ok(url + "\n"))
     assert forge_type("o/r", runner).open_merge_request(
         "adore/run-3", "develop", "fix", "body", draft=False
@@ -395,16 +358,14 @@ def test_ready_review_omits_draft_flag(forge_type, url: str) -> None:
 
 
 def test_github_get_ticket_not_found() -> None:
-    """
-    @brief   gh "could not resolve" failures map to None.
-    """
+    """gh "could not resolve" failures map to None."""
     forge = GitHubForge("o/r", FakeRunner(_fail("could not resolve to an Issue")))
     assert forge.get_ticket(404) is None
 
 
 def test_github_get_pr_requests_and_maps_labels() -> None:
     """
-    @brief   `get_merge_request` requests the labels field AND maps GitHub's
+    `get_merge_request` requests the labels field AND maps GitHub's
              label objects to plain names - so the revise-label trigger sees
              them. gh returns only the fields named in --json, so a missing
              `labels` field would silently yield an empty label list.
@@ -431,17 +392,13 @@ def test_github_get_pr_requests_and_maps_labels() -> None:
 
 
 def test_github_get_pr_not_found() -> None:
-    """
-    @brief   A missing PR (404) maps to None rather than raising.
-    """
+    """A missing PR (404) maps to None rather than raising."""
     forge = GitHubForge("o/r", FakeRunner(_fail("could not resolve to a PullRequest")))
     assert forge.get_merge_request(404) is None
 
 
 def test_forge_error_carries_context() -> None:
-    """
-    @brief   ForgeError includes the command and stderr for the journal.
-    """
+    """ForgeError includes the command and stderr for the journal."""
     forge = GitLabForge("g/p", FakeRunner(_fail("rate limited", exit_code=4)))
     with pytest.raises(ForgeError) as excinfo:
         forge.list_ready("agent-ready")
@@ -454,7 +411,7 @@ def test_forge_error_carries_context() -> None:
 
 def test_gitlab_invalid_json_raises_forge_error() -> None:
     """
-    @brief   Non-JSON CLI output (HTML error page, warning text) raises
+    Non-JSON CLI output (HTML error page, warning text) raises
              ForgeError instead of crashing or returning garbage.
     """
     forge = GitLabForge("g/p", FakeRunner(_ok("WARNING: something\nnot json")))
@@ -463,24 +420,20 @@ def test_gitlab_invalid_json_raises_forge_error() -> None:
 
 
 def test_gitlab_unexpected_json_shape_raises() -> None:
-    """
-    @brief   Valid JSON of the wrong top-level shape is rejected.
-    """
+    """Valid JSON of the wrong top-level shape is rejected."""
     forge = GitLabForge("g/p", FakeRunner(_ok('{"iid": 1}')))
     with pytest.raises(ForgeError):
         forge.list_ready("agent-ready")
 
 
 def test_gitlab_empty_ready_list_is_not_an_error() -> None:
-    """
-    @brief   No eligible tickets is a normal outcome, not a failure.
-    """
+    """No eligible tickets is a normal outcome, not a failure."""
     assert GitLabForge("g/p", FakeRunner(_ok("[]"))).list_ready("agent-ready") == []
 
 
 def test_gitlab_mr_create_without_url_raises() -> None:
     """
-    @brief   `glab mr create` succeeding without printing an MR URL fails
+    `glab mr create` succeeding without printing an MR URL fails
              closed (the orchestrator must never guess the MR address).
     """
     forge = GitLabForge("g/p", FakeRunner(_ok("something changed, no url printed")))
@@ -490,7 +443,7 @@ def test_gitlab_mr_create_without_url_raises() -> None:
 
 def test_gitlab_post_comment_id_unrecoverable_raises() -> None:
     """
-    @brief   When neither the URL nor the notes fallback yields the note id,
+    When neither the URL nor the notes fallback yields the note id,
              posting fails closed (the id is required for idempotency).
     """
     runner = FakeRunner(_ok("no url in output"), _ok("[]"))
@@ -499,18 +452,14 @@ def test_gitlab_post_comment_id_unrecoverable_raises() -> None:
 
 
 def test_github_invalid_json_raises_forge_error() -> None:
-    """
-    @brief   Non-JSON gh output raises ForgeError.
-    """
+    """Non-JSON gh output raises ForgeError."""
     forge = GitHubForge("o/r", FakeRunner(_ok("<html>rate limited</html>")))
     with pytest.raises(ForgeError):
         forge.list_ready("agent-ready")
 
 
 def test_github_pr_create_without_url_raises() -> None:
-    """
-    @brief   `gh pr create` succeeding with empty output fails closed.
-    """
+    """`gh pr create` succeeding with empty output fails closed."""
     forge = GitHubForge("o/r", FakeRunner(_ok("")))
     with pytest.raises(ForgeError):
         forge.open_merge_request("s", "develop", "Draft: t", "b")
@@ -521,7 +470,7 @@ def test_github_pr_create_without_url_raises() -> None:
 
 def test_gitea_repo_must_be_owner_repo() -> None:
     """
-    @brief   Gitea has no subgroups: anything but OWNER/REPO fails closed at
+    Gitea has no subgroups: anything but OWNER/REPO fails closed at
              construction, before it can build malformed API endpoints.
     """
     with pytest.raises(ValueError):
@@ -532,7 +481,7 @@ def test_gitea_repo_must_be_owner_repo() -> None:
 
 def test_gitea_list_ready_maps_rest_json() -> None:
     """
-    @brief   The issues REST payload is normalized: number to iid, label
+    The issues REST payload is normalized: number to iid, label
              objects to names, user.login (never the display name), state
              open -> opened. The argv must filter type=issues (the endpoint
              returns PRs too), carry --login, and never start the endpoint
@@ -577,7 +526,7 @@ def test_gitea_list_ready_maps_rest_json() -> None:
 
 def test_gitea_list_ready_paginates_by_total_count() -> None:
     """
-    @brief   Pagination follows X-Total-Count: a SHORT page must not stop the
+    Pagination follows X-Total-Count: a SHORT page must not stop the
              walk when the server clamps pages below the requested size
              (MAX_RESPONSE_ITEMS), and the pool is complete when the count is
              reached.
@@ -598,7 +547,7 @@ def test_gitea_list_ready_paginates_by_total_count() -> None:
 
 def test_gitea_list_ready_post_filters_unknown_label() -> None:
     """
-    @brief   When the filter label does not exist in the repository, Gitea
+    When the filter label does not exist in the repository, Gitea
              silently DROPS the labels= filter and returns every open issue
              (live finding, 1.25.4) - the adapter must post-filter so a typo'd
              ready label cannot select the entire backlog.
@@ -616,7 +565,7 @@ def test_gitea_list_ready_post_filters_unknown_label() -> None:
 
 def test_gitea_list_ready_short_page_stops_without_total_count() -> None:
     """
-    @brief   Without the X-Total-Count header a short page ends the walk; an
+    Without the X-Total-Count header a short page ends the walk; an
              empty page ends it even when a (lying) header promises more.
     """
     runner = FakeRunner(
@@ -631,7 +580,7 @@ def test_gitea_list_ready_short_page_stops_without_total_count() -> None:
 
 def test_gitea_http_error_despite_exit_zero() -> None:
     """
-    @brief   tea api exits 0 even on HTTP errors (verified live on tea 0.15),
+    tea api exits 0 even on HTTP errors (verified live on tea 0.15),
              so the adapter must read the status line itself: 404 maps to None
              where the contract allows, any other >= 400 raises, and a missing
              status line fails closed.
@@ -650,7 +599,7 @@ def test_gitea_http_error_despite_exit_zero() -> None:
 
 def test_gitea_tea_failure_carries_context() -> None:
     """
-    @brief   A tea-level failure (no login, network down) raises ForgeError
+    A tea-level failure (no login, network down) raises ForgeError
              with the argv and stderr for the journal.
     """
     forge = GiteaForge("o/r", FakeRunner(_fail("Error: no login found")))
@@ -662,7 +611,7 @@ def test_gitea_tea_failure_carries_context() -> None:
 
 def test_gitea_invalid_json_and_wrong_shape_raise() -> None:
     """
-    @brief   A 200 with a non-JSON body (proxy page) or the wrong JSON shape
+    A 200 with a non-JSON body (proxy page) or the wrong JSON shape
              is rejected instead of parsed into garbage.
     """
     with pytest.raises(ForgeError):
@@ -673,7 +622,7 @@ def test_gitea_invalid_json_and_wrong_shape_raise() -> None:
 
 def test_gitea_list_comments_maps_and_never_flags_system() -> None:
     """
-    @brief   Comments map id/body/user.login/created_at; Gitea keeps system
+    Comments map id/body/user.login/created_at; Gitea keeps system
              events out of this endpoint, so system is always False.
     """
     payload = json.dumps(
@@ -693,7 +642,7 @@ def test_gitea_list_comments_maps_and_never_flags_system() -> None:
 
 def test_gitea_post_comment_id_from_response_json() -> None:
     """
-    @brief   The created comment id comes from the POST response JSON (no URL
+    The created comment id comes from the POST response JSON (no URL
              scraping); a response without an id fails closed - the id is
              required for idempotency.
     """
@@ -709,7 +658,7 @@ def test_gitea_post_comment_id_from_response_json() -> None:
 
 def test_gitea_edit_comment_patches_repo_global_id() -> None:
     """
-    @brief   Comment edits PATCH the repo-global comment id with a
+    Comment edits PATCH the repo-global comment id with a
              guaranteed-string --field body.
     """
     runner = FakeRunner(_api_ok("{}"))
@@ -722,7 +671,7 @@ def test_gitea_edit_comment_patches_repo_global_id() -> None:
 
 def test_gitea_labels_via_tea_edit_subcommands() -> None:
     """
-    @brief   Label ops go through `tea issues edit` / `tea pulls edit` (they
+    Label ops go through `tea issues edit` / `tea pulls edit` (they
              resolve label NAMES to ids); empty lists make no call; the
              configured login is carried; failures raise ForgeError.
     """
@@ -746,7 +695,7 @@ def test_gitea_labels_via_tea_edit_subcommands() -> None:
 
 def test_gitea_get_pr_normalizes_merged_and_draft() -> None:
     """
-    @brief   Gitea reports merged PRs as state closed + merged true - the
+    Gitea reports merged PRs as state closed + merged true - the
              normalization must say "merged" (the post-MR poll's terminal
              signal). Draft is the native field, with the WIP title prefix as
              fallback; labels map to names.
@@ -771,7 +720,7 @@ def test_gitea_get_pr_normalizes_merged_and_draft() -> None:
 
 def test_gitea_get_pr_by_branch_scans_open_pulls() -> None:
     """
-    @brief   A branch ref scans the OPEN pulls for a matching head.ref
+    A branch ref scans the OPEN pulls for a matching head.ref
              (branch lookup finds only open MRs, per the interface contract);
              no match maps to None.
     """
@@ -795,7 +744,7 @@ def test_gitea_get_pr_by_branch_scans_open_pulls() -> None:
 
 def test_gitea_open_pr_wip_prefix_and_reviewers_best_effort() -> None:
     """
-    @brief   Draft PRs get the `WIP: ` title prefix (never duplicated), the
+    Draft PRs get the `WIP: ` title prefix (never duplicated), the
              URL comes from the response JSON, and the reviewer request is a
              SEPARATE best-effort call whose failure must not lose the
              already-created PR.
@@ -826,7 +775,7 @@ def test_gitea_open_pr_wip_prefix_and_reviewers_best_effort() -> None:
 
 def test_gitea_open_pr_title_prefix_edges_and_missing_url() -> None:
     """
-    @brief   An already-WIP title is not double-prefixed, a non-draft PR gets
+    An already-WIP title is not double-prefixed, a non-draft PR gets
              no prefix, and a created PR without html_url fails closed.
     """
     created = '{"number": 31, "html_url": "http://g/o/r/pulls/31"}'
@@ -843,7 +792,7 @@ def test_gitea_open_pr_title_prefix_edges_and_missing_url() -> None:
 
 
 def test_gitlab_post_and_edit_mr_incident_comment() -> None:
-    """@brief GitLab MR incidents use merge-request notes, not ticket notes."""
+    """GitLab MR incidents use merge-request notes, not ticket notes."""
     runner = FakeRunner(_ok('{"id": 765}'), _ok("{}"))
     forge = GitLabForge("group/project", runner)
     assert forge.post_mr_comment(29, "problem") == 765
@@ -854,7 +803,7 @@ def test_gitlab_post_and_edit_mr_incident_comment() -> None:
 
 @pytest.mark.parametrize("kind", ["github", "gitea"])
 def test_issue_style_forges_route_pr_comments_through_issue_surface(kind: str) -> None:
-    """@brief GitHub/Gitea PR conversation comments reuse validated issue APIs."""
+    """GitHub/Gitea PR conversation comments reuse validated issue APIs."""
     if kind == "github":
         runner = FakeRunner(
             _ok("https://github.com/o/r/issues/9#issuecomment-777\n"), _ok("{}")
@@ -873,7 +822,7 @@ def test_issue_style_forges_route_pr_comments_through_issue_surface(kind: str) -
 
 def test_github_branch_without_pr_is_absence_not_failure() -> None:
     """
-    @brief   gh's BRANCH miss wording differs from its 404/number wording.
+    gh's BRANCH miss wording differs from its 404/number wording.
              `_publish` probes by branch before creating the draft, so a miss
              must read as "no PR yet"; raising there failed every run after
              the push and after human approval.
@@ -884,7 +833,7 @@ def test_github_branch_without_pr_is_absence_not_failure() -> None:
 
 def test_gitlab_branch_without_mr_is_absence_not_failure() -> None:
     """
-    @brief   Same adoption probe on glab, whose branch miss reads "no open
+    Same adoption probe on glab, whose branch miss reads "no open
              merge request available for" and matched no inherited marker.
     """
     runner = FakeRunner(_fail('no open merge request available for "adore/g-p-14"'))
@@ -893,7 +842,7 @@ def test_gitlab_branch_without_mr_is_absence_not_failure() -> None:
 
 def test_branch_lookup_still_raises_on_a_real_failure() -> None:
     """
-    @brief   Widening the markers must not swallow genuine errors: an auth or
+    Widening the markers must not swallow genuine errors: an auth or
              transport failure still raises instead of reporting absence,
              which would make ADORE open a duplicate MR.
     """
@@ -907,7 +856,7 @@ def test_branch_lookup_still_raises_on_a_real_failure() -> None:
 
 def test_github_list_comments_walks_every_page() -> None:
     """
-    @brief   One gh api call returns the OLDEST 100 comments. Without a page
+    One gh api call returns the OLDEST 100 comments. Without a page
              walk a parked run never sees the newer human answer and dies on
              the clarification timeout, so the adapter must page to the end.
     """
@@ -926,7 +875,7 @@ def test_github_list_comments_walks_every_page() -> None:
 
 def test_gitlab_list_notes_walk_every_page_on_both_surfaces() -> None:
     """
-    @brief   GitLab reaches the 100-note cap fastest, because every ADORE
+    GitLab reaches the 100-note cap fastest, because every ADORE
              label change adds a system note. Issue and MR surfaces both page.
     """
     first = "[" + ",".join(
@@ -947,7 +896,7 @@ def test_gitlab_list_notes_walk_every_page_on_both_surfaces() -> None:
 
 def test_gitlab_pipeline_status_maps_head_pipeline() -> None:
     """
-    @brief   GitLab carries the verdict inline on the MR document, so one call
+    GitLab carries the verdict inline on the MR document, so one call
              answers. Cancelled is not a failure, and an older GitLab that
              omits the key reads as unknown rather than as a pass.
     """
@@ -965,7 +914,7 @@ def test_gitlab_pipeline_status_maps_head_pipeline() -> None:
 
 def test_gitlab_pipeline_status_handles_a_zero_valued_object() -> None:
     """
-    @brief   glab prints the API object straight from its Go client, so a merge
+    glab prints the API object straight from its Go client, so a merge
              request with no pipeline can arrive as a ZERO-VALUED object rather
              than null. An empty status means nothing ran, which is "none" and
              silent - never a pipeline forever in progress, the shape that had
@@ -979,7 +928,7 @@ def test_gitlab_pipeline_status_handles_a_zero_valued_object() -> None:
 
 def test_gitlab_list_ready_asks_for_open_tickets_explicitly() -> None:
     """
-    @brief   gh and tea name the state; glab was left on its default. A
+    gh and tea name the state; glab was left on its default. A
              selection boundary must not depend on a CLI default staying put.
     """
     runner = FakeRunner(_ok("[]"))
@@ -990,7 +939,7 @@ def test_gitlab_list_ready_asks_for_open_tickets_explicitly() -> None:
 
 def test_github_pipeline_status_rolls_up_checks_and_statuses() -> None:
     """
-    @brief   statusCheckRollup mixes Actions check runs (status + conclusion)
+    statusCheckRollup mixes Actions check runs (status + conclusion)
              with external commit statuses (state). The worst verdict wins, an
              unfinished check outranks the greens already in, and NEUTRAL or
              SKIPPED is not a failure.
@@ -1023,7 +972,7 @@ def test_github_pipeline_status_rolls_up_checks_and_statuses() -> None:
 
 def test_pipeline_status_never_raises_on_a_forge_failure() -> None:
     """
-    @brief   The post-MR poll watches a run doing no code work, so an
+    The post-MR poll watches a run doing no code work, so an
              unreadable pipeline must degrade to "unknown" - which is silent -
              rather than raising into the poll. A gh too old to know the field
              is exactly this case.
@@ -1036,7 +985,7 @@ def test_pipeline_status_never_raises_on_a_forge_failure() -> None:
 
 def test_gitea_pipeline_status_reads_the_head_commit_status() -> None:
     """
-    @brief   Gitea keys status by commit, so the pull is read for head.sha and
+    Gitea keys status by commit, so the pull is read for head.sha and
              then its combined status. An empty state means no CI reported.
     """
     pull = '{"number":9,"head":{"sha":"abc123"}}'
@@ -1052,7 +1001,7 @@ def test_gitea_pipeline_status_reads_the_head_commit_status() -> None:
 
 def test_gitea_no_ci_at_all_is_none_not_running() -> None:
     """
-    @brief   Gitea answers `state: "pending"` with an EMPTY status list when
+    Gitea answers `state: "pending"` with an EMPTY status list when
              nothing has reported on the commit, so a repository with no CI
              would otherwise read as a pipeline forever in progress (live
              finding against Gitea 1.27.2). The count decides first.
@@ -1073,7 +1022,7 @@ def test_gitea_no_ci_at_all_is_none_not_running() -> None:
 
 def test_github_mr_comments_include_review_bodies_and_inline_comments() -> None:
     """
-    @brief   A reviewer using "Files changed" then "Review changes" writes to
+    A reviewer using "Files changed" then "Review changes" writes to
              pulls/<n>/reviews and pulls/<n>/comments, not the conversation.
              Reading only the conversation handed the revision executor an
              empty thread. Bodyless reviews are bare approve events and are
@@ -1102,7 +1051,7 @@ def test_github_mr_comments_include_review_bodies_and_inline_comments() -> None:
 
 def test_gitea_mr_comments_include_review_bodies_and_inline_comments() -> None:
     """
-    @brief   Gitea splits the same way: review text and inline diff comments
+    Gitea splits the same way: review text and inline diff comments
              live behind pulls/<n>/reviews, one extra call per review.
     """
     conversation = (
@@ -1132,10 +1081,10 @@ def test_gitea_mr_comments_include_review_bodies_and_inline_comments() -> None:
 
 def _gitlab_issue(iid: int, **extra: object) -> dict[str, object]:
     """
-    @brief      One glab issue JSON record for listing tests.
-    @param[in]  iid Issue number.
-    @param[in]  extra Field overrides.
-    @return     The raw record.
+    One glab issue JSON record for listing tests.
+    iid: Issue number.
+    extra: Field overrides.
+    Returns: The raw record.
     """
     record: dict[str, object] = {
         "iid": iid, "title": f"Ticket {iid}", "description": "Body", "labels": ["P2"],
@@ -1148,9 +1097,7 @@ def _gitlab_issue(iid: int, **extra: object) -> dict[str, object]:
 
 
 def test_gitlab_list_open_pages_without_label_and_stops_at_limit() -> None:
-    """
-    @brief   Open listing asks for every open issue and returns at most limit.
-    """
+    """Open listing asks for every open issue and returns at most limit."""
     first = json.dumps([_gitlab_issue(i) for i in range(1, 101)])
     second = json.dumps([_gitlab_issue(i) for i in range(101, 151)])
     runner = FakeRunner(_ok(first), _ok(second))
@@ -1163,9 +1110,7 @@ def test_gitlab_list_open_pages_without_label_and_stops_at_limit() -> None:
 
 
 def test_github_list_open_requests_limit_without_label() -> None:
-    """
-    @brief   gh listing is bounded by --limit and maps open issues.
-    """
+    """gh listing is bounded by --limit and maps open issues."""
     payload = json.dumps([{
         "number": 7, "title": "Docs", "body": None, "labels": [{"name": "agent-ready"}],
         "author": {"login": "dev"}, "state": "OPEN", "url": "https://github.example/i/7",
@@ -1181,9 +1126,7 @@ def test_github_list_open_requests_limit_without_label() -> None:
 
 
 def test_gitea_list_open_asks_issues_only_and_stops_at_limit() -> None:
-    """
-    @brief   tea listing excludes pull requests, has no label filter and is bounded.
-    """
+    """tea listing excludes pull requests, has no label filter and is bounded."""
     page = json.dumps([
         {"number": n, "title": f"T{n}", "body": "", "labels": [], "user": {"login": "dev"},
          "state": "open", "html_url": f"https://gitea.example/i/{n}"}
@@ -1206,8 +1149,8 @@ def test_gitea_list_open_asks_issues_only_and_stops_at_limit() -> None:
 ])
 def test_list_open_rejects_malformed_records(record: dict[str, object]) -> None:
     """
-    @brief   A malformed issue record fails closed with ForgeError, never a partial list.
-    @param[in]  record Corrupt glab record.
+    A malformed issue record fails closed with ForgeError, never a partial list.
+    record: Corrupt glab record.
     """
     runner = FakeRunner(_ok(json.dumps([_gitlab_issue(1), record])))
     with pytest.raises(ForgeError, match="malformed issue record"):
@@ -1215,20 +1158,15 @@ def test_list_open_rejects_malformed_records(record: dict[str, object]) -> None:
 
 
 def test_list_open_rejects_non_list_payload() -> None:
-    """
-    @brief   A non-list response is a ForgeError.
-    """
+    """A non-list response is a ForgeError."""
     runner = FakeRunner(_ok(json.dumps({"message": "oops"})))
     with pytest.raises(ForgeError):
         GitLabForge("grp/proj", runner).list_open(10)
 
 
-# END OF FILE
-
-
 @pytest.mark.parametrize("provider", ["gitlab", "github", "gitea"])
 def test_comment_unicode_reaches_injected_cli_for_post_and_edit(provider: str) -> None:
-    """@brief Each provider passes Unicode comments unchanged through its CLI boundary."""
+    """Each provider passes Unicode comments unchanged through its CLI boundary."""
     body = "Question — țară / Grüße / café"
     first = {"gitlab": _ok("https://example/i/1#note_42"),
              "github": _ok("https://example/i/1#issuecomment-42"),
@@ -1243,7 +1181,7 @@ def test_comment_unicode_reaches_injected_cli_for_post_and_edit(provider: str) -
 
 @pytest.mark.parametrize("provider", ["gitlab", "github", "gitea"])
 def test_comment_unicode_transport_failure_is_typed(provider: str) -> None:
-    """@brief A CLI refusal never counts an attempted Unicode post as delivered."""
+    """A CLI refusal never counts an attempted Unicode post as delivered."""
     runner = FakeRunner(_fail("offline"))
     forge = build_forge(provider, "owner/repo", runner=runner)
     with pytest.raises(ForgeError):

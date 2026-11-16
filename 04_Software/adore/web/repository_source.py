@@ -1,27 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file repository_source.py
-@brief Enrollment from a repository URL: parsing, forge detection and the clone boundary.
-@details Only https, http and ssh (including scp-like user@host:path) addresses without
-         passwords, queries or fragments are accepted. Forge kind comes from the public
-         hosts or from a matching server tea login. Commands run through the injected
-         runner with prompts disabled, so a missing credential fails instead of hanging.
-@example
-    parsed = parse_repository_url("git@github.com:owner/repo.git")
-    kind, login = detect_kind(parsed.host, tea_login_hosts(tea_output))
-"""
+"""Enrollment from a repository URL: parsing, forge detection and the clone boundary."""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Callable
 from dataclasses import dataclass
 import json
@@ -31,8 +11,6 @@ import re
 from urllib.parse import unquote, urlsplit
 
 from adore.util import CommandResult, CommandRunner
-
-# CONSTANTS
 
 MAX_URL = 512
 MAX_ID = 60
@@ -50,16 +28,13 @@ _PUBLIC = {"github.com": "github", "gitlab.com": "gitlab",
            "dev.azure.com": "azure_devops", "ssh.dev.azure.com": "azure_devops"}
 
 
-# DATA MODELS / TYPEDEFINITIONS
-
-
 class RepositorySourceError(ValueError):
-    """@brief The repository address is not a supported, safe remote."""
+    """The repository address is not a supported, safe remote."""
 
 
 @dataclass(frozen=True)
 class RepositoryUrl:
-    """@brief A validated remote: the address as given, its host, repository path and name."""
+    """A validated remote: the address as given, its host, repository path and name."""
 
     url: str
     host: str
@@ -69,13 +44,10 @@ class RepositoryUrl:
     project: str = ""
 
 
-# LOCAL HELPERS
-
-
 def _git_env() -> dict[str, str]:
     """
-    @brief      Environment for git that never prompts and speaks only network protocols.
-    @note       An operator-set GIT_SSH_COMMAND is respected; it should keep SSH non-interactive.
+    Environment for git that never prompts and speaks only network protocols.
+    Note: An operator-set GIT_SSH_COMMAND is respected; it should keep SSH non-interactive.
     """
     return {
         **os.environ,
@@ -85,15 +57,12 @@ def _git_env() -> dict[str, str]:
     }
 
 
-# PUBLIC API
-
-
 def parse_repository_url(url: object) -> RepositoryUrl:
     """
-    @brief      Validate a remote address and split it into host and repository path.
-    @param[in]  url Address typed by the administrator.
-    @return     Parsed remote.
-    @exception RepositorySourceError Unsupported scheme, credentials, query, local path or shape.
+    Validate a remote address and split it into host and repository path.
+    url: Address typed by the administrator.
+    Returns: Parsed remote.
+    Raises RepositorySourceError: Unsupported scheme, credentials, query, local path or shape.
     """
     value = url.strip() if isinstance(url, str) else ""
     if (
@@ -162,9 +131,9 @@ def parse_repository_url(url: object) -> RepositoryUrl:
 
 def tea_login_hosts(text: str) -> dict[str, str]:
     """
-    @brief      Map server hosts to tea login names from `tea logins list --output json`.
-    @param[in]  text Command output; field names are matched case-insensitively.
-    @return     Host to login name; empty when the output is unusable.
+    Map server hosts to tea login names from `tea logins list --output json`.
+    text: Command output; field names are matched case-insensitively.
+    Returns: Host to login name; empty when the output is unusable.
     """
     try:
         items = json.loads(text)
@@ -196,10 +165,10 @@ def tea_login_hosts(text: str) -> dict[str, str]:
 
 def detect_kind(host: str, tea_hosts: dict[str, str]) -> tuple[str | None, str]:
     """
-    @brief      Decide the forge kind for a host, with the Gitea login when known.
-    @param[in]  host Remote host name.
-    @param[in]  tea_hosts Output of tea_login_hosts.
-    @return     (kind or None, tea login name or "").
+    Decide the forge kind for a host, with the Gitea login when known.
+    host: Remote host name.
+    tea_hosts: Output of tea_login_hosts.
+    Returns: (kind or None, tea login name or "").
     """
     if host in _PUBLIC:
         return _PUBLIC[host], ""
@@ -209,16 +178,16 @@ def detect_kind(host: str, tea_hosts: dict[str, str]) -> tuple[str | None, str]:
 
 
 def default_branch(text: str) -> str | None:
-    """@brief The default branch named by `git ls-remote --symref <url> HEAD` output."""
+    """The default branch named by `git ls-remote --symref <url> HEAD` output."""
     match = _HEAD.search(text or "")
     return match.group(1) if match else None
 
 
 def valid_branch_name(name: str) -> bool:
     """
-    @brief      Validate a short remote branch name without executing Git.
-    @param[in]  name Short name below refs/heads/, including nested branches.
-    @return     True for a bounded Git branch name suitable for enrollment.
+    Validate a short remote branch name without executing Git.
+    name: Short name below refs/heads/, including nested branches.
+    Returns: True for a bounded Git branch name suitable for enrollment.
     """
     return (
         isinstance(name, str) and 0 < len(name) <= 1024
@@ -233,11 +202,11 @@ def valid_branch_name(name: str) -> bool:
 
 def remote_branches(text: str) -> list[str]:
     """
-    @brief      Validate a bounded remote advertisement and list its branches.
-    @param[in]  text Git ls-remote --symref output for HEAD and refs/heads/*.
-    @return     Sorted short names; an empty repository returns an empty list.
-    @exception  RepositorySourceError Corrupt, duplicate, inconsistent or oversized refs.
-    @note       Symbolic HEAD supplies the default; its absence never implies main/master.
+    Validate a bounded remote advertisement and list its branches.
+    text: Git ls-remote --symref output for HEAD and refs/heads/*.
+    Returns: Sorted short names; an empty repository returns an empty list.
+    Raises RepositorySourceError: Corrupt, duplicate, inconsistent or oversized refs.
+    Note: Symbolic HEAD supplies the default; its absence never implies main/master.
     """
     if not isinstance(text, str) or len(text) > MAX_REMOTE_BYTES:
         raise RepositorySourceError("repository_branches_invalid")
@@ -283,11 +252,11 @@ def remote_branches(text: str) -> list[str]:
 
 def suggest_id(name: str, available: Callable[[str], bool]) -> str:
     """
-    @brief      Derive a unique project ID from a repository name.
-    @param[in]  name Repository name.
-    @param[in]  available True when an ID is free.
-    @return     Lowercase ID matching the project ID rule, suffixed -2..-99 when taken.
-    @exception RepositorySourceError No free ID within the suffix range.
+    Derive a unique project ID from a repository name.
+    name: Repository name.
+    available: True when an ID is free.
+    Returns: Lowercase ID matching the project ID rule, suffixed -2..-99 when taken.
+    Raises RepositorySourceError: No free ID within the suffix range.
     """
     slug = (
         re.sub(r"[^a-z0-9._-]+", "-", name.lower()).strip("-._")[:MAX_ID].rstrip("-._") or "project"
@@ -302,7 +271,7 @@ def suggest_id(name: str, available: Callable[[str], bool]) -> str:
 
 
 def origin_matches(first: str, second: str) -> bool:
-    """@brief True when two remotes name the same host and repository (case-insensitive)."""
+    """True when two remotes name the same host and repository (case-insensitive)."""
     try:
         a, b = parse_repository_url(first), parse_repository_url(second)
     except RepositorySourceError:
@@ -313,7 +282,7 @@ def origin_matches(first: str, second: str) -> bool:
 
 
 def read_origin(clone: Path) -> str | None:
-    """@brief The `origin` URL recorded in a clone's .git/config, or None."""
+    """The `origin` URL recorded in a clone's .git/config, or None."""
     try:
         text = (clone / ".git" / "config").read_text(encoding="utf-8")
     except (OSError, UnicodeError):
@@ -324,7 +293,7 @@ def read_origin(clone: Path) -> str | None:
 
 
 def ls_remote(url: str, runner: CommandRunner) -> CommandResult:
-    """@brief Read every forge's HEAD and branch refs without cloning."""
+    """Read every forge's HEAD and branch refs without cloning."""
     return runner(
         ["git", "ls-remote", "--symref", "--", url, "HEAD", "refs/heads/*"],
         timeout=LS_REMOTE_TIMEOUT,
@@ -333,7 +302,7 @@ def ls_remote(url: str, runner: CommandRunner) -> CommandResult:
 
 
 def tea_logins(runner: CommandRunner) -> dict[str, str]:
-    """@brief Portable host suggestions; ambiguous or unavailable accounts need explicit choice."""
+    """Portable host suggestions; ambiguous or unavailable accounts need explicit choice."""
     from adore.gitea_auth import GiteaAuthError, discover_tea_logins
 
     try:
@@ -353,7 +322,7 @@ def tea_logins(runner: CommandRunner) -> dict[str, str]:
 
 
 def clone(url: str, dest: Path, runner: CommandRunner) -> CommandResult:
-    """@brief Clone the remote into a not-yet-existing folder with prompts disabled."""
+    """Clone the remote into a not-yet-existing folder with prompts disabled."""
     return runner(
         ["git", "clone", "--origin", "origin", "--", url, str(dest)],
         timeout=CLONE_TIMEOUT,
@@ -362,7 +331,7 @@ def clone(url: str, dest: Path, runner: CommandRunner) -> CommandResult:
 
 
 def branch_exists(dest: Path, branch: str, runner: CommandRunner) -> bool:
-    """@brief True when the clone has the remote-tracking branch origin/<branch>."""
+    """True when the clone has the remote-tracking branch origin/<branch>."""
     return runner(
         [
             "git",
@@ -375,6 +344,3 @@ def branch_exists(dest: Path, branch: str, runner: CommandRunner) -> bool:
         ],
         timeout=10,
     ).ok
-
-
-# END OF FILE

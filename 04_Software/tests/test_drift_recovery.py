@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_drift_recovery.py
-@brief   Confirmed abandonment, owned cleanup and fresh restart.
-@details Offline ownership, drift, lease, revision and CLI refusal contracts.
-"""
+"""Confirmed abandonment, owned cleanup and fresh restart."""
 
-# IMPORTS
 from hashlib import sha256
 import json
 
@@ -31,7 +17,7 @@ from tests.test_retry_revalidation import retry_fixture, upgrade
 
 
 def prepare(tmp_path, monkeypatch):
-    """@brief Bind fixture names to actual deterministic resource ownership."""
+    """Bind fixture names to actual deterministic resource ownership."""
     engine, run, context, controller, binary, work, executor = retry_fixture(tmp_path, monkeypatch)
     engine.store.delete_run("github-owner-repo-7")  # Original synthetic fixture identity.
     engine.worktrees.create = lambda *args, **kwargs: work
@@ -52,7 +38,7 @@ def prepare(tmp_path, monkeypatch):
 
 
 def test_owned_delete_releases_drift_then_removes_state(tmp_path, monkeypatch):
-    """@brief Explicit ownership cleanup bypasses volatile policy only, never scope control."""
+    """Explicit ownership cleanup bypasses volatile policy only, never scope control."""
     engine, run, context, controller, binary, work, _ = prepare(tmp_path, monkeypatch)
     upgrade(engine, context, controller, binary)
     calls = []
@@ -72,7 +58,7 @@ def test_owned_delete_releases_drift_then_removes_state(tmp_path, monkeypatch):
     "bad", ["receipt", "host", "account", "worktree", "io", "branch", "human", "scope", "remote"]
 )
 def test_owned_delete_refuses_foreign_or_unconfirmed_resources(tmp_path, monkeypatch, bad):
-    """@brief Every ownership boundary fails closed and keeps the job and worktree."""
+    """Every ownership boundary fails closed and keeps the job and worktree."""
     engine, run, context, controller, binary, work, _ = prepare(tmp_path, monkeypatch)
     upgrade(engine, context, controller, binary)
     if bad == "receipt":
@@ -109,7 +95,7 @@ def test_owned_delete_refuses_foreign_or_unconfirmed_resources(tmp_path, monkeyp
 
 
 def test_restart_checks_revision_and_preserves_paused_manual_admission(tmp_path, monkeypatch):
-    """@brief Only the confirmed failed incarnation is deleted before fresh admission."""
+    """Only the confirmed failed incarnation is deleted before fresh admission."""
     engine, run, *_ = prepare(tmp_path, monkeypatch)
     engine.store.pause()
     revision = sha256((engine.store.run_dir(run.run_id) / "state.json").read_bytes()).hexdigest()
@@ -131,7 +117,7 @@ def test_restart_checks_revision_and_preserves_paused_manual_admission(tmp_path,
 
 @pytest.mark.parametrize("fault", ["native", "state", "git", "lock"])
 def test_cli_delete_refuses_cleanly_with_guidance(tmp_path, monkeypatch, capsys, fault):
-    """@brief Native/Git/state failures and live worker locks never traceback."""
+    """Native/Git/state failures and live worker locks never traceback."""
     from adore.cli import main
     from adore.state import StateError
 
@@ -167,8 +153,9 @@ def test_cli_delete_refuses_cleanly_with_guidance(tmp_path, monkeypatch, capsys,
     assert engine.store.exists(run.run_id)
 
 
-def test_web_restart_requires_confirmation_revision_and_rechecks_worker(tmp_path):
-    """@brief Queue binds confirmed state and worker refuses a later incarnation."""
+@pytest.mark.parametrize("lifecycle", ["failed", "cancelled"])
+def test_web_restart_requires_confirmation_revision_and_rechecks_worker(tmp_path, lifecycle):
+    """Queue binds confirmed state and worker refuses a later incarnation."""
     from adore.profiles import ProfileStore
     from adore.state import RunState, StateStore
     from adore.web.app import create_app
@@ -179,7 +166,7 @@ def test_web_restart_requires_confirmation_revision_and_rechecks_worker(tmp_path
     profiles = ProfileStore(tmp_path / "home")
     item = profiles.create("alpha")
     state = StateStore(item.store_root or profiles.default_store_root("alpha"))
-    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="failed", execution=execution_record())
+    run = RunState(run_id="run-1", ticket_iid=42, lifecycle=lifecycle, execution=execution_record())
     run.execution = {"plan": resolve_plan(default_config()), "resource": {},
                      "status": "not-required", "attempts": 0,
                      "steps": [], "history": [], "reprepare": False}
@@ -215,7 +202,7 @@ def test_web_restart_requires_confirmation_revision_and_rechecks_worker(tmp_path
 
 
 def test_git_owned_worktree_and_remote_absence_contracts(tmp_path):
-    """@brief Dedicated worktree linkage and absent unpublished branches are checked offline."""
+    """Dedicated worktree linkage and absent unpublished branches are checked offline."""
     from adore.isolation import WorktreeManager
 
     from tests.test_isolation import FakeRunner, _ok
@@ -245,7 +232,7 @@ def test_git_owned_worktree_and_remote_absence_contracts(tmp_path):
 @pytest.mark.parametrize("revoked", [False, True])
 @pytest.mark.parametrize("retained", [False, True])
 def test_restart_worker_uses_fixed_bound_argv_and_rechecks_grants(tmp_path, revoked, retained):
-    """@brief Authorized restart reaches only fixed CLI argv; revoked access never invokes it."""
+    """Authorized restart reaches only fixed CLI argv; revoked access never invokes it."""
     from adore.profiles import ProfileStore
     from adore.state import RunState, StateStore
     from adore.web.commands import CommandOutcome, CommandWorker
@@ -297,7 +284,7 @@ def test_restart_worker_uses_fixed_bound_argv_and_rechecks_grants(tmp_path, revo
 def test_owned_native_cleanup_does_not_require_current_tools_or_backend(
     tmp_path, monkeypatch, current_backend
 ):
-    """@brief Saved native ownership survives missing executables and backend reconfiguration."""
+    """Saved native ownership survives missing executables and backend reconfiguration."""
     from adore.execution import ContainerBackend
 
     engine, run, context, controller, binary, work, _ = prepare(tmp_path, monkeypatch)
@@ -317,7 +304,7 @@ def test_owned_native_cleanup_does_not_require_current_tools_or_backend(
 @pytest.mark.parametrize("runtime", ["docker", "podman", "wsl -d Test -- docker"])
 @pytest.mark.parametrize("fault", ["none", "foreign-mount", "foreign-member", "appeared"])
 def test_container_release_uses_actual_owned_ids_independently_of_egress(tmp_path, runtime, fault):
-    """@brief Old proxy policy and resource-name races never authorize foreign destruction."""
+    """Old proxy policy and resource-name races never authorize foreign destruction."""
     from adore.branding import CONTAINER_IO_MOUNT, CONTAINER_REPO_MOUNT, CONTAINER_WORKTREE_MOUNT
     from adore.isolation import ContainerManager
     from adore.util import CommandResult
@@ -409,7 +396,7 @@ def test_container_release_uses_actual_owned_ids_independently_of_egress(tmp_pat
 def test_unprovisioned_native_run_requires_no_unrecorded_control(
     tmp_path, monkeypatch, unexpected_control
 ):
-    """@brief Early failed provisioning may release proven absence, never unseen control files."""
+    """Early failed provisioning may release proven absence, never unseen control files."""
     engine, run, *_ = prepare(tmp_path, monkeypatch)
     control = engine.store.run_dir(run.run_id) / "local-control"
     if not unexpected_control:
@@ -428,7 +415,7 @@ def test_unprovisioned_native_run_requires_no_unrecorded_control(
 
 @pytest.mark.parametrize("foreign", [False, True])
 def test_saved_container_can_be_abandoned_after_switch_to_native(tmp_path, monkeypatch, foreign):
-    """@brief Cleanup uses saved container ownership after switching to native execution."""
+    """Cleanup uses saved container ownership after switching to native execution."""
     from tests.test_orchestrator import make_engine, make_run
 
     engine, _, trees, containers, _ = make_engine(tmp_path)
@@ -456,7 +443,7 @@ def test_saved_container_can_be_abandoned_after_switch_to_native(tmp_path, monke
 
 
 def test_deleted_identity_gets_fresh_usage_and_terminal_metrics(tmp_path, monkeypatch):
-    """@brief A real manual admission after cleanup cannot inherit old usage cursors/summaries."""
+    """A real manual admission after cleanup cannot inherit old usage cursors/summaries."""
     from adore import metrics
     from adore.executor.base import GateRun
     from adore.web.store import WebStore, WebStoreError
@@ -532,7 +519,7 @@ def test_deleted_identity_gets_fresh_usage_and_terminal_metrics(tmp_path, monkey
 
 
 def test_deleted_source_and_projection_reset_share_transaction(tmp_path):
-    """@brief A reader arriving during source deletion cannot restore a deleted cursor."""
+    """A reader arriving during source deletion cannot restore a deleted cursor."""
     from threading import Event, Thread
 
     from adore.state import StateStore
@@ -581,7 +568,7 @@ def test_deleted_source_and_projection_reset_share_transaction(tmp_path):
 
 
 def test_projection_reset_rolls_back_when_source_removal_fails(tmp_path):
-    """@brief Failed deletion retains the old projections and cannot admit a fresh journal."""
+    """Failed deletion retains the old projections and cannot admit a fresh journal."""
     from adore.web.store import WebStore, WebStoreError
 
     from tests.usage_events import versioned_usage
@@ -603,7 +590,7 @@ def test_projection_reset_rolls_back_when_source_removal_fails(tmp_path):
 
 
 def test_cli_stats_rebuild_uses_same_conductor_lock(tmp_path, monkeypatch, capsys):
-    """@brief An old rebuild cannot overwrite a deleted job's fresh terminal summary."""
+    """An old rebuild cannot overwrite a deleted job's fresh terminal summary."""
     from adore.cli import main
     from adore.state import StateStore
 
@@ -622,7 +609,7 @@ def test_cli_stats_rebuild_uses_same_conductor_lock(tmp_path, monkeypatch, capsy
 
 
 def test_delete_refuses_mismatched_saved_directory_identity(tmp_path, monkeypatch):
-    """@brief A corrupt state identity cannot grant cleanup authority to another job."""
+    """A corrupt state identity cannot grant cleanup authority to another job."""
     engine, run, *_ = prepare(tmp_path, monkeypatch)
     state = engine.store.run_dir(run.run_id) / "state.json"
     value = json.loads(state.read_text())
@@ -635,7 +622,7 @@ def test_delete_refuses_mismatched_saved_directory_identity(tmp_path, monkeypatc
 
 @pytest.mark.parametrize("occupied", ["local", "remote"])
 def test_fresh_branch_avoids_unproven_remote_and_local_refs(tmp_path, occupied):
-    """@brief New admission preserves occupied refs and validates a bounded fresh generation."""
+    """New admission preserves occupied refs and validates a bounded fresh generation."""
     from adore.isolation import WorktreeManager
     from adore.util import CommandResult
 
@@ -664,7 +651,7 @@ def test_fresh_branch_avoids_unproven_remote_and_local_refs(tmp_path, occupied):
 
 
 def test_restart_retains_only_an_unpublished_unproven_old_ref(tmp_path, monkeypatch):
-    """@brief The reported old-orphan case reaches a generation without deleting unknown history."""
+    """The reported old-orphan case reaches a generation without deleting unknown history."""
     engine, run, *_ = prepare(tmp_path, monkeypatch)
     run.checkpoint_remote_commit = ""
     engine.store.save(run)
@@ -681,7 +668,7 @@ def test_restart_retains_only_an_unpublished_unproven_old_ref(tmp_path, monkeypa
 
 
 def test_restart_naming_rule_failure_precedes_destructive_cleanup(tmp_path, monkeypatch):
-    """@brief A strict custom rule that forbids generations preserves the entire failed job."""
+    """A strict custom rule that forbids generations preserves the entire failed job."""
     from adore.isolation import WorktreeManager
     from adore.util import CommandResult
 
@@ -713,7 +700,7 @@ def test_restart_naming_rule_failure_precedes_destructive_cleanup(tmp_path, monk
 @pytest.mark.parametrize("kind", ["github", "gitlab", "gitea"])
 @pytest.mark.parametrize("suffix", ["-g" + "a" * 12, "-gbad"])
 def test_generated_branch_cleanup_keeps_exact_ownership_and_lease(tmp_path, kind, suffix):
-    """@brief Human-merged cleanup recognizes only exact derived generations on every forge."""
+    """Human-merged cleanup recognizes only exact derived generations on every forge."""
     from tests.test_orchestrator import make_engine, make_run
 
     engine, forge, trees, _, _ = make_engine(tmp_path)
@@ -738,7 +725,7 @@ def test_generated_branch_cleanup_keeps_exact_ownership_and_lease(tmp_path, kind
 
 @pytest.mark.parametrize("bad", ["local-exit", "local-timeout", "remote-output", "remote-exit"])
 def test_fresh_branch_refuses_untrusted_availability_evidence(tmp_path, bad):
-    """@brief Missing Git evidence never becomes permission to use an occupied branch."""
+    """Missing Git evidence never becomes permission to use an occupied branch."""
     from adore.isolation import WorktreeManager
     from adore.util import CommandResult
 
@@ -764,7 +751,7 @@ def test_fresh_branch_refuses_untrusted_availability_evidence(tmp_path, bad):
 
 
 def test_fresh_worktree_refuses_local_ref_that_appears_after_selection(tmp_path):
-    """@brief Atomic initial Git creation refuses a raced-in branch instead of adopting it."""
+    """Atomic initial Git creation refuses a raced-in branch instead of adopting it."""
     from adore.isolation import WorktreeManager
     from adore.util import CommandResult
 
@@ -789,7 +776,7 @@ def test_fresh_worktree_refuses_local_ref_that_appears_after_selection(tmp_path)
 
 
 def test_restart_reuses_verified_own_branch_under_strict_rule(tmp_path, monkeypatch):
-    """@brief Normal known-owned recovery does not require a generation its rule forbids."""
+    """Normal known-owned recovery does not require a generation its rule forbids."""
     engine, run, *_ = prepare(tmp_path, monkeypatch)
     engine.config.worktree.branch_rule = "^" + run.branch + "$"
     engine.worktrees.remote_branch_head = lambda branch: run.checkpoint_remote_commit
@@ -804,7 +791,7 @@ def test_restart_reuses_verified_own_branch_under_strict_rule(tmp_path, monkeypa
 
 
 def test_restart_known_changed_checkpoint_refuses_before_cleanup(tmp_path, monkeypatch):
-    """@brief An unproven-orphan exception never applies to a known checkpoint that changed."""
+    """An unproven-orphan exception never applies to a known checkpoint that changed."""
     engine, run, _, controller, *_ = prepare(tmp_path, monkeypatch)
     controller.controlled.clear()
     engine.worktrees.remote_branch_head = lambda branch: "f" * 40
@@ -817,7 +804,7 @@ def test_restart_known_changed_checkpoint_refuses_before_cleanup(tmp_path, monke
 
 
 def test_actual_branch_rule_uses_selected_identity_and_rejects_invalid_values():
-    """@brief Actual-name policy checks preserve defaults and refuse invalid identities."""
+    """Actual-name policy checks preserve defaults and refuse invalid identities."""
     from adore.config import branch_naming_preview
 
     name = "feature/ticket-7-g" + "a" * 12
@@ -827,7 +814,7 @@ def test_actual_branch_rule_uses_selected_identity_and_rejects_invalid_values():
 
 
 def test_delete_without_worktree_ownership_keeps_unproven_local_branch(tmp_path):
-    """@brief An early failed admission cannot force-delete a branch it never established."""
+    """An early failed admission cannot force-delete a branch it never established."""
     from tests.test_orchestrator import make_engine, make_run
 
     engine, _, trees, containers, _ = make_engine(tmp_path)
@@ -844,13 +831,11 @@ def test_delete_without_worktree_ownership_keeps_unproven_local_branch(tmp_path)
     assert removed == [{"delete_branch": None}]
 
 
-
-
 @pytest.mark.parametrize(
     "output", ["", "{}", '{"picked":null}', '{"picked":43}', '{"picked":true}']
 )
 def test_restart_zero_exit_requires_matching_admission(tmp_path, output):
-    """@brief Exit zero without the bound ticket is never reported as applied."""
+    """Exit zero without the bound ticket is never reported as applied."""
     from adore.profiles import ProfileStore
     from adore.state import RunState, StateStore
     from adore.web.commands import CommandOutcome, CommandWorker
@@ -887,7 +872,7 @@ def test_restart_zero_exit_requires_matching_admission(tmp_path, output):
     ],
 )
 def test_restart_history_distinguishes_refusal_and_failure(tmp_path, output, expected):
-    """@brief A checkpoint refusal and a failed cleanup have distinct outcomes."""
+    """A checkpoint refusal and a failed cleanup have distinct outcomes."""
     from adore.profiles import ProfileStore
     from adore.state import RunState, StateStore
     from adore.web.commands import CommandOutcome, CommandWorker
@@ -929,7 +914,7 @@ def test_restart_history_distinguishes_refusal_and_failure(tmp_path, output, exp
     ],
 )
 def test_restart_history_requires_bound_terminal_evidence(tmp_path, kind, expected):
-    """@brief Refusal is accepted only from a closed result bound to the request."""
+    """Refusal is accepted only from a closed result bound to the request."""
     from adore.profiles import ProfileStore
     from adore.state import RunState, StateStore
     from adore.web.commands import CommandOutcome, CommandWorker
@@ -963,7 +948,7 @@ def test_restart_history_requires_bound_terminal_evidence(tmp_path, kind, expect
 
 
 def test_cli_restart_emits_bound_refusal(tmp_path, monkeypatch, capsys):
-    """@brief CLI restart emits structured refusal bound to the requested job and revision."""
+    """CLI restart emits structured refusal bound to the requested job and revision."""
     from adore.cli import main
     from adore.isolation import IsolationError
     from adore.start_result import read_restart_result
@@ -978,16 +963,23 @@ def test_cli_restart_emits_bound_refusal(tmp_path, monkeypatch, capsys):
     class Engine:
         def restart(self, run_id, expected_revision, *, workflow):
             assert workflow == "direct"
-            raise IsolationError("checkpoint conflict")
+            raise self.failure
 
-    monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda *a, **kw: Engine())
-    assert (
-        main(["--profile", "alpha", "restart", run_id, "--force",
-              "--expected-revision", revision, "--workflow", "direct"])
-        == 1
-    )
-    assert read_restart_result(
-        capsys.readouterr().out, run_id=run_id, revision=revision, exit_code=1, ticket=12
-    ) == ("cleanup_refused", False)
-
-# END OF FILE
+    engine = Engine()
+    monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda *a, **kw: engine)
+    for failure, reason in ((IsolationError("checkpoint conflict"), "cleanup_refused"),
+                            (RuntimeError("PRIVATE"), "engine_fault")):
+        engine.failure = failure
+        assert (
+            main(["--profile", "alpha", "restart", run_id, "--force",
+                  "--expected-revision", revision, "--workflow", "direct"])
+            == 1
+        )
+        output = capsys.readouterr().out
+        assert read_restart_result(
+            output, run_id=run_id, revision=revision, exit_code=1, ticket=12
+        ) == (reason, False)
+        assert "PRIVATE" not in output
+        if reason == "engine_fault":
+            assert "restart could not be confirmed" in output
+            assert "cleanup could not be confirmed" not in output

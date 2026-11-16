@@ -1,24 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file base.py
-@brief Pi executor interface and normalized stage results.
-@details Each stage uses a fresh owned Pi RPC process. The backend binds resource
-         identity and process control; the launcher records bounded conversation,
-         diagnostics, usage and clarification evidence. Workflow state, rather
-         than a continued Pi session, owns recovery and stage progression.
-"""
+"""Pi executor interface and normalized stage results."""
 
 from __future__ import annotations
 
-# IMPORTS
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -28,13 +11,11 @@ from typing import Protocol
 from adore.instructions import InstructionDelivery
 from adore.util import CommandResult
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 class ExecTarget(Protocol):
     """
-    @brief   Callable that runs a command in the run's execution backend.
-    @details The backend binds resource identity/environment and exposes target
+    Callable that runs a command in the run's execution backend.
+    The backend binds resource identity/environment and exposes target
              paths for controlled commands. Pi additionally requires the backend's
              RPC process seam. Exit codes and authoritative timeouts are data.
     """
@@ -46,11 +27,11 @@ class ExecTarget(Protocol):
         timeout: float | None = None,
     ) -> CommandResult:
         """
-        @brief      Run one command inside the container.
-        @param[in]  argv Command and arguments (must stay WSL-safe: no
+        Run one command inside the container.
+        argv: Command and arguments (must stay WSL-safe: no
                          element may rely on embedded spaces surviving).
-        @param[in]  timeout Optional wall-clock bound.
-        @return     The captured CommandResult.
+        timeout: Optional wall-clock bound.
+        Returns: The captured CommandResult.
         """
         ...  # pragma: no cover - protocol signature only
 
@@ -58,8 +39,8 @@ class ExecTarget(Protocol):
 @dataclass
 class GateRun:
     """
-    @brief   Result of running one workflow gate via the executor.
-    @details The conductor's decision inputs (design 7a step 3): the exit
+    Result of running one workflow gate via the executor.
+    The conductor's decision inputs (design 7a step 3): the exit
              code, authoritative wrapper-timeout flag, and whether the executor
              asked clarification questions. `output` is the raw event stream
              (also persisted in the run's io dir for audit). `artifact_dirs`
@@ -88,21 +69,16 @@ class GateRun:
     @property
     def ok(self) -> bool:
         """
-        @brief   True when the executor exited cleanly (code 0).
-        @details Clean exit is necessary but not sufficient to advance: the
+        True when the executor exited cleanly (code 0).
+        Clean exit is necessary but not sufficient to advance: the
                  conductor still checks questions and runs invariants.
-        @return  Exit-status flag.
+        Returns: Exit-status flag.
         """
         return self.exit_code == 0
 
 
-# PUBLIC API
-
-
 class Executor(ABC):
-    """
-    @brief   Abstract executor launcher; Pi is its only implementation.
-    """
+    """Abstract executor launcher; Pi is its only implementation."""
 
     @abstractmethod
     def run_gate(
@@ -120,40 +96,37 @@ class Executor(ABC):
         context_key: str = "",
     ) -> GateRun:
         """
-        @brief      Launch the executor for a single workflow gate.
-        @details    Each job gate starts a bounded process resuming its exact
+        Launch the executor for a single workflow gate.
+        Each job gate starts a bounded process resuming its exact
                     private conversation. The durable workflow state/journal
                     remains authoritative for stage progression. Disposable
                     probes have no job conversation.
-        @param[in]  execute Exec seam bound to the run's container.
-        @param[in]  worktree HOST path of the run's worktree (questions file).
-        @param[in]  io_dir HOST path of the run's io exchange dir (recording
+        execute: Exec seam bound to the run's container.
+        worktree: HOST path of the run's worktree (questions file).
+        io_dir: HOST path of the run's io exchange dir (recording
                            and diagnostics; mounted at /adore/io).
-        @param[in]  prompt Gate-specific instruction (any content; it never
+        prompt: Gate-specific instruction (any content; it never
                            travels through argv).
-        @param[in]  timeout Wall-clock bound (run budgets).
-        @param[in]  archive_stem Optional immutable archive name stem.
-        @param[in]  package_secrets Optional known credentials for bounded and
+        timeout: Wall-clock bound (run budgets).
+        archive_stem: Optional immutable archive name stem.
+        package_secrets: Optional known credentials for bounded and
                                    redacted package-enabled gate retention.
-        @param[in]  instructions Optional acknowledgement-bound instruction handoff.
-        @param[in]  context_key Fingerprint of the ticket context acknowledged by the attempt.
-        @param[in]  cancel Cancellation check, passed only when
+        instructions: Optional acknowledgement-bound instruction handoff.
+        context_key: Fingerprint of the ticket context acknowledged by the attempt.
+        cancel: Cancellation check, passed only when
                            `cancel_grace_seconds` returns a value.
-        @return     A GateRun describing the outcome.
+        Returns: A GateRun describing the outcome.
         """
 
     def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
         """
-        @brief      Whether this launch watches the run's cancellation itself.
-        @details    `None` (the default): the conductor stops the target when a
+        Whether this launch watches the run's cancellation itself.
+        `None` (the default): the conductor stops the target when a
                     cancel arrives. A number: `run_gate` takes a `cancel` check,
                     stops the executor itself, and the conductor stops the
                     target only when the gate is still running that many
                     seconds after the cancel was seen.
-        @param[in]  execute Exec seam the gate will run on.
-        @return     Seconds the executor needs to end on cancel, or None.
+        execute: Exec seam the gate will run on.
+        Returns: Seconds the executor needs to end on cancel, or None.
         """
         return None
-
-
-# END OF FILE

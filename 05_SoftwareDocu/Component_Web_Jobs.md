@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Persisted Web Job Reads
 
 ## 1. Purpose
@@ -77,6 +70,14 @@ number/actual title/URL, MR URL, exact `lifecycle`, `stage`, `workflow`, `outcom
 stage/review counters, `created_at`, `updated_at`, `last_activity_at`, `waiting`,
 `evidence_url`, `coverage` and `consumption`. Empty outcomes remain empty.
 No stage implies completion, waiting, a reviewer or a next action.
+
+Validated same-family journal links expose nullable `previous_run_id` and
+`restarted_run_id` for retained execution navigation. Cancelled Restart uses the
+exact `state_revision`; the UI opens `admitted_run_id` after durable admission,
+including acknowledgement returned immediately by the POST. Tickets resolves
+the highest validated execution generation and carries the cancelled state's
+revision for confirmation. Earlier cancelled executions remain independently
+readable. Malformed history links refuse the projection rather than becoming URLs.
 
 `last_activity_at` is the latest valid persisted state update or journal event
 timestamp, normalized to UTC. Missing timestamps are null. Ordering is that

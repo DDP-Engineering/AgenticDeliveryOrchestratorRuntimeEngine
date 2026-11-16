@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_web_jobs.py
-@brief   Authorized global persisted job read contracts.
-@details Offline HTTP tests cover complete pages, composite identities, real
-         evidence, source revisions and fail-closed external data boundaries.
-"""
+"""Authorized global persisted job read contracts."""
 
-# IMPORTS
 import json
 from pathlib import Path
 import subprocess
@@ -31,17 +16,17 @@ from fastapi.testclient import TestClient
 import pytest
 
 from tests.execution_records import execution_record
+from tests.fixture_data import example_config_text
 
 
-# LOCAL HELPERS
 def _fixture(tmp_path):
-    """@brief Create two profiles with colliding run IDs and equal UTC times."""
+    """Create two profiles with colliding run IDs and equal UTC times."""
     profiles = ProfileStore(tmp_path / "home")
     items = [profiles.create(name, store_root=str(tmp_path / name),
                              display_name=f"Project {name}", platform="gitea")
              for name in ("alpha", "beta")]
     stores = [StateStore(item.store_root) for item in items]
-    example = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
+    example = example_config_text()
     for item in items:
         profiles.config_path(item.name).write_text(example.replace(
             'store_root = ".adore"', f'store_root = "{Path(item.store_root).as_posix()}"'))
@@ -56,7 +41,7 @@ def _fixture(tmp_path):
                                    "web_url": "https://forge.example/org/repo/issues/1",
                                    "description": "SECRET_DESCRIPTION"})
     def forbidden(*args, **kwargs):
-        """@brief Any attempted external read operation fails the test."""
+        """Any attempted external read operation fails the test."""
         pytest.fail("read endpoint called command runner")
     app = create_app(profiles.home, probe_runner=forbidden)
     return profiles, items, stores, app
@@ -81,6 +66,27 @@ def _get(client, query=""):
 
 
 # PUBLIC CONTRACT TESTS
+@pytest.mark.parametrize("corrupt", [False, True])
+def test_restart_history_links_preserve_old_job_and_refuse_unsafe_references(tmp_path, corrupt):
+    """Related execution links stay project-local and cannot become unsafe routes."""
+    profiles, items, stores, app = _fixture(tmp_path)
+    _state(stores[0], "same", lifecycle="cancelled")
+    stores[0].save(RunState("same-r1", 1, execution=execution_record()))
+    stores[0].journal("same", "restart-admitted", new_run_id="../foreign" if corrupt else "same-r1")
+    stores[0].journal("same-r1", "restarted-from", previous_run_id="same")
+    with TestClient(app) as client:
+        _login(client)
+        old = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
+        if corrupt:
+            assert old.status_code == 503
+            assert old.json()["detail"]["code"] == "run_journal_corrupt"
+        else:
+            assert old.status_code == 200
+            assert old.json()["job"]["restarted_run_id"] == "same-r1"
+            fresh = client.get(f"/api/v1/jobs/{items[0].project_id}/same-r1")
+            assert fresh.json()["job"]["previous_run_id"] == "same"
+
+
 @pytest.mark.parametrize("role", ["admin", "developer"])
 @pytest.mark.parametrize("status,exit_code,timed_out,seconds,output", [
     ("passed", 0, False, 0, ""),
@@ -94,7 +100,7 @@ def _get(client, query=""):
         "large-positive-exit", "not-configured", "unavailable"])
 def test_direct_saved_evidence_is_authorized_redacted_and_read_only(
         tmp_path, role, status, exit_code, timed_out, seconds, output):
-    """@brief Detail projects saved direct evidence, not current config or counters."""
+    """Detail projects saved direct evidence, not current config or counters."""
     profiles, items, stores, app = _fixture(tmp_path)
     evidence = {} if status == "unavailable" else {"verification": status}
     result = None
@@ -130,7 +136,7 @@ def test_direct_saved_evidence_is_authorized_redacted_and_read_only(
 
 
 def test_direct_absent_launch_does_not_guess_from_other_counters(tmp_path):
-    """@brief Missing launch evidence is unknown even with consumed budget/failures."""
+    """Missing launch evidence is unknown even with consumed budget/failures."""
     _, items, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", workflow="direct", iterations=9, stage_failures=3)
     with TestClient(app) as client:
@@ -144,7 +150,7 @@ def test_direct_absent_launch_does_not_guess_from_other_counters(tmp_path):
     "current-stage", "timeline-stage", "publication-launch", "publication-transition",
 ])
 def test_direct_corrupt_evidence_refuses_lists_and_details_without_repair(tmp_path, mutation):
-    """@brief All selected direct sources fail closed before filtering or totals."""
+    """All selected direct sources fail closed before filtering or totals."""
     _, items, stores, app = _fixture(tmp_path)
     result = {"command": "saved-check", "exit_code": 0, "seconds": 1,
               "timed_out": False, "output": "tail"}
@@ -184,7 +190,7 @@ def test_direct_corrupt_evidence_refuses_lists_and_details_without_repair(tmp_pa
 @pytest.mark.parametrize("workflow", ["aegis", "direct"])
 @pytest.mark.parametrize("role", ["admin", "developer"])
 def test_authorized_jobs_serialize_workflow(tmp_path, workflow, role):
-    """@brief List and detail expose recorded workflow only after project authorization."""
+    """List and detail expose recorded workflow only after project authorization."""
     _, items, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", workflow=workflow)
     if role == "developer":
@@ -208,7 +214,7 @@ def test_authorized_jobs_serialize_workflow(tmp_path, workflow, role):
 
 @pytest.mark.parametrize("corruption", ["missing", "unknown", "type", "task"])
 def test_jobs_refuse_corrupt_workflow_without_repair(tmp_path, corruption):
-    """@brief Invalid workflow/task bindings yield typed reads, never guessed workflow."""
+    """Invalid workflow/task bindings yield typed reads, never guessed workflow."""
     _, items, stores, app = _fixture(tmp_path)
     path = stores[0].run_dir("same") / "state.json"
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -232,7 +238,7 @@ def test_jobs_refuse_corrupt_workflow_without_repair(tmp_path, corruption):
 
 
 def test_job_list_has_no_advanced_filters_and_detail_keeps_safe_timeline(tmp_path):
-    """@brief Removed advanced filter parameters are ignored; detail keeps safe event evidence."""
+    """Removed advanced filter parameters are ignored; detail keeps safe event evidence."""
     _, items, stores, app = _fixture(tmp_path)
     stores[1].journal("same", "gate-started", stage="build", executor="pi",
                            model="SECRET_MODEL", password="SECRET_PASSWORD")
@@ -258,7 +264,7 @@ def test_job_list_has_no_advanced_filters_and_detail_keeps_safe_timeline(tmp_pat
 @pytest.mark.parametrize("field,value", [("executor", 12), ("executor", ""),
                                          ("stage", "unknown-stage")])
 def test_global_projected_timeline_corruption_fails_closed(tmp_path, field, value):
-    """@brief Invalid observed filter/timeline evidence never yields partial totals."""
+    """Invalid observed filter/timeline evidence never yields partial totals."""
     _, _, stores, app = _fixture(tmp_path)
     stores[0].journal("same", "gate-started", **{field: value})
     with TestClient(app) as client:
@@ -270,7 +276,7 @@ def test_global_projected_timeline_corruption_fails_closed(tmp_path, field, valu
 
 @pytest.mark.parametrize("stamp", ["", "malformed", "2026-10-05T10:00:00"])
 def test_project_summary_refuses_a_run_without_an_aware_activity_time(tmp_path, stamp):
-    """@brief Every save stamps updated_at in UTC; anything else is corrupt run state."""
+    """Every save stamps updated_at in UTC; anything else is corrupt run state."""
     _, items, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", updated_at=stamp)
     with TestClient(app) as client:
@@ -288,7 +294,7 @@ def test_project_summary_refuses_a_run_without_an_aware_activity_time(tmp_path, 
 
 
 def test_global_pages_search_groups_and_collision_identity(tmp_path):
-    """@brief Full global ordering precedes slicing and retains colliding IDs."""
+    """Full global ordering precedes slicing and retains colliding IDs."""
     _, items, _, app = _fixture(tmp_path)
     with TestClient(app) as client:
         assert client.get("/api/v1/jobs-page").status_code == 401
@@ -318,7 +324,7 @@ def test_global_pages_search_groups_and_collision_identity(tmp_path):
 
 
 def test_developer_scope_precedes_reads_counts_search_and_details(tmp_path):
-    """@brief Unauthorized corrupt sources and matches never affect Dev reads."""
+    """Unauthorized corrupt sources and matches never affect Dev reads."""
     _, items, stores, app = _fixture(tmp_path)
     dev = app.state.web_store.create_user("dev", "longer-password", "developer")
     app.state.web_store.set_memberships(dev["id"], ["alpha"])
@@ -342,7 +348,7 @@ def test_developer_scope_precedes_reads_counts_search_and_details(tmp_path):
 
 
 def test_overview_isolates_incompatible_project_state(tmp_path):
-    """@brief Isolate only authorized unreadable projects and bind the recovery revision."""
+    """Isolate only authorized unreadable projects and bind the recovery revision."""
     _, items, stores, app = _fixture(tmp_path)
     alpha, beta = (item.project_id for item in items)
     _state(stores[1], "old", lifecycle="failed")
@@ -389,7 +395,7 @@ def test_overview_isolates_incompatible_project_state(tmp_path):
 
 
 def test_persisted_wait_evidence_unknowns_archive_and_last_activity(tmp_path):
-    """@brief Actual questions and approval references drive actionable evidence."""
+    """Actual questions and approval references drive actionable evidence."""
     profiles, items, stores, app = _fixture(tmp_path)
     items[1].archived = True
     profiles.save(items[1])
@@ -433,7 +439,7 @@ def test_persisted_wait_evidence_unknowns_archive_and_last_activity(tmp_path):
 
 @pytest.mark.parametrize("change", ["state", "add", "delete", "ticket", "journal", "archive"])
 def test_page_revision_rejects_source_changes(tmp_path, change):
-    """@brief Continuations detect changing records and profile history metadata."""
+    """Continuations detect changing records and profile history metadata."""
     profiles, items, stores, app = _fixture(tmp_path)
     with TestClient(app) as client:
         _login(client)
@@ -459,7 +465,7 @@ def test_page_revision_rejects_source_changes(tmp_path, change):
 
 
 def test_job_list_sorts_by_requested_column_before_paging(tmp_path):
-    """@brief The server orders every matched job by the chosen column, then pages."""
+    """The server orders every matched job by the chosen column, then pages."""
     _, _, stores, app = _fixture(tmp_path)
     _state(stores[1], "old", updated_at="2026-10-06T09:00:00+00:00")
     with TestClient(app) as client:
@@ -488,7 +494,7 @@ def test_job_list_sorts_by_requested_column_before_paging(tmp_path):
                                     "q=%20", "q=" + "x" * 81,
                                     "status_group=bogus", "snapshot=no", "sort=bogus", "order=up"])
 def test_invalid_job_queries_fail_closed(tmp_path, query):
-    """@brief Query trust boundaries reject ambiguous or invalid selection."""
+    """Query trust boundaries reject ambiguous or invalid selection."""
     _, _, _, app = _fixture(tmp_path)
     with TestClient(app) as client:
         _login(client)
@@ -512,7 +518,7 @@ def test_invalid_job_queries_fail_closed(tmp_path, query):
 ])
 def test_corrupt_authorized_evidence_has_no_partial_totals_or_secrets(
         tmp_path, file, content, code):
-    """@brief Bad persisted sources reject page and detail without changing bytes."""
+    """Bad persisted sources reject page and detail without changing bytes."""
     _, items, stores, app = _fixture(tmp_path)
     path = stores[0].run_dir("same") / file
     path.write_text(content, encoding="utf-8")
@@ -532,7 +538,7 @@ def test_corrupt_authorized_evidence_has_no_partial_totals_or_secrets(
                                         ("stage", []), ("question_comment_id", -1),
                                         ("schema_version", True), ("foreign_key", 1)])
 def test_bad_state_metadata_is_typed(tmp_path, field, value):
-    """@brief Additional projected state fields have explicit validated types."""
+    """Additional projected state fields have explicit validated types."""
     _, _, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", **{field: value})
     with TestClient(app) as client:
@@ -546,7 +552,7 @@ def test_bad_state_metadata_is_typed(tmp_path, field, value):
                                  "https://forge\\evil/a", "http:///missing", "https://[bad/a"])
 @pytest.mark.parametrize("source", ["ticket", "mr"])
 def test_unsafe_urls_fail_closed_without_exposure(tmp_path, url, source):
-    """@brief Malformed and credential-bearing links never reach the browser."""
+    """Malformed and credential-bearing links never reach the browser."""
     _, _, stores, app = _fixture(tmp_path)
     if source == "ticket":
         stores[0].save_ticket("same", {"web_url": url})
@@ -559,7 +565,7 @@ def test_unsafe_urls_fail_closed_without_exposure(tmp_path, url, source):
 
 
 def test_source_mutation_during_read_is_rejected(tmp_path, monkeypatch):
-    """@brief Reinspection detects a change during the projection scan."""
+    """Reinspection detects a change during the projection scan."""
     _, _, stores, app = _fixture(tmp_path)
     original = Path.read_bytes
     changed = False
@@ -582,7 +588,7 @@ def test_source_mutation_during_read_is_rejected(tmp_path, monkeypatch):
 
 
 def test_overview_rejects_mutation_in_a_previously_read_project(tmp_path, monkeypatch):
-    """@brief Recheck the full authorized scope after reading every project."""
+    """Recheck the full authorized scope after reading every project."""
     _, items, stores, app = _fixture(tmp_path)
     (_, first), (_, second) = sorted(zip(items, stores, strict=True),
                                      key=lambda pair: pair[0].project_id)
@@ -611,7 +617,7 @@ def test_overview_rejects_mutation_in_a_previously_read_project(tmp_path, monkey
                                             ("gitea", "#issuecomment-7"), ("", "issues/1")])
 def test_wait_locations_respect_forge_and_reads_launch_no_commands(
         tmp_path, monkeypatch, platform, anchor):
-    """@brief Comment locations use forge evidence and all reads avoid subprocesses."""
+    """Comment locations use forge evidence and all reads avoid subprocesses."""
     profiles, items, stores, app = _fixture(tmp_path)
     items[0].platform = platform
     profiles.save(items[0])
@@ -631,7 +637,7 @@ def test_wait_locations_respect_forge_and_reads_launch_no_commands(
 
 
 def test_all_lifecycle_groups_exact_stage_review_and_redaction(tmp_path):
-    """@brief Grouping is lifecycle-based and retains exact state/evidence semantics."""
+    """Grouping is lifecycle-based and retains exact state/evidence semantics."""
     _, items, stores, app = _fixture(tmp_path)
     lifecycles = {"working": "active", "publishing": "active", "handoff-pending": "waiting",
                   "parked-clarification": "waiting", "awaiting-approval": "waiting",
@@ -656,7 +662,7 @@ def test_all_lifecycle_groups_exact_stage_review_and_redaction(tmp_path):
 
 
 def test_unreadable_source_and_orphan_run_are_not_empty_success(tmp_path, monkeypatch):
-    """@brief IO failures and directories without state cannot disappear from totals."""
+    """IO failures and directories without state cannot disappear from totals."""
     _, _, stores, app = _fixture(tmp_path)
     original = Path.read_bytes
     path = stores[0].run_dir("same") / "state.json"
@@ -676,7 +682,7 @@ def test_unreadable_source_and_orphan_run_are_not_empty_success(tmp_path, monkey
 
 
 def test_empty_project_and_absent_default_state_root(tmp_path):
-    """@brief No persisted runs is a complete empty collection, including archived history."""
+    """No persisted runs is a complete empty collection, including archived history."""
     profiles = ProfileStore(tmp_path / "home")
     item = profiles.create("empty")
     item.archived = True
@@ -690,7 +696,7 @@ def test_empty_project_and_absent_default_state_root(tmp_path):
 
 
 def test_free_text_masks_entire_quoted_and_authorization_credentials(tmp_path):
-    """@brief Redaction consumes full credential values before exposing title or outcome."""
+    """Redaction consumes full credential values before exposing title or outcome."""
     _, items, stores, app = _fixture(tmp_path)
     stores[0].save_ticket("same", {"title": 'Actual title password="two word secret"'})
     _state(stores[0], "same", outcome="Authorization: Bearer opaquevalue; API_KEY='secret phrase'")
@@ -704,7 +710,7 @@ def test_free_text_masks_entire_quoted_and_authorization_credentials(tmp_path):
 
 
 def test_stale_parked_questions_are_unknown_for_new_wait(tmp_path):
-    """@brief A historical question cannot become an action for a newer parked round."""
+    """A historical question cannot become an action for a newer parked round."""
     _, items, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", lifecycle="parked-clarification", question_comment_id=7,
            parked_at="2026-10-05T12:00:00Z")
@@ -717,7 +723,7 @@ def test_stale_parked_questions_are_unknown_for_new_wait(tmp_path):
 
 
 def test_broken_runs_root_symlink_fails_closed(tmp_path, monkeypatch):
-    """@brief A missing symlink target is corrupt evidence, not an empty legacy root."""
+    """A missing symlink target is corrupt evidence, not an empty legacy root."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("empty")
     root = profiles.default_store_root("empty") / "runs"
@@ -737,7 +743,7 @@ def test_broken_runs_root_symlink_fails_closed(tmp_path, monkeypatch):
 @pytest.mark.parametrize("role", ["admin", "developer"])
 def test_corrupt_profile_decoding_is_typed_on_global_project_and_direct_reads(
         tmp_path, payload, role):
-    """@brief Every job scope converts malformed profile decoding to a safe typed error."""
+    """Every job scope converts malformed profile decoding to a safe typed error."""
     profiles, items, _, app = _fixture(tmp_path)
     if role == "developer":
         dev = app.state.web_store.create_user("dev", "longer-password", "developer")
@@ -755,11 +761,8 @@ def test_corrupt_profile_decoding_is_typed_on_global_project_and_direct_reads(
         assert path.read_bytes() == payload
 
 
-# END OF FILE
-
-
 def test_job_preparation_projection_is_closed_and_rejects_false_success(tmp_path):
-    """@brief Jobs expose authoritative outcomes without source/policy or false success."""
+    """Jobs expose authoritative outcomes without source/policy or false success."""
     from adore.preparation import resolve_plan
 
     from tests.test_preparation import SourceRunner, recipe_config
@@ -789,7 +792,7 @@ def test_job_preparation_projection_is_closed_and_rejects_false_success(tmp_path
 
 @pytest.mark.parametrize("unit", ["x", "a.", "a-", "a+"])
 def test_redact_text_stays_linear_on_long_word_runs(unit):
-    """@brief Long identifier or dotted runs are redacted without a quadratic scan."""
+    """Long identifier or dotted runs are redacted without a quadratic scan."""
     text = unit * (40_000 // len(unit)) + " token=abc123"
     started = time.monotonic()
     redacted = redact_text(text)
@@ -810,13 +813,13 @@ def test_redact_text_stays_linear_on_long_word_runs(unit):
     ],
 )
 def test_redact_text_masks_url_credentials_and_forge_tokens(raw, secret):
-    """@brief Credentials in remote URLs and well-known forge tokens never reach the page."""
+    """Credentials in remote URLs and well-known forge tokens never reach the page."""
     redacted = redact_text(raw)
     assert secret not in redacted and "[REDACTED]" in redacted
 
 
 def test_job_detail_shows_saved_launches_and_frozen_active_time(tmp_path):
-    """@brief Counters and current limits remain available independently of statistics."""
+    """Counters and current limits remain available independently of statistics."""
     _, items, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", lifecycle="parked-clarification", iterations=9,
            active_started_at="2026-10-05T09:58:30+00:00", updated_at="2026-10-05T10:00:00+00:00")
@@ -834,7 +837,7 @@ def test_job_detail_shows_saved_launches_and_frozen_active_time(tmp_path):
 
 @pytest.mark.parametrize("corruption", ["counter", "clock"])
 def test_job_budget_detail_refuses_corrupt_evidence(tmp_path, corruption):
-    """@brief Corrupt saved work never becomes guessed zero consumption."""
+    """Corrupt saved work never becomes guessed zero consumption."""
     _, items, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", **({"iterations": True} if corruption == "counter"
                                 else {"active_started_at": "bad"}))
@@ -850,7 +853,7 @@ def test_job_budget_detail_refuses_corrupt_evidence(tmp_path, corruption):
 def test_job_details_preserve_recovery_and_consumption_without_current_limits(
     tmp_path, config_state,
 ):
-    """@brief Unavailable limits never erase valid saved evidence or recovery revision."""
+    """Unavailable limits never erase valid saved evidence or recovery revision."""
     from hashlib import sha256
 
     profiles, items, stores, app = _fixture(tmp_path)
@@ -886,14 +889,14 @@ def test_job_details_preserve_recovery_and_consumption_without_current_limits(
 
 
 def test_job_budget_configuration_race_refuses_an_unbound_observation(tmp_path, monkeypatch):
-    """@brief Config replacement during a detail read remains a 409, not unknown limits."""
+    """Config replacement during a detail read remains a 409, not unknown limits."""
     profiles, items, _, app = _fixture(tmp_path)
     selected = profiles.config_path("alpha")
     original = Path.read_bytes
     calls = 0
 
     def changing(path):
-        """@brief Replace only the second selected-config byte read in this isolated fixture."""
+        """Replace only the second selected-config byte read in this isolated fixture."""
         nonlocal calls
         if path == selected:
             calls += 1
@@ -910,7 +913,7 @@ def test_job_budget_configuration_race_refuses_an_unbound_observation(tmp_path, 
 
 
 def _executor_archive(store, run_id="same"):
-    """@brief Create a realistic immutable archive with hostile transcript fields."""
+    """Create a realistic immutable archive with hostile transcript fields."""
     archive = store.run_dir(run_id) / "io" / "archive" / "build-attempt-1-attempt1"
     archive.mkdir(parents=True)
     (archive / "meta.json").write_text(json.dumps({
@@ -937,7 +940,7 @@ def _executor_archive(store, run_id="same"):
 
 
 def test_executor_output_is_scoped_operational_and_never_a_transcript(tmp_path):
-    """@brief Latest archive projects safe facts equally for Admin and scoped Developer."""
+    """Latest archive projects safe facts equally for Admin and scoped Developer."""
     _, items, stores, app = _fixture(tmp_path)
     _executor_archive(stores[0])
     web = app.state.web_store
@@ -967,7 +970,7 @@ def test_executor_output_is_scoped_operational_and_never_a_transcript(tmp_path):
 @pytest.mark.parametrize("mutation", ["path", "json", "utf8", "oversize", "meta", "link",
                                       "identity", "context", "schema", "content", "attempt"])
 def test_executor_output_refuses_corrupt_and_foreign_sources(tmp_path, mutation):
-    """@brief Untrusted IO cannot select foreign paths or leak malformed source bytes."""
+    """Untrusted IO cannot select foreign paths or leak malformed source bytes."""
     _, items, stores, app = _fixture(tmp_path)
     archive = _executor_archive(stores[0])
     event = stores[0].read_journal("same")[-1]
@@ -1007,7 +1010,7 @@ def test_executor_output_refuses_corrupt_and_foreign_sources(tmp_path, mutation)
 
 
 def test_executor_output_read_conflict_is_recoverable(tmp_path):
-    """@brief Concurrent journal appends refuse a read, then a fresh read succeeds."""
+    """Concurrent journal appends refuse a read, then a fresh read succeeds."""
     from adore.web import executor_evidence
     _, items, stores, app = _fixture(tmp_path)
     _executor_archive(stores[0])
@@ -1016,7 +1019,7 @@ def test_executor_output_read_conflict_is_recoverable(tmp_path):
     changed = False
 
     def append_during_read(path, limit):
-        """@brief Append one valid event between the two integrity reads."""
+        """Append one valid event between the two integrity reads."""
         nonlocal changed
         raw = original(path, limit)
         if path == stores[0].run_dir("same") / "journal.jsonl" and not changed:
@@ -1039,7 +1042,7 @@ def test_executor_output_read_conflict_is_recoverable(tmp_path):
 
 
 def test_executor_output_missing_and_latest_only(tmp_path):
-    """@brief No archive is explicit and a missing latest archive never shows an older one."""
+    """No archive is explicit and a missing latest archive never shows an older one."""
     _, items, stores, app = _fixture(tmp_path)
     with TestClient(app) as client:
         _login(client)
@@ -1058,7 +1061,7 @@ def test_executor_output_missing_and_latest_only(tmp_path):
 
 
 def test_event_stage_comes_from_recorded_context_and_transition_only(tmp_path):
-    """@brief Do not infer historical stage from current job state or unrelated context."""
+    """Do not infer historical stage from current job state or unrelated context."""
     _, items, stores, app = _fixture(tmp_path)
     store = stores[0]
     for name, detail in [("usage", {"context": "build"}),
@@ -1077,7 +1080,7 @@ def test_event_stage_comes_from_recorded_context_and_transition_only(tmp_path):
     ("stage-advanced", {"current": {}}),
 ])
 def test_event_stage_context_corruption_fails_closed(tmp_path, name, detail):
-    """@brief Stage aliases remain untrusted persisted input with typed refusal."""
+    """Stage aliases remain untrusted persisted input with typed refusal."""
     _, _, stores, app = _fixture(tmp_path)
     stores[0].journal("same", name, **detail)
     with TestClient(app) as client:
@@ -1089,7 +1092,7 @@ def test_event_stage_context_corruption_fails_closed(tmp_path, name, detail):
 
 @pytest.mark.parametrize("role", ["admin", "developer"])
 def test_job_instruction_api_is_authorized_literal_and_no_store(tmp_path, role):
-    """@brief Working jobs accept literal instructions even before a live session exists."""
+    """Working jobs accept literal instructions even before a live session exists."""
     from adore.instructions import InstructionInbox
 
     _, items, stores, app = _fixture(tmp_path)
@@ -1142,7 +1145,7 @@ def test_job_instruction_api_is_authorized_literal_and_no_store(tmp_path, role):
     ],
 )
 def test_job_instruction_api_refuses_invalid_input_without_writes(tmp_path, body):
-    """@brief Strict request boundaries refuse bad instruction text and shape."""
+    """Strict request boundaries refuse bad instruction text and shape."""
     from adore.instructions import InstructionInbox
 
     _, items, stores, app = _fixture(tmp_path)
@@ -1162,7 +1165,7 @@ def test_job_instruction_api_refuses_invalid_input_without_writes(tmp_path, body
     "lifecycle", ["done", "cancelled", "parked-clarification", "handoff-pending"]
 )
 def test_job_instruction_api_refuses_nonworking_job(tmp_path, lifecycle):
-    """@brief Saved lifecycle decides whether an instruction can enter the inbox."""
+    """Saved lifecycle decides whether an instruction can enter the inbox."""
     _, items, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", lifecycle=lifecycle)
     with TestClient(app) as client:

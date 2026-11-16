@@ -1,24 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file branding.py
-@brief Canonical product identity and runtime naming constants for ADORE.
-@details Centralizes the fixed product, package, filesystem, container, image,
-         deployment, and delivery names used by the Python runtime. Shell and
-         packaging surfaces mirror these constants and are checked by the
-         release-consistency tool.
-"""
+"""Canonical product identity and runtime naming constants for ADORE."""
 
 from __future__ import annotations
-
-# CONSTANTS
 
 PRODUCT_NAME = "Agentic Delivery Orchestrator & Runtime Engine"
 PRODUCT_ACRONYM = "ADORE"
@@ -70,5 +52,3 @@ NPM_CACHE_VOLUME = "adore-npm-cache"
 SYSTEMD_SERVICE_NAME = "adore.service"
 WINDOWS_TASK_NAME = "ADORE Orchestrator & Runtime Engine"
 RUNTIME_PACKAGE_PREFIX = "adore-runtime"
-
-# END OF FILE

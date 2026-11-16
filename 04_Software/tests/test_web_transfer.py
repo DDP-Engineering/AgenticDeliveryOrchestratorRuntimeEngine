@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_web_transfer.py
-@brief   Public portable enrollment source and atomic target contracts.
-@details Offline strict file/copy, ownership, authorization and rollback proofs.
-"""
+"""Public portable enrollment source and atomic target contracts."""
 
-# IMPORTS
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -32,9 +18,8 @@ from tests.execution_records import execution_record
 from tests.test_web_enrollment import _body, _login, _no_probe, offline_wizard  # noqa: F401
 
 
-# LOCAL HELPERS
 def _source(client, app, tmp_path, method="file"):
-    """@brief Enroll a source and select exact file or immutable project input."""
+    """Enroll a source and select exact file or immutable project input."""
     headers = _login(client)
     source = client.post("/api/v1/projects", json=_body(tmp_path), headers=headers)
     assert source.status_code == 200, source.text
@@ -100,7 +85,7 @@ def _source(client, app, tmp_path, method="file"):
 
 
 def _review(client, body, headers):
-    """@brief Obtain a canonical target review and assert no publication."""
+    """Obtain a canonical target review and assert no publication."""
     response = client.post("/api/v1/projects/transfer-preview", json=body, headers=headers)
     assert response.status_code == 200, response.text
     assert response.json()["structural_valid"], response.text
@@ -110,7 +95,7 @@ def _review(client, body, headers):
 # PUBLIC API / TESTS
 @pytest.mark.parametrize("method", ["file", "project"])
 def test_transfer_roundtrip_independent_stopped_and_replay(tmp_path, method):
-    """@brief Both methods transfer only all rules into a fresh stopped profile."""
+    """Both methods transfer only all rules into a fresh stopped profile."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, source, raw = _source(client, app, tmp_path, method)
@@ -165,7 +150,7 @@ def test_transfer_roundtrip_independent_stopped_and_replay(tmp_path, method):
 
 @pytest.mark.parametrize("mutation", ["comment", "missing", "identity", "file", "target"])
 def test_transfer_exact_source_and_target_binding(tmp_path, mutation):
-    """@brief Source bytes/identity and target edits invalidate confirmed review."""
+    """Source bytes/identity and target edits invalidate confirmed review."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _source_review, raw = _source(
@@ -193,7 +178,7 @@ def test_transfer_exact_source_and_target_binding(tmp_path, mutation):
 
 @pytest.mark.parametrize("bad", ["unknown", "version", "duplicate", "secret", "broken", "large"])
 def test_transfer_invalid_package_no_partial(tmp_path, bad):
-    """@brief Untrusted JSON uses unchanged strict parser with safe typed errors."""
+    """Untrusted JSON uses unchanged strict parser with safe typed errors."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _, _ = _source(client, app, tmp_path)
@@ -228,7 +213,7 @@ def test_transfer_invalid_package_no_partial(tmp_path, bad):
     "boundary", ["unconfirmed", "reference", "clone", "repository", "worktrees", "alias", "corrupt"]
 )
 def test_transfer_target_boundaries(tmp_path, boundary):
-    """@brief Unresolved references or ambiguous/colliding ownership block creation."""
+    """Unresolved references or ambiguous/colliding ownership block creation."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _, _ = _source(client, app, tmp_path, "project")
@@ -271,7 +256,7 @@ def test_transfer_target_boundaries(tmp_path, boundary):
 
 
 def test_transfer_rollback_and_late_source_change(tmp_path, monkeypatch):
-    """@brief Publication faults and mid-publication source edits leave no target."""
+    """Publication faults and mid-publication source edits leave no target."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _, raw = _source(client, app, tmp_path, "project")
@@ -304,7 +289,7 @@ def test_transfer_rollback_and_late_source_change(tmp_path, monkeypatch):
     "route", ["transfer-source", "transfer-preview", "transfer-check", "transfer-create"]
 )
 def test_transfer_admin_csrf_and_session_denial(tmp_path, route):
-    """@brief Both source and target methods deny Dev/CSRF/session before source IO."""
+    """Both source and target methods deny Dev/CSRF/session before source IO."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _, _ = _source(client, app, tmp_path, "project")
@@ -323,7 +308,7 @@ def test_transfer_admin_csrf_and_session_denial(tmp_path, route):
 
 
 def test_transfer_rechecks_role_inside_confirmation(tmp_path, monkeypatch):
-    """@brief An Admin revoked during preparation cannot publish a copied source."""
+    """An Admin revoked during preparation cannot publish a copied source."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _, _ = _source(client, app, tmp_path, "project")
@@ -349,7 +334,7 @@ def test_transfer_rechecks_role_inside_confirmation(tmp_path, monkeypatch):
     "name", ["transfer-source", "transfer-preview", "transfer-check", "transfer-create"]
 )
 def test_transfer_route_ids_reserved(tmp_path, name):
-    """@brief New route names cannot alias a profile directory identity."""
+    """New route names cannot alias a profile directory identity."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         result = client.post(
@@ -359,7 +344,7 @@ def test_transfer_route_ids_reserved(tmp_path, name):
 
 
 def test_transfer_probe_and_late_target_occupancy(tmp_path):
-    """@brief Explicit check is ephemeral; ownership created after review blocks publication."""
+    """Explicit check is ephemeral; ownership created after review blocks publication."""
     app = create_app(
         tmp_path / "home",
         probe_runner=lambda argv, **kwargs: CommandResult(argv=argv, exit_code=127),
@@ -382,7 +367,7 @@ def test_transfer_probe_and_late_target_occupancy(tmp_path):
 
 
 def test_transfer_creation_keeps_server_check(tmp_path):
-    """@brief Copy setup carries only the check issued for its reviewed target."""
+    """Copy setup carries only the check issued for its reviewed target."""
     app = create_app(
         tmp_path / "home",
         probe_runner=lambda argv, **kwargs: CommandResult(argv=argv, exit_code=127),
@@ -413,7 +398,7 @@ def test_transfer_creation_keeps_server_check(tmp_path):
 
 @pytest.mark.parametrize("bad", ["unknown", "duplicate", "missing", "both", "none"])
 def test_transfer_source_selection_and_active_corruption(tmp_path, bad):
-    """@brief Source choice and corrupt active TOML are strict public boundaries."""
+    """Source choice and corrupt active TOML are strict public boundaries."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _, raw = _source(client, app, tmp_path, "project")
@@ -440,7 +425,7 @@ def test_transfer_source_selection_and_active_corruption(tmp_path, bad):
 
 
 def test_clone_preview_defaults_reflect_the_copied_rules(tmp_path):
-    """@brief Settings copied from the source are not listed as defaults."""
+    """Settings copied from the source are not listed as defaults."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     with TestClient(app) as client:
         headers, body, _source_item, _raw = _source(client, app, tmp_path, "file")
@@ -454,7 +439,7 @@ def test_clone_preview_defaults_reflect_the_copied_rules(tmp_path):
 
 @pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}])
 def test_transfer_probe_rejects_invalid_workflow(tmp_path, monkeypatch, bad):
-    """@brief Portable enrollment never issues a token from malformed workflow evidence."""
+    """Portable enrollment never issues a token from malformed workflow evidence."""
     import adore.web.app as web_app
 
     evidence = {"checks": dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
@@ -471,7 +456,3 @@ def test_transfer_probe_rejects_invalid_workflow(tmp_path, monkeypatch, bad):
         assert result.json()["detail"]["code"] == "readiness_probe_failed"
         assert "evidence_token" not in result.json()
         assert not app.state.profiles.profile_dir("target").exists()
-
-
-# END OF FILE
-

@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Configuration Component
 
 Azure DevOps Services adds `azure_devops` and explicit organization/project/area
@@ -29,7 +22,11 @@ it never drops old fields or rewrites the operator's file. The example contains
 operational settings and omits reserved fields that do not affect execution.
 
 
-`delivery.reviewers` is a list of forge account names (empty requests no review), each 1–255 characters without whitespace, controls or a leading option prefix. Configuration validation rejects malformed lists before forge CLI invocation. Review requests are independent of candidate publication approval and repository merge permissions.
+`delivery.reviewers` is a list of forge account names for GitHub/GitLab/Gitea,
+each 1–255 characters without whitespace, controls or a leading option prefix.
+Azure DevOps uses identity GUIDs instead. An empty list requests no reviewer.
+Configuration validation rejects malformed lists before forge CLI invocation.
+Review requests are independent of publication approval and merge permissions.
 
 ReadinessConfig defaults acceptance checking to false and priority checking to true. ReviewConfig defaults maximum additional revision rounds to five; explicit valid overrides retain authority. The readiness model contains acceptance and priority checks.
 

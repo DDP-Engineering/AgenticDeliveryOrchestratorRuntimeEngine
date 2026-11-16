@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_web_pending_config.py
-@brief Staged administrator configuration edit contract tests.
-@details A reviewed candidate applies only when the project is quiescent.
-"""
+"""Staged administrator configuration edit contract tests."""
 
 import json
 from pathlib import Path
@@ -28,7 +15,7 @@ from tests.configuration_client import TestClient
 
 
 def _project(tmp_path):
-    """@brief Make a profile whose metadata and config share one state root."""
+    """Make a profile whose metadata and config share one state root."""
     profiles = ProfileStore(tmp_path / "home")
     root = tmp_path / "state"
     profiles.create("alpha", store_root=str(root))
@@ -41,15 +28,14 @@ def _project(tmp_path):
 
 
 def _headers(client):
-    """@brief Authenticate the bootstrap administrator."""
+    """Authenticate the bootstrap administrator."""
     csrf = client.post("/api/v1/session", json={
         "username": "admin", "password": "admin"}).json()["csrf"]
     return {"X-CSRF-Token": csrf}
 
 
-
 def test_approval_policy_cannot_apply_while_job_is_waiting(tmp_path):
-    """@brief Reviewed policy edits wait until the project has no unfinished jobs."""
+    """Reviewed policy edits wait until the project has no unfinished jobs."""
     profiles, path, state = _project(tmp_path)
     execution = {
         "plan": resolve_plan(load_config(path)), "resource": {},
@@ -75,7 +61,7 @@ def test_approval_policy_cannot_apply_while_job_is_waiting(tmp_path):
 
 
 def test_pending_candidate_for_an_external_key_is_corrupt_but_discardable(tmp_path):
-    """@brief Only an earlier build staged operator-owned keys: refuse it, let it be discarded."""
+    """Only an earlier build staged operator-owned keys: refuse it, let it be discarded."""
     from hashlib import sha256
 
     profiles, path, _state = _project(tmp_path)
@@ -106,7 +92,7 @@ def test_pending_candidate_for_an_external_key_is_corrupt_but_discardable(tmp_pa
 
 
 def test_stage_review_apply_and_discard_config(tmp_path):
-    """@brief Stage leaves live TOML untouched until explicit safe apply."""
+    """Stage leaves live TOML untouched until explicit safe apply."""
     profiles, path, state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -153,7 +139,7 @@ def test_stage_review_apply_and_discard_config(tmp_path):
 
 
 def test_pending_config_rejects_stale_corrupt_and_unauthorized_actions(tmp_path):
-    """@brief Pending state and administrator/CSRF boundaries fail closed."""
+    """Pending state and administrator/CSRF boundaries fail closed."""
     profiles, path, state = _project(tmp_path)
     app = create_app(profiles.home)
     web = app.state.web_store
@@ -203,7 +189,7 @@ def test_pending_config_rejects_stale_corrupt_and_unauthorized_actions(tmp_path)
 
 
 def test_direct_config_edit_cannot_bypass_active_or_pending_work(tmp_path):
-    """@brief Legacy direct edits observe the same safe application boundary."""
+    """Legacy direct edits observe the same safe application boundary."""
     profiles, path, state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -229,7 +215,7 @@ def test_direct_config_edit_cannot_bypass_active_or_pending_work(tmp_path):
 
 
 def test_identity_edit_requires_paused_pickup_before_apply(tmp_path):
-    """@brief High-impact configuration needs an explicit pickup pause."""
+    """High-impact configuration needs an explicit pickup pause."""
     profiles, path, state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -254,7 +240,7 @@ def test_identity_edit_requires_paused_pickup_before_apply(tmp_path):
 
 
 def test_direct_identity_edit_also_requires_paused_pickup(tmp_path):
-    """@brief Legacy direct configuration cannot bypass restart coordination."""
+    """Legacy direct configuration cannot bypass restart coordination."""
     profiles, path, state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -278,7 +264,7 @@ def test_direct_identity_edit_also_requires_paused_pickup(tmp_path):
     ("key", "platform.repo"),
 ])
 def test_pending_config_rejects_corrupt_persisted_fields(tmp_path, field, value):
-    """@brief Restored candidate metadata must retain its typed contract."""
+    """Restored candidate metadata must retain its typed contract."""
     profiles, path, _state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -298,7 +284,7 @@ def test_pending_config_rejects_corrupt_persisted_fields(tmp_path, field, value)
 
 
 def test_pending_config_apply_rejects_missing_live_config(tmp_path):
-    """@brief A vanished config is a typed service error, not an HTTP crash."""
+    """A vanished config is a typed service error, not an HTTP crash."""
     profiles, path, _state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -317,7 +303,7 @@ def test_pending_config_apply_rejects_missing_live_config(tmp_path):
 
 
 def test_pending_config_apply_finishes_interrupted_metadata_commit(tmp_path):
-    """@brief Retrying an interrupted apply reconciles exact candidate bytes."""
+    """Retrying an interrupted apply reconciles exact candidate bytes."""
     profiles, path, state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -340,7 +326,7 @@ def test_pending_config_apply_finishes_interrupted_metadata_commit(tmp_path):
 
 
 def test_pending_review_uses_safe_typed_candidate_values(tmp_path):
-    """@brief Review exposes typed proposed data and redacts credential URLs."""
+    """Review exposes typed proposed data and redacts credential URLs."""
     profiles, path, _state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -364,13 +350,13 @@ def test_pending_review_uses_safe_typed_candidate_values(tmp_path):
 
 
 def test_settings_metadata_projects_server_domains(tmp_path):
-    """@brief Server metadata supplies domains rather than browser guesses."""
+    """Server metadata supplies domains rather than browser guesses."""
     profiles, _path, _state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         _headers(client)
         response = client.get("/api/v1/projects/alpha/config").json()
         rows = {row["key"]: row for row in response["settings"]}
-        assert rows["platform.kind"]["choices"] == ["gitlab", "github", "gitea"]
+        assert rows["platform.kind"]["choices"] == ["gitlab", "github", "gitea", "azure_devops"]
         assert rows["budgets.max_iterations"]["type"] == "integer"
         assert rows["budgets.max_iterations"]["minimum"] == 1
         assert rows["container.egress.proxy_port"]["maximum"] == 65535
@@ -379,7 +365,7 @@ def test_settings_metadata_projects_server_domains(tmp_path):
 
 @pytest.mark.parametrize("value", ["false", "true"])
 def test_review_state_is_applied_only_after_review(tmp_path, value):
-    """@brief Both review states use the exact reviewed configuration boundary."""
+    """Both review states use the exact reviewed configuration boundary."""
     profiles, path, _state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -407,7 +393,7 @@ def test_review_state_is_applied_only_after_review(tmp_path, value):
     ("delivery.draft", "1"),
 ])
 def test_preparing_invalid_catalog_types_and_bounds_fails_closed(tmp_path, key, value):
-    """@brief Scalar inference cannot bypass declared configuration types."""
+    """Scalar inference cannot bypass declared configuration types."""
     profiles, path, _state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -423,7 +409,7 @@ def test_preparing_invalid_catalog_types_and_bounds_fails_closed(tmp_path, key, 
 
 
 def test_developer_catalog_redacts_financial_setting_and_credential_url(tmp_path):
-    """@brief Granted Dev gets safe purpose rows without financial or URL secrets."""
+    """Granted Dev gets safe purpose rows without financial or URL secrets."""
     profiles, path, _state = _project(tmp_path)
     path.write_text(re.sub(
         r'(?m)^model\s*=.*$', 'model = "https://user:secret-value@model.local/v1"',
@@ -450,7 +436,7 @@ def test_developer_catalog_redacts_financial_setting_and_credential_url(tmp_path
 
 
 def test_apply_binds_the_reviewed_base_as_well_as_candidate(tmp_path):
-    """@brief Explicit reviewed base cannot be replaced by another saved base."""
+    """Explicit reviewed base cannot be replaced by another saved base."""
     profiles, path, _state = _project(tmp_path)
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
@@ -471,7 +457,7 @@ def test_apply_binds_the_reviewed_base_as_well_as_candidate(tmp_path):
 
 
 def test_catalog_fails_closed_on_corrupt_declared_scalar_type(tmp_path):
-    """@brief Active scalar type corruption is a typed read error, not a guessed control."""
+    """Active scalar type corruption is a typed read error, not a guessed control."""
     profiles, path, _state = _project(tmp_path)
     text = path.read_text(encoding="utf-8")
     changed = re.sub(r"(?m)^max_iterations\s*=\s*20\b", "max_iterations = true", text)
@@ -485,7 +471,7 @@ def test_catalog_fails_closed_on_corrupt_declared_scalar_type(tmp_path):
 
 
 def test_execution_setting_direct_write_requires_review(tmp_path):
-    """@brief Preparation belongs to the external operator configuration."""
+    """Preparation belongs to the external operator configuration."""
     profiles, path, _ = _project(tmp_path)
     original = path.read_bytes()
     with TestClient(create_app(profiles.home)) as client:
@@ -510,7 +496,7 @@ def test_execution_setting_direct_write_requires_review(tmp_path):
      {"frame": 600, "specify": 600, "design": 600, "build": 5400, "validate": 3600}),
 ])
 def test_implementation_settings_review_and_apply_exact_value(tmp_path, key, value, expected):
-    """@brief New typed controls retain reviewed apply and every unrelated config value."""
+    """New typed controls retain reviewed apply and every unrelated config value."""
     profiles, path, _ = _project(tmp_path)
     before = load_config(path).to_dict()
     original = path.read_bytes()
@@ -536,8 +522,8 @@ def test_implementation_settings_review_and_apply_exact_value(tmp_path, key, val
 
 def test_stored_deliver_timeout_is_not_an_editable_stage_map(tmp_path):
     """
-    @brief   A stored map naming deliver is outside the closed five-stage editor.
-    @details AEGIS 0.15.0 removed the deliver stage, so the Settings row for a
+    A stored map naming deliver is outside the closed five-stage editor.
+    AEGIS 0.15.0 removed the deliver stage, so the Settings row for a
              persisted deliver override is shown but not offered for editing.
     """
     profiles, path, _ = _project(tmp_path)
@@ -555,7 +541,7 @@ def test_stored_deliver_timeout_is_not_an_editable_stage_map(tmp_path):
 
 @pytest.mark.parametrize('shape', ['inline', 'table', 'quoted', 'missing'])
 def test_stage_timeout_map_handles_human_toml_and_removes_override(tmp_path, shape):
-    """@brief Complete stage edits handle supported TOML spelling without touching other keys."""
+    """Complete stage edits handle supported TOML spelling without touching other keys."""
     profiles, path, _ = _project(tmp_path)
     text = path.read_text(encoding='utf-8')
     replacements = {
@@ -607,7 +593,7 @@ def test_stage_timeout_map_handles_human_toml_and_removes_override(tmp_path, sha
     ('workflow.stage_timeout_overrides','[30]'),
 ])
 def test_implementation_setting_bad_input_never_writes(tmp_path, key, value):
-    """@brief Closed collection/scalar authority rejects malformed human input atomically."""
+    """Closed collection/scalar authority rejects malformed human input atomically."""
     profiles, path, _ = _project(tmp_path)
     original = path.read_bytes()
     with TestClient(create_app(profiles.home)) as client:
@@ -625,7 +611,7 @@ def test_implementation_setting_bad_input_never_writes(tmp_path, key, value):
     ('workflow.stage_timeout_overrides','{"build":300}','{"design":300}'),
 ])
 def test_implementation_collection_corrupt_pending_is_refused(tmp_path,key,value,claimed):
-    """@brief Corrupt persisted typed evidence cannot be read or applied as a reviewed value."""
+    """Corrupt persisted typed evidence cannot be read or applied as a reviewed value."""
     profiles,path,_ = _project(tmp_path)
     original = path.read_bytes()
     with TestClient(create_app(profiles.home)) as client:
@@ -651,7 +637,7 @@ def test_implementation_collection_corrupt_pending_is_refused(tmp_path,key,value
 ])
 def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
         tmp_path, key, value):
-    """@brief Collection candidates reject unauthorized edits and unrelated persisted changes."""
+    """Collection candidates reject unauthorized edits and unrelated persisted changes."""
     from hashlib import sha256
 
     profiles, path, _ = _project(tmp_path)
@@ -694,7 +680,7 @@ def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
 
 
 def test_implementation_collection_unsupported_human_spelling_fails_without_write(tmp_path):
-    """@brief A valid but unsupported dotted TOML value cannot alter adjacent settings."""
+    """A valid but unsupported dotted TOML value cannot alter adjacent settings."""
     profiles, path, _ = _project(tmp_path)
     text = path.read_text(encoding="utf-8").replace(
         "stage_timeout_overrides = {}", "stage_timeout_overrides.build = 300")

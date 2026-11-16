@@ -1,34 +1,19 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_pi_installation.py
-@brief   Offline managed Pi installation and verification contracts.
-@details Fake Node and npm commands exercise the publication boundary.
-"""
+"""Offline managed Pi installation and verification contracts."""
 
-# IMPORTS
 from adore.cli import main
 import pytest
 
 
 def test_verify_missing_node(tmp_path, monkeypatch, capsys):
-    """@brief Diagnose a missing Node before using a global Pi."""
+    """Diagnose a missing Node before using a global Pi."""
     monkeypatch.setenv("ADORE_HOME", str(tmp_path))
     monkeypatch.setenv("ADORE_NODE", str(tmp_path / "missing"))
     assert main(["pi", "verify"]) == 1
     assert "Node" in capsys.readouterr().err
 
 
-
 def write_fake_packages(pi):
-    """@brief Write npm's expected manifests and CLI without accessing a registry."""
+    """Write npm's expected manifests and CLI without accessing a registry."""
     import json
 
     from adore import pi_installation as managed
@@ -43,7 +28,7 @@ def write_fake_packages(pi):
 
 
 def fake_node(tmp_path, monkeypatch):
-    """@brief Select a fake native Node under a host directory with spaces."""
+    """Select a fake native Node under a host directory with spaces."""
     node = tmp_path / "Node Tools" / "node.exe"
     npm = node.parent / "node_modules/npm/bin/npm-cli.js"
     npm.parent.mkdir(parents=True)
@@ -56,7 +41,7 @@ def fake_node(tmp_path, monkeypatch):
 
 
 def test_install_verify_and_change_build_pin(tmp_path, monkeypatch):
-    """@brief Verify idempotent publication and select only the new build pin."""
+    """Verify idempotent publication and select only the new build pin."""
     from pathlib import Path
 
     from adore import pi_installation as managed
@@ -96,7 +81,7 @@ def test_install_verify_and_change_build_pin(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("failure", ["old-node", "node-24", "npm", "timeout", "version"])
 def test_install_rejects_bad_node_or_unverified_npm_candidate(tmp_path, monkeypatch, failure):
-    """@brief A failed installation never publishes files or discloses npm output."""
+    """A failed installation never publishes files or discloses npm output."""
     from pathlib import Path
 
     from adore import pi_installation as managed
@@ -130,7 +115,7 @@ def test_install_rejects_bad_node_or_unverified_npm_candidate(tmp_path, monkeypa
 
 
 def test_managed_pi_ships_the_reviewed_guard():
-    """@brief Native Pi receives the same extension source as the executor image."""
+    """Native Pi receives the same extension source as the executor image."""
     from adore.pi_installation import GUARD
 
     image_guard = GUARD.parents[2] / "docker/pi/adore-guard.ts"

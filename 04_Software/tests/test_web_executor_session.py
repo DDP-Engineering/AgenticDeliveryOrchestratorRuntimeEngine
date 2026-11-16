@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_web_executor_session.py
-@brief   Offline authenticated archived-session contracts.
-@details Replays recorded Pi stdout and exercises untrusted file boundaries.
-"""
+"""Offline authenticated archived-session contracts."""
 
-# IMPORTS
 import json
 from pathlib import Path
 
@@ -23,9 +9,8 @@ import pytest
 from tests.test_web_jobs import _fixture, _login
 
 
-# LOCAL HELPERS
 def _archive(store, name="build-attempt-2-attempt1", records=None):
-    """@brief Write one physical launch in the current archive format."""
+    """Write one physical launch in the current archive format."""
     folder = store.run_dir("same") / "io" / "archive" / name
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "meta.json").write_text(json.dumps({
@@ -49,7 +34,7 @@ def _url(item, suffix=""):
 # LIVE SESSION CONTRACTS
 @pytest.mark.parametrize("package", [False, True])
 def test_rpc_producer_keeps_literal_live_and_archive_but_masks_operations(tmp_path, package):
-    """@brief Known binding/package secrets and generic credential shapes reach sessions only."""
+    """Known binding/package secrets and generic credential shapes reach sessions only."""
     from adore.executor.launcher import PiExecutor
 
     from tests.test_pi_rpc import FAKE, FakePi, SpawnTarget
@@ -79,7 +64,7 @@ def test_rpc_producer_keeps_literal_live_and_archive_but_masks_operations(tmp_pa
         _login(client)
 
         def cancel_after_live():
-            """@brief Read an actual in-flight producer record before the fake settles."""
+            """Read an actual in-flight producer record before the fake settles."""
             if not (io / "output.jsonl").exists() or not (io / "output.jsonl").stat().st_size:
                 return False
             row = client.get(_url(items[0])).json()["sessions"][0]
@@ -109,7 +94,7 @@ def test_rpc_producer_keeps_literal_live_and_archive_but_masks_operations(tmp_pa
 
 
 def _live(request, store, launch="a" * 32, records=b""):
-    """@brief Seed the current launch marker and its owned output."""
+    """Seed the current launch marker and its owned output."""
     from adore.state import StateStore
     io = store.run_dir("same") / "io"
     if not hasattr(store, "_test_live_owner"):
@@ -126,7 +111,7 @@ def _live(request, store, launch="a" * 32, records=b""):
 
 
 def test_live_complete_line_cursor_growth_and_visibility(tmp_path, request):
-    """@brief Live pages keep partial records, exact text and role restrictions."""
+    """Live pages keep partial records, exact text and role restrictions."""
     _, items, stores, app = _fixture(tmp_path)
     _archive(stores[0], records=[])
     first = b'{"type":"message_end","message":{"role":"user","content":"raw KEY=fake"}}\n'
@@ -156,7 +141,7 @@ def test_live_complete_line_cursor_growth_and_visibility(tmp_path, request):
 @pytest.mark.parametrize("change", ["replace", "truncate", "regrow", "no-newline",
                                     "marker", "finish", "missing", "abandoned"])
 def test_live_discontinuity_ends_without_mixing_attempts(tmp_path, request, change):
-    """@brief Replacement and same-inode equal-length rewrites cannot reuse a cursor."""
+    """Replacement and same-inode equal-length rewrites cannot reuse a cursor."""
     from tests.test_web_jobs import _state
     _, items, stores, app = _fixture(tmp_path)
     record = b'{"type":"message_end","message":{"role":"user","content":"first"}}\n'
@@ -192,7 +177,7 @@ def test_live_discontinuity_ends_without_mixing_attempts(tmp_path, request, chan
 
 
 def test_live_between_sessions_bad_cursors_and_project_denial(tmp_path, request):
-    """@brief Old output alone is history; inaccessible and invalid cursors fail closed."""
+    """Old output alone is history; inaccessible and invalid cursors fail closed."""
     _, items, stores, app = _fixture(tmp_path)
     marker, source = _live(request, stores[0], records=b'{}\n')
     user = app.state.web_store.create_user("dev", "test-password", "developer")
@@ -210,7 +195,7 @@ def test_live_between_sessions_bad_cursors_and_project_denial(tmp_path, request)
 
 
 def test_live_rewrite_during_first_read_discards_parsed_items(tmp_path, request, monkeypatch):
-    """@brief A same-inode rewrite cannot pair old parsed items with a new proof."""
+    """A same-inode rewrite cannot pair old parsed items with a new proof."""
     from adore.web.executor_session import read_session
     _, _, stores, _ = _fixture(tmp_path)
     old = b'{"type":"message_end","message":{"role":"user","content":"first"}}\n'
@@ -220,7 +205,7 @@ def test_live_rewrite_during_first_read_discards_parsed_items(tmp_path, request,
     rewritten = False
 
     class RacingRead:
-        """@brief Inject an external rewrite immediately after a complete line read."""
+        """Inject an external rewrite immediately after a complete line read."""
         def __init__(self, handle):
             self.handle = handle
 
@@ -253,14 +238,14 @@ def test_live_rewrite_during_first_read_discards_parsed_items(tmp_path, request,
 
 
 def test_live_mid_record_truncation_ends_without_spinning(tmp_path, request, monkeypatch):
-    """@brief An EOF during an oversized/partial record terminates the bounded read."""
+    """An EOF during an oversized/partial record terminates the bounded read."""
     from adore.web.executor_session import read_session
     _, _, stores, _ = _fixture(tmp_path)
     marker, source = _live(request, stores[0], records=b"x" * 10000)
     original = Path.open
 
     class TruncatingRead:
-        """@brief Model EOF before the captured size, with a finite no-progress guard."""
+        """Model EOF before the captured size, with a finite no-progress guard."""
         def __init__(self, handle):
             self.handle, self.calls = handle, 0
 
@@ -294,7 +279,7 @@ def test_live_mid_record_truncation_ends_without_spinning(tmp_path, request, mon
 
 @pytest.mark.parametrize("role", ["admin", "developer"])
 def test_live_completed_parts_thinking_costs_and_bad_records(tmp_path, request, role):
-    """@brief Live events retain source grouping, literal text and existing security."""
+    """Live events retain source grouping, literal text and existing security."""
     _, items, stores, app = _fixture(tmp_path)
     records = [
         {"type": "message_start", "message": {"role": "assistant"}},
@@ -323,7 +308,7 @@ def test_live_completed_parts_thinking_costs_and_bad_records(tmp_path, request, 
 @pytest.mark.parametrize("field,value", [("schema", 2), ("schema", True),
     ("id", "../outside"), ("archive_id", "../outside"), ("start_at", "")])
 def test_live_marker_corruption_is_refused_without_rewriting(tmp_path, request, field, value):
-    """@brief A corrupt current marker never creates guessed session evidence."""
+    """A corrupt current marker never creates guessed session evidence."""
     _, items, stores, app = _fixture(tmp_path)
     marker, source = _live(request, stores[0])
     document = {**marker, field: value}
@@ -340,7 +325,7 @@ def test_live_marker_corruption_is_refused_without_rewriting(tmp_path, request, 
 # PUBLIC CONTRACT TESTS
 @pytest.mark.parametrize("role", ["admin", "developer"])
 def test_recorded_session_replay_visibility_and_pagination(tmp_path, role):
-    """@brief Both authorized roles see recorded text without system or duplicates."""
+    """Both authorized roles see recorded text without system or duplicates."""
     _, items, stores, app = _fixture(tmp_path)
     folder = _archive(stores[0])
     records = [
@@ -396,7 +381,7 @@ def test_recorded_session_replay_visibility_and_pagination(tmp_path, role):
 
 
 def test_bad_lines_bounds_and_incomplete_tail_are_isolated(tmp_path):
-    """@brief Bad records are notices, retained text stays exact and unfinished data waits."""
+    """Bad records are notices, retained text stays exact and unfinished data waits."""
     _, items, stores, app = _fixture(tmp_path)
     folder = _archive(stores[0], records=[])
     source = folder / "output.jsonl"
@@ -420,7 +405,7 @@ def test_bad_lines_bounds_and_incomplete_tail_are_isolated(tmp_path):
 
 
 def test_collision_suffix_ten_and_huge_physical_record_are_bounded(tmp_path):
-    """@brief Valid decimal collision suffixes survive and huge sources emit a notice."""
+    """Valid decimal collision suffixes survive and huge sources emit a notice."""
     _, items, stores, app = _fixture(tmp_path)
     folder = _archive(stores[0], name="build-attempt-2-attempt1-10", records=[])
     with (folder / "output.jsonl").open("wb") as source:
@@ -435,7 +420,7 @@ def test_collision_suffix_ten_and_huge_physical_record_are_bounded(tmp_path):
 
 
 def test_huge_usage_integer_is_a_notice_and_later_text_survives(tmp_path):
-    """@brief An untrusted cost cannot overflow float conversion or stop the page."""
+    """An untrusted cost cannot overflow float conversion or stop the page."""
     _, items, stores, app = _fixture(tmp_path)
     folder = _archive(stores[0], records=[
         {"type": "message_end", "message": {"role": "assistant", "content": [],
@@ -453,7 +438,7 @@ def test_huge_usage_integer_is_a_notice_and_later_text_survives(tmp_path):
 @pytest.mark.parametrize("field,value", [("created_at", ""), ("exit_code", True),
     ("archive_stem", "../outside"), ("timed_out", "false")])
 def test_corrupt_archive_metadata_fails_closed(tmp_path, field, value):
-    """@brief Metadata corruption is refused, never guessed or automatically repaired."""
+    """Metadata corruption is refused, never guessed or automatically repaired."""
     _, items, stores, app = _fixture(tmp_path)
     folder = _archive(stores[0], records=[])
     path = folder / "meta.json"
@@ -473,7 +458,7 @@ def test_corrupt_archive_metadata_fails_closed(tmp_path, field, value):
     "build-attempt-2-attempt1?limit=201", "build-attempt-2-attempt1?limit=0",
     "%2E%2E", "build-attempt-2-attempt1?cursor=abc"])
 def test_invalid_session_requests_fail_closed(tmp_path, suffix):
-    """@brief Untrusted identities and non-line cursors never expose raw files."""
+    """Untrusted identities and non-line cursors never expose raw files."""
     _, items, stores, app = _fixture(tmp_path)
     _archive(stores[0])
     with TestClient(app) as client:
@@ -485,7 +470,7 @@ def test_invalid_session_requests_fail_closed(tmp_path, suffix):
 
 @pytest.mark.parametrize("target", ["archive", "attempt", "output", "meta", "hardlink"])
 def test_linked_session_sources_fail_closed(tmp_path, target):
-    """@brief Session reads share the existing no-link identity boundary."""
+    """Session reads share the existing no-link identity boundary."""
     _, items, stores, app = _fixture(tmp_path)
     folder = _archive(stores[0])
     path = {"archive": folder.parent, "attempt": folder, "output": folder / "output.jsonl",

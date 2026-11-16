@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: Repository Source (`adore/web/repository_source.py`)
 
 ## 1. Purpose
@@ -16,13 +9,17 @@ detect forge details and clone the repository into ADORE's own folder at creatio
 
 - `parse_repository_url`: accept https, http and ssh (including `user@host:path`)
   addresses without passwords, queries, fragments or option-like values; return host,
-  repository path (owner/name, GitLab subgroups allowed) and name.
-- `detect_kind` / `tea_login_hosts`: github.com and gitlab.com directly, other hosts by a
+  repository path (owner/name, GitLab subgroups allowed) and name. Azure canonical
+  HTTPS and `git@ssh.dev.azure.com:v3/ORG/PROJECT/REPO` addresses also return
+  organization and project, with repository as a name. Boards Area Path is entered
+  separately and validated before project creation.
+- `detect_kind` / `tea_login_hosts`: github.com, gitlab.com and Azure cloud hosts directly; other hosts by a
   matching server `tea logins list --output json` entry (Gitea, with its login name);
   otherwise unknown and the administrator chooses.
 - `ls_remote`: read `git ls-remote --symref -- <url> HEAD refs/heads/*`
-  through the same Git boundary for GitHub, GitLab and Gitea, including self-hosted
-  instances, with the ADORE account's existing Git credentials.
+  through the same Git boundary for GitHub, GitLab, Gitea and Azure DevOps Services,
+  with the ADORE account's existing Git credentials. GitHub/GitLab/Gitea may be
+  self-hosted; Azure supports the canonical Services cloud addresses only.
 - `remote_branches` / `valid_branch_name`: validate a complete advertisement
   (at most 2 MB and 10,000 heads), object IDs, unique short branch names and
   consistent symbolic HEAD. Malformed or oversized output raises

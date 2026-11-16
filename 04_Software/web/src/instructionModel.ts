@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import {ApiError} from "./errors.ts";
 
 export type Instruction = {schema:1;id:string;user:{id:number;username:string};created_at:string;mode:"now"|"after";text:string;delivery:null|{at:string;how:"prompt"|"steer"|"follow_up"};last_error:""|"pi_rejected"};

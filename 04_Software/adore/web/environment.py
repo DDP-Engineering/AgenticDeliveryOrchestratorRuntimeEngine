@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    environment.py
-@brief   Prepare ADORE-owned shared images inside durable configuration tasks.
-@details Only bundled recipes enter temporary build contexts. Short reservations
-         coordinate image work; config/kernel locks never span probes or builds.
-"""
+"""Prepare ADORE-owned shared images inside durable configuration tasks."""
 
 from __future__ import annotations
 
-# IMPORTS
 from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
@@ -39,7 +24,6 @@ from adore.util import CommandResult, CommandRunner, strict_json_loads
 from adore.web.executor_settings import read_private_record, write_private_record
 from adore.web.ownership import process_birth
 
-# CONSTANTS
 _ASSETS = (
     "Dockerfile.executor-base",
     "Dockerfile.egress-proxy",
@@ -68,7 +52,6 @@ class EnvironmentError(RuntimeError):
         self.code = code
 
 
-# HELPER FUNCTIONS
 def _ok(result: CommandResult) -> bool:
     return (
         isinstance(result, CommandResult)
@@ -114,7 +97,6 @@ def _copy_assets(destination: Path) -> None:
         target.write_bytes(data)
 
 
-# DATA MODELS / TYPEDEFINITIONS
 @dataclass
 class _Job:
     id: str
@@ -127,7 +109,6 @@ class _Job:
         return {"id": self.id, "status": self.status, "stage": self.stage, "error": self.error}
 
 
-# PUBLIC API
 class EnvironmentPreparation:
     """Bounded background work shared by simultaneous imports on one server.
 
@@ -176,9 +157,10 @@ class EnvironmentPreparation:
             return job.view()
 
     def prepare(self, config: Config) -> dict:
-        """@brief Prepare a reviewed environment synchronously inside a durable control task.
-        @param[in] config Exact reviewed prospective project configuration.
-        @return Confirmed, value-free environment outcome; no API thread is launched.
+        """
+        Prepare a reviewed environment synchronously inside a durable control task.
+        config: Exact reviewed prospective project configuration.
+        Returns: Confirmed, value-free environment outcome; no API thread is launched.
         """
         proxy = (
             egress_policy(config).proxy_image
@@ -285,7 +267,7 @@ class EnvironmentPreparation:
 
     @contextmanager
     def _reservation(self, runtime: str):
-        """@brief Reserve shared image work with short transactions and proven process birth."""
+        """Reserve shared image work with short transactions and proven process birth."""
         lock_path = self.home / "environment" / sha256(runtime.encode()).hexdigest() / "images"
         record = lock_path.parent / "reservation.json"
         token = uuid4().hex
@@ -394,6 +376,3 @@ class EnvironmentPreparation:
         )
         if not _ok(result):
             raise EnvironmentError("environment_executor_invalid")
-
-
-# END OF FILE

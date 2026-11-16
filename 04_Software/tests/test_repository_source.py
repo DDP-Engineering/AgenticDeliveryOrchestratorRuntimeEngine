@@ -1,21 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_repository_source.py
-@brief Enrollment from a repository URL: detection, preview without writes and clone at creation.
-@details External commands go through a fake runner that records every call.
-"""
+"""Enrollment from a repository URL: detection, preview without writes and clone at creation."""
 
 from __future__ import annotations
 
-# IMPORTS
 import json
 from pathlib import Path
 
@@ -34,18 +20,15 @@ import pytest
 
 from tests.configuration_client import TestClient
 
-# CONSTANTS
-
 URL = "ssh://git@192.168.1.15:2222/dpasare/Sample.Service.git"
 TEA = json.dumps([{"Name": "dcp", "URL": "http://192.168.1.15:3000", "SSHHost": "192.168.1.15"}])
 
 
-# HELPER FUNCTIONS
 
 
 @pytest.fixture(autouse=True)
 def offline_wizard(monkeypatch):
-    """@brief Keep the wizard's own probes offline."""
+    """Keep the wizard's own probes offline."""
     import adore.web.app as web_app
     from adore.wizard import run_wizard
 
@@ -58,7 +41,7 @@ def offline_wizard(monkeypatch):
 
 
 class Forge:
-    """@brief Fake git/tea boundary; `aegis` and `branch` shape what a clone contains."""
+    """Fake git/tea boundary; `aegis` and `branch` shape what a clone contains."""
 
     def __init__(self, *, reachable: bool = True, aegis: bool = True,
                  toml: bool = True, branch: bool = True):
@@ -105,14 +88,14 @@ class Forge:
 
 
 def _login(client) -> dict:
-    """@brief Sign in as the bootstrap administrator and return the CSRF header."""
+    """Sign in as the bootstrap administrator and return the CSRF header."""
     result = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
     assert result.status_code == 200, result.text
     return {"X-CSRF-Token": result.json()["csrf"]}
 
 
 def _setup(detected: dict, **changes) -> dict:
-    """@brief Guided answers built from a detection result, as the wizard sends them."""
+    """Guided answers built from a detection result, as the wizard sends them."""
     return {
         "name": detected["name"],
         "display_name": detected["display_name"],
@@ -144,7 +127,7 @@ def _setup(detected: dict, **changes) -> dict:
     ],
 )
 def test_repository_urls_are_parsed(url, host, repo, name) -> None:
-    """@brief Supported https, http, ssh and scp-like forms yield host, repository and name."""
+    """Supported https, http, ssh and scp-like forms yield host, repository and name."""
     parsed = parse_repository_url(url)
     assert (parsed.host, parsed.repo, parsed.name) == (host, repo, name)
 
@@ -171,13 +154,13 @@ def test_repository_urls_are_parsed(url, host, repo, name) -> None:
     ],
 )
 def test_unsupported_or_unsafe_urls_are_rejected(url) -> None:
-    """@brief Local paths, other schemes, credentials, queries and option-like values fail."""
+    """Local paths, other schemes, credentials, queries and option-like values fail."""
     with pytest.raises(RepositorySourceError):
         parse_repository_url(url)
 
 
 def test_kind_login_branch_id_and_origin_helpers() -> None:
-    """@brief Detection helpers cover public hosts, tea logins and naming."""
+    """Detection helpers cover public hosts, tea logins and naming."""
     hosts = tea_login_hosts(TEA)
     assert hosts == {"192.168.1.15": "dcp"}
     assert tea_login_hosts('[{"name": "x", "url": "https://git.example.invalid"}]') == {
@@ -202,7 +185,7 @@ def test_kind_login_branch_id_and_origin_helpers() -> None:
 
 
 def test_detection_endpoint_reads_the_repository_without_writing(tmp_path) -> None:
-    """@brief Read repository returns detected values and leaves the server untouched."""
+    """Read repository returns detected values and leaves the server untouched."""
     forge = Forge()
     app = create_app(tmp_path / "home", probe_runner=forge)
     with TestClient(app) as client:
@@ -255,7 +238,7 @@ def test_detection_endpoint_reads_the_repository_without_writing(tmp_path) -> No
     ("ssh://git@git.enterprise.invalid:2222/team/app.git", None),
 ])
 def test_remote_branches_are_forge_independent(tmp_path, url, kind) -> None:
-    """@brief Every supported forge and unknown self-hosted address shares Git discovery."""
+    """Every supported forge and unknown self-hosted address shares Git discovery."""
     forge = Forge()
     with TestClient(create_app(tmp_path / "home", probe_runner=forge)) as client:
         response = client.post("/api/v1/projects/repository-source", json={"url": url},
@@ -276,7 +259,7 @@ def test_remote_branches_are_forge_independent(tmp_path, url, kind) -> None:
      + "a" * 40 + "\trefs/heads/stable\r\n", "stable", ["stable"]),
 ])
 def test_empty_or_detached_remote_does_not_invent_default(tmp_path, output, default, branches):
-    """@brief Missing symbolic HEAD stays unknown; SHA-256 repositories remain supported."""
+    """Missing symbolic HEAD stays unknown; SHA-256 repositories remain supported."""
     forge = Forge()
 
     def runner(argv, **options):
@@ -307,7 +290,7 @@ def test_empty_or_detached_remote_does_not_invent_default(tmp_path, output, defa
     "".join("a" * 40 + f"\trefs/heads/branch-{number}\n" for number in range(10_001)),
 ], ids=lambda output: f"advertisement-{len(output)}")
 def test_corrupt_or_oversized_remote_refs_fail_closed(tmp_path, output):
-    """@brief An untrusted ref listing cannot become partial or fabricated choices."""
+    """An untrusted ref listing cannot become partial or fabricated choices."""
     forge = Forge()
 
     def runner(argv, **options):
@@ -326,7 +309,7 @@ def test_corrupt_or_oversized_remote_refs_fail_closed(tmp_path, output):
 @pytest.mark.parametrize(("aegis", "toml"), [(False, False), (False, True),
                                            (True, False), (True, True)])
 def test_create_clones_after_review_and_checks_do_not(tmp_path, aegis, toml) -> None:
-    """@brief Both workflows enroll without adding or executing repository files."""
+    """Both workflows enroll without adding or executing repository files."""
     forge = Forge(aegis=aegis, toml=toml)
     app = create_app(tmp_path / "home", probe_runner=forge)
     with TestClient(app) as client:
@@ -374,7 +357,7 @@ def test_create_clones_after_review_and_checks_do_not(tmp_path, aegis, toml) -> 
                                            (True, False), (True, True)])
 def test_matching_existing_clone_is_reused_and_occupied_folder_refused(
         tmp_path, aegis, toml) -> None:
-    """@brief A clone of the same remote is reused; another folder there is never overwritten."""
+    """A clone of the same remote is reused; another folder there is never overwritten."""
     forge = Forge()
     app = create_app(tmp_path / "home", probe_runner=forge)
     with TestClient(app) as client:
@@ -423,7 +406,7 @@ def test_matching_existing_clone_is_reused_and_occupied_folder_refused(
 
 @pytest.mark.parametrize("aegis", [False, True])
 def test_failed_clone_verification_removes_the_fresh_clone(tmp_path, aegis) -> None:
-    """@brief A clone without the target branch is removed for either workflow."""
+    """A clone without the target branch is removed for either workflow."""
     forge = Forge(aegis=aegis, toml=aegis, branch=False)
     app = create_app(tmp_path / "home", probe_runner=forge)
     with TestClient(app) as client:
@@ -445,7 +428,7 @@ def test_failed_clone_verification_removes_the_fresh_clone(tmp_path, aegis) -> N
 
 
 def test_folder_appearing_after_review_is_refused_and_kept(tmp_path) -> None:
-    """@brief A clone location taken between review and creation is never cloned into or removed."""
+    """A clone location taken between review and creation is never cloned into or removed."""
     forge = Forge()
     app = create_app(tmp_path / "home", probe_runner=forge)
     with TestClient(app) as client:
@@ -472,7 +455,7 @@ def test_folder_appearing_after_review_is_refused_and_kept(tmp_path) -> None:
 
 
 def test_clone_answers_must_match_the_url_and_allowed_location(tmp_path) -> None:
-    """@brief The repository must match the URL; the clone may move, but not into ADORE folders."""
+    """The repository must match the URL; the clone may move, but not into ADORE folders."""
     forge = Forge()
     app = create_app(tmp_path / "home", probe_runner=forge)
     with TestClient(app) as client:
@@ -508,7 +491,7 @@ def test_clone_answers_must_match_the_url_and_allowed_location(tmp_path) -> None
 
 
 def test_failed_clone_and_reserved_names(tmp_path) -> None:
-    """@brief A failing clone leaves nothing behind; reserved repository names get a suffix."""
+    """A failing clone leaves nothing behind; reserved repository names get a suffix."""
 
     class Failing(Forge):
         def __call__(self, argv, **options):
@@ -543,7 +526,7 @@ def test_failed_clone_and_reserved_names(tmp_path) -> None:
 
 
 def test_tilde_marker_parent_and_publication_failure(tmp_path, monkeypatch) -> None:
-    """@brief Paths are used as typed; clones in progress, missing parents, failed publication."""
+    """Paths are used as typed; clones in progress, missing parents, failed publication."""
     import adore.web.app as web_app
 
     forge = Forge()
@@ -588,7 +571,7 @@ def test_tilde_marker_parent_and_publication_failure(tmp_path, monkeypatch) -> N
 
 
 def test_stale_cloning_marker_is_ignored_and_replaced(tmp_path) -> None:
-    """@brief A marker left by an interrupted request does not block the location forever."""
+    """A marker left by an interrupted request does not block the location forever."""
     import os
     import time
 

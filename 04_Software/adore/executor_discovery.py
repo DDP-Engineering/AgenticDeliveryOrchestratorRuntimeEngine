@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    executor_discovery.py
-@brief   Read-only discovery of installed native coding-agent entrypoints.
-@details Searches bounded absolute host paths and known npm layouts without
-         executing tools, interpreting shims, reading auth or installing files.
-"""
+"""Read-only discovery of installed native coding-agent entrypoints."""
 
 from __future__ import annotations
 
-# IMPORTS
 import os
 from pathlib import Path
 import platform
@@ -25,7 +10,6 @@ import shlex
 from adore.branding import PI_NATIVE_COMMAND
 from adore.local_process import native_context
 
-# CONSTANTS
 AGENTS = ("pi",)
 MAX_ROOTS = 64
 MAX_INSTALLATIONS = 12
@@ -38,14 +22,13 @@ NPM_SCRIPTS = {
 }
 
 
-# LOCAL HELPERS
 def _quote(path: Path) -> str:
-    """@brief Quote native paths for the existing shlex-based launch grammar."""
+    """Quote native paths for the existing shlex-based launch grammar."""
     return '"' + str(path).replace("\\", "/") + '"'
 
 
 def _usable(path: Path, system: str, excluded: tuple[Path, ...], *, script=False) -> Path | None:
-    """@brief Accept installed files outside project trees, with bounded ancestry."""
+    """Accept installed files outside project trees, with bounded ancestry."""
     try:
         spelling = str(path)
         if (
@@ -74,7 +57,6 @@ def _usable(path: Path, system: str, excluded: tuple[Path, ...], *, script=False
         return None
 
 
-# PUBLIC API
 def discover_executors(
     *,
     system: str | None = None,
@@ -82,13 +64,14 @@ def discover_executors(
     home: Path | None = None,
     excluded: tuple[Path, ...] | None = None,
 ) -> dict:
-    """@brief List native launch suggestions for the current ADORE service account.
-    @param[in] system Host OS; injectable for offline Windows/Linux filesystem tests.
-    @param[in] environment Host environment snapshot; only path locations are used.
-    @param[in] home Existing account home, defaulting to its native environment.
-    @param[in] excluded Project directories whose files cannot be auto-selected.
-    @return Closed host/account and supported-agent installation listing.
-    @note Filesystem failure yields fewer suggestions; manual configuration remains valid.
+    """
+    List native launch suggestions for the current ADORE service account.
+    system: Host OS; injectable for offline Windows/Linux filesystem tests.
+    environment: Host environment snapshot; only path locations are used.
+    home: Existing account home, defaulting to its native environment.
+    excluded: Project directories whose files cannot be auto-selected.
+    Returns: Closed host/account and supported-agent installation listing.
+    Note: Filesystem failure yields fewer suggestions; manual configuration remains valid.
     """
     system = system or platform.system()
     env = dict(os.environ if environment is None else environment)
@@ -146,7 +129,7 @@ def discover_executors(
             agent=agent,
             seen=seen,
         ) -> None:
-            """@brief Add a canonical launch only after both native identities are usable."""
+            """Add a canonical launch only after both native identities are usable."""
             executable = _usable(binary, system, excluded)
             entrypoint = _usable(script, system, excluded, script=True) if script else None
             if executable is None or script is not None and entrypoint is None:
@@ -176,6 +159,3 @@ def discover_executors(
                     for relative in NPM_SCRIPTS.get(agent, ()):
                         add(node, "npm", packages / relative)
     return result
-
-
-# END OF FILE

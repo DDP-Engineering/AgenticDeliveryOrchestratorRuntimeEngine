@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_web_executor_recipes.py
-@brief   Prove scoped source management and independent project/job metadata.
-@details All requests use temporary stores; external command execution is refused.
-"""
+"""Prove scoped source management and independent project/job metadata."""
 
-# IMPORTS
 import base64
 from hashlib import sha256
 from pathlib import Path
@@ -29,10 +15,9 @@ from tests.configuration_client import TestClient
 from tests.execution_records import execution_record
 
 
-# LOCAL HELPERS
 @pytest.fixture
 def recipe_project(tmp_path):
-    """@brief Build a pair of profiles sharing one unregistered executor image."""
+    """Build a pair of profiles sharing one unregistered executor image."""
     profiles = ProfileStore(tmp_path / "home")
     source = (Path(__file__).parents[1] / "config.example.toml").read_text()
     source = re.sub(r"^image = .+$", 'image = "sample-executor:1"', source, count=1, flags=re.M)
@@ -58,7 +43,7 @@ def recipe_project(tmp_path):
 def payload(
     profiles, *, image="sample-executor:1", source=b'FROM scratch\nCMD ["sleep", "infinity"]\n'
 ):
-    """@brief Encode an explicit current-profile source request without secrets."""
+    """Encode an explicit current-profile source request without secrets."""
     return {
         "image": image,
         "source": base64.b64encode(source).decode(),
@@ -69,7 +54,7 @@ def payload(
 
 # PUBLIC CONTRACT TESTS
 def test_recipe_status_and_shared_attachment_preserve_project_state(recipe_project):
-    """@brief An attached definition is reused by image without rewriting run/profile data."""
+    """An attached definition is reused by image without rewriting run/profile data."""
     profiles, client, headers = recipe_project
     url = "/api/v1/projects/alpha/executor-recipe"
     before = profiles.config_path("alpha").read_bytes()
@@ -118,7 +103,7 @@ def test_recipe_status_and_shared_attachment_preserve_project_state(recipe_proje
 
 
 def test_recipe_replacement_and_project_revision_are_bound(recipe_project):
-    """@brief Competing image replacements and stale project selections fail closed."""
+    """Competing image replacements and stale project selections fail closed."""
     profiles, client, headers = recipe_project
     url = "/api/v1/projects/alpha/executor-recipe"
     first = client.put(url, json=payload(profiles), headers=headers)
@@ -135,7 +120,7 @@ def test_recipe_replacement_and_project_revision_are_bound(recipe_project):
 
 
 def test_missing_base_is_attached_in_the_same_project(recipe_project):
-    """@brief A retained root becomes exportable when its local base is attached."""
+    """A retained root becomes exportable when its local base is attached."""
     profiles, client, headers = recipe_project
     url = "/api/v1/projects/alpha/executor-recipe"
     root = client.put(url, json=payload(profiles, source=b"FROM sample-base:1\n"), headers=headers)
@@ -151,7 +136,7 @@ def test_missing_base_is_attached_in_the_same_project(recipe_project):
 
 
 def test_recipe_mutations_require_csrf_and_a_relevant_image(recipe_project):
-    """@brief Invalid transport, unrelated tags and missing CSRF leave no stored sources."""
+    """Invalid transport, unrelated tags and missing CSRF leave no stored sources."""
     profiles, client, headers = recipe_project
     url = "/api/v1/projects/alpha/executor-recipe"
     assert client.put(url, json=payload(profiles)).status_code == 403
@@ -166,7 +151,7 @@ def test_recipe_mutations_require_csrf_and_a_relevant_image(recipe_project):
 
 
 def test_recipe_anonymous_and_developer_requests_are_refused(recipe_project):
-    """@brief Source catalogs are administrator-only, before any recipe read."""
+    """Source catalogs are administrator-only, before any recipe read."""
     profiles, client, headers = recipe_project
     url = "/api/v1/projects/alpha/executor-recipe"
     created = client.post(
@@ -192,7 +177,7 @@ def test_recipe_anonymous_and_developer_requests_are_refused(recipe_project):
 
 
 def test_corrupt_recipe_metadata_keeps_settings_and_standalone_export_available(recipe_project):
-    """@brief Recipe failures are scoped to the selected definition and name explicit recovery."""
+    """Recipe failures are scoped to the selected definition and name explicit recovery."""
     from adore.executor_recipes import RecipeStore
 
     profiles, client, headers = recipe_project
@@ -211,12 +196,10 @@ def test_corrupt_recipe_metadata_keeps_settings_and_standalone_export_available(
     assert path.read_bytes() == b'{"schema":99}'
 
 
-
-
 @pytest.mark.parametrize("method", ["GET", "POST", "PUT"])
 @pytest.mark.parametrize("fault", ["deleted", "oversized", "linked", "changed"])
 def test_recipe_final_config_reads_fail_closed(recipe_project, monkeypatch, method, fault):
-    """@brief Mid-request config loss, replacement and unsafe files produce typed refusals."""
+    """Mid-request config loss, replacement and unsafe files produce typed refusals."""
     import importlib
 
     module = importlib.import_module("adore.web.app")
@@ -253,6 +236,3 @@ def test_recipe_final_config_reads_fail_closed(recipe_project, monkeypatch, meth
         "stale_config_revision" if fault == "changed" else "config_corrupt"
     )
     assert not (profiles.home / "executor-recipes").exists()
-
-
-# END OF FILE

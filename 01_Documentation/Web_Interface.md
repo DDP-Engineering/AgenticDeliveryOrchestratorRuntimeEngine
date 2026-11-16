@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Web interface
 
 The web application uses the same profiles, configuration and job state as the
@@ -261,3 +254,13 @@ the bundle fingerprint. See [Getting started](Getting_Started.md) for source sta
 Every manual Start in global Tickets or Projects > Tickets opens a compact **Workflow** selector: **With AEGIS** or **Without AEGIS**. It is prefilled from the project’s **Default workflow** and observed payload presence. Missing AEGIS disables that choice; installed payload usability is checked on admission. Direct remains selectable. Job actions offers separate Abandon and restart with AEGIS / Abandon and restart without AEGIS buttons. Each uses a short browser confirmation naming the chosen workflow and discarding existing work; no additional page panel or selector opens. Missing AEGIS disables the AEGIS action. Retry retains the recorded workflow. Settings > Implementation exposes the auto/direct project default.
 
 The authenticated `/api/v1/projects/{id}/workflow-selection` read returns `default` (`aegis` or `direct`) and `aegis_available` (presence only). Ticket Start and operation Start/Restart accept optional `workflow: "aegis" | "direct"`; other actions refuse an override. The queue stores it in a structured column, includes it in idempotency binding and passes it to the worker CLI. The web database identifier stays fixed at schema 1 throughout pre-release; the current table structure is changed in place and validated when opened. Before using this build, stop ADORE and manually delete `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` to start fresh; this also resets web accounts, memberships and operation history. Profiles and run state are separate. No automatic reset or conversion is performed.
+
+## Cancelled jobs and storage
+
+Restart refusal and an unconfirmed restart are shown separately. If confirmation
+fails, refresh Jobs or Tickets and check for the new execution before trying again;
+the new job may already exist even though the operation could not be confirmed.
+
+For the latest cancelled job, Jobs offers Restart job with/without AEGIS. Tickets offers Restart job with the compact workflow selector. Confirmation starts from current settings while preserving cancelled history. Durable admission opens the new job; Previous job and New job navigate related executions. Earlier executions that already have a successor cannot create another restart. Failed-job Retry and destructive abandonment remain separate.
+
+System status places the Storage label, availability badge and free/total capacity together below Workers. Job history has no automatic retention policy; audit limits apply only to administrative events. Individual job deletion is an explicit CLI operation.

@@ -1,38 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file gitea.py
-@brief Gitea adapter implemented over the `tea` CLI (>= 0.15).
-@details Reads and writes go through `tea api` (the raw Gitea REST API) because
-         tea's native `--output json` is lossy: indexes come back as strings,
-         labels as a joined string, authors as display names, and an empty
-         comment list prints "No comments found" instead of JSON (verified
-         live against tea 0.15.0 / Gitea 1.25.4, 2026-07-29). Two tea quirks
-         shape every call:
-         - `tea api` exits 0 even on HTTP 4xx/5xx, so each call runs with
-           `-i` and the HTTP status line (written to stderr) is parsed and
-           enforced here;
-         - an endpoint starting with "/" breaks tea's `/api/v1` prefixing and
-           hits the web router (a text 404), so endpoints are always built
-           without a leading slash.
-         Label add/remove goes through `tea issues edit` / `tea pulls edit`,
-         which resolve label NAMES to ids (the raw API wants label ids). The
-         command runner is injected so the adapter is unit-testable without
-         tea. `_run` and `_parse_json` moved to the shared `Forge` base
-         (ADORE-PY-004); `_api`'s HTTP-status-based not-found handling stays
-         local, not force-fit into the marker-based heuristic glab/gh share.
-"""
+"""Gitea adapter implemented over the `tea` CLI (>= 0.15)."""
 
 from __future__ import annotations
 
-# IMPORTS
 import contextlib
 import json
 import re
@@ -41,8 +10,6 @@ import urllib.parse
 
 from adore.forge.base import Comment, Forge, ForgeError, MergeRequest, Ticket
 from adore.util import CommandResult, CommandRunner, run_command
-
-# CONSTANTS
 
 # `tea api -i` writes "HTTP/1.1 200 OK" plus headers to stderr; take the LAST
 # status line so a proxy/redirect preamble can never shadow the final verdict.
@@ -67,28 +34,24 @@ _PIPELINE_STATES = {
     "warning": "none",
 }
 
-# PUBLIC API
-
 
 class GiteaForge(Forge):
-    """
-    @brief   Gitea implementation of the Forge interface (via `tea`).
-    """
+    """Gitea implementation of the Forge interface (via `tea`)."""
 
     def __init__(self, repo: str, runner: CommandRunner = run_command, *,
                  login: str = "") -> None:
         """
-        @brief      Bind the adapter to a Gitea repository.
-        @details    Gitea has no subgroups, so the slug is exactly OWNER/REPO;
+        Bind the adapter to a Gitea repository.
+        Gitea has no subgroups, so the slug is exactly OWNER/REPO;
                     anything else fails closed here rather than producing
                     malformed API endpoints later.
-        @param[in]  repo Gitea repository (OWNER/REPO).
-        @param[in]  runner Command runner (injectable for tests).
-        @param[in]  login tea login name (`tea logins list`) appended as
+        repo: Gitea repository (OWNER/REPO).
+        runner: Command runner (injectable for tests).
+        login: tea login name (`tea logins list`) appended as
                           `--login` to every call; empty uses tea's default
                           login. Set it whenever more than one login exists or
                           the wanted login is not the default.
-        @exception  ValueError When repo is not OWNER/REPO.
+        Raises ValueError: When repo is not OWNER/REPO.
         """
         parts = repo.split("/")
         if len(parts) != 2 or not all(part.strip() for part in parts):
@@ -101,8 +64,8 @@ class GiteaForge(Forge):
 
     def list_ready(self, ready_label: str) -> list[Ticket]:
         """
-        @brief      List open issues carrying the label via the issues API.
-        @details    `type=issues` is mandatory: the Gitea issues endpoint
+        List open issues carrying the label via the issues API.
+        `type=issues` is mandatory: the Gitea issues endpoint
                     returns pull requests too without it, and a PR in the
                     selection pool would be conducted as a ticket. The result
                     is additionally POST-FILTERED on the label: when the label
@@ -111,9 +74,9 @@ class GiteaForge(Forge):
                     (live finding, Gitea 1.25.4, 2026-07-29) - without the
                     post-filter a typo'd ready label would select the entire
                     backlog.
-        @param[in]  ready_label Eligibility label.
-        @return     Eligible tickets, unordered (caller ranks by priority).
-        @exception  ForgeError When tea fails or the response is malformed.
+        ready_label: Eligibility label.
+        Returns: Eligible tickets, unordered (caller ranks by priority).
+        Raises ForgeError: When tea fails or the response is malformed.
         """
         items = self._get_paged(
             f"repos/{self.repo}/issues",
@@ -124,10 +87,10 @@ class GiteaForge(Forge):
 
     def get_ticket(self, iid: int) -> Ticket | None:
         """
-        @brief      Fetch one issue; None when it was deleted.
-        @param[in]  iid Issue index.
-        @return     The ticket or None on HTTP 404.
-        @exception  ForgeError When tea fails for another reason.
+        Fetch one issue; None when it was deleted.
+        iid: Issue index.
+        Returns: The ticket or None on HTTP 404.
+        Raises ForgeError: When tea fails for another reason.
         """
         result = self._api("GET", f"repos/{self.repo}/issues/{iid}", allow_404=True)
         if result is None:
@@ -138,28 +101,28 @@ class GiteaForge(Forge):
 
     def list_comments(self, iid: int) -> list[Comment]:
         """
-        @brief      Read all issue comments oldest-first via the REST API.
-        @details    Gitea keeps system events (label changes etc.) out of the
+        Read all issue comments oldest-first via the REST API.
+        Gitea keeps system events (label changes etc.) out of the
                     comments endpoint - like GitHub - so `system` is always
                     False here.
-        @param[in]  iid Issue index.
-        @return     All comments, oldest first.
-        @exception  ForgeError When tea fails or the response is malformed.
+        iid: Issue index.
+        Returns: All comments, oldest first.
+        Raises ForgeError: When tea fails or the response is malformed.
         """
         items = self._get_paged(f"repos/{self.repo}/issues/{iid}/comments", {})
         return [self._to_comment(item) for item in items]
 
     def post_comment(self, iid: int, body: str) -> int:
         """
-        @brief      Create a comment via the REST API (POST).
-        @details    The created id comes straight from the response JSON -
+        Create a comment via the REST API (POST).
+        The created id comes straight from the response JSON -
                     stronger than the URL-scraping the glab/gh adapters need.
                     `--field` is tea's guaranteed-string field (`--Field` would
                     type-infer, the same trap as glab/gh `--field`).
-        @param[in]  iid Issue index.
-        @param[in]  body Comment body.
-        @return     Created comment id.
-        @exception  ForgeError When tea fails or the response carries no id.
+        iid: Issue index.
+        body: Comment body.
+        Returns: Created comment id.
+        Raises ForgeError: When tea fails or the response carries no id.
         """
         result = self._api(
             "POST", f"repos/{self.repo}/issues/{iid}/comments", fields=[("body", body)]
@@ -173,11 +136,11 @@ class GiteaForge(Forge):
 
     def edit_comment(self, iid: int, comment_id: int, body: str) -> None:
         """
-        @brief      Edit a comment in place via the REST API (PATCH).
-        @param[in]  iid Issue index (unused; Gitea comment ids are repo-global).
-        @param[in]  comment_id Comment id.
-        @param[in]  body Replacement body.
-        @exception  ForgeError When tea fails.
+        Edit a comment in place via the REST API (PATCH).
+        iid: Issue index (unused; Gitea comment ids are repo-global).
+        comment_id: Comment id.
+        body: Replacement body.
+        Raises ForgeError: When tea fails.
         """
         del iid  # comment ids are repo-global on Gitea
         self._api(
@@ -189,14 +152,14 @@ class GiteaForge(Forge):
 
     def add_labels(self, iid: int, labels: list[str]) -> None:
         """
-        @brief      Add labels via `tea issues edit --add-labels`.
-        @details    The subcommand resolves label NAMES to ids (the raw API
+        Add labels via `tea issues edit --add-labels`.
+        The subcommand resolves label NAMES to ids (the raw API
                     wants ids). Labels are comma-joined, so a label name
                     containing a comma cannot be addressed (same limitation as
                     the gh adapter).
-        @param[in]  iid Issue index.
-        @param[in]  labels Labels to add.
-        @exception  ForgeError When tea fails.
+        iid: Issue index.
+        labels: Labels to add.
+        Raises ForgeError: When tea fails.
         """
         if not labels:
             return
@@ -207,10 +170,10 @@ class GiteaForge(Forge):
 
     def remove_labels(self, iid: int, labels: list[str]) -> None:
         """
-        @brief      Remove labels via `tea issues edit --remove-labels`.
-        @param[in]  iid Issue index.
-        @param[in]  labels Labels to remove.
-        @exception  ForgeError When tea fails.
+        Remove labels via `tea issues edit --remove-labels`.
+        iid: Issue index.
+        labels: Labels to remove.
+        Raises ForgeError: When tea fails.
         """
         if not labels:
             return
@@ -223,14 +186,14 @@ class GiteaForge(Forge):
 
     def get_merge_request(self, ref: int | str) -> MergeRequest | None:
         """
-        @brief      Fetch one PR by number or head branch via the pulls API.
-        @details    Numbers hit `pulls/{n}` directly; a branch name scans the
+        Fetch one PR by number or head branch via the pulls API.
+        Numbers hit `pulls/{n}` directly; a branch name scans the
                     OPEN pulls for a matching head ref (matching the interface
                     contract: branch lookup finds only open MRs, terminal-state
                     polling must use the stored number).
-        @param[in]  ref PR number, or the head branch name (open PRs only).
-        @return     The MergeRequest (state normalized), or None.
-        @exception  ForgeError When tea fails for another reason.
+        ref: PR number, or the head branch name (open PRs only).
+        Returns: The MergeRequest (state normalized), or None.
+        Raises ForgeError: When tea fails for another reason.
         """
         if isinstance(ref, int) or str(ref).isdigit():
             result = self._api("GET", f"repos/{self.repo}/pulls/{ref}", allow_404=True)
@@ -245,14 +208,14 @@ class GiteaForge(Forge):
 
     def pipeline_status(self, mr_iid: int) -> str:
         """
-        @brief      The PR head commit's combined status; never raises.
-        @details    Gitea keys commit status by SHA, not by PR, so this reads
+        The PR head commit's combined status; never raises.
+        Gitea keys commit status by SHA, not by PR, so this reads
                     the pull to learn `head.sha` and then its combined status.
                     An empty `state` means no CI reported on that commit, which
                     is "none" rather than a pass. Actions and external CI both
                     land on this endpoint.
-        @param[in]  mr_iid PR number.
-        @return     A PIPELINE_STATES value.
+        mr_iid: PR number.
+        Returns: A PIPELINE_STATES value.
         """
         try:
             pull = self._api("GET", f"repos/{self.repo}/pulls/{mr_iid}", allow_404=True)
@@ -283,17 +246,17 @@ class GiteaForge(Forge):
 
     def list_mr_comments(self, mr_iid: int) -> list[Comment]:
         """
-        @brief      Read the whole PR review thread oldest-first (REST API).
-        @details    Issues and PRs share one index space, so the issues
+        Read the whole PR review thread oldest-first (REST API).
+        Issues and PRs share one index space, so the issues
                     comments endpoint covers the conversation - but a
                     submitted review's own text and its inline diff comments
                     live under `pulls/<n>/reviews`. The revise loop needs
                     those: without them a reviewer who requested changes from
                     the diff view left the revision executor an EMPTY thread,
                     spending a review round on a blind revision.
-        @param[in]  mr_iid PR number.
-        @return     Conversation, review-body and inline comments, oldest first.
-        @exception  ForgeError When tea fails.
+        mr_iid: PR number.
+        Returns: Conversation, review-body and inline comments, oldest first.
+        Raises ForgeError: When tea fails.
         """
         comments = self.list_comments(mr_iid)
         comments.extend(self._review_comments(mr_iid))
@@ -302,15 +265,15 @@ class GiteaForge(Forge):
 
     def _review_comments(self, mr_iid: int) -> list[Comment]:
         """
-        @brief      Submitted review bodies plus their inline diff comments.
-        @details    Gitea keeps a review's inline comments behind a per-review
+        Submitted review bodies plus their inline diff comments.
+        Gitea keeps a review's inline comments behind a per-review
                     endpoint, so each review with an id costs one extra call.
                     A bodyless review is a bare approve/close event carrying no
                     instruction, so it is dropped rather than padding the
                     thread the executor reads.
-        @param[in]  mr_iid PR number.
-        @return     Review-surface comments (empty when the PR has none).
-        @exception  ForgeError When tea fails.
+        mr_iid: PR number.
+        Returns: Review-surface comments (empty when the PR has none).
+        Raises ForgeError: When tea fails.
         """
         found: list[Comment] = []
         reviews = self._get_paged(f"repos/{self.repo}/pulls/{mr_iid}/reviews", {})
@@ -330,19 +293,19 @@ class GiteaForge(Forge):
         return found
 
     def post_mr_comment(self, mr_iid: int, body: str) -> int:
-        """@brief Post a PR conversation comment through the issues surface."""
+        """Post a PR conversation comment through the issues surface."""
         return self.post_comment(mr_iid, body)
 
     def edit_mr_comment(self, mr_iid: int, comment_id: int, body: str) -> None:
-        """@brief Edit a PR conversation comment through the issues surface."""
+        """Edit a PR conversation comment through the issues surface."""
         self.edit_comment(mr_iid, comment_id, body)
 
     def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
         """
-        @brief      Remove PR labels via `tea pulls edit --remove-labels`.
-        @param[in]  mr_iid PR number.
-        @param[in]  labels Labels to remove.
-        @exception  ForgeError When tea fails.
+        Remove PR labels via `tea pulls edit --remove-labels`.
+        mr_iid: PR number.
+        labels: Labels to remove.
+        Raises ForgeError: When tea fails.
         """
         if not labels:
             return
@@ -352,10 +315,11 @@ class GiteaForge(Forge):
         )
 
     def update_merge_request_body(self, mr_iid: int, body: str) -> None:
-        """@brief Replace only the PR description, requiring a final 2xx acknowledgment.
-        @param[in] mr_iid PR number.
-        @param[in] body Literal current candidate description.
-        @exception ForgeError When the CLI fails, times out or returns a non-2xx final status.
+        """
+        Replace only the PR description, requiring a final 2xx acknowledgment.
+        mr_iid: PR number.
+        body: Literal current candidate description.
+        Raises ForgeError: When the CLI fails, times out or returns a non-2xx final status.
         """
         result = self._api("PATCH", f"repos/{self.repo}/pulls/{mr_iid}", fields=[("body", body)])
         if result.timed_out:
@@ -379,8 +343,8 @@ class GiteaForge(Forge):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a draft or ready pull request via the REST API. Never merges.
-        @details    Draft on Gitea is the `WIP: ` title prefix (tea's own
+        Open a draft or ready pull request via the REST API. Never merges.
+        Draft on Gitea is the `WIP: ` title prefix (tea's own
                     `--draft` does the same); the prefix is added only when the
                     title has none. The response JSON carries `html_url` and
                     `number` directly, so nothing is scraped from CLI text.
@@ -391,16 +355,16 @@ class GiteaForge(Forge):
                     delivery. The conductor owns branch cleanup after human merge.
                     `cwd` is not needed (pure API call,
                     no local remote resolution).
-        @param[in]  source Head branch.
-        @param[in]  target Base branch.
-        @param[in]  title PR title.
-        @param[in]  body PR description.
-        @param[in]  draft Open as draft when true, otherwise ready for review.
-        @param[in]  reviewers Reviewer usernames (best-effort on Gitea).
-        @param[in]  remove_source_branch Conductor cleans up after human merge.
-        @param[in]  cwd Ignored (tea resolves everything from --repo/--login).
-        @return     PR web URL.
-        @exception  ForgeError When tea fails or the response has no html_url.
+        source: Head branch.
+        target: Base branch.
+        title: PR title.
+        body: PR description.
+        draft: Open as draft when true, otherwise ready for review.
+        reviewers: Reviewer usernames (best-effort on Gitea).
+        remove_source_branch: Conductor cleans up after human merge.
+        cwd: Ignored (tea resolves everything from --repo/--login).
+        Returns: PR web URL.
+        Raises ForgeError: When tea fails or the response has no html_url.
         """
         del remove_source_branch  # The conductor owns leased post-merge cleanup.
         del cwd  # pure API call; no local checkout involved
@@ -428,7 +392,7 @@ class GiteaForge(Forge):
     # -- internals ------------------------------------------------------------------
 
     def list_labels(self) -> list[str]:
-        """@brief Repository label names, read page by page through `tea api`."""
+        """Repository label names, read page by page through `tea api`."""
         names: list[str] = []
         page = 1
         while True:
@@ -441,14 +405,14 @@ class GiteaForge(Forge):
             page += 1
 
     def create_label(self, name: str, color: str, description: str) -> None:
-        """@brief Create a repository label (Gitea takes the colour with #)."""
+        """Create a repository label (Gitea takes the colour with #)."""
         self._api("POST", f"repos/{self.repo}/labels", fields=[
             ("name", name), ("color", f"#{color}"), ("description", description)])
 
     def _login_argv(self) -> list[str]:
         """
-        @brief   The `--login` argv fragment when a login is configured.
-        @return  ["--login", name] or [].
+        The `--login` argv fragment when a login is configured.
+        Returns: ["--login", name] or [].
         """
         return ["--login", self.login] if self.login else []
 
@@ -462,23 +426,23 @@ class GiteaForge(Forge):
         allow_404: bool = False,
     ) -> CommandResult | None:
         """
-        @brief      Run `tea api -i`, enforcing the HTTP status ourselves.
-        @details    tea 0.15 exits 0 even on HTTP 4xx/5xx (verified live), so
+        Run `tea api -i`, enforcing the HTTP status ourselves.
+        tea 0.15 exits 0 even on HTTP 4xx/5xx (verified live), so
                     the exit code only reports tea-level failures (no login,
                     network down). The real verdict is the status line `-i`
                     writes to stderr: missing status or >= 400 fails closed.
                     The endpoint must not start with "/" - that breaks tea's
                     `/api/v1` prefixing and hits the web router instead.
-        @param[in]  method HTTP method (GET/POST/PATCH/DELETE).
-        @param[in]  endpoint API endpoint relative to /api/v1 (no leading /).
-        @param[in]  fields String body fields, sent via `--field` (guaranteed
+        method: HTTP method (GET/POST/PATCH/DELETE).
+        endpoint: API endpoint relative to /api/v1 (no leading /).
+        fields: String body fields, sent via `--field` (guaranteed
                           string, never type-inferred).
-        @param[in]  data Raw JSON body, sent via `--data` (for non-string
+        data: Raw JSON body, sent via `--data` (for non-string
                          payloads such as arrays).
-        @param[in]  allow_404 Map HTTP 404 to None (deleted resource) instead
+        allow_404: Map HTTP 404 to None (deleted resource) instead
                               of raising.
-        @return     The successful CommandResult, or None on an allowed 404.
-        @exception  ForgeError When tea fails, the status line is missing, or
+        Returns: The successful CommandResult, or None on an allowed 404.
+        Raises ForgeError: When tea fails, the status line is missing, or
                     the HTTP status is >= 400 (except an allowed 404).
         """
         argv = ["tea", "api", "-i", "--method", method, *self._login_argv()]
@@ -504,10 +468,10 @@ class GiteaForge(Forge):
 
     def list_open(self, limit: int) -> list[Ticket]:
         """
-        @brief      List open issues (never pull requests) without a label filter.
-        @param[in]  limit Maximum number of tickets to return.
-        @return     Open tickets, at most `limit`.
-        @exception  ForgeError When tea fails or a record is malformed.
+        List open issues (never pull requests) without a label filter.
+        limit: Maximum number of tickets to return.
+        Returns: Open tickets, at most `limit`.
+        Raises ForgeError: When tea fails or a record is malformed.
         """
         items = self._get_paged(
             f"repos/{self.repo}/issues", {"state": "open", "type": "issues"}, max_items=limit
@@ -518,17 +482,17 @@ class GiteaForge(Forge):
         self, path: str, query: dict[str, str], max_items: int | None = None
     ) -> list[dict[str, Any]]:
         """
-        @brief      GET a list endpoint page by page until it is exhausted.
-        @details    Pages are `_PAGE_SIZE` (the Gitea MAX_RESPONSE_ITEMS floor).
+        GET a list endpoint page by page until it is exhausted.
+        Pages are `_PAGE_SIZE` (the Gitea MAX_RESPONSE_ITEMS floor).
                     The stop condition prefers the X-Total-Count header - it
                     stays correct even when a stricter server clamps pages
                     below the requested size; a short page is the fallback when
                     the header is absent, and `_MAX_LIST_PAGES` bounds runaways.
-        @param[in]  path Endpoint path (no query string, no leading /).
-        @param[in]  query Extra query parameters (page/limit are added here).
-        @param[in]  max_items Optional bound: stop once this many items are read.
-        @return     The concatenated item list.
-        @exception  ForgeError When tea fails or a page is malformed.
+        path: Endpoint path (no query string, no leading /).
+        query: Extra query parameters (page/limit are added here).
+        max_items: Optional bound: stop once this many items are read.
+        Returns: The concatenated item list.
+        Raises ForgeError: When tea fails or a page is malformed.
         """
         items: list[dict[str, Any]] = []
         page = 1
@@ -556,12 +520,12 @@ class GiteaForge(Forge):
     @staticmethod
     def _username(user: Any) -> str:
         """
-        @brief      Extract the login name from a Gitea user object.
-        @details    `login` is the canonical field; `username` is its alias in
+        Extract the login name from a Gitea user object.
+        `login` is the canonical field; `username` is its alias in
                     newer payloads. Never the display name - callers expect
                     the account handle, as on GitLab/GitHub.
-        @param[in]  user Raw user mapping (or None).
-        @return     The login, or "" when absent.
+        user: Raw user mapping (or None).
+        Returns: The login, or "" when absent.
         """
         if not isinstance(user, dict):
             return ""
@@ -570,14 +534,14 @@ class GiteaForge(Forge):
     @classmethod
     def _to_comment(cls, item: dict[str, Any]) -> Comment:
         """
-        @brief      Map one Gitea comment or review record to a Comment.
-        @details    A submitted review timestamps itself with `submitted_at`
+        Map one Gitea comment or review record to a Comment.
+        A submitted review timestamps itself with `submitted_at`
                     rather than `created_at`; falling back keeps every review
                     surface on one sortable timeline instead of pinning
                     reviews to the start of the thread. Gitea keeps system
                     events out of these endpoints, so `system` is always False.
-        @param[in]  item Raw comment/review mapping.
-        @return     The normalized Comment.
+        item: Raw comment/review mapping.
+        Returns: The normalized Comment.
         """
         return Comment(
             id=int(item["id"]),
@@ -590,13 +554,13 @@ class GiteaForge(Forge):
     @classmethod
     def _to_ticket(cls, item: dict[str, Any]) -> Ticket:
         """
-        @brief      Map one Gitea issue JSON record to a Ticket.
-        @details    Gitea returns labels as objects with a name field and
+        Map one Gitea issue JSON record to a Ticket.
+        Gitea returns labels as objects with a name field and
                     states as open/closed; both are normalized to the shared
                     shape ("opened" like GitLab).
-        @param[in]  item Raw issue mapping.
-        @return     The normalized Ticket.
-        @exception  ForgeError When the record misses the issue number.
+        item: Raw issue mapping.
+        Returns: The normalized Ticket.
+        Raises ForgeError: When the record misses the issue number.
         """
         state = str(item.get("state", "open")).lower()
         return Ticket(
@@ -614,14 +578,14 @@ class GiteaForge(Forge):
     @staticmethod
     def _to_merge_request(data: dict[str, Any]) -> MergeRequest:
         """
-        @brief      Map one Gitea pull JSON record to a MergeRequest.
-        @details    Gitea reports merged PRs as state "closed" with a separate
+        Map one Gitea pull JSON record to a MergeRequest.
+        Gitea reports merged PRs as state "closed" with a separate
                     `merged` boolean, so merged wins the normalization. `draft`
                     is native on Gitea >= 1.22; the WIP title prefix is the
                     fallback for older payloads.
-        @param[in]  data Raw pull mapping.
-        @return     The normalized MergeRequest.
-        @exception  ForgeError When the record misses the pull number.
+        data: Raw pull mapping.
+        Returns: The normalized MergeRequest.
+        Raises ForgeError: When the record misses the pull number.
         """
         state = str(data.get("state", "open")).lower()
         if "merged" in data and type(data["merged"]) is not bool:
@@ -638,6 +602,3 @@ class GiteaForge(Forge):
             or bool(_WIP_RE.match(data.get("title", ""))),
             labels=[label["name"] for label in data.get("labels") or []],
         )
-
-
-# END OF FILE

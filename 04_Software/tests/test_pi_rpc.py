@@ -1,25 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_pi_rpc.py
-@brief Offline tests for driving Pi through its RPC mode.
-@details A fake Pi (`tests/fake_pi_rpc.py`) replays the recorded PI-01 spike
-         fixtures over real pipes, so the client is exercised end to end
-         without Pi, a container, a provider or a key. Covers completion,
-         usage over turns, timeout and cancellation aborts, provider and
-         protocol failures, bounded memory, the guard and the isolation flags.
-"""
+"""Offline tests for driving Pi through its RPC mode."""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Callable
 import json
 from pathlib import Path
@@ -54,20 +36,15 @@ from tests.test_orchestrator import (
     task,
 )
 
-# CONSTANTS
-
 FAKE = Path(__file__).with_name("fake_pi_rpc.py")
 FIXTURES = Path(__file__).parent / "fixtures" / "pi_rpc"
 PROMPT = "Implement the stage."
-FAST = {"abort_grace": 2.0, "exit_grace": 2.0, "stats_grace": 2.0}
+FAST = {"abort_grace": 2.0, "exit_grace": 2.0, "stats_grace": 2.0, "startup_grace": 2.0}
 
-# DATA MODELS / TYPEDEFINITIONS
 
 
 class FakePi:
-    """
-    @brief   Spawn seam that starts the fake Pi and records what ADORE sent.
-    """
+    """Spawn seam that starts the fake Pi and records what ADORE sent."""
 
     def __init__(self, tmp_path: Path, fixture: str, *options: str) -> None:
         self.record = tmp_path / f"{fixture}-commands.log"
@@ -92,19 +69,19 @@ class FakePi:
         return process
 
     def commands(self) -> list[dict]:
-        """@brief Commands the fake received, in order."""
+        """Commands the fake received, in order."""
         if not self.record.is_file():
             return []
         return [json.loads(line) for line in self.record.read_text("utf-8").splitlines()]
 
     def all_exited(self) -> bool:
-        """@brief Whether every spawned fake process has ended."""
+        """Whether every spawned fake process has ended."""
         return all(process.poll() is not None for process in self.processes)
 
 
 @pytest.mark.parametrize("fault", [False, True])
 def test_live_launch_marker_owned_until_archive_and_removed_on_fault(tmp_path, monkeypatch, fault):
-    """@brief Only an actual RPC launch advertises live output, including archive handoff."""
+    """Only an actual RPC launch advertises live output, including archive handoff."""
     from adore.executor import pi_rpc
     worktree, io_dir = tmp_path / "work", tmp_path / "io"
     worktree.mkdir()
@@ -113,7 +90,7 @@ def test_live_launch_marker_owned_until_archive_and_removed_on_fault(tmp_path, m
     seen = []
 
     def rpc(*args, **kwargs):
-        """@brief Inspect live ownership from inside the injected launch boundary."""
+        """Inspect live ownership from inside the injected launch boundary."""
         marker = json.loads((io_dir / "live.json").read_text())
         assert marker["schema"] == 1 and marker["id"].startswith("live-")
         assert marker["archive_id"] == "build-attempt-1-attempt1"
@@ -137,7 +114,7 @@ def test_live_launch_marker_owned_until_archive_and_removed_on_fault(tmp_path, m
 
 
 def test_live_rpc_completed_record_is_readable_before_launch_ends(tmp_path):
-    """@brief A short completed prompt reaches disk while the fake Pi still waits."""
+    """A short completed prompt reaches disk while the fake Pi still waits."""
     fixture = tmp_path / "live.jsonl"
     fixture.write_text('\n'.join(json.dumps(row) for row in [
         {"dir": "stdin", "record": {"type": "prompt"}},
@@ -150,7 +127,7 @@ def test_live_rpc_completed_record_is_readable_before_launch_ends(tmp_path):
     observed = False
 
     def cancel_after_visible():
-        """@brief Observe the public evidence file before asking the fake to settle."""
+        """Observe the public evidence file before asking the fake to settle."""
         nonlocal observed
         observed = output.exists() and b"VISIBLE_LIVE_PROMPT" in output.read_bytes()
         return observed
@@ -163,7 +140,7 @@ def test_live_rpc_completed_record_is_readable_before_launch_ends(tmp_path):
 
 @pytest.mark.parametrize("kind", ["hardlink", "oversize", "missing", "archive-reparse"])
 def test_literal_rpc_archive_refuses_unsafe_recording(tmp_path, monkeypatch, kind):
-    """@brief Raw archive copies retain regular-file identity and total-byte bounds."""
+    """Raw archive copies retain regular-file identity and total-byte bounds."""
     from adore.executor import pi_rpc
     from adore.isolation import IsolationError
     worktree, io_dir = _dirs(tmp_path)
@@ -171,7 +148,7 @@ def test_literal_rpc_archive_refuses_unsafe_recording(tmp_path, monkeypatch, kin
     external.write_text("outside-recording", encoding="utf-8")
 
     def rpc(*args, **kwargs):
-        """@brief Inject an untrusted recording after the RPC producer boundary."""
+        """Inject an untrusted recording after the RPC producer boundary."""
         output = kwargs["output_path"]
         output.unlink(missing_ok=True)
         if kind == "hardlink":
@@ -220,9 +197,7 @@ def test_literal_rpc_archive_refuses_unsafe_recording(tmp_path, monkeypatch, kin
 
 
 class SpawnTarget:
-    """
-    @brief   Container-target double: container paths plus the spawn seam.
-    """
+    """Container-target double: container paths plus the spawn seam."""
 
     def __init__(self, fake: FakePi) -> None:
         self.paths = ExecutionPaths()
@@ -235,12 +210,11 @@ class SpawnTarget:
         raise AssertionError("RPC launches must not use the file protocol")
 
 
-# HELPER FUNCTIONS
 
 
 def _run(tmp_path: Path, fixture: str, *options: str, timeout: float | None = 30,
          cancelled: Callable[[], bool] | None = None, **limits) -> tuple[PiRpcResult, FakePi]:
-    """@brief Run the client against one fixture with test-sized grace periods."""
+    """Run the client against one fixture with test-sized grace periods."""
     fake = FakePi(tmp_path, fixture, *options)
     result = run_pi_rpc(
         fake, ["pi", "--mode", "rpc"], {}, PROMPT, timeout=timeout, cancelled=cancelled,
@@ -251,18 +225,17 @@ def _run(tmp_path: Path, fixture: str, *options: str, timeout: float | None = 30
 
 
 def _dirs(tmp_path: Path) -> tuple[Path, Path]:
-    """@brief Create a worktree and io directory."""
+    """Create a worktree and io directory."""
     worktree, io_dir = tmp_path / "work", tmp_path / "io"
     worktree.mkdir()
     io_dir.mkdir()
     return worktree, io_dir
 
 
-# PUBLIC API
 
 
 def test_successful_run_with_tool_calls_sums_usage_over_turns(tmp_path: Path) -> None:
-    """@brief A recorded four-turn run completes and its turn usage is summed."""
+    """A recorded four-turn run completes and its turn usage is summed."""
     result, fake = _run(tmp_path, "run_tool_calls_chatgpt")
     assert result.outcome == "completed" and result.exit_code == 0
     assert not result.timed_out
@@ -277,14 +250,14 @@ def test_successful_run_with_tool_calls_sums_usage_over_turns(tmp_path: Path) ->
 
 
 def test_exit_code_after_settling_is_not_the_result(tmp_path: Path) -> None:
-    """@brief A crash on exit after a clean `agent_settled` still succeeds."""
+    """A crash on exit after a clean `agent_settled` still succeeds."""
     result, _ = _run(tmp_path, "run_tool_calls_chatgpt", "--exit", "3")
     assert result.outcome == "completed" and result.exit_code == 0
     assert result.process_exit == 3
 
 
 def test_timeout_aborts_and_the_process_is_gone_within_the_grace(tmp_path: Path) -> None:
-    """@brief A run that never settles is aborted at the deadline and ends."""
+    """A run that never settles is aborted at the deadline and ends."""
     started = time.monotonic()
     result, fake = _run(tmp_path, "run_tool_calls_chatgpt", "--hang", timeout=0.5)
     elapsed = time.monotonic() - started
@@ -296,7 +269,7 @@ def test_timeout_aborts_and_the_process_is_gone_within_the_grace(tmp_path: Path)
 
 
 def test_timeout_kills_a_process_that_ignores_abort_and_stdin(tmp_path: Path) -> None:
-    """@brief A process ignoring `abort` and stdin EOF is terminated after the grace."""
+    """A process ignoring `abort` and stdin EOF is terminated after the grace."""
     started = time.monotonic()
     result, fake = _run(tmp_path, "run_tool_calls_chatgpt", "--hang", "--ignore-abort",
                         timeout=0.3, abort_grace=0.5, exit_grace=0.5)
@@ -307,7 +280,7 @@ def test_timeout_kills_a_process_that_ignores_abort_and_stdin(tmp_path: Path) ->
 
 
 def test_cancellation_marker_sends_abort_and_reports_cancelled(tmp_path: Path) -> None:
-    """@brief The recorded abort run ends as cancelled, not as success or timeout."""
+    """The recorded abort run ends as cancelled, not as success or timeout."""
     result, fake = _run(tmp_path, "run_aborted_chatgpt", cancelled=lambda: True)
     assert result.outcome == "cancelled"
     assert result.exit_code == 130 and not result.timed_out
@@ -324,7 +297,7 @@ def test_cancellation_marker_sends_abort_and_reports_cancelled(tmp_path: Path) -
     ("failed_no_credentials", "credential"),
 ])
 def test_provider_failures_are_classified(tmp_path: Path, fixture: str, failure: str) -> None:
-    """@brief Each recorded provider failure maps to its class and a failed launch."""
+    """Each recorded provider failure maps to its class and a failed launch."""
     result, fake = _run(tmp_path, fixture, "--key-hint", "sk-inval****0000")
     assert result.outcome == "failed" and result.exit_code == 1
     assert not result.timed_out
@@ -335,7 +308,7 @@ def test_provider_failures_are_classified(tmp_path: Path, fixture: str, failure:
 
 
 def test_crash_before_settling_fails_closed(tmp_path: Path) -> None:
-    """@brief A process that exits mid-run is a protocol failure with its code."""
+    """A process that exits mid-run is a protocol failure with its code."""
     result, fake = _run(tmp_path, "run_tool_calls_chatgpt", "--crash-after", "6")
     assert result.outcome == "protocol-error"
     assert result.exit_code == 3 and not result.timed_out
@@ -344,7 +317,7 @@ def test_crash_before_settling_fails_closed(tmp_path: Path) -> None:
 
 
 def test_malformed_stdout_line_fails_closed(tmp_path: Path) -> None:
-    """@brief A non-JSON stdout record ends the process and fails the launch."""
+    """A non-JSON stdout record ends the process and fails the launch."""
     result, fake = _run(tmp_path, "run_tool_calls_chatgpt", "--garbage")
     assert result.outcome == "protocol-error" and result.exit_code != 0
     assert "malformed" in result.message
@@ -352,7 +325,7 @@ def test_malformed_stdout_line_fails_closed(tmp_path: Path) -> None:
 
 
 def test_start_failure_is_a_protocol_failure(tmp_path: Path) -> None:
-    """@brief An executable that cannot start yields exit 127 evidence."""
+    """An executable that cannot start yields exit 127 evidence."""
     def spawn(argv, env):
         raise FileNotFoundError("node")
 
@@ -362,7 +335,7 @@ def test_start_failure_is_a_protocol_failure(tmp_path: Path) -> None:
 
 
 def test_large_output_stays_bounded(tmp_path: Path) -> None:
-    """@brief Many large records and an over-limit record keep evidence bounded."""
+    """Many large records and an over-limit record keep evidence bounded."""
     limit = 256 * 1024
     result, fake = _run(tmp_path, "run_tool_calls_chatgpt", "--big-count", "200",
                         "--big-size", "100000", "--oversize", str(limit * 3),
@@ -380,7 +353,7 @@ def test_large_output_stays_bounded(tmp_path: Path) -> None:
 
 
 def test_unreadable_assistant_record_makes_tokens_unavailable(tmp_path: Path) -> None:
-    """@brief A skipped assistant `message_end` withdraws the token claim."""
+    """A skipped assistant `message_end` withdraws the token claim."""
     limit = 256 * 1024
     result, _ = _run(tmp_path, "run_tool_calls_chatgpt", "--pad-message-end",
                      str(limit * 2), max_record_bytes=limit)
@@ -389,7 +362,7 @@ def test_unreadable_assistant_record_makes_tokens_unavailable(tmp_path: Path) ->
 
 
 def test_unreadable_final_assistant_record_fails_closed(tmp_path: Path) -> None:
-    """@brief An over-limit last assistant record cannot be read as a success."""
+    """An over-limit last assistant record cannot be read as a success."""
     limit = 256 * 1024
     result, fake = _run(tmp_path, "run_tool_calls_chatgpt", "--pad-message-end",
                         str(limit * 2), "--pad-last", max_record_bytes=limit)
@@ -399,14 +372,14 @@ def test_unreadable_final_assistant_record_fails_closed(tmp_path: Path) -> None:
 
 
 def test_deeply_nested_record_is_malformed(tmp_path: Path) -> None:
-    """@brief A record too deep to parse fails closed as a malformed record."""
+    """A record too deep to parse fails closed as a malformed record."""
     result, fake = _run(tmp_path, "run_tool_calls_chatgpt", "--deep", "200000")
     assert result.outcome == "protocol-error" and "malformed" in result.message
     assert fake.all_exited()
 
 
 def test_guard_blocks_publication_commands_in_rpc_mode(tmp_path: Path) -> None:
-    """@brief The recorded guard run blocks git push, gh, glab and tea; echo runs."""
+    """The recorded guard run blocks git push, gh, glab and tea; echo runs."""
     result, _ = _run(tmp_path, "run_guard_blocks_forge")
     assert result.outcome == "completed"
     assert result.tool_calls == 5 and result.blocked_tools == 4
@@ -419,7 +392,7 @@ def test_guard_blocks_publication_commands_in_rpc_mode(tmp_path: Path) -> None:
                                  "bad-compaction", "bad-compaction-ref", "bad-compaction-tokens",
                                  "bad-compaction-summary", "valid-compaction", "self-compaction"])
 def test_pi_executor_launches_an_isolated_rpc_process(tmp_path: Path, fault) -> None:
-    """@brief Exact job history resumes across RPC restarts and fails closed on corruption."""
+    """Exact job history resumes across RPC restarts and fails closed on corruption."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     executor = PiExecutor("openai/gpt-5.6-luna")
@@ -560,7 +533,7 @@ def test_pi_executor_launches_an_isolated_rpc_process(tmp_path: Path, fault) -> 
 
 
 def test_pi_executor_failure_reaches_the_existing_failure_path(tmp_path: Path) -> None:
-    """@brief A provider failure is a non-zero, non-timeout gate with its reason."""
+    """A provider failure is a non-zero, non-timeout gate with its reason."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "failed_invalid_api_key", "--key-hint", "sk-inval****0000")
     run = PiExecutor("openai/gpt-5.4-mini").run_gate(
@@ -574,7 +547,7 @@ def test_pi_executor_failure_reaches_the_existing_failure_path(tmp_path: Path) -
 
 
 def test_pi_usage_event_passes_validation_and_reaches_statistics(tmp_path: Path) -> None:
-    """@brief The orchestrator journals Pi usage as one valid versioned event."""
+    """The orchestrator journals Pi usage as one valid versioned event."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     gate = PiExecutor("openai/gpt-5.6-luna").run_gate(
@@ -593,7 +566,7 @@ def test_pi_usage_event_passes_validation_and_reaches_statistics(tmp_path: Path)
 
 
 def test_orchestrator_lets_an_rpc_executor_abort_before_interrupting(tmp_path: Path) -> None:
-    """@brief Cancel reaches the executor; the container stop is only a backstop."""
+    """Cancel reaches the executor; the container stop is only a backstop."""
     engine, forge, _, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
     seen = {}
@@ -616,7 +589,7 @@ def test_orchestrator_lets_an_rpc_executor_abort_before_interrupting(tmp_path: P
 
 
 def test_orchestrator_interrupts_when_the_rpc_grace_runs_out(tmp_path: Path) -> None:
-    """@brief A gate still running after its cancel grace gets the container stop."""
+    """A gate still running after its cancel grace gets the container stop."""
     engine, forge, _, containers, _ = make_engine(tmp_path)
     run = make_run(engine)
 
@@ -636,9 +609,7 @@ def test_orchestrator_interrupts_when_the_rpc_grace_runs_out(tmp_path: Path) -> 
 
 
 class CopyTarget(SpawnTarget):
-    """
-    @brief   Container-target double that also records exec-seam commands.
-    """
+    """Container-target double that also records exec-seam commands."""
 
     def __init__(self, fake: FakePi, *, copy_ok: bool = True) -> None:
         super().__init__(fake)
@@ -655,7 +626,7 @@ class CopyTarget(SpawnTarget):
 
 
 def test_pi_executor_passes_the_provider_and_model_id(tmp_path: Path) -> None:
-    """@brief An API-key provider starts Pi with --provider and --model and no models.json."""
+    """An API-key provider starts Pi with --provider and --model and no models.json."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     target = CopyTarget(fake)
@@ -673,7 +644,7 @@ def test_pi_executor_passes_the_provider_and_model_id(tmp_path: Path) -> None:
 
 
 def test_pi_executor_writes_the_endpoint_models_json_before_pi_starts(tmp_path: Path) -> None:
-    """@brief custom: models.json in io, copied into the agent dir, then Pi on adore-endpoint."""
+    """custom: models.json in io, copied into the agent dir, then Pi on adore-endpoint."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     target = CopyTarget(fake)
@@ -693,7 +664,7 @@ def test_pi_executor_writes_the_endpoint_models_json_before_pi_starts(tmp_path: 
 
 
 def test_pi_executor_fails_the_stage_when_models_json_cannot_be_placed(tmp_path: Path) -> None:
-    """@brief A failed copy fails the gate with a reason and never starts Pi."""
+    """A failed copy fails the gate with a reason and never starts Pi."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     models = {"providers": {"adore-endpoint": {"baseUrl": "http://h/v1",
@@ -706,7 +677,7 @@ def test_pi_executor_fails_the_stage_when_models_json_cannot_be_placed(tmp_path:
 
 
 def test_pi_executor_loads_web_tools_when_internet_is_on(tmp_path: Path) -> None:
-    """@brief Internet on: pi-web-access with -e and web-search.json in the agent dir first."""
+    """Internet on: pi-web-access with -e and web-search.json in the agent dir first."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     target = CopyTarget(fake)
@@ -730,7 +701,7 @@ def test_pi_executor_loads_web_tools_when_internet_is_on(tmp_path: Path) -> None
 
 def test_pi_executor_fails_the_stage_when_web_search_json_cannot_be_placed(
         tmp_path: Path) -> None:
-    """@brief A failed web-search.json copy fails the gate with a reason; Pi never starts."""
+    """A failed web-search.json copy fails the gate with a reason; Pi never starts."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     run = PiExecutor("gpt-5.4", provider="openai", internet=True).run_gate(
@@ -741,7 +712,7 @@ def test_pi_executor_fails_the_stage_when_web_search_json_cannot_be_placed(
 
 
 def test_pi_executor_tells_the_agent_when_internet_is_off(tmp_path: Path) -> None:
-    """@brief Internet off: no web extension, no web-search.json, a system-prompt notice."""
+    """Internet off: no web extension, no web-search.json, a system-prompt notice."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     target = CopyTarget(fake)
@@ -759,7 +730,7 @@ def test_pi_executor_tells_the_agent_when_internet_is_off(tmp_path: Path) -> Non
 
 @pytest.mark.parametrize("package", [False, True])
 def test_pi_rpc_package_retention_keeps_usage_and_literal_session_archive(tmp_path, package):
-    """@brief RPC sessions keep literal bounded events while operational tails stay safe."""
+    """RPC sessions keep literal bounded events while operational tails stay safe."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt", "--big-count", "4",
                   "--big-size", "40000", "--key-hint", "private-test-value")
@@ -793,7 +764,7 @@ def test_pi_rpc_package_retention_keeps_usage_and_literal_session_archive(tmp_pa
 @pytest.mark.parametrize("long", [False, True])
 def test_rpc_questions_apply_bound_credentials_and_package_retention(tmp_path, monkeypatch,
                                                                    package, long):
-    """@brief RPC clarification text is safe before it reaches publication or journals."""
+    """RPC clarification text is safe before it reaches publication or journals."""
     from adore.executor import pi_rpc
 
     worktree, io_dir = _dirs(tmp_path)
@@ -822,7 +793,7 @@ def test_rpc_questions_apply_bound_credentials_and_package_retention(tmp_path, m
 
 
 def test_package_rpc_questions_refuse_a_linked_file(tmp_path, monkeypatch):
-    """@brief An agent-controlled link cannot redirect host-side question retention."""
+    """An agent-controlled link cannot redirect host-side question retention."""
     import stat
     from types import SimpleNamespace
 
@@ -851,7 +822,7 @@ def test_package_rpc_questions_refuse_a_linked_file(tmp_path, monkeypatch):
 
 
 def test_package_rpc_questions_redact_credentials_across_binding_cap(tmp_path, monkeypatch):
-    """@brief A binding's own byte cap cannot expose a partial package credential."""
+    """A binding's own byte cap cannot expose a partial package credential."""
     from adore.execution import redact_output
     from adore.executor import pi_rpc
 
@@ -871,11 +842,10 @@ def test_package_rpc_questions_redact_credentials_across_binding_cap(tmp_path, m
     assert len(run.questions.encode("utf-8")) <= 65536
 
 
-# END OF FILE
 
 
 def test_rpc_retains_concrete_operational_diagnostics_without_private_content(tmp_path):
-    """@brief Host normalization keeps concrete failures and test counts, never transcripts."""
+    """Host normalization keeps concrete failures and test counts, never transcripts."""
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     fixture = tmp_path / "diagnostics.jsonl"
     records = [
@@ -911,7 +881,7 @@ def test_rpc_retains_concrete_operational_diagnostics_without_private_content(tm
 
 
 def test_public_retry_binds_host_diagnostics_to_launch_journal(tmp_path, monkeypatch):
-    """@brief Public recovery binds an immutable host snapshot to its launch digest."""
+    """Public recovery binds an immutable host snapshot to its launch digest."""
     from hashlib import sha256
 
     gate = GateRun(exit_code=0, has_questions=True, questions="Need input",
@@ -950,7 +920,7 @@ def test_public_retry_binds_host_diagnostics_to_launch_journal(tmp_path, monkeyp
 
 
 def test_rpc_snapshots_diagnostics_while_a_delayed_reader_outlives_join(tmp_path, monkeypatch):
-    """@brief A bounded delayed pipe cannot race or stall the public diagnostic snapshot."""
+    """A bounded delayed pipe cannot race or stall the public diagnostic snapshot."""
     from threading import Event
 
     from adore.executor import pi_rpc
@@ -960,7 +930,7 @@ def test_rpc_snapshots_diagnostics_while_a_delayed_reader_outlives_join(tmp_path
     original_pipe = None
 
     class DelayedPipe:
-        """@brief Inject a reader that remains alive after the child's bounded join."""
+        """Inject a reader that remains alive after the child's bounded join."""
         first = True
 
         def read(self, _limit):
@@ -998,7 +968,7 @@ def test_rpc_snapshots_diagnostics_while_a_delayed_reader_outlives_join(tmp_path
 
 
 def test_public_diagnostic_normalizer_bounds_canonical_records():
-    """@brief Long operational results keep complete records inside the declared limits."""
+    """Long operational results keep complete records inside the declared limits."""
     from adore.executor.diagnostics import normalize_diagnostics, validate_diagnostics
     from adore.state import StateError
 
@@ -1014,7 +984,7 @@ def test_public_diagnostic_normalizer_bounds_canonical_records():
 
 @pytest.mark.parametrize("ack", ["success", "rejected", "wrong-command", "missing"])
 def test_live_instruction_rpc_acknowledgement_and_restart(tmp_path, ack):
-    """@brief The sole RPC writer steers/follows up; false or absent ack retains text."""
+    """The sole RPC writer steers/follows up; false or absent ack retains text."""
     import inspect
 
     from adore.instructions import InstructionDelivery, InstructionInbox
@@ -1026,7 +996,7 @@ def test_live_instruction_rpc_acknowledgement_and_restart(tmp_path, ack):
     delivery = InstructionDelivery(box, PromptCatalog())
 
     def response(command, **values):
-        """@brief Build a synthetic command acknowledgement."""
+        """Build a synthetic command acknowledgement."""
         return {"type": "response", "command": command, "success": True, **values}
 
     segments = [
@@ -1068,7 +1038,7 @@ def test_live_instruction_rpc_acknowledgement_and_restart(tmp_path, ack):
     queued = []
 
     def queue_during_session():
-        """@brief Enqueue only after the fake has received the initial stage prompt."""
+        """Enqueue only after the fake has received the initial stage prompt."""
         if not queued and fake.commands():
             queued.extend(
                 [
@@ -1110,7 +1080,7 @@ def test_live_instruction_rpc_acknowledgement_and_restart(tmp_path, ack):
 
 @pytest.mark.parametrize("fault", ["spawn", "reject", "early-exit", "accepted"])
 def test_prompt_fallback_receipt_requires_actual_pi_acceptance(tmp_path, fault):
-    """@brief Fallback prompt composition and failed startup never consume an instruction."""
+    """Fallback prompt composition and failed startup never consume an instruction."""
     import inspect
 
     from adore.instructions import InstructionDelivery, InstructionInbox
@@ -1158,7 +1128,7 @@ def test_prompt_fallback_receipt_requires_actual_pi_acceptance(tmp_path, fault):
 
 
 def test_cancellation_takes_precedence_over_live_instruction_dispatch(tmp_path):
-    """@brief Cancel retains newly queued text without sending steer or follow_up."""
+    """Cancel retains newly queued text without sending steer or follow_up."""
     from adore.instructions import InstructionDelivery, InstructionInbox
 
     root = tmp_path / "runs" / "one"
@@ -1169,7 +1139,7 @@ def test_cancellation_takes_precedence_over_live_instruction_dispatch(tmp_path):
     queued = []
 
     def cancel():
-        """@brief Simulate an instruction arriving at the same boundary as cancellation."""
+        """Simulate an instruction arriving at the same boundary as cancellation."""
         if not queued:
             queued.append(box.enqueue({"id": 7, "username": "operator"}, "Pending", "now"))
         return True

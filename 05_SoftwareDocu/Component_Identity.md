@@ -1,11 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details.
-SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Component: Identity (`adore/identity.py`)
 
 > Component documentation per `component_documentation_template.md`.
@@ -14,11 +6,11 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 ## 1. Purpose
 
-Marker-based agent identity. The corporate GitLab has no dedicated bot
-account, so ADORE cannot rely on comment authorship. Instead, every comment it
-posts carries a visible tag (`[ADORE]`) and a hidden HTML-comment marker; any
-comment **without** the marker is treated as human. This component builds and
-parses those markers and derives every slug-based name.
+Marker-based agent identity across the supported forges. ADORE identifies its
+comments by a visible tag (`[ADORE]`) and a hidden HTML-comment marker rather
+than relying on account authorship. Comments without its marker are eligible
+as human evidence subject to the conductor's timestamp and system-note checks.
+This component builds/parses the markers and derives slug-based resource names.
 
 ## 2. Responsibilities
 
@@ -30,7 +22,7 @@ parses those markers and derives every slug-based name.
   - `parse_marker(body)` -> field mapping or `None`;
   - `is_own_comment(body)` -> marker present or not;
   - `status_comment(run_id, state, stage, updated)` -> the full single
-    status-comment body (visible line + hidden marker, design 5d).
+    status-comment body (visible line + hidden marker).
 
 Explicitly not owned: posting/editing comments (forge adapters) and deciding
 *when* to post (orchestrator).
@@ -75,8 +67,8 @@ Explicitly not owned: posting/editing comments (forge adapters) and deciding
 
 ## 7. Workflow Integration
 
-Used by the orchestrator (later phases) for: stamping every posted comment,
-finding/editing its own status comment, and resume detection (design 9 - a
+Used by the orchestrator for stamping every posted comment,
+finding/editing its own status comment, and resume detection (a
 comment newer than the question that lacks the marker and is not a system
 note counts as a human answer). Comment ids recorded in `state.json` are the
 second, independent identity signal.

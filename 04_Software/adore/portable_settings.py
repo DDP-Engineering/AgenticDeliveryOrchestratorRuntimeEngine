@@ -1,22 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    portable_settings.py
-@brief   Strict versioned portable working-rule export and parsing.
-@details Complete closed allowlist, exact source compatibility and change-detection
-         checksum. Owns no profile enrollment, credential or runtime state writes.
-"""
+"""Strict versioned portable working-rule export and parsing."""
 
 from __future__ import annotations
 
-# IMPORTS
 from hashlib import sha256
 import json
 import math
@@ -29,7 +14,6 @@ import tomllib
 from adore import __version__
 from adore.config import default_config, load_config, validate_config
 
-# CONSTANTS
 KIND = "adore-project-settings"
 SCHEMA_VERSION = 1
 CONTRACT = "portable-rules-v1"
@@ -63,22 +47,17 @@ _NAMED_MAPS = {
     "workflow.stage_timeout_overrides": int,
 }
 
-# DATA MODELS / TYPEDEFINITIONS
-
 
 class PortableSettingsError(ValueError):
-    """@brief Value-free error at the portable source or package trust boundary."""
+    """Value-free error at the portable source or package trust boundary."""
 
     def __init__(self, code: str = "portable_settings_invalid") -> None:
         """
-        @brief      Store a fixed error code without including untrusted values.
-        @param[in]  code Stable portable error identifier.
+        Store a fixed error code without including untrusted values.
+        code: Stable portable error identifier.
         """
         self.code = code
         super().__init__(code)
-
-
-# LOCAL HELPERS
 
 
 def _canonical(value: dict) -> bytes:
@@ -94,11 +73,11 @@ def _keys(value: object, expected) -> None:
 
 def _number(value: object, minimum: int = 0, *, integer: bool = True) -> None:
     """
-    @brief      Reject wrong numeric types and unbounded portable limits.
-    @param[in]  value Untrusted numeric value.
-    @param[in]  minimum Inclusive lower bound.
-    @param[in]  integer Require an integer rather than a finite JSON number.
-    @exception  PortableSettingsError Value violates the closed numeric domain.
+    Reject wrong numeric types and unbounded portable limits.
+    value: Untrusted numeric value.
+    minimum: Inclusive lower bound.
+    integer: Require an integer rather than a finite JSON number.
+    Raises PortableSettingsError: Value violates the closed numeric domain.
     """
     if (
         type(value) not in ((int,) if integer else (int, float))
@@ -110,10 +89,10 @@ def _number(value: object, minimum: int = 0, *, integer: bool = True) -> None:
 
 def _settings(value: object) -> dict:
     """
-    @brief      Validate the complete closed portable shape without partial output.
-    @param[in]  value Untrusted portable settings mapping.
-    @return     Complete validated mapping.
-    @exception  PortableSettingsError Shape, type or bound is invalid.
+    Validate the complete closed portable shape without partial output.
+    value: Untrusted portable settings mapping.
+    Returns: Complete validated mapping.
+    Raises PortableSettingsError: Shape, type or bound is invalid.
     """
     _keys(value, PORTABLE_FIELDS)
     for section, names in PORTABLE_FIELDS.items():
@@ -142,11 +121,11 @@ def _settings(value: object) -> dict:
 
 def _declared(value: object, template: object, prefix: str = "") -> None:
     """
-    @brief      Reject unknown declared fields/types before the lenient TOML loader.
-    @param[in]  value Untrusted declared TOML value.
-    @param[in]  template Existing configuration's recognized structural model.
-    @param[in]  prefix Dotted recognized location used for dynamic map domains.
-    @exception  PortableSettingsError Unknown or malformed declared source.
+    Reject unknown declared fields/types before the lenient TOML loader.
+    value: Untrusted declared TOML value.
+    template: Existing configuration's recognized structural model.
+    prefix: Dotted recognized location used for dynamic map domains.
+    Raises PortableSettingsError: Unknown or malformed declared source.
     """
     if prefix in _NAMED_MAPS:
         if type(value) is not dict or any(
@@ -180,10 +159,10 @@ def _declared(value: object, template: object, prefix: str = "") -> None:
 
 def _pairs(pairs: list[tuple[str, object]]) -> dict:
     """
-    @brief      Reject duplicate JSON keys at every depth.
-    @param[in]  pairs Decoder-provided ordered key/value pairs.
-    @return     Fresh unique-key mapping.
-    @exception  PortableSettingsError Duplicate key detected.
+    Reject duplicate JSON keys at every depth.
+    pairs: Decoder-provided ordered key/value pairs.
+    Returns: Fresh unique-key mapping.
+    Raises PortableSettingsError: Duplicate key detected.
     """
     result = {}
     for key, value in pairs:
@@ -197,15 +176,12 @@ def _constant(_value: str) -> None:
     raise PortableSettingsError()
 
 
-# PUBLIC API
-
-
 def export_settings(raw: bytes) -> bytes:
     """
-    @brief      Export a validated authoritative TOML snapshot as canonical JSON.
-    @param[in]  raw Bounded UTF-8 active configuration bytes, never redacted data.
-    @return     Deterministic complete envelope bytes with final LF.
-    @exception  PortableSettingsError Invalid source structure, config or values.
+    Export a validated authoritative TOML snapshot as canonical JSON.
+    raw: Bounded UTF-8 active configuration bytes, never redacted data.
+    Returns: Deterministic complete envelope bytes with final LF.
+    Raises PortableSettingsError: Invalid source structure, config or values.
     """
     try:
         if type(raw) is not bytes or not 0 < len(raw) <= MAX_SOURCE_BYTES:
@@ -247,11 +223,11 @@ def export_settings(raw: bytes) -> bytes:
 
 def parse_settings(raw: bytes) -> dict:
     """
-    @brief      Parse only portable defaults for a compatible new project.
-    @param[in]  raw Bounded UTF-8 JSON package, treated as untrusted input.
-    @return     Fresh complete portable settings mapping, without enrollment writes.
-    @exception  PortableSettingsError Invalid/duplicate/schema/source/checksum input.
-    @note       Checksum detects changes and makes no authenticity claim.
+    Parse only portable defaults for a compatible new project.
+    raw: Bounded UTF-8 JSON package, treated as untrusted input.
+    Returns: Fresh complete portable settings mapping, without enrollment writes.
+    Raises PortableSettingsError: Invalid/duplicate/schema/source/checksum input.
+    Note: Checksum detects changes and makes no authenticity claim.
     """
     try:
         if type(raw) is not bytes or not 0 < len(raw) <= MAX_JSON_BYTES:
@@ -282,6 +258,3 @@ def parse_settings(raw: bytes) -> dict:
         raise
     except (ValueError, TypeError, KeyError, OverflowError, RecursionError) as exc:
         raise PortableSettingsError() from exc
-
-
-# END OF FILE

@@ -1,41 +1,22 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    host_folders.py
-@brief   Read-only bounded native directory navigation for administrators.
-@details Lists directory names on the ADORE host without opening file contents,
-         invoking tools or creating folders. Links and network/device paths are
-         refused; clone publication owns destination checks and actual writes.
-"""
+"""Read-only bounded native directory navigation for administrators."""
 
-# IMPORTS
 from itertools import islice
 import os
 from pathlib import Path
 import platform
 import stat
 
-# CONSTANTS
 MAX_FOLDERS = 200
 MAX_SCANNED = 2000
 MAX_PATH = 4096
 
 
-# DATA MODELS
 class HostFolderError(ValueError):
-    """@brief Invalid or unreadable host directory; no raw OS diagnostics escape."""
+    """Invalid or unreadable host directory; no raw OS diagnostics escape."""
 
 
-# LOCAL HELPERS
 def _local_drive(anchor: str) -> bool:
-    """@brief Refuse mapped network/unavailable Windows drives before filesystem reads."""
+    """Refuse mapped network/unavailable Windows drives before filesystem reads."""
     if os.name != "nt":
         return True
     import ctypes
@@ -51,10 +32,11 @@ def _safe_text(value: str) -> bool:
 
 
 def _directory(value: str) -> Path:
-    """@brief Validate a native absolute directory without following links.
-    @param[in] value Untrusted administrator-supplied path.
-    @return Normalized existing local directory.
-    @exception HostFolderError Invalid, missing, linked or inaccessible directory.
+    """
+    Validate a native absolute directory without following links.
+    value: Untrusted administrator-supplied path.
+    Returns: Normalized existing local directory.
+    Raises HostFolderError: Invalid, missing, linked or inaccessible directory.
     """
     if not _safe_text(value) or value.startswith(("//", "\\\\")):
         raise HostFolderError("host_folder_unavailable")
@@ -72,13 +54,13 @@ def _directory(value: str) -> Path:
         raise HostFolderError("host_folder_unavailable") from exc
 
 
-# PUBLIC API
 def list_host_folders(path: str | None = None) -> dict:
-    """@brief Return directory metadata for one bounded host navigation step.
-    @param[in] path Absolute directory, or None/empty for the current account home.
-    @return Native system, path, parent, roots, up to 200 folders and truncated flag.
-    @exception HostFolderError Invalid, missing, linked or inaccessible path.
-    @note At most 2000 directory entries are examined; no file contents are opened.
+    """
+    Return directory metadata for one bounded host navigation step.
+    path: Absolute directory, or None/empty for the current account home.
+    Returns: Native system, path, parent, roots, up to 200 folders and truncated flag.
+    Raises HostFolderError: Invalid, missing, linked or inaccessible path.
+    Note: At most 2000 directory entries are examined; no file contents are opened.
     """
     directory = _directory(path or str(Path.home()))
     folders = []
@@ -117,6 +99,3 @@ def list_host_folders(path: str | None = None) -> dict:
             "parent": str(directory.parent) if directory.parent != directory else None,
             "roots": roots, "folders": sorted(folders, key=lambda row: row["name"].casefold()),
             "truncated": truncated}
-
-
-# END OF FILE

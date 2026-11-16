@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # ADORE CLI Reference
 
 `adore init` supports `kind = "azure_devops"` with explicit `organization`,
@@ -103,6 +96,7 @@ resolved configuration.
 | Command | Purpose |
 | --- | --- |
 | `adore [selector] retry <run-id>` | Re-arm a retryable run. |
+| `adore [selector] restart <run-id> --force --expected-revision <sha256> [--workflow aegis\|direct] [--admit-only]` | Abandon confirmed failed work, or retain the latest cancelled execution and admit a fresh generation with current settings. |
 | `adore [selector] cancel <run-id>` | Cancel a run gracefully. |
 | `adore [selector] handoff <run-id>` | Transfer a run to a human at the next safe boundary, preserving its worktree and checkpoint evidence. If the selected run lock is held, the command queues the request; wait for `handed-off` before editing. This does not approve publication. |
 | `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own pointer to `frame`, `specify`, `design`, `build`, `validate`, or `publishing`; any other target is refused and the run stays unchanged. After `publishing`, `retry` returns an already published candidate to review, publishes a fresh eligible unpublished one under the configured policy, and otherwise conducts the run from `done`. It never edits the AEGIS task journal; conduction rereads that journal. `--force` is required. Run `retry` afterwards. |
@@ -209,7 +203,7 @@ reason; the web worker shows the saved job cause rather than raw process logs.
 
 `adore delete <run-id> --force` verifies cleanup and removes the unchanged owned remote branch with an exact commit lease before deleting local state. Errors are clean and nonzero. `--owned-resources` explicitly permits saved native ownership cleanup for failed/cancelled jobs after settings drift; immutable host/account, receipt, state/worktree paths and process leases remain mandatory. Installed tools and authentication are retained. Human-owned jobs remain protected.
 
-`adore restart <run-id> --force --expected-revision <sha256>` abandons only the confirmed failed state and manually starts its open ticket using current settings. The web interface supplies the exact state revision and confirmation. Partial cleanup prevents new admission; monitoring pause stays set. Lock guidance names the web worker and **Project Summary -> Pause monitoring**; wait for the bounded job and stop any standalone poller before a CLI mutation.
+`adore restart <run-id> --force --expected-revision <sha256>` abandons a confirmed failed state, or retains a confirmed latest cancelled execution and admits a fresh `-rN` generation, using current settings for its open ticket. Cancelled state and recorded sessions remain readable. `--admit-only` returns after durable admission for independent web execution. The web interface supplies the exact state revision and confirmation. Partial cleanup prevents new admission; monitoring pause stays set. Lock guidance names the web worker and **Project Summary -> Pause monitoring**; wait for the bounded job and stop any standalone poller before a CLI mutation.
 
 `stats --rebuild` is a writer and holds the project conductor lock for its complete read/write batch. This keeps old terminal statistics from being restored after a confirmed fresh start.
 

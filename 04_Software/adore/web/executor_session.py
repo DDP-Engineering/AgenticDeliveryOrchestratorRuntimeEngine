@@ -1,20 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    executor_session.py
-@brief   Bounded recorded Pi sessions within an authorized run.
-@details Reads complete lines only, never system messages or other run files.
-         Caller owns authentication and cost visibility. No text redaction occurs.
-"""
+"""Bounded recorded Pi sessions within an authorized run."""
 
-# IMPORTS
 from hashlib import sha256
 import json
 import math
@@ -26,7 +11,6 @@ from adore.state import StateError, StateStore
 from adore.web.executor_evidence import _identity, _read, _signature
 from adore.web.jobs import JobReadError, _object, _stamp
 
-# CONSTANTS
 _ATTEMPT = re.compile(
     r"(frame|specify|design|build|validate)-attempt-([1-9][0-9]*)"
     r"-attempt1(?:-([2-9]|[1-9][0-9]+))?")
@@ -38,15 +22,14 @@ _FILE_BYTES = 64 * 1024 * 1024
 _MAX_ARCHIVES = 10000
 
 
-# LOCAL HELPERS
 def _folder(path: Path) -> None:
-    """@brief Check every parent for symlinks and reparse points."""
+    """Check every parent for symlinks and reparse points."""
     for parent in (path, *path.parents):
         _identity(parent, directory=True)
 
 
 def _text(value) -> str:
-    """@brief Bound one readable value by UTF-8 bytes, retaining literal text."""
+    """Bound one readable value by UTF-8 bytes, retaining literal text."""
     value = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
     raw = value.encode("utf-8")
     if len(raw) <= _TEXT_BYTES:
@@ -59,7 +42,7 @@ def _notice(text: str) -> dict:
 
 
 def _usage(value, include_cost: bool) -> dict:
-    """@brief Project recognized finite usage counters, restricting structured costs."""
+    """Project recognized finite usage counters, restricting structured costs."""
     if not isinstance(value, dict):
         raise ValueError("invalid usage")
     result = {}
@@ -85,7 +68,7 @@ def _usage(value, include_cost: bool) -> dict:
 
 
 def _items(record: dict, include_cost: bool) -> list[dict]:
-    """@brief Convert one untrusted event to bounded readable items."""
+    """Convert one untrusted event to bounded readable items."""
     if not isinstance(record, dict):
         raise ValueError("invalid event")
     kind = record.get("type")
@@ -159,7 +142,7 @@ def _items(record: dict, include_cost: bool) -> list[dict]:
 
 
 def _metadata(folder: Path) -> dict:
-    """@brief Validate current archive metadata without reading command or scripts."""
+    """Validate current archive metadata without reading command or scripts."""
     match = _ATTEMPT.fullmatch(folder.name)
     if not match:
         raise JobReadError("run_not_found", 404)
@@ -180,7 +163,7 @@ def _metadata(folder: Path) -> dict:
 
 
 def _live_metadata(run: Path) -> dict | None:
-    """@brief Resolve only a working run's exact launch-owned marker."""
+    """Resolve only a working run's exact launch-owned marker."""
     _folder(run)
     state = _object(_read(run / "state.json", 4 * 1024 * 1024), "job_evidence_corrupt")
     if state.get("lifecycle") != "working":
@@ -217,7 +200,7 @@ def _live_metadata(run: Path) -> dict | None:
 
 
 def _continuity(source, info, launch: str, cursor: int) -> str:
-    """@brief Hash a bounded consumed prefix and stable file/launch identity."""
+    """Hash a bounded consumed prefix and stable file/launch identity."""
     digest = sha256(f"{info.st_dev}:{info.st_ino}:{launch}:".encode())
     source.seek(0)
     remaining = cursor
@@ -230,13 +213,12 @@ def _continuity(source, info, launch: str, cursor: int) -> str:
     return digest.hexdigest()
 
 
-# PUBLIC API
 def list_sessions(run: Path) -> list[dict]:
     """
-    @brief List an owned active launch first, then completed launches newest first.
-    @param[in] run Verified run directory, never a browser-supplied path.
-    @return Bounded metadata; absent archives are an empty list.
-    @exception JobReadError Unsafe or corrupt archive metadata.
+    List an owned active launch first, then completed launches newest first.
+    run: Verified run directory, never a browser-supplied path.
+    Returns: Bounded metadata; absent archives are an empty list.
+    Raises JobReadError: Unsafe or corrupt archive metadata.
     """
     archive = run / "io" / "archive"
     try:
@@ -268,17 +250,17 @@ def read_session(run: Path, attempt_id: str, cursor: int = 0, limit: int = 200,
                  *, include_cost: bool = False, continuity: str | None = None,
                  archive_id: str | None = None) -> dict:
     """
-    @brief Read complete JSONL records with bounded memory and line-start cursors.
-    @param[in] run Authorized run directory.
-    @param[in] attempt_id Exact existing archive folder name.
-    @param[in] cursor Byte offset at a complete line start.
-    @param[in] limit Maximum number of source items, from 1 to 200.
-    @param[in] include_cost Administrator structured-cost visibility.
-    @param[in] continuity Stable file and consumed-prefix proof for live continuation.
-    @param[in] archive_id Exact handoff identity retained by a live caller.
-    @return Items and next_cursor; a message groups its text/reasoning/usage parts.
-    @exception JobReadError Invalid cursor, missing attempt or unsafe source.
-    @note Records never split across pages; each grouped part has its own text bound.
+    Read complete JSONL records with bounded memory and line-start cursors.
+    run: Authorized run directory.
+    attempt_id: Exact existing archive folder name.
+    cursor: Byte offset at a complete line start.
+    limit: Maximum number of source items, from 1 to 200.
+    include_cost: Administrator structured-cost visibility.
+    continuity: Stable file and consumed-prefix proof for live continuation.
+    archive_id: Exact handoff identity retained by a live caller.
+    Returns: Items and next_cursor; a message groups its text/reasoning/usage parts.
+    Raises JobReadError: Invalid cursor, missing attempt or unsafe source.
+    Note: Records never split across pages; each grouped part has its own text bound.
     """
     live = isinstance(attempt_id, str) and bool(_LIVE.fullmatch(attempt_id))
     if (not isinstance(attempt_id, str) or not (live or _ATTEMPT.fullmatch(attempt_id))
@@ -425,6 +407,3 @@ def read_session(run: Path, attempt_id: str, cursor: int = 0, limit: int = 200,
         raise
     except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
         raise JobReadError("job_evidence_corrupt") from exc
-
-
-# END OF FILE

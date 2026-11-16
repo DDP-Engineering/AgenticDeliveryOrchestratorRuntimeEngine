@@ -96,3 +96,6 @@ run = ["test", "lint", "frontend"]
 [diagrams]
 enabled = true
 types = ["structure", "sequence", "state"]
+
+[context]
+page_kb = 24

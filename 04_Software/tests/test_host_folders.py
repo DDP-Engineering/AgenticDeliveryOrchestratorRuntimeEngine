@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    test_host_folders.py
-@brief   Host directory browsing contracts and administrator boundaries.
-@details Uses temporary local directories only; no external tools or network.
-"""
+"""Host directory browsing contracts and administrator boundaries."""
 
-# IMPORTS
 import os
 from pathlib import Path
 
@@ -24,7 +10,7 @@ import pytest
 
 # PUBLIC CONTRACT TESTS
 def test_admin_lists_only_directories_without_writes(tmp_path):
-    """@brief Host navigation returns paths, parents and folders without creating a clone."""
+    """Host navigation returns paths, parents and folders without creating a clone."""
     root = tmp_path / "choices"
     (root / "Folder with spaces").mkdir(parents=True)
     (root / "Alpha").mkdir()
@@ -47,7 +33,7 @@ def test_admin_lists_only_directories_without_writes(tmp_path):
 
 
 def test_host_folder_paths_require_administrator(tmp_path, monkeypatch):
-    """@brief Anonymous users and developers cannot enumerate host directories."""
+    """Anonymous users and developers cannot enumerate host directories."""
     app = create_app(tmp_path / "adore")
     app.state.web_store.create_user("developer", "long-password", "developer")
     def forbidden(*_args, **_kwargs):
@@ -62,7 +48,7 @@ def test_host_folder_paths_require_administrator(tmp_path, monkeypatch):
 @pytest.mark.parametrize("path", ["relative", "../outside", "//server/share", "\\\\server\\share",
                                    "bad\x00path", "x" * 4097])
 def test_malformed_host_folder_paths_fail_closed(tmp_path, path):
-    """@brief Malformed external directory input is refused without listing another folder."""
+    """Malformed external directory input is refused without listing another folder."""
     with TestClient(create_app(tmp_path / "adore")) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         response = client.get("/api/v1/host-folders", params={"path": path})
@@ -71,7 +57,7 @@ def test_malformed_host_folder_paths_fail_closed(tmp_path, path):
 
 
 def test_missing_file_and_inaccessible_folders_return_explicit_errors(tmp_path, monkeypatch):
-    """@brief Missing/file/permission cases return typed errors and disclose no OS diagnostic."""
+    """Missing/file/permission cases return typed errors and disclose no OS diagnostic."""
     from adore.web import host_folders
 
     data_file = tmp_path / "a-file"
@@ -90,7 +76,7 @@ def test_missing_file_and_inaccessible_folders_return_explicit_errors(tmp_path, 
 
 
 def test_folder_listing_is_bounded_and_default_is_account_home(tmp_path, monkeypatch):
-    """@brief Large directories return a limited list and no-path navigation uses OS home."""
+    """Large directories return a limited list and no-path navigation uses OS home."""
     from adore.web import host_folders
 
     for index in range(220):
@@ -103,7 +89,7 @@ def test_folder_listing_is_bounded_and_default_is_account_home(tmp_path, monkeyp
 
 
 def test_file_heavy_directories_have_a_scan_limit(tmp_path):
-    """@brief Even a directory with no subfolders cannot cause an unbounded scan."""
+    """Even a directory with no subfolders cannot cause an unbounded scan."""
     from adore.web.host_folders import list_host_folders
 
     for index in range(2010):
@@ -115,7 +101,7 @@ def test_file_heavy_directories_have_a_scan_limit(tmp_path):
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX links verified natively on Linux")
 def test_links_are_not_followed_during_host_navigation(tmp_path):
-    """@brief Directory symlinks are omitted and linked paths fail closed."""
+    """Directory symlinks are omitted and linked paths fail closed."""
     from adore.web.host_folders import HostFolderError, list_host_folders
 
     (tmp_path / "actual").mkdir()
@@ -127,7 +113,7 @@ def test_links_are_not_followed_during_host_navigation(tmp_path):
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows mapped-drive boundary")
 def test_mapped_network_drive_is_refused_before_listing(tmp_path, monkeypatch):
-    """@brief A mapped remote drive cannot bypass the UNC navigation refusal."""
+    """A mapped remote drive cannot bypass the UNC navigation refusal."""
     import ctypes
 
     from adore.web.host_folders import HostFolderError, list_host_folders
@@ -135,6 +121,3 @@ def test_mapped_network_drive_is_refused_before_listing(tmp_path, monkeypatch):
     monkeypatch.setattr(ctypes.windll.kernel32, "GetDriveTypeW", lambda _root: 4)
     with pytest.raises(HostFolderError):
         list_host_folders(str(tmp_path))
-
-
-# END OF FILE

@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
@@ -38,7 +32,7 @@ type Props = {
   admin: boolean;
 };
 type ReadState = "loading" | "ready" | "error" | "incomplete" | "changed";
-type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string };
+type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string; admitted_run_id?: string };
 type JobSort = "ticket" | "project" | "status" | "activity";
 export type Filters = { q: string; group: string; size: 10 | 25 | 50 | "all"; sort: JobSort; descending: boolean; offset: number };
 const initialFilters = (mode: Props["mode"]): Filters => ({ q: "", group: mode === "history" ? "terminal" : "", size: 10, sort: "activity", descending: true, offset: 0 });
@@ -50,6 +44,8 @@ const lifecycleKeys: Record<string, MessageKey> = {
 const label = (value: string, keys: Record<string, MessageKey>, t: Props["t"]) => keys[value] ? t(keys[value]) : value;
 const readOperation = (value: unknown): Operation => {
   const operation = value as Operation;
+  if (operation?.admitted_run_id !== undefined &&
+    (typeof operation.admitted_run_id !== "string" || !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,159})?$/.test(operation.admitted_run_id))) throw new ApiError("unexpected_response");
   if (!operation || !Number.isSafeInteger(operation.id) || operation.id < 1 ||
     !["pending", "running", "succeeded", "failed", "uncertain"].includes(operation.status) ||
     [operation.result, operation.reason, operation.detail].some(value => value !== undefined && typeof value !== "string")) throw new ApiError("unexpected_response");
@@ -71,6 +67,7 @@ export function JobWorkspace(props: Props) {
   const [commandStatusError, setCommandStatusError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
+  const operationProject = useRef("");
   const mounted = useRef(true);
   const commandGeneration = useRef(0);
   const [reload, setReload] = useState(0);
@@ -171,6 +168,9 @@ export function JobWorkspace(props: Props) {
         if (current.id !== operation.id) throw new ApiError("unexpected_response");
         if (!active) return;
         setOperation(current); setCommandStatusError(false);
+        if (current.status === "succeeded" && current.admitted_run_id && operationProject.current) {
+          onOpen(operationProject.current, current.admitted_run_id);
+        }
         if (!["pending", "running"].includes(current.status)) setReload(value => value + 1);
       } catch { if (active) setCommandStatusError(true); }
     };
@@ -182,16 +182,20 @@ export function JobWorkspace(props: Props) {
     if (submitLock.current || busy || !projects.some(item=>item.id===job.project_id && !item.archived) || !commandAllowed(job, action)) return;
     if (action === "cancel" && !window.confirm(copy.cancelConfirm)) return;
     if (action === "restart" && (!selected || !window.confirm(
-      recoveryCopy[locale].confirm.replace("{ticket}", String(job.ticket_iid)) + "\n" +
+      (job.lifecycle === "cancelled" ? recoveryCopy[locale].restartJobConfirm : recoveryCopy[locale].confirm).replace("{ticket}", String(job.ticket_iid)) + "\n" +
       (selected === "aegis" ? recoveryCopy[locale].restartAegis : recoveryCopy[locale].restartDirect)
     ))) return;
     submitLock.current = true; setSubmitting(true); setOperationError(null); setCommandStatusError(false);
+    operationProject.current = job.project_id;
     const generation = commandGeneration.current;
     try {
       const current = readOperation(await request(`/projects/${encodeURIComponent(job.project_id)}/operations/${action}`, "POST",
         { run_id: job.run_id, idempotency_key: crypto.randomUUID(),
           ...(action === "restart" ? { confirmed: true, state_revision: job.state_revision, workflow: selected } : action === "cancel" ? { confirmed: true } : {}) }, csrf));
-      if (mounted.current && generation === commandGeneration.current) setOperation(current);
+      if (mounted.current && generation === commandGeneration.current) {
+        setOperation(current);
+        if (current.status === "succeeded" && current.admitted_run_id) onOpen(job.project_id, current.admitted_run_id);
+      }
     } catch (cause) { if (mounted.current && generation === commandGeneration.current) setOperationError(cause); }
     finally { if (mounted.current && generation === commandGeneration.current) { submitLock.current = false; setSubmitting(false); } }
   };
@@ -234,6 +238,7 @@ export function JobWorkspace(props: Props) {
     {run && state === "changed" && feedback("changed", failure)}
     {visibleDetail && <JobDetails key={detailKey} job={visibleDetail} locale={locale} t={t} admin={props.admin} busy={busy}
       request={request} onClose={onClose} onCommand={(action, job, workflow) => void command(action, job, workflow)}
+      historyHref={identity => jobHref({ ...visibleDetail, run_id: identity })} onOpenHistory={identity => onOpen(visibleDetail.project_id, identity)}
       stageLabel={workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)} stageName={stage => workflowStageLabel(stage, visibleDetail.workflow, t)}
       statusLabel={visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}
       directEvidence={visibleDetail.direct ? <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} /> : null}

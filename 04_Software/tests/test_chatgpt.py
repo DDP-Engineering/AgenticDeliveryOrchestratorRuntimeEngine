@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_chatgpt.py
-@brief The server's ChatGPT credential: status, disconnect, stage tokens and sign-in.
-@details A fake helper (`fake_chatgpt_helper.py`) stands in for Pi in the
-         executor image; the fake runtime starts it in place of `<runtime> run`
-         and finds the credential directory from the helper's only mount.
-"""
+"""The server's ChatGPT credential: status, disconnect, stage tokens and sign-in."""
 
 from __future__ import annotations
 
@@ -37,7 +22,7 @@ CALLBACK = "http://127.0.0.1:1455/auth/callback"
 
 
 class FakeRuntime:
-    """@brief Fake container runtime: `run` starts the fake helper on the mounted directory."""
+    """Fake container runtime: `run` starts the fake helper on the mounted directory."""
 
     def __init__(self, *options: str, timeout: bool = False) -> None:
         self.options = list(options)
@@ -53,7 +38,7 @@ class FakeRuntime:
                 *argv[script + 1:]]
 
     def runner(self, argv, **kwargs) -> CommandResult:
-        """@brief Run the fake helper for `run`; answer `rm` without a container."""
+        """Run the fake helper for `run`; answer `rm` without a container."""
         argv = [str(part) for part in argv]
         self.calls.append(argv)
         if "run" not in argv:
@@ -65,7 +50,7 @@ class FakeRuntime:
         return CommandResult(argv, done.returncode, done.stdout, done.stderr)
 
     def popen(self, argv, **kwargs):
-        """@brief Start the fake login helper with live pipes."""
+        """Start the fake login helper with live pipes."""
         argv = [str(part) for part in argv]
         self.calls.append(argv)
         return subprocess.Popen(self._fake(argv), stdin=subprocess.PIPE,  # noqa: S603
@@ -73,13 +58,13 @@ class FakeRuntime:
 
 
 def manager(runtime: FakeRuntime) -> ContainerManager:
-    """@brief A container manager bound to the fake runtime."""
+    """A container manager bound to the fake runtime."""
     return ContainerManager("docker", "adore-executor-base:1.0.0", "uv", "npm",
                             runtime.runner, run_args=["--userns=keep-id"])
 
 
 def signed_in(directory: Path, *, expires_in_ms: int = 3_600_000) -> None:
-    """@brief Store a fake OAuth credential the way Pi does."""
+    """Store a fake OAuth credential the way Pi does."""
     chatgpt.prepare(directory)
     (directory / "auth.json").write_text(json.dumps({"openai": {
         "type": "oauth", "access": "fake-access-token-1", "refresh": "fake-refresh-1",
@@ -102,7 +87,7 @@ def signed_in(directory: Path, *, expires_in_ms: int = 3_600_000) -> None:
     ("[]", False, "sign-in-again"),
 ])
 def test_status_reads_the_credential_files_only(tmp_path, content, mark, expected):
-    """@brief Three states from fake credential files; nothing is started."""
+    """Three states from fake credential files; nothing is started."""
     directory = tmp_path / "chatgpt"
     if content is not None:
         directory.mkdir()
@@ -113,7 +98,7 @@ def test_status_reads_the_credential_files_only(tmp_path, content, mark, expecte
 
 
 def test_credential_directory_is_private_and_keeps_one_device_id(tmp_path):
-    """@brief prepare() creates the directory and a stable installation id."""
+    """prepare() creates the directory and a stable installation id."""
     directory = chatgpt.credential_dir(tmp_path)
     assert directory == tmp_path / "chatgpt"
     chatgpt.prepare(directory)
@@ -126,7 +111,7 @@ def test_credential_directory_is_private_and_keeps_one_device_id(tmp_path):
 
 
 def test_disconnect_deletes_the_credential_and_keeps_the_device_id(tmp_path):
-    """@brief Disconnect removes auth.json and the mark; the installation id stays."""
+    """Disconnect removes auth.json and the mark; the installation id stays."""
     directory = tmp_path / "chatgpt"
     signed_in(directory)
     (directory / "sign-in-again").write_text("", encoding="utf-8")
@@ -140,7 +125,7 @@ def test_disconnect_deletes_the_credential_and_keeps_the_device_id(tmp_path):
 
 
 def test_stage_token_mounts_only_the_credential_directory(tmp_path):
-    """@brief One helper container, one read-write mount, token on stdout only."""
+    """One helper container, one read-write mount, token on stdout only."""
     directory = tmp_path / "chatgpt"
     signed_in(directory)
     runtime = FakeRuntime()
@@ -167,7 +152,7 @@ def test_stage_token_mounts_only_the_credential_directory(tmp_path):
     ("valid", ["--answer", "garbage"], "helper-failed", True),
 ])
 def test_stage_token_failures_are_typed(tmp_path, setup, options, code, started):
-    """@brief Missing, refused and unreadable answers fail closed with their code."""
+    """Missing, refused and unreadable answers fail closed with their code."""
     directory = tmp_path / "chatgpt"
     if setup in {"valid", "marked", "expiring"}:
         signed_in(directory, expires_in_ms=60_000 if setup == "expiring" else 3_600_000)
@@ -187,7 +172,7 @@ def test_stage_token_failures_are_typed(tmp_path, setup, options, code, started)
 
 
 def test_a_successful_refresh_clears_the_sign_in_again_mark(tmp_path):
-    """@brief The mark is ADORE's memory of a refused refresh; a good token clears it."""
+    """The mark is ADORE's memory of a refused refresh; a good token clears it."""
     directory = tmp_path / "chatgpt"
     signed_in(directory, expires_in_ms=60_000)
     assert chatgpt.bearer_token(manager(FakeRuntime()), directory, 2100) == "fake-access-token-2"
@@ -195,7 +180,7 @@ def test_a_successful_refresh_clears_the_sign_in_again_mark(tmp_path):
 
 
 def test_a_helper_timeout_removes_the_helper_container(tmp_path):
-    """@brief A wedged helper is reported unavailable and force-removed by name."""
+    """A wedged helper is reported unavailable and force-removed by name."""
     directory = tmp_path / "chatgpt"
     signed_in(directory)
     runtime = FakeRuntime(timeout=True)
@@ -207,7 +192,7 @@ def test_a_helper_timeout_removes_the_helper_container(tmp_path):
 
 
 def test_concurrent_token_requests_share_the_credential_lock(tmp_path):
-    """@brief Two stages at once: one rotation, one valid credential, the same token."""
+    """Two stages at once: one rotation, one valid credential, the same token."""
     directory = tmp_path / "chatgpt"
     signed_in(directory, expires_in_ms=60_000)
     tokens: list[str] = []
@@ -224,7 +209,7 @@ def test_concurrent_token_requests_share_the_credential_lock(tmp_path):
 
 
 def start(tmp_path, *options: str) -> tuple[chatgpt.SignIn, FakeRuntime, Path, Path]:
-    """@brief Start a fake sign-in that records the pasted line."""
+    """Start a fake sign-in that records the pasted line."""
     directory = tmp_path / "chatgpt"
     record = tmp_path / "pasted.txt"
     runtime = FakeRuntime("--record", str(record), *options)
@@ -233,7 +218,7 @@ def start(tmp_path, *options: str) -> tuple[chatgpt.SignIn, FakeRuntime, Path, P
 
 
 def test_sign_in_returns_the_link_and_stores_the_credential(tmp_path):
-    """@brief Link out, matching redirect address in, credential stored, mark cleared."""
+    """Link out, matching redirect address in, credential stored, mark cleared."""
     session, runtime, directory, record = start(tmp_path)
     url = session.start()
     assert url.startswith("https://auth.openai.com/") and "state=fake-state" in url
@@ -259,7 +244,7 @@ def test_sign_in_returns_the_link_and_stores_the_credential(tmp_path):
     (f"{CALLBACK}?code=c", "state-mismatch"),
 ])
 def test_a_wrong_address_is_refused_and_the_sign_in_stays_pending(tmp_path, address, code):
-    """@brief Nothing reaches the helper; a correct paste afterwards still signs in."""
+    """Nothing reaches the helper; a correct paste afterwards still signs in."""
     session, _, directory, record = start(tmp_path)
     session.start()
     with pytest.raises(ChatGptError) as caught:
@@ -283,7 +268,7 @@ def test_a_wrong_address_is_refused_and_the_sign_in_stays_pending(tmp_path, addr
      "unavailable"),
 ])
 def test_an_openai_refusal_ends_the_sign_in(tmp_path, address, options, code):
-    """@brief A refusal ends the pending sign-in and keeps the stored credential."""
+    """A refusal ends the pending sign-in and keeps the stored credential."""
     session, _, directory, _ = start(tmp_path, *options)
     signed_in(directory)
     before = (directory / "auth.json").read_bytes()
@@ -298,7 +283,7 @@ def test_an_openai_refusal_ends_the_sign_in(tmp_path, address, options, code):
 
 
 def test_cancel_and_expiry_end_the_helper(tmp_path):
-    """@brief Cancel stops the waiting helper; an expired sign-in is not pending."""
+    """Cancel stops the waiting helper; an expired sign-in is not pending."""
     session, runtime, _, _ = start(tmp_path)
     session.start()
     name = runtime.calls[0][5]
@@ -316,7 +301,7 @@ def test_cancel_and_expiry_end_the_helper(tmp_path):
 
 
 def test_a_helper_that_never_shows_a_link_is_unavailable(tmp_path):
-    """@brief A start that produces no link in time fails and cleans up."""
+    """A start that produces no link in time fails and cleans up."""
     session, runtime, _, _ = start(tmp_path, "--hang")
     with pytest.raises(ChatGptError) as caught:
         session.start(timeout=1)
@@ -325,7 +310,7 @@ def test_a_helper_that_never_shows_a_link_is_unavailable(tmp_path):
 
 
 def test_a_helper_silent_after_the_address_is_ended_without_blocking(tmp_path):
-    """@brief A helper that never answers is killed and removed; the call returns."""
+    """A helper that never answers is killed and removed; the call returns."""
     session, runtime, _, _ = start(tmp_path, "--hang-after")
     session.start()
     started = time.monotonic()
@@ -337,7 +322,7 @@ def test_a_helper_silent_after_the_address_is_ended_without_blocking(tmp_path):
 
 
 def test_a_bounded_runner_timeout_removes_the_helper(tmp_path):
-    """@brief A runner that raises TimeoutError (the web probe's bound) still cleans up."""
+    """A runner that raises TimeoutError (the web probe's bound) still cleans up."""
     directory = tmp_path / "chatgpt"
     signed_in(directory)
     runtime = FakeRuntime()
@@ -358,7 +343,7 @@ def test_a_bounded_runner_timeout_removes_the_helper(tmp_path):
 
 
 def test_an_abandoned_sign_in_ends_itself(tmp_path, monkeypatch):
-    """@brief After SIGN_IN_SECONDS the helper is stopped without another request."""
+    """After SIGN_IN_SECONDS the helper is stopped without another request."""
     monkeypatch.setattr(chatgpt, "SIGN_IN_SECONDS", 0.5)
     session, runtime, _, _ = start(tmp_path)
     session.start()
@@ -367,6 +352,3 @@ def test_an_abandoned_sign_in_ends_itself(tmp_path, monkeypatch):
         time.sleep(0.05)
     assert session.finished
     assert ["docker", "rm", "--force", session.name] in runtime.calls
-
-
-# END OF FILE

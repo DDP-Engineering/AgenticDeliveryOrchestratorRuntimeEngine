@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    supervisor.py
-@brief   Single-home supervisor, independent project schedulers and run processes.
-@details Event loops only inspect/dispatch children. Each conductor builds its
-         own collaborators and is bound to one immutable project/run and config
-         revision. Shared database locks never span a process wait.
-"""
+"""Single-home supervisor, independent project schedulers and run processes."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 from contextlib import contextmanager, suppress
 from dataclasses import asdict
@@ -43,16 +27,14 @@ from adore.web.ownership import OwnershipError, WorkerOwner
 from adore.web.processes import ProcessTree, assert_ancestry, stop_trees
 from adore.web.store import WebStore
 
-# CONSTANTS
 LOG = logging.getLogger(__name__)
 _EXECUTION = ("start", "retry", "restart", "cancel")
 _CONFIGURATION = ("pause", "resume", "delete")
 _OWNER = "ADORE_PROJECT_COMMAND_OWNER"
 
 
-# LOCAL HELPERS
 def _environment(profiles: ProfileStore) -> dict[str, str]:
-    """@brief Build noninteractive UTF-8 worker environment for this home."""
+    """Build noninteractive UTF-8 worker environment for this home."""
     result = {**os.environ, "ADORE_HOME": str(profiles.home), "PYTHONUNBUFFERED": "1",
               "PYTHONIOENCODING": "utf-8"}
     result.pop("ADORE_WORKER_CONTEXT", None)
@@ -67,12 +49,12 @@ def _argv(role: str, home: Path, *extra: str) -> list[str]:
 
 @contextmanager
 def _heartbeat(web: WebStore, owner: WorkerOwner):
-    """@brief Keep a blocking command/run's identity visible and fail closed on errors."""
+    """Keep a blocking command/run's identity visible and fail closed on errors."""
     done = Event()
     failed = Event()
 
     def beat() -> None:
-        """@brief Heartbeat only this role; unknown parent/storage state stops authority."""
+        """Heartbeat only this role; unknown parent/storage state stops authority."""
         while not done.wait(1):
             try:
                 assert_ancestry()
@@ -90,9 +72,8 @@ def _heartbeat(web: WebStore, owner: WorkerOwner):
         thread.join(timeout=2)
 
 
-# PUBLIC API
 class Supervisor:
-    """@brief Discover and supervise immutable project IDs without waiting on jobs."""
+    """Discover and supervise immutable project IDs without waiting on jobs."""
 
     def __init__(self, profiles: ProfileStore, web: WebStore, *, spawn=ProcessTree,
                  clock=time.monotonic) -> None:
@@ -105,8 +86,9 @@ class Supervisor:
         self.owner: WorkerOwner | None = None
 
     def tick(self) -> None:
-        """@brief Reconcile child exits/discovery with no blocking process waits.
-        @note Child failure backs off only that scope. Configuration is independent.
+        """
+        Reconcile child exits/discovery with no blocking process waits.
+        Note: Child failure backs off only that scope. Configuration is independent.
         """
         assert_ancestry()
         now = self.clock()
@@ -163,7 +145,7 @@ class Supervisor:
                 LOG.exception("worker launch refused for %s", identity)
 
     def run_forever(self, *, stop: Event | None = None, interval: float = 0.2) -> None:
-        """@brief Own one home and bound shutdown of every owned child scope."""
+        """Own one home and bound shutdown of every owned child scope."""
         stop = stop or Event()
         lock = StateStore(self.profiles.home / "web-control", "adore-web")
         if not lock.acquire_lock():
@@ -192,7 +174,7 @@ class Supervisor:
 
 
 class ProjectWorker:
-    """@brief Schedule one project's admission, commands and N owned run processes."""
+    """Schedule one project's admission, commands and N owned run processes."""
 
     def __init__(self, profiles: ProfileStore, web: WebStore, project_id: str, *,
                  spawn=ProcessTree, clock=time.monotonic) -> None:
@@ -209,8 +191,9 @@ class ProjectWorker:
         self.name = ""
 
     def tick(self) -> bool:
-        """@brief Dispatch only this identity; return False if archived/deleted/renamed.
-        @exception StateError Corrupt state blocks dispatch instead of granting capacity.
+        """
+        Dispatch only this identity; return False if archived/deleted/renamed.
+        Raises StateError: Corrupt state blocks dispatch instead of granting capacity.
         """
         assert_ancestry()
         profile = self.profiles.find_by_id(self.project_id)
@@ -292,12 +275,12 @@ class ProjectWorker:
         return True
 
     def _launch(self, key: str, argv: list[str], environment: dict[str, str]) -> None:
-        """@brief Track process ownership before considering more work next tick."""
+        """Track process ownership before considering more work next tick."""
         self.children[key] = self.spawn(argv, environment)
         self.started[key] = self.clock()
 
     def run_forever(self, *, stop: Event | None = None, interval: float = 0.2) -> None:
-        """@brief Recover only this project's dead owner and run an independent loop."""
+        """Recover only this project's dead owner and run an independent loop."""
         stop = stop or Event()
         self.web.recover_interrupted(project_id=self.project_id, role="project")
         self.owner = self.web.register_worker("project", project_id=self.project_id)
@@ -320,7 +303,7 @@ class ProjectWorker:
 
 
 def configuration_loop(profiles: ProfileStore, web: WebStore, stop: Event) -> None:
-    """@brief Run bounded configuration lanes and immediate admission control independently."""
+    """Run bounded configuration lanes and immediate admission control independently."""
     from concurrent.futures import ThreadPoolExecutor
 
     from adore.web.app import create_app
@@ -355,7 +338,7 @@ def configuration_loop(profiles: ProfileStore, web: WebStore, stop: Event) -> No
 
 
 def main() -> int:
-    """@brief Internal fixed-role entry; runs attach before constructing any engine."""
+    """Internal fixed-role entry; runs attach before constructing any engine."""
     parser = argparse.ArgumentParser(description="ADORE owned worker process")
     parser.add_argument("--home", type=Path, required=True)
     parser.add_argument("--role", choices=("project", "configuration", "command", "poll", "run"),
@@ -434,5 +417,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# END OF FILE

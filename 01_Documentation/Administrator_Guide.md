@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Administration
 
 The portable package runs the web application and its worker together. It
@@ -29,8 +22,12 @@ to drain the application's owned worker trees. Never remove live ownership files
 ## Prepare the host
 
 Install Git and the CLI for the project's forge: tea for Gitea, gh for GitHub or
-glab for GitLab. Authenticate that CLI on the ADORE host using its own login
+glab for GitLab, or Azure CLI with the azure-devops extension for Azure DevOps
+Services. Authenticate that CLI on the ADORE host using its own login
 workflow. For Gitea, keep the saved login name available for project setup.
+Azure also needs an explicit organization, project, repository and repository-owned
+Boards Area Path. See the Azure DevOps Services guide beside the source manuals
+or at the root of the delivery package.
 
 Reading/cloning a repository uses Git. An SSH repository URL therefore needs
 working Git SSH access; the forge CLI login is used separately for tickets,
@@ -120,6 +117,19 @@ preferences and command/change history reset. Project profiles, credentials
 stored outside the web database, job state and Pi conversations are separate
 and remain on disk. Recreate any required web accounts and project grants.
 
+## Storage and retained job history
+
+**Administration → System status** groups storage availability and free capacity
+below Workers. Audit retention limits administrative events only; it does not
+expire job records or Pi conversations. Cancelling a job releases verified working
+resources and keeps recorded evidence. Restarting a cancelled job retains that
+history and allocates a fresh execution, so retained data can continue to grow.
+
+Use `adore --profile NAME delete RUN_ID --force` for an explicitly selected old
+execution after inspection. It verifies owned-resource cleanup before removing
+state. `cleanup` reclaims eligible resources rather than deleting retained job
+history. There is no automatic job-history expiry or individual GUI Delete action.
+
 ## Access and advanced commands
 
 The portable launcher listens on loopback. Remote access requires administrator-
@@ -136,4 +146,7 @@ configuration, deployment and CLI references for specialized administration.
 
 ## New-job workflow default
 
-In project Settings > Implementation, **Default workflow** selects automatic AEGIS detection (`auto`) or Direct (`direct`) for new jobs. Manual Start and Restart let the operator override this per job. Retry keeps the saved workflow. The web schema identifier stays fixed at 1 throughout pre-release; a different identifier or incomplete table structure is refused. A fresh start requires manually deleting `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` before starting this build with an older web store; accounts, grants and command history reset. Never delete these while ADORE is running. Profiles and jobs are stored separately.
+In project Settings > Implementation, **Default workflow** selects automatic AEGIS
+detection (`auto`) or Direct (`direct`) for new jobs. Manual Start and Restart
+allow a per-job choice; Retry keeps the saved workflow. The fixed pre-release
+schema and explicit reset procedure are described above.

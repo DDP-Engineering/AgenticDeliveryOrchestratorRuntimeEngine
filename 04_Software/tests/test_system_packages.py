@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_system_packages.py
-@brief      Direct agent package authority and independent network contracts.
-@details    All runtime, forge and process commands are injected and offline.
-"""
+"""Direct agent package authority and independent network contracts."""
 
-# IMPORTS
 from copy import deepcopy
 from hashlib import sha256
 import json
@@ -28,7 +14,7 @@ import pytest
 
 # HELPERS
 def package_config():
-    """@brief Return a valid container profile with opt-in authority."""
+    """Return a valid container profile with opt-in authority."""
     config = default_config()
     config.platform.kind = "github"
     config.platform.repo = "owner/repo"
@@ -40,7 +26,7 @@ def package_config():
 
 
 def fingerprint(plan):
-    """@brief Rebind externally constructed state to test semantic validation."""
+    """Rebind externally constructed state to test semantic validation."""
     plan["fingerprint"] = sha256(json.dumps(
         {k: v for k, v in plan.items() if k != "fingerprint"},
         sort_keys=True, separators=(",", ":"), ensure_ascii=False,
@@ -50,7 +36,7 @@ def fingerprint(plan):
 
 # PUBLIC API / TESTS
 def test_package_permission_defaults_off_and_is_strict_boolean():
-    """@brief Legacy profiles receive no elevation; malformed booleans reject."""
+    """Legacy profiles receive no elevation; malformed booleans reject."""
     config = default_config()
     assert getattr(config.container, "system_packages", None) is False
     config = package_config()
@@ -68,14 +54,14 @@ def test_package_permission_defaults_off_and_is_strict_boolean():
     "--userns=host", "--volumes-from=other",
 ])
 def test_package_permission_rejects_host_or_privilege_overrides(option):
-    """@brief Managed administrative permission cannot expand host exposure."""
+    """Managed administrative permission cannot expand host exposure."""
     config = package_config()
     config.container.run_args = [option]
     assert any("system_packages" in x for x in validate_config(config))
 
 
 def test_package_permission_rejects_native_host_but_accepts_rootless_keep_id():
-    """@brief Explicit opt-in is container-only and retains Podman UID mapping."""
+    """Explicit opt-in is container-only and retains Podman UID mapping."""
     config = package_config()
     config.container.run_args = ["--userns=keep-id", "--memory=2g"]
     assert validate_config(config) == []
@@ -86,7 +72,7 @@ def test_package_permission_rejects_native_host_but_accepts_rootless_keep_id():
 @pytest.mark.parametrize("runtime", ["docker", "podman", "wsl -d Ubuntu -- docker"])
 @pytest.mark.parametrize("mode", ["open", "none", "allowlist-proxy"])
 def test_package_authority_uses_owned_container_without_network_or_host_installs(runtime, mode):
-    """@brief Authorization supplies no model secrets or network override."""
+    """Authorization supplies no model secrets or network override."""
     calls = []
 
     def runner(argv, **kwargs):
@@ -112,7 +98,7 @@ def test_package_authority_uses_owned_container_without_network_or_host_installs
 
 @pytest.mark.parametrize("uid", ["0\n", "root", "1000\n1001", "-1", "", "1;echo bad"])
 def test_package_authority_rejects_root_or_malformed_executor_identity(uid):
-    """@brief Untrusted process output never chooses an elevated account."""
+    """Untrusted process output never chooses an elevated account."""
     calls = []
 
     def runner(argv, **kwargs):
@@ -133,7 +119,7 @@ def test_package_authority_rejects_root_or_malformed_executor_identity(uid):
     CommandResult(stdout=""), CommandResult(stdout="untrusted success"),
 ])
 def test_package_authority_fails_closed_on_missing_or_failed_confirmation(result):
-    """@brief Exit zero alone cannot prove the authorization contract."""
+    """Exit zero alone cannot prove the authorization contract."""
     results = iter([CommandResult(stdout="1000\n"), result])
     manager = ContainerManager("podman", "project:1", "uv", "npm",
                                runner=lambda *a, **k: next(results))
@@ -144,7 +130,7 @@ def test_package_authority_fails_closed_on_missing_or_failed_confirmation(result
 
 
 def test_package_execution_policy_fingerprints_permission():
-    """@brief Enabled and disabled package authority produce distinct validated execution plans."""
+    """Enabled and disabled package authority produce distinct validated execution plans."""
     config = package_config()
     plan = resolve_plan(config)
     assert plan["policy"]["container"].get("system_packages") is True
@@ -157,7 +143,7 @@ def test_package_execution_policy_fingerprints_permission():
 
 @pytest.mark.parametrize("value", [False, "true", 1, None])
 def test_package_plan_rejects_noncanonical_opt_in(value):
-    """@brief Recomputed fingerprints cannot disguise corrupt permission types."""
+    """Recomputed fingerprints cannot disguise corrupt permission types."""
     plan = resolve_plan(package_config())
     plan["policy"]["container"]["system_packages"] = value
     with pytest.raises(PreparationError):
@@ -165,7 +151,7 @@ def test_package_plan_rejects_noncanonical_opt_in(value):
 
 
 def test_package_only_state_preserves_exact_resource_without_claiming_recipe_success():
-    """@brief Installed environment identity survives a restart with no fake setup."""
+    """Installed environment identity survives a restart with no fake setup."""
     record = {"plan": resolve_plan(package_config()), "resource": {
         "container_id": "a" * 64, "image_id": "sha256:" + "b" * 64,
     }, "status": "not-required", "attempts": 0, "steps": [], "history": [],
@@ -178,7 +164,7 @@ def test_package_only_state_preserves_exact_resource_without_claiming_recipe_suc
 
 
 def test_package_setting_requires_review_and_preserves_network(tmp_path):
-    """@brief An admin stages and applies a boolean without enabling networking."""
+    """An admin stages and applies a boolean without enabling networking."""
     from adore.config import load_config
     from adore.state import StateStore
     from adore.web.app import create_app
@@ -215,7 +201,7 @@ def test_package_setting_requires_review_and_preserves_network(tmp_path):
 
 @pytest.mark.parametrize("value", ['"true"', "1", "[]"])
 def test_package_setting_refuses_non_boolean_candidates(tmp_path, value):
-    """@brief Human-written settings cannot silently coerce administrative rights."""
+    """Human-written settings cannot silently coerce administrative rights."""
     from adore.state import StateStore
     from adore.web.app import create_app
 
@@ -238,7 +224,7 @@ def test_package_setting_refuses_non_boolean_candidates(tmp_path, value):
     "drift", ["none", "permission", "network", "container", "image", "missing"],
 )
 def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch, drift):
-    """@brief Retry retains the prepared resource and fails before AI on drift."""
+    """Retry retains the prepared resource and fails before AI on drift."""
     from types import SimpleNamespace
 
     from adore import orchestrator as module
@@ -269,7 +255,7 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
     containers.authorize_system_packages = lambda name: authorized.append(name)
 
     class Client(FakeAegis):
-        """@brief AEGIS fake observes authority before first AI interaction."""
+        """AEGIS fake observes authority before first AI interaction."""
 
         def __init__(self, *args):
             super().__init__([task("frame")])
@@ -318,19 +304,11 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
         assert len(authorized) == before
 
 
-
-
-
-
-
-
-
-
-
 @pytest.mark.parametrize("failure", ["none", "missing-sudo", "unsafe-directory", "visudo"])
 def test_container_authorization_policy_with_offline_processes(tmp_path, monkeypatch, failure):
-    """@brief Actual authorization code writes validated sudoers only in the container seam.
-    @note System identity and subprocesses are faked; no package or setup script runs.
+    """
+    Actual authorization code writes validated sudoers only in the container seam.
+    Note: System identity and subprocesses are faked; no package or setup script runs.
     """
     import os
     import pathlib
@@ -347,7 +325,7 @@ def test_container_authorization_policy_with_offline_processes(tmp_path, monkeyp
     calls = []
 
     class Directory:
-        """@brief Container filesystem stand-in redirects only the fixed sudoers directory."""
+        """Container filesystem stand-in redirects only the fixed sudoers directory."""
 
         def lstat(self):
             return SimpleNamespace(st_mode=stat.S_IFDIR | (0o777 if failure == "unsafe-directory"
@@ -393,13 +371,11 @@ def test_container_authorization_policy_with_offline_processes(tmp_path, monkeyp
         assert not (directory / "adore-system-packages").exists()
 
 
-
-
 @pytest.mark.parametrize("field,value", [("provider", "anthropic"), ("internet", True),
                                         ("web.search", "none"),
                                         ("endpoint.base_url", "https://endpoint.invalid/v1")])
 def test_execution_plan_pins_pi_network_and_provider_policy(field, value):
-    """@brief A changed model route or network authority cannot reuse a prepared plan."""
+    """A changed model route or network authority cannot reuse a prepared plan."""
     config = package_config()
     original = resolve_plan(config)
     owner = config.executor

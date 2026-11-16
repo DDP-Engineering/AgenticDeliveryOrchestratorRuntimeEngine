@@ -1,9 +1,3 @@
-/*
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-*/
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
 import { cleanupBrowserPage } from "./lifecycle";
@@ -1775,4 +1769,54 @@ test("LA-03 terminal transition refreshes a delayed pre-ack instruction read",as
   const finalReads=reads;
   await page.clock.fastForward(6000);
   expect(reads).toBe(finalReads);
+});
+
+
+for (const workflow of ["aegis", "direct"] as const) test(`cancelled restart keeps history, confirms workflow and opens the admitted job (${workflow})`, async ({ page }) => {
+  await signIn(page);
+  let posted = 0;
+  await page.route("**/workflow-selection", route => route.fulfill({ json: {
+    aegis_available: true, default: "direct",
+  } }));
+  await page.route(/\/api\/v1\/jobs\/[^/]+\/ux-cancelled(?:-r1)?$/, async route => {
+    const fresh = route.request().url().endsWith("-r1");
+    const response = await route.fetch({ url: route.request().url().replace("ux-cancelled-r1", "ux-cancelled") });
+    const data = await response.json();
+    if (fresh) {
+      data.job.run_id = "ux-cancelled-r1";
+      data.job.evidence_url = data.job.evidence_url.replace("ux-cancelled", "ux-cancelled-r1");
+      data.job.previous_run_id = "ux-cancelled";
+      data.job.lifecycle = "working"; data.job.status_group = "active";
+      data.job.workflow = workflow; data.job.direct = workflow === "direct" ? { attempt: 1 } : undefined;
+    } else if (posted) data.job.restarted_run_id = "ux-cancelled-r1";
+    await route.fulfill({ response, json: data });
+  });
+  await page.route("**/api/v1/projects/*/operations/restart", async route => {
+    const body = route.request().postDataJSON();
+    expect(body).toMatchObject({ run_id: "ux-cancelled", confirmed: true, workflow });
+    expect(body.state_revision).toMatch(/^[a-f0-9]{64}$/);
+    posted++;
+    await route.fulfill({ json: workflow === "direct" ? { id: 995, status: "pending" } : {
+      id: 995, status: "succeeded", result: "completed", admitted_run_id: "ux-cancelled-r1",
+    } });
+  });
+  await page.route("**/api/v1/operations/995", route => route.fulfill({ json: {
+    id: 995, status: "succeeded", result: "completed", admitted_run_id: "ux-cancelled-r1",
+  } }));
+  await page.goto("/jobs?project=alpha&run=ux-cancelled");
+  await page.locator(".job-actions > summary").click();
+  const restart = page.getByRole("button", { name: workflow === "direct" ? "Restart job without AEGIS" : "Restart job with AEGIS", exact: true });
+  await expect(restart).toBeEnabled();
+  page.once("dialog", dialog => dialog.dismiss());
+  await restart.click();
+  expect(posted).toBe(0);
+  page.once("dialog", async dialog => { expect(dialog.message()).toContain("history is kept"); await dialog.accept(); });
+  await restart.click();
+  await expect(page).toHaveURL(/run=ux-cancelled-r1/);
+  const previous = page.getByRole("link", { name: "Previous job", exact: true });
+  await expect(previous).toBeVisible();
+  await previous.click();
+  await expect(page).toHaveURL(/run=ux-cancelled(?:&|$)/);
+  await expect(page.getByRole("link", { name: "New job", exact: true })).toBeVisible();
+  expect(posted).toBe(1);
 });

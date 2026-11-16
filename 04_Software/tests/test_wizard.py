@@ -1,24 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file test_wizard.py
-@brief Tests for the `adore init` wizard - driven offline with a scripted asker
-       and a fake command runner; the golden assertion is that every profile it
-       writes passes validate_config.
-@details Known branch-rule fixture evaluation is injected; real matcher and
-         process-protocol verification remains in test_branch_naming.py.
-"""
+"""Tests for the `adore init` wizard - driven offline with a scripted asker"""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Sequence
 import json
 from pathlib import Path
@@ -41,23 +24,19 @@ from adore.wizard import (
 )
 import pytest
 
-# CONSTANTS
-
 FIXED_NOW = "2026-07-05T00:00:00Z"
-
-# HELPER FUNCTIONS
 
 
 @pytest.fixture(autouse=True)
 def isolated_branch_rule_process(monkeypatch):
     """
-    @brief Keep wizard assembly tests independent of host Python startup latency.
-    @details Trusted fixture rules still match the actual generated branch; the
+    Keep wizard assembly tests independent of host Python startup latency.
+    Trusted fixture rules still match the actual generated branch; the
              real bounded process and corrupt-output contract are exercised by
              test_branch_naming.py, with the product's one-second limit intact.
     """
     def evaluate(argv, **kwargs):
-        """@brief Simulate only the known JSON-in/boolean-out regex boundary."""
+        """Simulate only the known JSON-in/boolean-out regex boundary."""
         assert argv[1:3] == ["-I", "-c"]
         assert kwargs["timeout"] == 1 and kwargs["capture_output"]
         rule, name = json.loads(kwargs["input"])
@@ -67,9 +46,7 @@ def isolated_branch_rule_process(monkeypatch):
 
 
 class FakeRunner:
-    """
-    @brief   Command runner double: present tools authenticate cleanly.
-    """
+    """Command runner double: present tools authenticate cleanly."""
 
     def __init__(self, present: dict[str, CommandResult]) -> None:
         self.present = present
@@ -98,11 +75,11 @@ def _store(tmp_path: Path) -> ProfileStore:
 
 def _answers(clone: Path, **overrides: object) -> dict[str, object]:
     """
-    @brief      A complete, valid happy-path answer set (fields with defaults
+    A complete, valid happy-path answer set (fields with defaults
                 are omitted so defaults are exercised).
-    @param[in]  clone An existing directory to use as the local clone path.
-    @param[in]  overrides Field overrides (e.g. a queue for a re-prompt test).
-    @return     The answers mapping.
+    clone: An existing directory to use as the local clone path.
+    overrides: Field overrides (e.g. a queue for a re-prompt test).
+    Returns: The answers mapping.
     """
     answers: dict[str, object] = {
         "description": "test project",
@@ -136,7 +113,7 @@ def _clone(tmp_path: Path) -> Path:
 
 def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     """
-    @brief   The golden test: a full scripted run writes a profile whose
+    The golden test: a full scripted run writes a profile whose
              config.toml loads and passes validate_config, with the expected
              metadata and a profile-owned state root.
     """
@@ -162,7 +139,7 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
 
 
 def test_wizard_writes_pi_without_agent_choice_or_host_sign_in(tmp_path: Path) -> None:
-    """@brief The wizard asks for no agent, writes [executor] model and refuses host-auth."""
+    """The wizard asks for no agent, writes [executor] model and refuses host-auth."""
     store = _store(tmp_path)
     clone = _clone(tmp_path)
     asked: list[str] = []
@@ -192,9 +169,7 @@ def test_wizard_writes_pi_without_agent_choice_or_host_sign_in(tmp_path: Path) -
 
 
 def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:
-    """
-    @brief   Choosing a podman runtime auto-adds run_args=["--userns=keep-id"].
-    """
+    """Choosing a podman runtime auto-adds run_args=["--userns=keep-id"]."""
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), runtime="podman"))
     run_wizard(store, asker=asker, out=lambda _l: None, runner=_runner(),
@@ -205,7 +180,7 @@ def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:
 
 
 def test_wizard_writes_custom_recovery_and_approval(tmp_path: Path) -> None:
-    """@brief Fail-loud thresholds and approval label are assisted settings."""
+    """Fail-loud thresholds and approval label are assisted settings."""
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(
         _clone(tmp_path),
@@ -228,7 +203,7 @@ def test_wizard_writes_custom_recovery_and_approval(tmp_path: Path) -> None:
 
 def test_wizard_reprompts_on_invalid_repo_path(tmp_path: Path) -> None:
     """
-    @brief   A non-existent clone path is rejected and re-prompted (the queue's
+    A non-existent clone path is rejected and re-prompted (the queue's
              second answer, a real dir, is accepted).
     """
     store = _store(tmp_path)
@@ -242,7 +217,7 @@ def test_wizard_reprompts_on_invalid_repo_path(tmp_path: Path) -> None:
 
 def test_wizard_reprompts_on_bad_regex_then_template_mismatch(tmp_path: Path) -> None:
     """
-    @brief   An uncompilable push-rule regex re-prompts; then a branch template
+    An uncompilable push-rule regex re-prompts; then a branch template
              that the rule would reject re-prompts until it matches.
     """
     store = _store(tmp_path)
@@ -265,9 +240,7 @@ def test_wizard_reprompts_on_bad_regex_then_template_mismatch(tmp_path: Path) ->
 
 
 def test_wizard_refuses_existing_profile_without_force(tmp_path: Path) -> None:
-    """
-    @brief   An existing profile is not overwritten unless --force is given.
-    """
+    """An existing profile is not overwritten unless --force is given."""
     store = _store(tmp_path)
     store.create("taken")
     asker = ScriptedAsker(_answers(_clone(tmp_path)))
@@ -277,9 +250,7 @@ def test_wizard_refuses_existing_profile_without_force(tmp_path: Path) -> None:
 
 
 def test_wizard_abort_writes_nothing(tmp_path: Path) -> None:
-    """
-    @brief   Answering "no" to the final confirm aborts and saves no profile.
-    """
+    """Answering "no" to the final confirm aborts and saves no profile."""
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), confirm="no"))
     with pytest.raises(WizardError):
@@ -290,7 +261,7 @@ def test_wizard_abort_writes_nothing(tmp_path: Path) -> None:
 
 def test_wizard_non_interactive_is_reproducible_and_fails_fast(tmp_path: Path) -> None:
     """
-    @brief   The non-interactive path is deterministic (same answers + fixed
+    The non-interactive path is deterministic (same answers + fixed
              clock -> identical config.toml) and fails fast on a bad answer
              instead of looping.
     """
@@ -319,7 +290,7 @@ def test_wizard_gitlab_uses_cli_host_guidance_without_dead_prompts(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   GitLab/GitHub routing stays with the CLI's active/default host;
+    GitLab/GitHub routing stays with the CLI's active/default host;
              the wizard neither collects nor records ineffective host data.
     """
     store = _store(tmp_path)
@@ -335,7 +306,7 @@ def test_wizard_gitlab_uses_cli_host_guidance_without_dead_prompts(
 
 def test_wizard_gitea_asks_login_instead_of_hosting(tmp_path: Path) -> None:
     """
-    @brief   The gitea path keeps its tea login selector (tea binds host + token
+    The gitea path keeps its tea login selector (tea binds host + token
              to a login) and writes it to [platform] login.
     """
     store = _store(tmp_path)
@@ -353,9 +324,7 @@ def test_wizard_gitea_asks_login_instead_of_hosting(tmp_path: Path) -> None:
 
 
 def test_wizard_custom_budgets_are_written(tmp_path: Path) -> None:
-    """
-    @brief   The custom-budgets branch asks the four values and writes them.
-    """
+    """The custom-budgets branch asks the four values and writes them."""
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(
         _clone(tmp_path), budgets_choice="custom", max_iterations="9",
@@ -373,7 +342,7 @@ def test_wizard_custom_budgets_are_written(tmp_path: Path) -> None:
 
 def test_wizard_custom_agent_name_sets_slug(tmp_path: Path) -> None:
     """
-    @brief   A non-default bot name is written and its slug is derived, so the
+    A non-default bot name is written and its slug is derived, so the
              branch template still validates against the push rule.
     """
     store = _store(tmp_path)
@@ -388,7 +357,7 @@ def test_wizard_custom_agent_name_sets_slug(tmp_path: Path) -> None:
 
 def test_wizard_non_interactive_missing_required_fails(tmp_path: Path) -> None:
     """
-    @brief   A required field absent from the answers (no default) fails fast in
+    A required field absent from the answers (no default) fails fast in
              non-interactive mode instead of looping, and saves nothing.
     """
     store = _store(tmp_path)
@@ -406,7 +375,7 @@ def test_wizard_non_interactive_missing_required_fails(tmp_path: Path) -> None:
 
 def test_console_asker_reads_value_and_empty_is_default() -> None:
     """
-    @brief   ConsoleAsker returns the typed value; an empty line means the
+    ConsoleAsker returns the typed value; an empty line means the
              default is used by ask().
     """
     typed = ConsoleAsker(input_fn=lambda _p: " docker ", out=lambda _l: None)
@@ -419,7 +388,7 @@ def test_console_asker_reads_value_and_empty_is_default() -> None:
 
 def test_console_asker_reprompts_on_invalid_choice() -> None:
     """
-    @brief   ask() re-prompts an interactive asker until the choice is valid,
+    ask() re-prompts an interactive asker until the choice is valid,
              printing the error each time.
     """
     replies = iter(["apache", "docker"])
@@ -432,9 +401,7 @@ def test_console_asker_reprompts_on_invalid_choice() -> None:
 
 
 def test_console_asker_accepts_numbered_choice() -> None:
-    """
-    @brief   Numbered choices are resolved to the configured string value.
-    """
+    """Numbered choices are resolved to the configured string value."""
     seen: list[str] = []
     asker = ConsoleAsker(input_fn=lambda _p: "2", out=seen.append)
     value = ask(FieldSpec("rt", "Runtime?", choices=("docker", "podman")),
@@ -450,7 +417,7 @@ def test_console_asker_accepts_numbered_choice() -> None:
 
 def test_validate_or_raise_rejects_invalid_config(tmp_path: Path) -> None:
     """
-    @brief   The write-then-validate guard raises on a config that would fail
+    The write-then-validate guard raises on a config that would fail
              validation, so an invalid profile is never committed.
     """
     bad_doc = "[platform]\nkind = 'bitbucket'\n"              # invalid kind, no repo
@@ -460,7 +427,7 @@ def test_validate_or_raise_rejects_invalid_config(tmp_path: Path) -> None:
 
 def test_wizard_defaults_omit_the_workflow_section(tmp_path: Path) -> None:
     """
-    @brief   Accepting every workflow-label default writes no [workflow] table
+    Accepting every workflow-label default writes no [workflow] table
              at all: the emitted config stays minimal and the defaults live in
              one place (decision D4).
     """
@@ -475,7 +442,7 @@ def test_wizard_defaults_omit_the_workflow_section(tmp_path: Path) -> None:
 
 def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
     """
-    @brief   Custom ready / fix / change / quick labels land in the config as
+    Custom ready / fix / change / quick labels land in the config as
              the label map ADORE resolves the AEGIS run kind and profile from,
              and the result validates.
     """
@@ -498,16 +465,14 @@ def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
 
 
 def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
-    """
-    @brief Missing AEGIS is direct-workflow information, not a setup defect.
-    """
+    """Missing AEGIS is direct-workflow information, not a setup defect."""
     clone = _clone(tmp_path)
     store = ProfileStore(tmp_path / "home")
     lines: list[str] = []
     base_runner = _runner()
 
     def probe(argv, **kwargs):
-        """@brief Missing payloads cannot trigger even a failed AEGIS command."""
+        """Missing payloads cannot trigger even a failed AEGIS command."""
         assert ".agentic/aegis.py" not in argv
         return base_runner(argv, **kwargs)
 
@@ -525,7 +490,7 @@ def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
 def test_wizard_probes_with_effective_interpreter(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, interpreter: str, available: bool,
 ) -> None:
-    """@brief Real candidate validation supplies probe Python; failures never gate saving."""
+    """Real candidate validation supplies probe Python; failures never gate saving."""
     clone = _clone(tmp_path)
     wrapper = clone / ".agentic" / "aegis.py"
     wrapper.parent.mkdir()
@@ -534,7 +499,7 @@ def test_wizard_probes_with_effective_interpreter(
         original = wizard._assemble_sections
 
         def assemble(**kwargs):
-            """@brief Arrange an existing config key, without adding a wizard answer."""
+            """Arrange an existing config key, without adding a wizard answer."""
             sections = original(**kwargs)
             for header, values in sections:
                 if header == "workflow":
@@ -550,7 +515,7 @@ def test_wizard_probes_with_effective_interpreter(
     base_runner = _runner()
 
     def probe(argv, **kwargs):
-        """@brief Fake external probes, preserving argv and candidate-read ordering."""
+        """Fake external probes, preserving argv and candidate-read ordering."""
         if len(argv) > 1 and argv[1] == ".agentic/aegis.py":
             assert kwargs["cwd"] == str(clone)
             assert "confirm" in asker.reads
@@ -584,7 +549,7 @@ def test_wizard_probes_with_effective_interpreter(
 
 
 def test_wizard_reports_unsupported_present_payload_without_direct_fallback(tmp_path: Path) -> None:
-    """@brief A broken installed contract is CHECK, not absence or a profile-save block."""
+    """A broken installed contract is CHECK, not absence or a profile-save block."""
     clone = _clone(tmp_path)
     wrapper = clone / ".agentic" / "aegis.py"
     wrapper.parent.mkdir()
@@ -593,7 +558,7 @@ def test_wizard_reports_unsupported_present_payload_without_direct_fallback(tmp_
     calls = []
 
     def probe(argv, **kwargs):
-        """@brief An unsupported version must stop probing before status."""
+        """An unsupported version must stop probing before status."""
         if ".agentic/aegis.py" in argv:
             calls.append(list(argv))
             return CommandResult(stdout="aegis 1.0.0")
@@ -608,6 +573,3 @@ def test_wizard_reports_unsupported_present_payload_without_direct_fallback(tmp_
     assert any("aegis 1.0.0" in line for line in lines)
     assert not any("No AEGIS found" in line for line in lines)
     assert validate_config(load_config(store.config_path("unsupported"))) == []
-
-
-# END OF FILE

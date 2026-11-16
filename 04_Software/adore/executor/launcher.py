@@ -1,29 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file launcher.py
-@brief Pi executor launcher (ADORE's only coding agent) and its factory.
-@details Runs one fresh Pi RPC process through a bound container or native
-         backend. Prompt text travels over stdin; retained conversation,
-         operational output, questions, usage and archives remain bounded.
-         Job gates resume an exact private Pi conversation; the durable AEGIS
-         journal remains the workflow authority.
-         Native worktrees rely on the selected account's host permissions;
-         container profiles retain their existing isolation contract.
-"""
+"""Pi executor launcher (ADORE's only coding agent) and its factory."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
-
-# IMPORTS
 from contextlib import ExitStack
 import json
 import os
@@ -51,8 +30,6 @@ from adore.pi_providers import pi_provider
 from adore.prompts import PromptCatalog
 from adore.state import StateStore
 from adore.util import CommandResult, utc_now_iso
-
-# CONSTANTS
 
 GATE_SCRIPT = "gate.sh"
 OUTPUT_FILE = "output.jsonl"
@@ -86,10 +63,9 @@ PI_CANCEL_GRACE_SECONDS = (
     pi_rpc.ABORT_GRACE_SECONDS + pi_rpc.EXIT_GRACE_SECONDS + pi_rpc.KILL_GRACE_SECONDS + 5.0
 )
 
-# LOCAL HELPERS
 
 def _archive_directories(path: Path) -> None:
-    """@brief Refuse linked/reparse archive destinations before any archive write."""
+    """Refuse linked/reparse archive destinations before any archive write."""
     for parent in (path, *path.parents):
         try:
             info = parent.lstat()
@@ -101,13 +77,14 @@ def _archive_directories(path: Path) -> None:
 
 
 def _archive_recording(source: Path, destination: Path) -> None:
-    """@brief Copy one quiescent literal RPC recording within its producer bound.
-    @param[in] source Run-owned recording after RPC shutdown.
-    @param[in] destination New immutable archive output file.
-    @exception IsolationError Linked, oversized or changing recording.
+    """
+    Copy one quiescent literal RPC recording within its producer bound.
+    source: Run-owned recording after RPC shutdown.
+    destination: New immutable archive output file.
+    Raises IsolationError: Linked, oversized or changing recording.
     """
     def identity(path: Path):
-        """@brief Refuse linked/reparse files and parents before inspecting bytes."""
+        """Refuse linked/reparse files and parents before inspecting bytes."""
         info = path.lstat()
         if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
                 or getattr(info, "st_file_attributes", 0) & 0x400):
@@ -142,13 +119,10 @@ def _archive_recording(source: Path, destination: Path) -> None:
             raise IsolationError("RPC recording changed while archiving")
 
 
-# PUBLIC API
-
-
 class PiExecutor(Executor):
     """
-    @brief   Pi (@earendil-works/pi-coding-agent) executor launcher.
-    @details On a container target (one with a `spawn` seam) every gate runs
+    Pi (@earendil-works/pi-coding-agent) executor launcher.
+    On a container target (one with a `spawn` seam) every gate runs
              one bounded `pi --mode rpc` process from the image's
              pinned installation, driven by `pi_rpc`: fixed argv, prompt over
              stdin, `abort` on the stage timeout or a cancel. The account's
@@ -195,16 +169,16 @@ class PiExecutor(Executor):
         prompts: PromptCatalog | None = None,
     ) -> None:
         """
-        @brief      Configure Pi from the [executor] section.
-        @param[in]  model Model id within the provider.
-        @param[in]  questions_file Clarification questions filename.
-        @param[in]  provider `[executor] provider` ("" keeps a bare `--model`).
-        @param[in]  models Endpoint models.json document, or None.
-        @param[in]  internet `[executor] internet`.
-        @param[in]  web_search `[executor.web] search` (used while internet is on).
-        @param[in]  thinking Optional validated Pi thinking level.
-        @param[in]  prompts Shared eager catalog, or load all shipped prompts here.
-        @exception  PromptError A shipped prompt resource is invalid or unavailable.
+        Configure Pi from the [executor] section.
+        model: Model id within the provider.
+        questions_file: Clarification questions filename.
+        provider: `[executor] provider` ("" keeps a bare `--model`).
+        models: Endpoint models.json document, or None.
+        internet: `[executor] internet`.
+        web_search: `[executor.web] search` (used while internet is on).
+        thinking: Optional validated Pi thinking level.
+        prompts: Shared eager catalog, or load all shipped prompts here.
+        Raises PromptError: A shipped prompt resource is invalid or unavailable.
         """
         self.prompts = prompts if prompts is not None else PromptCatalog()
         self.provider = pi_provider(provider) if provider else ""
@@ -230,23 +204,23 @@ class PiExecutor(Executor):
         package_secrets: dict[str, str] | None = None,
     ) -> GateRun:
         """
-        @brief      Run one gate through Pi's RPC mode in a container or on the server.
-        @details    Clears stale questions and streams, writes a descriptive
+        Run one gate through Pi's RPC mode in a container or on the server.
+        Clears stale questions and streams, writes a descriptive
                     gate.sh (no shell runs; the prompt never enters it), runs
                     `pi_rpc`, archives the bounded evidence and reads the
                     questions file. Targets without an RPC process seam are refused before
                     writing files or running commands.
-        @param[in]  execute Exec seam bound to the run's target.
-        @param[in]  worktree HOST path of the run's worktree.
-        @param[in]  io_dir HOST path of the run's io exchange dir.
-        @param[in]  prompt Gate instruction, sent over stdin.
-        @param[in]  timeout Stage wall-clock bound.
-        @param[in]  archive_stem Optional immutable archive name stem.
-        @param[in]  instructions Optional acknowledgement-bound instruction handoff.
-        @param[in]  context_key Current ticket fingerprint, saved only on prompt receipt.
-        @param[in]  cancel Cancellation check polled during the run.
-        @param[in]  package_secrets Known credentials for bounded package-job retention.
-        @return     A GateRun: exit 0 completed, 1 failed, 124 timed out,
+        execute: Exec seam bound to the run's target.
+        worktree: HOST path of the run's worktree.
+        io_dir: HOST path of the run's io exchange dir.
+        prompt: Gate instruction, sent over stdin.
+        timeout: Stage wall-clock bound.
+        archive_stem: Optional immutable archive name stem.
+        instructions: Optional acknowledgement-bound instruction handoff.
+        context_key: Current ticket fingerprint, saved only on prompt receipt.
+        cancel: Cancellation check polled during the run.
+        package_secrets: Known credentials for bounded package-job retention.
+        Returns: A GateRun: exit 0 completed, 1 failed, 124 timed out,
                     130 cancelled, otherwise a protocol failure.
         """
         spawn = getattr(execute, "spawn", None)
@@ -301,7 +275,7 @@ class PiExecutor(Executor):
             )
         target_redact = getattr(execute, "redact", lambda text: text)
         def redact(text: str) -> str:
-            """@brief Mask binding credentials and package-job secrets before persistence."""
+            """Mask binding credentials and package-job secrets before persistence."""
             return redact_output(target_redact(text), package_secrets or {})
 
         with ExitStack() as stack:
@@ -324,7 +298,7 @@ class PiExecutor(Executor):
                 temporary.write_text(json.dumps(marker) + "\n", encoding="utf-8")
                 temporary.replace(live_path)
             def spawn_rpc(command, env):
-                """@brief Use the native scope or container exec for the same RPC client."""
+                """Use the native scope or container exec for the same RPC client."""
                 if native is not None:
                     return stack.enter_context(native(command, placements))
                 return spawn(command, env=env)
@@ -392,19 +366,19 @@ class PiExecutor(Executor):
     def _place_file(self, execute: ExecTarget, io_dir: Path, source: str, target: str,
                     document: dict, reason: str) -> GateRun | None:
         """
-        @brief      Put a generated Pi configuration file into Pi's agent directory.
-        @details    The endpoint models.json and pi-web-access's web-search.json
+        Put a generated Pi configuration file into Pi's agent directory.
+        The endpoint models.json and pi-web-access's web-search.json
                     hold no key (only `$ADORE_ENDPOINT_API_KEY`, a placeholder or
                     a provider name); each is written host-side into the io dir
                     and copied inside the container, so a kept-warm container
                     gets the current file for every gate.
-        @param[in]  execute Exec seam bound to the run's target.
-        @param[in]  io_dir HOST path of the run's io exchange dir.
-        @param[in]  source File name in the io dir.
-        @param[in]  target File name in the agent directory.
-        @param[in]  document JSON document to write.
-        @param[in]  reason Evidence prefix when the copy fails.
-        @return     None when placed; a failed GateRun otherwise.
+        execute: Exec seam bound to the run's target.
+        io_dir: HOST path of the run's io exchange dir.
+        source: File name in the io dir.
+        target: File name in the agent directory.
+        document: JSON document to write.
+        reason: Evidence prefix when the copy fails.
+        Returns: None when placed; a failed GateRun otherwise.
         """
         paths = getattr(execute, "paths", ExecutionPaths())
         (io_dir / source).write_bytes(
@@ -419,9 +393,9 @@ class PiExecutor(Executor):
 
     def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
         """
-        @brief      An owned Pi RPC launch aborts itself on cancellation.
-        @param[in]  execute Backend target whose RPC process is controlled.
-        @return     Shared native/container abort-and-exit grace.
+        An owned Pi RPC launch aborts itself on cancellation.
+        execute: Backend target whose RPC process is controlled.
+        Returns: Shared native/container abort-and-exit grace.
         """
         return PI_CANCEL_GRACE_SECONDS
 
@@ -438,22 +412,22 @@ class PiExecutor(Executor):
         output_file: Path,
     ) -> Path:
         """
-        @brief      Copy one completed launch's live exchange files to archive.
-        @details    Creates a unique directory under `io/archive`. Empty
+        Copy one completed launch's live exchange files to archive.
+        Creates a unique directory under `io/archive`. Empty
                     output/stderr files are still written so absence is visible
                     in meta.json without making operators guess whether a file
                     was skipped.
-        @param[in]  io_dir Host io exchange directory.
-        @param[in]  archive_stem Base name supplied by the orchestrator.
-        @param[in]  result Container exec result.
-        @param[in]  stderr Captured stderr stream or fallback stderr.
-        @param[in]  timeout Launch timeout.
-        @param[in]  output_present Whether live output.jsonl existed.
-        @param[in]  stderr_present Whether live stderr.log existed.
-        @param[in]  output_file Mandatory bounded literal RPC recording.
-        @return     Archive directory path.
-        @exception  OSError When any archive write fails.
-        @exception  IsolationError Unsafe or changing literal RPC recording.
+        io_dir: Host io exchange directory.
+        archive_stem: Base name supplied by the orchestrator.
+        result: Container exec result.
+        stderr: Captured stderr stream or fallback stderr.
+        timeout: Launch timeout.
+        output_present: Whether live output.jsonl existed.
+        stderr_present: Whether live stderr.log existed.
+        output_file: Mandatory bounded literal RPC recording.
+        Returns: Archive directory path.
+        Raises OSError: When any archive write fails.
+        Raises IsolationError: Unsafe or changing literal RPC recording.
         """
         archive_root = io_dir / ARCHIVE_DIR
         _archive_directories(archive_root)
@@ -492,9 +466,9 @@ class PiExecutor(Executor):
     @staticmethod
     def _safe_archive_stem(value: str) -> str:
         """
-        @brief      Make an archive stem safe as one directory name segment.
-        @param[in]  value Raw stem.
-        @return     Filesystem-safe non-empty stem.
+        Make an archive stem safe as one directory name segment.
+        value: Raw stem.
+        Returns: Filesystem-safe non-empty stem.
         """
         safe = _ARCHIVE_STEM_RE.sub("-", value.strip()).strip(".-")
         return safe or "launch"
@@ -504,13 +478,14 @@ class PiExecutor(Executor):
         self, path: Path, secrets: dict[str, str], *,
         redact: Callable[[str], str] | None = None,
     ) -> str:
-        """@brief Bound/redact retained package output without following linked files.
-        @param[in] path Owned gate output file.
-        @param[in] secrets Known model credential values, retained in memory only.
-        @param[in] redact Optional binding redactor applied before the byte cap and write.
-        @return Bounded sanitized operational text; RPC owns usage accounting.
-        @exception IsolationError Linked, changed or unreadable output.
-        @note Live writes during a gate still use the existing gate transport.
+        """
+        Bound/redact retained package output without following linked files.
+        path: Owned gate output file.
+        secrets: Known model credential values, retained in memory only.
+        redact: Optional binding redactor applied before the byte cap and write.
+        Returns: Bounded sanitized operational text; RPC owns usage accounting.
+        Raises IsolationError: Linked, changed or unreadable output.
+        Note: Live writes during a gate still use the existing gate transport.
         """
         try:
             before = path.lstat()
@@ -546,9 +521,9 @@ class PiExecutor(Executor):
     @staticmethod
     def _read(path: Path) -> str:
         """
-        @brief      Read a result file, tolerating its absence.
-        @param[in]  path File written by the gate script (or the executor).
-        @return     The content, or "" when missing/unreadable.
+        Read a result file, tolerating its absence.
+        path: File written by the gate script (or the executor).
+        Returns: The content, or "" when missing/unreadable.
         """
         try:
             return path.read_text(encoding="utf-8", errors="replace")
@@ -556,16 +531,15 @@ class PiExecutor(Executor):
             return ""
 
 
-
 def web_search_json(search: str) -> dict:
     """
-    @brief      pi-web-access's web-search.json for an internet-on run.
-    @details    The provider is fixed (no automatic fallback chain), the
+    pi-web-access's web-search.json for an internet-on run.
+    The provider is fixed (no automatic fallback chain), the
                 curator workflow is off for a headless run and the tools are
                 always active. Brave and Tavily read their key from
                 BRAVE_API_KEY / TAVILY_API_KEY in the environment.
-    @param[in]  search `[executor.web] search` (exa, brave or tavily).
-    @return     The document.
+    search: `[executor.web] search` (exa, brave or tavily).
+    Returns: The document.
     """
     return {"provider": search, "workflow": "none", "toolActivation": "eager"}
 
@@ -574,14 +548,14 @@ def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False, thinking: 
                 notice: str = "", installation: ManagedPi | None = None,
                 windows: bool = False) -> list[str]:
     """
-    @brief      Fixed command line of a managed Pi RPC launch.
-    @param[in]  model Model id within the provider.
-    @param[in]  provider Pi provider id ("" passes only `--model`).
-    @param[in]  thinking Optional validated Pi thinking level.
-    @param[in]  web Load the pinned pi-web-access extension (internet on only).
-    @param[in]  notice Text appended to Pi's system prompt ("" appends nothing);
+    Fixed command line of a managed Pi RPC launch.
+    model: Model id within the provider.
+    provider: Pi provider id ("" passes only `--model`).
+    thinking: Optional validated Pi thinking level.
+    web: Load the pinned pi-web-access extension (internet on only).
+    notice: Text appended to Pi's system prompt ("" appends nothing);
                 a stage with internet off passes the loaded offline notice.
-    @return     `node <cli.js> --mode rpc ... -e <guard> [-e <pi-web-access>]
+    Returns: `node <cli.js> --mode rpc ... -e <guard> [-e <pi-web-access>]
                 [--append-system-prompt <notice>] [--provider <p>] --model <model>`.
     """
     if installation is None:
@@ -612,21 +586,18 @@ def build_executor(
     prompts: PromptCatalog | None = None,
 ) -> Executor:
     """
-    @brief      Construct the Pi launcher (config selection point).
-    @details    Pi is the only implementation of the executor interface.
-    @param[in]  model Model id within the provider.
-    @param[in]  questions_file Clarification questions filename.
-    @param[in]  provider `[executor] provider`.
-    @param[in]  models Endpoint models.json for `provider = "custom"`, else None.
-    @param[in]  internet `[executor] internet`.
-    @param[in]  web_search `[executor.web] search`.
-    @param[in]  thinking Optional validated Pi thinking level.
-    @param[in]  prompts Optional conductor-owned catalog shared with the launcher.
-    @return     A PiExecutor.
+    Construct the Pi launcher (config selection point).
+    Pi is the only implementation of the executor interface.
+    model: Model id within the provider.
+    questions_file: Clarification questions filename.
+    provider: `[executor] provider`.
+    models: Endpoint models.json for `provider = "custom"`, else None.
+    internet: `[executor] internet`.
+    web_search: `[executor.web] search`.
+    thinking: Optional validated Pi thinking level.
+    prompts: Optional conductor-owned catalog shared with the launcher.
+    Returns: A PiExecutor.
     """
     return PiExecutor(model, questions_file,
                       provider=provider, models=models, internet=internet,
                       web_search=web_search, thinking=thinking, prompts=prompts)
-
-
-# END OF FILE

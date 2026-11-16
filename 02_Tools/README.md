@@ -1,10 +1,3 @@
-<!--
-Copyright (c) 2026 DDP Engineering
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate commercial license.
-See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
--->
-
 # Repository tools
 
 Source tools are grouped by their purpose. Run them from any directory: each
@@ -59,6 +52,11 @@ It is separate from setup, packaging and automated product tests. Usage is in
 the [container guide](../04_Software/docker/README.md#verify-a-container-runtime).
 
 ## Package
+
+Release policy: [Releases](../01_Documentation/Releases.md). Check current source
+metadata with `python 02_Tools/package/set_version.py --check`; prepare a higher
+version with `set_version.py VERSION --dry-run`, then the same command without
+`--dry-run`. These commands do not build, verify or publish delivery archives.
 
 ```text
 python 02_Tools/package/create_delivery_package.py --runtime-mode offline

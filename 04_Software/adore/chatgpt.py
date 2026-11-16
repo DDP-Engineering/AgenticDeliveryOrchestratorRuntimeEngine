@@ -1,38 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file chatgpt.py
-@brief The ADORE server's one ChatGPT sign-in and the short-lived tokens runs get.
-@details One ChatGPT Plus/Pro credential per ADORE server lives in
-         `<ADORE home>/chatgpt/`: Pi's `auth.json` (and its lock directory
-         `auth.json.lock`), ADORE's stable installation id `device-id` (the
-         OpenAI agent host id) and the mark `sign-in-again`, written when
-         OpenAI refused a refresh. No run container ever mounts it.
-
-         Pi does every OAuth step itself: ADORE's helper script
-         (`/opt/adore/pi/adore-chatgpt.mjs` in the executor image) runs in a
-         one-off helper container whose only mount is this directory, or as
-         a trusted native process using ADORE-managed Node/Pi. `login`
-         prints the authorization link and waits for the native callback
-         or the pasted browser redirect address; `token` returns an access
-         token valid for a requested time,
-         refreshing it under Pi's credential lock. A stage then receives only
-         that access token as `OPENAI_API_KEY`; the refresh token stays here.
-
-         Status is read from the files without starting Pi. Messages never
-         carry a token, code, link or redirect address.
-"""
+"""The ADORE server's one ChatGPT sign-in and the short-lived tokens runs get."""
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Callable
 from contextlib import suppress
 import json
@@ -56,7 +25,6 @@ from adore.branding import (
 from adore.resource_lock import ResourceLockError, atomic_write, resource_lock
 from adore.util import background_process_options, run_command, strict_json_loads
 
-# CONSTANTS
 CONTAINER_SCRIPT = CONTAINER_PI_CHATGPT_SCRIPT
 AUTH_FILE = "auth.json"
 DEVICE_FILE = "device-id"
@@ -117,44 +85,44 @@ _AUTH_LIMIT = 1_048_576
 _LINE_LIMIT = 65_536
 _EOF = object()
 
-# DATA MODELS / TYPEDEFINITIONS
 
 
 class ChatGptError(RuntimeError):
     """
-    @brief   A typed, value-free ChatGPT sign-in or token failure.
-    @details `code` is one of `SENTENCES`; the interface localizes it.
+    A typed, value-free ChatGPT sign-in or token failure.
+    `code` is one of `SENTENCES`; the interface localizes it.
     """
 
     def __init__(self, code: str) -> None:
-        """@brief Carry one cause code."""
+        """Carry one cause code."""
         super().__init__(code)
         self.code = code if isinstance(code, str) and code in SENTENCES else "failed"
 
     def sentence(self) -> str:
-        """@brief The English sentence for evidence and logs."""
+        """The English sentence for evidence and logs."""
         return SENTENCES[self.code]
 
 
-# HELPER FUNCTIONS
 
 
 class NativeHelper:
-    """@brief Trusted native OAuth transport, with no project code or shell.
-    @details Uses only verified managed Node/Pi and the packaged helper. The
+    """
+    Trusted native OAuth transport, with no project code or shell.
+    Uses only verified managed Node/Pi and the packaged helper. The
              helper never loads project extensions and never starts children.
     """
 
     def __init__(self, *, runner=run_command) -> None:
-        """@brief Bind the injectable native command boundary."""
+        """Bind the injectable native command boundary."""
         self.runner = runner
 
     def command(self, directory: Path, args: list[str]) -> tuple[list[str], dict]:
-        """@brief Return verified argv and an isolated native child environment.
-        @param[in] directory ADORE-owned credential directory outside the project.
-        @param[in] args Trusted helper operation and validity limit.
-        @return Native argv and explicit cwd/environment options.
-        @exception ChatGptError Missing managed prerequisites or packaged helper.
+        """
+        Return verified argv and an isolated native child environment.
+        directory: ADORE-owned credential directory outside the project.
+        args: Trusted helper operation and validity limit.
+        Returns: Native argv and explicit cwd/environment options.
+        Raises ChatGptError: Missing managed prerequisites or packaged helper.
         """
         from adore.pi_installation import PI_PACKAGE, PiInstallationError, verify_pi
 
@@ -181,11 +149,12 @@ class NativeHelper:
 
 
 def helper_for(config, manager, *, runner=None):
-    """@brief Select trusted native OAuth or the existing project helper container.
-    @param[in] config Validated project snapshot.
-    @param[in] manager Container manager retained for container projects.
-    @param[in] runner Optional injectable native command boundary.
-    @return The helper transport for this backend.
+    """
+    Select trusted native OAuth or the existing project helper container.
+    config: Validated project snapshot.
+    manager: Container manager retained for container projects.
+    runner: Optional injectable native command boundary.
+    Returns: The helper transport for this backend.
     """
     if config.execution.backend == "local":
         return NativeHelper(runner=runner or run_command)
@@ -193,7 +162,7 @@ def helper_for(config, manager, *, runner=None):
 
 
 def _command(manager, name: str, directory: Path, args: list[str], *, interactive=False):
-    """@brief Build one helper operation without changing its shared protocol."""
+    """Build one helper operation without changing its shared protocol."""
     if isinstance(manager, NativeHelper):
         return manager.command(directory, args)
     return manager.helper_command(
@@ -203,15 +172,15 @@ def _command(manager, name: str, directory: Path, args: list[str], *, interactiv
 
 
 def _helper_name() -> str:
-    """@brief A unique helper operation name."""
+    """A unique helper operation name."""
     return "adore-chatgpt-" + uuid4().hex[:16]
 
 
 def _answer(stdout: str) -> dict | None:
     """
-    @brief      The helper's answer: its last non-empty line as one JSON object.
-    @param[in]  stdout Captured helper output.
-    @return     The object, or None when the output is not the protocol.
+    The helper's answer: its last non-empty line as one JSON object.
+    stdout: Captured helper output.
+    Returns: The object, or None when the output is not the protocol.
     """
     lines = [line for line in stdout[-_LINE_LIMIT:].splitlines() if line.strip()]
     if not lines:
@@ -224,23 +193,23 @@ def _answer(stdout: str) -> dict | None:
 
 
 def _unmark(directory: Path) -> None:
-    """@brief Forget a refused refresh."""
+    """Forget a refused refresh."""
     (directory / MARK_FILE).unlink(missing_ok=True)
 
 
 def _mark(directory: Path) -> None:
-    """@brief Remember that OpenAI refused the last refresh."""
+    """Remember that OpenAI refused the last refresh."""
     (directory / MARK_FILE).write_bytes(b"")
 
 
 def _remove_helper(manager, name: str) -> None:
     """
-    @brief      Remove a stopped-waiting helper container, even past a caller's bound.
-    @details    Ending the runtime client does not stop the container. A
+    Remove a stopped-waiting helper container, even past a caller's bound.
+    Ending the runtime client does not stop the container. A
                 bounded runner (the web probe's) raises again once its deadline
                 is gone, so removal then runs on its own short bound.
-    @param[in]  manager ContainerManager that started the helper.
-    @param[in]  name Owned helper name.
+    manager: ContainerManager that started the helper.
+    name: Owned helper name.
     """
     if isinstance(manager, NativeHelper):
         return
@@ -251,20 +220,19 @@ def _remove_helper(manager, name: str) -> None:
 
 
 def _query(url: str) -> dict[str, str] | None:
-    """@brief Single-valued query parameters, or None for a repeated name."""
+    """Single-valued query parameters, or None for a repeated name."""
     pairs = parse_qsl(urlsplit(url).query, keep_blank_values=True)
     values = dict(pairs)
     return values if len(values) == len(pairs) else None
 
 
-# PUBLIC API
 
 
 def credential_dir(home: str | Path | None = None) -> Path:
     """
-    @brief      The server's ChatGPT credential directory.
-    @param[in]  home ADORE home; the resolved `adore_home()` when omitted.
-    @return     `<home>/chatgpt`.
+    The server's ChatGPT credential directory.
+    home: ADORE home; the resolved `adore_home()` when omitted.
+    Returns: `<home>/chatgpt`.
     """
     if home is None:
         from adore.profiles import adore_home
@@ -275,12 +243,12 @@ def credential_dir(home: str | Path | None = None) -> Path:
 
 def prepare(directory: Path) -> Path:
     """
-    @brief      Create the private directory and its stable installation id.
-    @details    The id is a UUID written once with mode 0600 and kept across
+    Create the private directory and its stable installation id.
+    The id is a UUID written once with mode 0600 and kept across
                 sign-ins and Disconnect, so OpenAI sees one agent host.
-    @param[in]  directory Credential directory.
-    @return     The directory.
-    @exception  OSError When the directory cannot be created.
+    directory: Credential directory.
+    Returns: The directory.
+    Raises OSError: When the directory cannot be created.
     """
     directory.mkdir(parents=True, exist_ok=True)
     if os.name == "posix":
@@ -299,9 +267,9 @@ def prepare(directory: Path) -> Path:
 
 def status(directory: Path) -> str:
     """
-    @brief      The sign-in status, read from the files without starting Pi.
-    @param[in]  directory Credential directory.
-    @return     `not-signed-in` without an OpenAI entry; `sign-in-again` for an
+    The sign-in status, read from the files without starting Pi.
+    directory: Credential directory.
+    Returns: `not-signed-in` without an OpenAI entry; `sign-in-again` for an
                 unreadable file or entry, or after a refused refresh;
                 otherwise `signed-in`.
     """
@@ -335,9 +303,9 @@ def status(directory: Path) -> str:
 
 def disconnect(directory: Path) -> None:
     """
-    @brief      Delete the stored credential and the mark; keep the installation id.
-    @param[in]  directory Credential directory.
-    @exception  OSError When a file cannot be removed.
+    Delete the stored credential and the mark; keep the installation id.
+    directory: Credential directory.
+    Raises OSError: When a file cannot be removed.
     """
     if not directory.exists():
         return
@@ -351,13 +319,13 @@ def disconnect(directory: Path) -> None:
 
 def check_redirect(url: object, state: str) -> str:
     """
-    @brief      Validate a pasted redirect address before Pi sees it.
-    @details    The address must be Pi's callback with a code and the `state`
+    Validate a pasted redirect address before Pi sees it.
+    The address must be Pi's callback with a code and the `state`
                 of the pending link; an `error` parameter is OpenAI's refusal.
-    @param[in]  url The pasted address.
-    @param[in]  state `state` of the pending authorization link.
-    @return     The address, trimmed.
-    @exception  ChatGptError redirect-invalid, state-mismatch, or a refusal
+    url: The pasted address.
+    state: `state` of the pending authorization link.
+    Returns: The address, trimmed.
+    Raises ChatGptError: redirect-invalid, state-mismatch, or a refusal
                 (denied, not-eligible, refused).
     """
     if not isinstance(url, str):
@@ -389,18 +357,18 @@ def check_redirect(url: object, state: str) -> str:
 def bearer_token(manager, directory: Path, min_validity_seconds: int, *,
                  timeout: float = TOKEN_TIMEOUT_SECONDS) -> str:
     """
-    @brief      An access token valid for at least `min_validity_seconds`.
-    @details    Runs Pi through the selected trusted native/container helper;
+    An access token valid for at least `min_validity_seconds`.
+    Runs Pi through the selected trusted native/container helper;
                 only the helper opens the credential store. Pi refreshes an expiring
                 credential under its own lock. A refused refresh marks the
                 status sign-in-again; a good answer clears the mark. Nothing
                 starts when the status is not signed-in.
-    @param[in]  manager Selected NativeHelper or project ContainerManager.
-    @param[in]  directory Credential directory.
-    @param[in]  min_validity_seconds Seconds the token must stay valid.
-    @param[in]  timeout Wall-clock bound of the helper.
-    @return     The access token (memory only).
-    @exception  ChatGptError With the cause code.
+    manager: Selected NativeHelper or project ContainerManager.
+    directory: Credential directory.
+    min_validity_seconds: Seconds the token must stay valid.
+    timeout: Wall-clock bound of the helper.
+    Returns: The access token (memory only).
+    Raises ChatGptError: With the cause code.
     """
     try:
         with resource_lock(directory / "refresh.lock", timeout=timeout):
@@ -440,8 +408,8 @@ def bearer_token(manager, directory: Path, min_validity_seconds: int, *,
 
 class SignIn:
     """
-    @brief   One pending Sign in with ChatGPT, held by the web server.
-    @details `start` runs the helper's `login` in an interactive helper
+    One pending Sign in with ChatGPT, held by the web server.
+    `start` runs the helper's `login` in an interactive helper
              container and returns OpenAI's authorization link; `submit`
              validates the pasted redirect address and passes it on; the
              helper stores the credential through Pi's own store. A sign-in
@@ -453,11 +421,11 @@ class SignIn:
                  popen: Callable[..., Any] = subprocess.Popen,
                  clock: Callable[[], float] = monotonic) -> None:
         """
-        @brief      Bind a sign-in to the selected trusted helper transport.
-        @param[in]  manager NativeHelper or the project's ContainerManager.
-        @param[in]  directory Credential directory.
-        @param[in]  popen Process factory (tests inject a fake helper).
-        @param[in]  clock Monotonic clock (tests move it).
+        Bind a sign-in to the selected trusted helper transport.
+        manager: NativeHelper or the project's ContainerManager.
+        directory: Credential directory.
+        popen: Process factory (tests inject a fake helper).
+        clock: Monotonic clock (tests move it).
         """
         self.manager, self.directory = manager, directory
         self.popen, self.clock = popen, clock
@@ -471,17 +439,17 @@ class SignIn:
 
     @property
     def expired(self) -> bool:
-        """@brief Whether the sign-in waited longer than `SIGN_IN_SECONDS`."""
+        """Whether the sign-in waited longer than `SIGN_IN_SECONDS`."""
         return (self.started_at is not None
                 and self.clock() - self.started_at > SIGN_IN_SECONDS)
 
     @property
     def pending(self) -> bool:
-        """@brief Whether a redirect address can still be submitted."""
+        """Whether a redirect address can still be submitted."""
         return self.started_at is not None and not self.finished and not self.expired
 
     def _read(self, stream) -> None:
-        """@brief Reader thread: queue each protocol object, then end-of-output."""
+        """Reader thread: queue each protocol object, then end-of-output."""
         try:
             for raw in iter(lambda: stream.readline(_LINE_LIMIT), b""):
                 try:
@@ -495,7 +463,7 @@ class SignIn:
         self._lines.put(_EOF)
 
     def _next(self, timeout: float) -> object:
-        """@brief The next protocol object, `_EOF`, or None after `timeout`."""
+        """The next protocol object, `_EOF`, or None after `timeout`."""
         try:
             return self._lines.get(timeout=timeout)
         except Empty:
@@ -503,14 +471,14 @@ class SignIn:
 
     def _end(self, answered: bool) -> bool:
         """
-        @brief      Mark finished and make sure the helper is gone.
-        @details    A helper that answered exits on its own once its stdin
+        Mark finished and make sure the helper is gone.
+        A helper that answered exits on its own once its stdin
                     closes; a silent one is killed and its container removed
                     at once. The reader thread owns stdout and ends at EOF, so
                     stdout is never closed here (closing it would wait for a
                     blocked read).
-        @param[in]  answered Whether the helper sent its final answer.
-        @return     True only for a clean helper exit before forced cleanup.
+        answered: Whether the helper sent its final answer.
+        Returns: True only for a clean helper exit before forced cleanup.
         """
         self.finished = True
         process = self.process
@@ -531,10 +499,10 @@ class SignIn:
 
     def start(self, timeout: float = 60.0) -> str:
         """
-        @brief      Start the helper and return OpenAI's authorization link.
-        @param[in]  timeout Seconds to wait for the link.
-        @return     The link (shown to the administrator, never logged).
-        @exception  ChatGptError unavailable (no link in time), helper-failed,
+        Start the helper and return OpenAI's authorization link.
+        timeout: Seconds to wait for the link.
+        Returns: The link (shown to the administrator, never logged).
+        Raises ChatGptError: unavailable (no link in time), helper-failed,
                     or the helper's cause code.
         """
         prepare(self.directory)
@@ -569,9 +537,10 @@ class SignIn:
             code if isinstance(code, str) and code in HELPER_CODES else "helper-failed")
 
     def _finish(self, answer: object) -> None:
-        """@brief Validate and reap a manual or automatic helper completion.
-        @param[in] answer Untrusted helper protocol object or end-of-output.
-        @exception ChatGptError Refusal, corrupt store, bad output or failed exit.
+        """
+        Validate and reap a manual or automatic helper completion.
+        answer: Untrusted helper protocol object or end-of-output.
+        Raises ChatGptError: Refusal, corrupt store, bad output or failed exit.
         """
         clean_exit = self._end(isinstance(answer, dict))
         if isinstance(answer, dict) and answer.get("event") == "signed-in":
@@ -588,10 +557,11 @@ class SignIn:
             code if isinstance(code, str) and code in HELPER_CODES else "helper-failed")
 
     def _poll(self, timeout: float = 0) -> bool:
-        """@brief Consume a queued completion without requiring a manual redirect.
-        @param[in] timeout Bounded grace for a pipe-close/completion race.
-        @return True for completed login, False if no event is queued.
-        @exception ChatGptError A queued failure or invalid completion.
+        """
+        Consume a queued completion without requiring a manual redirect.
+        timeout: Bounded grace for a pipe-close/completion race.
+        Returns: True for completed login, False if no event is queued.
+        Raises ChatGptError: A queued failure or invalid completion.
         """
         answer = self._next(timeout)
         if answer is None:
@@ -600,22 +570,23 @@ class SignIn:
         return True
 
     def poll(self) -> bool:
-        """@brief Observe an already-running helper's automatic callback completion.
-        @return True when completed, False while still waiting or already ended.
-        @exception ChatGptError A queued refusal or invalid completion.
-        @note Starts no process and performs no new model or refresh request.
+        """
+        Observe an already-running helper's automatic callback completion.
+        Returns: True when completed, False while still waiting or already ended.
+        Raises ChatGptError: A queued refusal or invalid completion.
+        Note: Starts no process and performs no new model or refresh request.
         """
         with self._lock:
             return self._poll() if self.pending else False
 
     def submit(self, url: object, timeout: float = 60.0) -> None:
         """
-        @brief      Pass the pasted redirect address to the waiting sign-in.
-        @details    A malformed address or another attempt's `state` is refused
+        Pass the pasted redirect address to the waiting sign-in.
+        A malformed address or another attempt's `state` is refused
                     and the sign-in stays pending; an OpenAI refusal ends it.
-        @param[in]  url The redirect address the browser showed.
-        @param[in]  timeout Seconds to wait for Pi's answer.
-        @exception  ChatGptError With the cause code.
+        url: The redirect address the browser showed.
+        timeout: Seconds to wait for Pi's answer.
+        Raises ChatGptError: With the cause code.
         """
         with self._lock:
             if not self.pending:
@@ -640,7 +611,7 @@ class SignIn:
             self._finish(self._next(timeout))
 
     def cancel(self) -> None:
-        """@brief End the sign-in and remove its helper container (idempotent)."""
+        """End the sign-in and remove its helper container (idempotent)."""
         if self.finished:
             return
         self.finished = True
@@ -651,6 +622,3 @@ class SignIn:
             _remove_helper(self.manager, self.name)
             with suppress(subprocess.TimeoutExpired):
                 process.wait(timeout=10)
-
-
-# END OF FILE

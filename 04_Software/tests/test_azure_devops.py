@@ -1,20 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file       test_azure_devops.py
-@brief      Offline Azure Services contracts at the injected CLI boundary.
-@details    Covers scoping, pagination, corrupt output, signaling, replay and delivery.
-"""
+"""Offline Azure Services contracts at the injected CLI boundary."""
 
-# IMPORTS
 import json
+import os
 from pathlib import Path
 
 from adore.config import default_config, validate_config
@@ -27,16 +14,14 @@ from adore.util import CommandResult
 from adore.web.repository_source import RepositorySourceError, origin_matches, parse_repository_url
 import pytest
 
-# CONSTANTS
 SCOPE = dict(organization="https://dev.azure.com/contoso", project="Payments",
              area_path="Payments\\Backend")
 USER = {"uniqueName": "developer@example.invalid"}
 STAMP = "2026-11-01T10:00:00Z"
 
 
-# LOCAL HELPERS
 def work_item(iid=25, **fields):
-    """@brief Build a representative REST Work Item, not a lossy CLI table."""
+    """Build a representative REST Work Item, not a lossy CLI table."""
     return {"id": iid, "rev": 3, "fields": {
         "System.TeamProject": "Payments", "System.AreaPath": "Payments\\Backend",
         "System.WorkItemType": "Bug", "System.State": "Active", "System.Title": "Repair",
@@ -61,7 +46,7 @@ def comment(iid=1, **changes):
 
 
 class Runner:
-    """@brief Validate requests while capturing ephemeral body files before removal."""
+    """Validate requests while capturing ephemeral body files before removal."""
 
     def __init__(self, *responses):
         self.responses = list(responses)
@@ -72,7 +57,8 @@ class Runner:
         body = None
         if argv[-2] == "request":
             path = Path(argv[-1])
-            assert path.stat().st_mode & 0o077 == 0
+            if os.name == "posix":
+                assert path.stat().st_mode & 0o077 == 0
             request = json.loads(path.read_text(encoding="utf-8"))
             self.requests.append(request)
             body = request["body"]
@@ -213,7 +199,7 @@ def test_tag_edits_preserve_human_tags_and_use_revision_compare_and_swap():
 
 
 def test_tag_acknowledgement_accepts_server_order_but_not_another_work_item():
-    """@brief Tags are a set, while the updated resource identity must stay exact."""
+    """Tags are a set, while the updated resource identity must stay exact."""
     confirmed = work_item(**{"System.Tags": "agent-working; P2; human-owned; agent-ready"})
     forge(Runner(work_item(), confirmed)).add_labels(25, ["agent-working"])
     confirmed["id"] = 26
@@ -356,7 +342,7 @@ def test_azure_repository_urls_keep_organization_project_identity():
 
 
 def test_browse_and_pr_branch_lookup_are_bounded_and_postfiltered():
-    """@brief Public browsing/search honor bounds and reject malformed collections."""
+    """Public browsing/search honor bounds and reject malformed collections."""
     assert forge(Runner({"workItems": [{"id": 25}]}, work_item())).list_open(2)[0].iid == 25
     with pytest.raises(ForgeError):
         forge(Runner()).list_open(0)
@@ -372,7 +358,7 @@ def test_browse_and_pr_branch_lookup_are_bounded_and_postfiltered():
 
 
 def test_comment_continuation_headers_and_cli_preview_version_are_supported():
-    """@brief The SDK retains header tokens and the exact Boards preview revision."""
+    """The SDK retains header tokens and the exact Boards preview revision."""
     runner = Runner(work_item(), {"comments": [comment()], "continuation_token": "next"},
                     {"comments": [comment(2)], "continuation_token": None})
     assert len(forge(runner).list_comments(25)) == 2
@@ -392,7 +378,7 @@ def test_comment_continuation_headers_and_cli_preview_version_are_supported():
     {"id": 9, "comments": [{"id": 0}]},
     {"id": 9, "comments": [{"id": 2, "content": []}]}])
 def test_pr_thread_creation_refuses_corrupt_acknowledgement(bad):
-    """@brief Corrupt thread responses cannot establish durable comment identity."""
+    """Corrupt thread responses cannot establish durable comment identity."""
     # The returned text is not required for identity, but IDs/list shape are.
     if bad == {"id": 9, "comments": [{"id": 2, "content": []}]}:
         with pytest.raises(ForgeError):
@@ -403,7 +389,7 @@ def test_pr_thread_creation_refuses_corrupt_acknowledgement(bad):
 
 
 def test_description_update_acknowledges_only_the_approved_body():
-    """@brief Existing PR evidence updates touch no review or completion settings."""
+    """Existing PR evidence updates touch no review or completion settings."""
     runner = Runner({"pullRequestId": 7, "description": "current evidence"})
     forge(runner).update_merge_request_body(7, "current evidence")
     assert runner.calls[0][1] == {"description": "current evidence"}
@@ -413,7 +399,7 @@ def test_description_update_acknowledges_only_the_approved_body():
 
 
 def test_missing_area_and_failed_association_are_not_reported_as_success():
-    """@brief Prerequisites and publication fail closed at scope/write boundaries."""
+    """Prerequisites and publication fail closed at scope/write boundaries."""
     runner = Runner({"name": "backend", "project": {"name": "Payments"}},
                     {"id": 3, "path": "wrong", "structureType": "area"})
     with pytest.raises(ForgeError):
@@ -423,6 +409,3 @@ def test_missing_area_and_failed_association_are_not_reported_as_success():
     with pytest.raises(ForgeError):
         forge(Runner({"value": [{"name": "agent-revise"}]},
                      CommandResult(argv=["az"], exit_code=1))).remove_mr_labels(7, ["agent-revise"])
-
-
-# END OF FILE

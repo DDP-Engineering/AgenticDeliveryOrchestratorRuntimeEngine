@@ -1,23 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file    configuration.py
-@brief   Durable scoped configuration dispatch outside HTTP and executor pools.
-@details Existing route handlers are the only implementation of their contracts.
-         Protected records hold inputs/results; SQLite contains opaque references.
-         Fast, long and global lanes have finite capacity and no hidden pool queue.
-"""
+"""Durable scoped configuration dispatch outside HTTP and executor pools."""
 
 from __future__ import annotations
 
-# IMPORTS
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -42,7 +26,6 @@ from adore.web.executor_settings import read_private_record, write_private_recor
 from adore.web.ownership import OwnershipError
 from adore.web.store import WebStoreError
 
-# CONSTANTS
 _EFFECT = ContextVar("configuration_effect", default=None)
 _CLEANUP = ContextVar("configuration_owned_cleanup", default=False)
 _OWNER_GUARD = ContextVar("configuration_owner_guard", default=None)
@@ -53,9 +36,8 @@ _DEADLINE = ContextVar("configuration_deadline", default=None)
 TASK_SECONDS = 3600
 
 
-# PUBLIC API
 def effect_guard(*, revision: bool = True) -> None:
-    """@brief Recheck the current configuration claim immediately before an effect."""
+    """Recheck the current configuration claim immediately before an effect."""
     if _CLEANUP.get():
         guard = _OWNER_GUARD.get()
         if guard is not None:
@@ -76,8 +58,9 @@ def effect_guard(*, revision: bool = True) -> None:
 
 @contextmanager
 def owned_cleanup():
-    """@brief Retain ownership-only authority for an exact internally owned disposable resource.
-    @note Actor revocation/deadlines refuse new work and publication, never required cleanup.
+    """
+    Retain ownership-only authority for an exact internally owned disposable resource.
+    Note: Actor revocation/deadlines refuse new work and publication, never required cleanup.
           Ancestry and durable worker ownership remain mandatory while a task is attached.
     """
     token = _CLEANUP.set(True)
@@ -88,7 +71,7 @@ def owned_cleanup():
 
 
 def probe_timeout(requested: float | None = None) -> float:
-    """@brief Bound an external probe by the remaining task wall-clock budget."""
+    """Bound an external probe by the remaining task wall-clock budget."""
     if _CLEANUP.get():
         return min(requested or 8, 8)
     deadline = _DEADLINE.get()
@@ -99,12 +82,12 @@ def probe_timeout(requested: float | None = None) -> float:
 
 
 def current_operation() -> int:
-    """@brief Identify the current request when checking for other unfinished work."""
+    """Identify the current request when checking for other unfinished work."""
     return _OPERATION.get()
 
 
 class ConfigurationTasks:
-    """@brief Register existing typed routes and publish opaque protected requests."""
+    """Register existing typed routes and publish opaque protected requests."""
 
     def __init__(self, profiles, web):
         self.profiles, self.web = profiles, web
@@ -113,10 +96,11 @@ class ConfigurationTasks:
         self.directory = profiles.home / "configuration-tasks"
 
     def route(self, *, scope="project", lane="fast", resource="", success_status=200):
-        """@brief Wrap a typed endpoint; HTTP always submits, worker invokes its body.
-        @param[in] scope Explicit project or global domain; no active-profile fallback.
-        @param[in] lane Fixed bounded fast, long or global worker lane.
-        @param[in] success_status Existing handler success status retained in its durable outcome.
+        """
+        Wrap a typed endpoint; HTTP always submits, worker invokes its body.
+        scope: Explicit project or global domain; no active-profile fallback.
+        lane: Fixed bounded fast, long or global worker lane.
+        success_status: Existing handler success status retained in its durable outcome.
         """
         if scope not in ("project", "global") or lane not in ("fast", "long", "global", "settings"):
             raise ValueError("invalid configuration scope")
@@ -124,14 +108,14 @@ class ConfigurationTasks:
             raise ValueError("invalid configuration success status")
 
         def decorate(handler):
-            """@brief Retain the typed handler and wrap HTTP calls with durable submission."""
+            """Retain the typed handler and wrap HTTP calls with durable submission."""
             signature = inspect.signature(handler)
             self.handlers[handler.__name__] = (
                 handler, signature, scope, lane, resource, success_status)
 
             @wraps(handler)
             def submit(*args, **kwargs):
-                """@brief Persist validated work and return acceptance without effects."""
+                """Persist validated work and return acceptance without effects."""
                 values = dict(signature.bind(*args, **kwargs).arguments)
                 actor = values.get("user", values.get("_user"))
                 if not isinstance(actor, dict) or actor.get("role") != "admin":
@@ -266,7 +250,7 @@ class ConfigurationTasks:
         return decorate
 
     def configuration_bytes(self, profile):
-        """@brief Read one current regular UTF-8 config with the existing 1 MiB bound."""
+        """Read one current regular UTF-8 config with the existing 1 MiB bound."""
         path = self.profiles.config_path(profile.name)
         try:
             if path.is_symlink() or not path.is_file():
@@ -281,7 +265,7 @@ class ConfigurationTasks:
             raise HTTPException(503, detail={"code": "config_corrupt"}) from exc
 
     def save_execution_plan(self, profile, revision, plan, *, after_apply=False):
-        """@brief Cache an explicitly checked current plan without probing from later HTTP reads."""
+        """Cache an explicitly checked current plan without probing from later HTTP reads."""
         from adore.preparation import validate_plan
 
         validated = validate_plan(plan)
@@ -306,7 +290,7 @@ class ConfigurationTasks:
         )
 
     def execution_plan(self, profile, revision):
-        """@brief Read current checked plan evidence, with unknown for missing or stale data."""
+        """Read current checked plan evidence, with unknown for missing or stale data."""
         from adore.preparation import PreparationError, public_plan, validate_plan
 
         try:
@@ -339,7 +323,7 @@ class ConfigurationTasks:
             ) from exc
 
     def credential_revision(self, profile):
-        """@brief Bind protected project inputs without putting any secret in queue/history."""
+        """Bind protected project inputs without putting any secret in queue/history."""
         digest = sha256()
         try:
             for name in (".env", "repository-auth.json"):
@@ -352,7 +336,7 @@ class ConfigurationTasks:
 
     @staticmethod
     def resource_name(resource, handler, payload):
-        """@brief Separate enrollment scheduling by explicit prospective project."""
+        """Separate enrollment scheduling by explicit prospective project."""
         if resource == "enrollment":
             body = payload.get("body", {})
             target = body.get("target", body)
@@ -360,7 +344,7 @@ class ConfigurationTasks:
         return resource or handler
 
     def settings_lane(self, profile, payload):
-        """@brief Reserve fast capacity for settings with no model/host/image plan probe."""
+        """Reserve fast capacity for settings with no model/host/image plan probe."""
         import tomllib
 
         try:
@@ -396,7 +380,7 @@ class ConfigurationTasks:
         return "fast"
 
     def read(self, reference, suffix):
-        """@brief Read a bounded protected work/result record with a closed format."""
+        """Read a bounded protected work/result record with a closed format."""
         if not re.fullmatch(r"[a-f0-9]{32}", reference) or self.directory.is_symlink():
             raise WebStoreError("configuration storage is corrupt")
         try:
@@ -413,7 +397,7 @@ class ConfigurationTasks:
             raise WebStoreError("configuration storage is corrupt") from exc
 
     def outcome(self, operation):
-        """@brief Return only a confirmed public result, never the protected input."""
+        """Return only a confirmed public result, never the protected input."""
         if operation["status"] not in ("succeeded", "failed"):
             return None
         path = self.directory / (operation["run_id"] + ".result.json")
@@ -450,15 +434,16 @@ class ConfigurationTasks:
 
 
 class ConfigurationWorker:
-    """@brief Independent bounded lanes with one in-flight configure task per project."""
+    """Independent bounded lanes with one in-flight configure task per project."""
 
     def __init__(self, tasks, *, owner=None, long_slots=4, fast_slots=4, clock=time.monotonic):
-        """@brief Create independent finite pools under one configuration process owner.
-        @param[in] tasks Registered typed handlers and protected record storage.
-        @param[in] owner Existing supervised owner, or a new standalone configuration owner.
-        @param[in] long_slots Long-probe capacity, from one to sixteen.
-        @param[in] fast_slots Fast-save capacity, from one to sixteen.
-        @param[in] clock Injectable monotonic task-budget clock.
+        """
+        Create independent finite pools under one configuration process owner.
+        tasks: Registered typed handlers and protected record storage.
+        owner: Existing supervised owner, or a new standalone configuration owner.
+        long_slots: Long-probe capacity, from one to sixteen.
+        fast_slots: Fast-save capacity, from one to sixteen.
+        clock: Injectable monotonic task-budget clock.
         """
         if not 1 <= long_slots <= 16 or not 1 <= fast_slots <= 16:
             raise ValueError("invalid configuration capacity")
@@ -475,7 +460,7 @@ class ConfigurationWorker:
         self.running = {}
 
     def scoped_owner(self, project_id):
-        """@brief Retain one durable owner per explicit project during all its work."""
+        """Retain one durable owner per explicit project during all its work."""
         if project_id not in self.owners:
             self.web.recover_interrupted(role="configuration", project_id=project_id)
             self.owners[project_id] = self.web.register_worker(
@@ -484,7 +469,7 @@ class ConfigurationWorker:
         return self.owners[project_id]
 
     def tick(self):
-        """@brief Drain completed work, immediate controls and bounded new requests."""
+        """Drain completed work, immediate controls and bounded new requests."""
         from adore.web.processes import assert_ancestry
 
         assert_ancestry()
@@ -577,12 +562,12 @@ class ConfigurationWorker:
         self.web.set_worker_activity(self.owner, "busy" if self.running else "idle")
 
     def execute(self, operation, owner):
-        """@brief Rehydrate a declared handler under current authority and revision fencing."""
+        """Rehydrate a declared handler under current authority and revision fencing."""
         reference = operation["run_id"]
         deadline = self.clock() + TASK_SECONDS
 
         def authorize(*, revision=True):
-            """@brief Fence current rights, immutable target, revision and finite lifetime."""
+            """Fence current rights, immutable target, revision and finite lifetime."""
             from adore.web.processes import assert_ancestry
 
             assert_ancestry()
@@ -688,7 +673,7 @@ class ConfigurationWorker:
             signature.bind(**arguments)
 
             def authorize_cleanup():
-                """@brief Fence exact worker ownership/ancestry without revoked actor authority."""
+                """Fence exact worker ownership/ancestry without revoked actor authority."""
                 from adore.web.processes import assert_ancestry
 
                 assert_ancestry()
@@ -765,11 +750,8 @@ class ConfigurationWorker:
             (self.tasks.directory / (reference + ".request.json")).unlink(missing_ok=True)
 
     def close(self):
-        """@brief Drain finite tasks on orderly exit and relinquish exact ownership."""
+        """Drain finite tasks on orderly exit and relinquish exact ownership."""
         for pool in self.pools.values():
             pool.shutdown(wait=True)
         for owner in self.owners.values():
             self.web.clear_worker(owner)
-
-
-# END OF FILE

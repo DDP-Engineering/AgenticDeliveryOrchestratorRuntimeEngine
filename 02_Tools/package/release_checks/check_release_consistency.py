@@ -1,26 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-  # noqa: UP009
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
-"""
-@file check_release_consistency.py
-@brief Fail-closed repository check for the ADORE release identity.
-@details Verifies package and lock metadata, canonical runtime/deployment
-         resource names, documentation release markers, delivery artifacts,
-         and exact forbidden pre-1.0 identity tokens. The project release
-         version is a single constant (EXPECTED_VERSION); the executor/proxy
-         image tags are versioned independently and are checked as their own
-         literal tokens.
-"""
+"""Fail-closed repository check for the ADORE release identity."""
 
 from __future__ import annotations
 
-# IMPORTS
 import argparse
 import gzip
 import hashlib
@@ -30,9 +12,9 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import tempfile
 import sys
 import tarfile
+import tempfile
 import tomllib
 import zipfile
 
@@ -41,14 +23,23 @@ if __package__:
 else:
     from stamp_web_assets import STAMP, fingerprint
 
-# CONSTANTS
 
 EXPECTED_NAME = "adore"
-EXPECTED_VERSION = "0.17.0"
+_REPO = Path(__file__).resolve().parents[3]
+EXPECTED_VERSION = tomllib.loads(
+    (_REPO / "04_Software/pyproject.toml").read_text(encoding="utf-8")
+)["project"]["version"]
 # The executor base and egress-proxy images are versioned by their own content,
 # independently of the project release; they stay at their built tag.
 EXPECTED_IMAGE_VERSION = "1.0.0"
-EXPECTED_CHANGELOG_HEADING = "## [0.17.0] - 2026-11-15"
+_RELEASE_HEADING = re.search(
+    r"^## \[" + re.escape(EXPECTED_VERSION) + r"\] - \d{4}-\d{2}-\d{2}$",
+    (_REPO / "CHANGELOG.md").read_text(encoding="utf-8"),
+    re.M,
+)
+EXPECTED_CHANGELOG_HEADING = (
+    _RELEASE_HEADING.group() if _RELEASE_HEADING else f"## [{EXPECTED_VERSION}] - YYYY-MM-DD"
+)
 EXPECTED_PRODUCT = "Agentic Delivery Orchestrator & Runtime Engine"
 EXPECTED_TASK = "ADORE Orchestrator & Runtime Engine"
 EXPECTED_RUNTIME_PREFIX = "adore-runtime"
@@ -58,36 +49,47 @@ EXPECTED_ARTIFACTS = {
     for system, suffix in (("windows", ".zip"), ("linux", ".tar.gz"))
 }
 EXPECTED_IMAGE_ARTIFACTS = {
-    f"adore-{EXPECTED_VERSION}-{role}-linux-x64.tar.gz"
-    for role in ("executor-base",)
+    f"adore-{EXPECTED_VERSION}-{role}-linux-x64.tar.gz" for role in ("executor-base",)
 }
 TEXT_SUFFIXES = {
-    ".bat", ".cfg", ".cmd", ".html", ".ini", ".json", ".md", ".ps1",
-    ".py", ".service", ".sh", ".svg", ".toml", ".txt", ".yaml", ".yml",
+    ".bat",
+    ".cfg",
+    ".cmd",
+    ".html",
+    ".ini",
+    ".json",
+    ".md",
+    ".ps1",
+    ".py",
+    ".service",
+    ".sh",
+    ".svg",
+    ".toml",
+    ".txt",
+    ".yaml",
+    ".yml",
 }
 SKIP_DIRS = {".git", ".venv", ".adore", "__pycache__", "node_modules"}
 
 
-# LOCAL HELPERS
-
 def _read_text(path: Path) -> str:
     """
-    @brief      Read a required UTF-8 repository text file.
-    @param[in]  path File to read.
-    @return     Decoded text.
-    @exception OSError File cannot be read.
-    @exception UnicodeError File is not valid UTF-8.
+    Read a required UTF-8 repository text file.
+    path: File to read.
+    Returns: Decoded text.
+    Raises OSError: File cannot be read.
+    Raises UnicodeError: File is not valid UTF-8.
     """
     return path.read_text(encoding="utf-8-sig")
 
 
 def _require_text(root: Path, relative: str, issues: list[str]) -> str:
     """
-    @brief      Read a required file and record a deterministic issue on error.
-    @param[in]  root Repository root.
-    @param[in]  relative Repository-relative path.
-    @param[out] issues Accumulated validation issues.
-    @return     File text, or an empty string after a recorded failure.
+    Read a required file and record a deterministic issue on error.
+    root: Repository root.
+    relative: Repository-relative path.
+    issues: Accumulated validation issues.
+    Returns: File text, or an empty string after a recorded failure.
     """
     path = root / relative
     try:
@@ -104,11 +106,11 @@ def _expect_tokens(
     issues: list[str],
 ) -> None:
     """
-    @brief      Require exact release tokens in a repository surface.
-    @param[in]  relative Repository-relative path used in messages.
-    @param[in]  text File content.
-    @param[in]  expected Required exact tokens.
-    @param[out] issues Accumulated validation issues.
+    Require exact release tokens in a repository surface.
+    relative: Repository-relative path used in messages.
+    text: File content.
+    expected: Required exact tokens.
+    issues: Accumulated validation issues.
     """
     for token in expected:
         if token not in text:
@@ -117,9 +119,9 @@ def _expect_tokens(
 
 def _legacy_patterns() -> tuple[re.Pattern[str], ...]:
     """
-    @brief  Build exact legacy-token patterns without embedding banned tokens
+    Build exact legacy-token patterns without embedding banned tokens
             in the checker source itself.
-    @return Compiled case-sensitive patterns.
+    Returns: Compiled case-sensitive patterns.
     """
     old_upper = "AD" + "OR"
     old_lower = old_upper.lower()
@@ -139,32 +141,45 @@ def _legacy_patterns() -> tuple[re.Pattern[str], ...]:
 
 def _is_text_candidate(path: Path) -> bool:
     """
-    @brief      Identify repository text surfaces covered by the exact scan.
-    @param[in]  path Candidate file path.
-    @return     True for supported text/configuration source files.
+    Identify repository text surfaces covered by the exact scan.
+    path: Candidate file path.
+    Returns: True for supported text/configuration source files.
     """
     return path.suffix.lower() in TEXT_SUFFIXES or path.name in {
-        ".env.example", ".gitignore",
+        ".env.example",
+        ".gitignore",
     }
 
 
 def _check_legacy_identifiers(root: Path, issues: list[str]) -> None:
     """
-    @brief      Reject legacy identity tokens in names and UTF-8 text files.
-    @param[in]  root Repository root.
-    @param[out] issues Accumulated validation issues.
+    Reject legacy identity tokens in names and UTF-8 text files.
+    root: Repository root.
+    issues: Accumulated validation issues.
     """
     patterns = _legacy_patterns()
     for directory, dirnames, filenames in os.walk(root, followlinks=False):
         parent = Path(directory)
         parent_relative = parent.relative_to(root)
         dirnames[:] = sorted(
-            name for name in dirnames
+            name
+            for name in dirnames
             if name not in SKIP_DIRS
-            and not (parent_relative == Path("07_Delivery")
-                     and (name == "_technical" or name.startswith((
-                         "web-candidate-", "portable-build-", "portable-check-",
-                         "portable-unit-", "portable-python-"))))
+            and not (
+                parent_relative == Path("07_Delivery")
+                and (
+                    name == "_technical"
+                    or name.startswith(
+                        (
+                            "web-candidate-",
+                            "portable-build-",
+                            "portable-check-",
+                            "portable-unit-",
+                            "portable-python-",
+                        )
+                    )
+                )
+            )
         )
         for name in [*dirnames, *sorted(filenames)]:
             path = parent / name
@@ -180,10 +195,7 @@ def _check_legacy_identifiers(root: Path, issues: list[str]) -> None:
                                 continue
                             text = presentation.read(member).decode("utf-8")
                             if any(pattern.search(text) for pattern in patterns):
-                                issues.append(
-                                    "legacy identity in "
-                                    f"{relative_text}:{member}"
-                                )
+                                issues.append(f"legacy identity in {relative_text}:{member}")
                 except (OSError, UnicodeError, zipfile.BadZipFile) as exc:
                     issues.append(f"cannot scan presentation {relative_text}: {exc}")
                 continue
@@ -203,9 +215,9 @@ def _check_legacy_identifiers(root: Path, issues: list[str]) -> None:
 
 def _check_metadata(root: Path, issues: list[str]) -> None:
     """
-    @brief      Validate distribution, package, entry-point, and lock versions.
-    @param[in]  root Repository root.
-    @param[out] issues Accumulated validation issues.
+    Validate distribution, package, entry-point, and lock versions.
+    root: Repository root.
+    issues: Accumulated validation issues.
     """
     pyproject_path = root / "04_Software/pyproject.toml"
     lock_path = root / "04_Software/uv.lock"
@@ -237,7 +249,8 @@ def _check_metadata(root: Path, issues: list[str]) -> None:
     try:
         lock = tomllib.loads(_read_text(lock_path))
         editable = [
-            package for package in lock.get("package", [])
+            package
+            for package in lock.get("package", [])
             if package.get("source", {}).get("editable") == "."
         ]
         if len(editable) != 1:
@@ -253,9 +266,9 @@ def _check_metadata(root: Path, issues: list[str]) -> None:
 
 def _check_release_surfaces(root: Path, issues: list[str]) -> None:
     """
-    @brief      Validate canonical image, deployment, package, and doc tokens.
-    @param[in]  root Repository root.
-    @param[out] issues Accumulated validation issues.
+    Validate canonical image, deployment, package, and doc tokens.
+    root: Repository root.
+    issues: Accumulated validation issues.
     """
     required = {
         "04_Software/adore/branding.py": (
@@ -267,7 +280,9 @@ def _check_release_surfaces(root: Path, issues: list[str]) -> None:
             f'RUNTIME_PACKAGE_PREFIX = "{EXPECTED_RUNTIME_PREFIX}"',
         ),
         "02_Tools/setup/adore.service": (
-            "__ADORE_DIR__", "__ADORE_USER__", ".venv/bin/adore",
+            "__ADORE_DIR__",
+            "__ADORE_USER__",
+            ".venv/bin/adore",
             ".adore/adore.lock",
         ),
         "02_Tools/setup/install_windows_service.ps1": (
@@ -275,7 +290,8 @@ def _check_release_surfaces(root: Path, issues: list[str]) -> None:
             '"adore-executor-base:1.0.0"',
         ),
         "04_Software/docker/README.md": (
-            "adore-executor-base:1.0.0", "adore-egress-proxy:1.0.0",
+            "adore-executor-base:1.0.0",
+            "adore-egress-proxy:1.0.0",
         ),
         "README.md": (f"Current release: **ADORE {EXPECTED_VERSION}**.",),
         "CHANGELOG.md": (EXPECTED_CHANGELOG_HEADING,),
@@ -296,10 +312,10 @@ def _check_release_surfaces(root: Path, issues: list[str]) -> None:
 
 def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> None:
     """
-    @brief      Validate portable release identities and the minimal delivery layout.
-    @param[in]  root Repository root.
-    @param[in]  require_artifacts Require both Windows and Linux archives.
-    @param[out] issues Accumulated validation issues.
+    Validate portable release identities and the minimal delivery layout.
+    root: Repository root.
+    require_artifacts: Require both Windows and Linux archives.
+    issues: Accumulated validation issues.
     """
     delivery = root / "07_Delivery"
     present = {path.name for path in delivery.iterdir()} if delivery.is_dir() else set()
@@ -309,9 +325,12 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
             if not re.fullmatch(
                 r"adore-\d+\.\d+\.\d+-(?:(?:(?:offline|online)-)?(?:windows-x64\.zip|linux-x64\.tar\.gz)|"
                 r"executor-base-linux-x64\.tar\.gz)"
-                r"(?:\.sha256)?", name
+                r"(?:\.sha256)?",
+                name,
             ):
-                issues.append(f"unexpected delivery entry: {name}; keep only final archives and hashes")
+                issues.append(
+                    f"unexpected delivery entry: {name}; keep only final archives and hashes"
+                )
         for name in sorted(archives - present):
             issues.append(f"required portable artifact missing: {name}")
     for name in sorted(present & EXPECTED_ARTIFACTS):
@@ -328,8 +347,11 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
             checksum = artifact.with_name(name + ".sha256")
             if checksum.is_symlink() or checksum.stat().st_size > 4096:
                 raise ValueError("invalid image checksum file")
-            rows = [line for line in checksum.read_text().splitlines()
-                    if line and not line.startswith("#")]
+            rows = [
+                line
+                for line in checksum.read_text().splitlines()
+                if line and not line.startswith("#")
+            ]
             with artifact.open("rb") as stream:
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()
             if rows != [f"{digest}  {name}"]:
@@ -339,10 +361,11 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
 
 
 def _check_portable_artifact(artifact: Path, issues: list[str]) -> None:
-    """@brief Check archive release metadata and an optional adjacent SHA-256 file.
-    @param[in] artifact Portable Windows ZIP or Linux TAR.GZ.
-    @param[out] issues Accumulated validation issues.
-    @note Full media verification belongs to the portable launcher's verifier.
+    """
+    Check archive release metadata and an optional adjacent SHA-256 file.
+    artifact: Portable Windows ZIP or Linux TAR.GZ.
+    issues: Accumulated validation issues.
+    Note: Full media verification belongs to the portable launcher's verifier.
     """
     system = "windows" if artifact.suffix == ".zip" else "linux"
     mode = "offline" if "-offline-" in artifact.name else "online"
@@ -364,9 +387,12 @@ def _check_portable_artifact(artifact: Path, issues: list[str]) -> None:
                 with archive.extractfile(member) as stream:
                     metadata = json.load(stream)
         if not isinstance(metadata, dict) or any(
-            metadata.get(key) != value for key, value in {
-                "schema": 1, "version": EXPECTED_VERSION,
-                "system": system, "architecture": "x64",
+            metadata.get(key) != value
+            for key, value in {
+                "schema": 1,
+                "version": EXPECTED_VERSION,
+                "system": system,
+                "architecture": "x64",
                 "runtime_delivery": mode,
             }.items()
         ):
@@ -375,23 +401,30 @@ def _check_portable_artifact(artifact: Path, issues: list[str]) -> None:
         if checksum.exists() or checksum.is_symlink():
             if checksum.is_symlink() or checksum.stat().st_size > 4096:
                 raise ValueError("checksum must be a regular file of at most 4096 bytes")
-            rows = [row for row in _read_text(checksum).splitlines()
-                    if row and not row.startswith("#")]
+            rows = [
+                row for row in _read_text(checksum).splitlines() if row and not row.startswith("#")
+            ]
             with artifact.open("rb") as stream:
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()
             if rows != [f"{digest}  {artifact.name}"]:
                 raise ValueError("adjacent checksum does not match the archive")
-    except (OSError, ValueError, KeyError, TypeError, UnicodeError,
-            zipfile.BadZipFile, tarfile.TarError) as exc:
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        UnicodeError,
+        zipfile.BadZipFile,
+        tarfile.TarError,
+    ) as exc:
         issues.append(f"{artifact.name}: invalid portable artifact: {exc}")
 
 
-# EXPORTED FUNCTIONS / PUBLIC API
-
 def check_package(artifact: Path) -> list[str]:
-    """@brief Validate one portable archive's release identity and optional hash.
-    @param[in] artifact Native Windows/Linux archive to inspect without extraction.
-    @return Validation issues; empty means matching release metadata and hash.
+    """
+    Validate one portable archive's release identity and optional hash.
+    artifact: Native Windows/Linux archive to inspect without extraction.
+    Returns: Validation issues; empty means matching release metadata and hash.
     """
     issues: list[str] = []
     if artifact.name not in EXPECTED_ARTIFACTS:
@@ -400,14 +433,15 @@ def check_package(artifact: Path) -> list[str]:
     return issues
 
 
-def check_repository(root: Path, *, require_artifacts: bool = False,
-                     rebuild_web: bool = True) -> list[str]:
+def check_repository(
+    root: Path, *, require_artifacts: bool = False, rebuild_web: bool = True
+) -> list[str]:
     """
-    @brief      Check the complete ADORE release identity contract.
-    @param[in]  root Repository root.
-    @param[in]  require_artifacts Require both canonical delivery archives.
-    @param[in]  rebuild_web Independently rebuild frontend after fingerprint verification.
-    @return     Sorted deterministic issue descriptions; empty means success.
+    Check the complete ADORE release identity contract.
+    root: Repository root.
+    require_artifacts: Require both canonical delivery archives.
+    rebuild_web: Independently rebuild frontend after fingerprint verification.
+    Returns: Sorted deterministic issue descriptions; empty means success.
     """
     resolved = root.resolve()
     issues: list[str] = []
@@ -416,11 +450,17 @@ def check_repository(root: Path, *, require_artifacts: bool = False,
     try:
         recorded = json.loads((static / STAMP).read_text(encoding="utf-8"))
         if recorded != fingerprint(resolved, static):
-            issues.append("web bundle differs from its build inputs or outputs; run npm run build in 04_Software/web and commit the bundle")
+            issues.append(
+                "web bundle differs from its build inputs or outputs; "
+                "run npm run build in 04_Software/web and commit the bundle"
+            )
         else:
             bundle_valid = True
     except (OSError, UnicodeError, ValueError) as exc:
-        issues.append(f"cannot verify web bundle ({exc}); run npm run build in 04_Software/web and commit the bundle")
+        issues.append(
+            f"cannot verify web bundle ({exc}); "
+            "run npm run build in 04_Software/web and commit the bundle"
+        )
     if bundle_valid and rebuild_web:
         # Rebuild independently: a manually refreshed fingerprint alone cannot
         # attest that the generated files actually came from the current sources.
@@ -429,19 +469,44 @@ def check_repository(root: Path, *, require_artifacts: bool = False,
             web = resolved / "04_Software/web"
             vite = web / "node_modules/vite/bin/vite.js"
             if not node or not vite.is_file():
-                raise OSError("node and the installed local Vite are required to verify the web bundle")
+                raise OSError(
+                    "node and the installed local Vite are required to verify the web bundle"
+                )
             with tempfile.TemporaryDirectory(prefix="adore-web-consistency-") as tmp:
                 generated = Path(tmp) / "static"
-                subprocess.run([node, str(vite), "build", "--outDir", str(generated)],
-                               cwd=web, check=True, capture_output=True, timeout=180)
+                subprocess.run(
+                    [node, str(vite), "build", "--outDir", str(generated)],
+                    cwd=web,
+                    check=True,
+                    capture_output=True,
+                    timeout=180,
+                )
                 # Stamp using this checker's companion, with the candidate sources.
-                subprocess.run([sys.executable, str(resolved / "02_Tools/package/release_checks/stamp_web_assets.py"),
-                                "--output", str(generated)], cwd=web, check=True,
-                               capture_output=True, timeout=30)
-                if fingerprint(resolved, static)["outputs"] != fingerprint(resolved, generated)["outputs"]:
-                    issues.append("web bundle differs from a fresh build; run npm run build in 04_Software/web and commit the bundle")
+                subprocess.run(
+                    [
+                        sys.executable,
+                        str(resolved / "02_Tools/package/release_checks/stamp_web_assets.py"),
+                        "--output",
+                        str(generated),
+                    ],
+                    cwd=web,
+                    check=True,
+                    capture_output=True,
+                    timeout=30,
+                )
+                if (
+                    fingerprint(resolved, static)["outputs"]
+                    != fingerprint(resolved, generated)["outputs"]
+                ):
+                    issues.append(
+                        "web bundle differs from a fresh build; "
+                        "run npm run build in 04_Software/web and commit the bundle"
+                    )
         except (OSError, subprocess.SubprocessError) as exc:
-            issues.append(f"cannot rebuild web bundle for verification ({exc}); prepare frontend dependencies and retry")
+            issues.append(
+                f"cannot rebuild web bundle for verification ({exc}); "
+                "prepare frontend dependencies and retry"
+            )
     _check_metadata(resolved, issues)
     _check_release_surfaces(resolved, issues)
     _check_artifacts(resolved, require_artifacts, issues)
@@ -451,9 +516,9 @@ def check_repository(root: Path, *, require_artifacts: bool = False,
 
 def main(argv: list[str] | None = None) -> int:
     """
-    @brief      Run the release check from the command line.
-    @param[in]  argv Optional argument vector for tests.
-    @return     Zero when consistent; one when any issue is found.
+    Run the release check from the command line.
+    argv: Optional argument vector for tests.
+    Returns: Zero when consistent; one when any issue is found.
     """
     parser = argparse.ArgumentParser(
         description=f"verify the ADORE {EXPECTED_VERSION} release identity",
@@ -467,13 +532,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--require-artifacts",
         action="store_true",
-        help=f"also require four app packages and the executor-base image archive for {EXPECTED_VERSION}",
+        help=("also require four app packages and the executor-base image archive "
+              f"for {EXPECTED_VERSION}"),
     )
-    parser.add_argument("--use-existing-web-assets", action="store_true",
-                        help="verify the committed asset fingerprint without rebuilding it")
+    parser.add_argument(
+        "--use-existing-web-assets",
+        action="store_true",
+        help="verify the committed asset fingerprint without rebuilding it",
+    )
     args = parser.parse_args(argv)
-    issues = check_repository(args.repo_root, require_artifacts=args.require_artifacts,
-                              rebuild_web=not args.use_existing_web_assets)
+    issues = check_repository(
+        args.repo_root,
+        require_artifacts=args.require_artifacts,
+        rebuild_web=not args.use_existing_web_assets,
+    )
     if issues:
         for issue in issues:
             print(f"error: {issue}", file=sys.stderr)
@@ -484,5 +556,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# END OF FILE

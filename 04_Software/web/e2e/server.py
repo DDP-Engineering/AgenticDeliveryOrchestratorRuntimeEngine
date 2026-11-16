@@ -1,20 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-# -----------------------------------------------------------------------------
 """
-@file       server.py
-@brief      Isolated real-API server for offline browser regression tests.
-@details    Creates disposable profiles and identities; all external command
+Isolated real-API server for offline browser regression tests.
+Creates disposable profiles and identities; all external command
             boundaries use injected runners. Serves the dedicated E2E build.
 """
 
-# IMPORTS
 from contextlib import asynccontextmanager
 import json
 import os
@@ -25,7 +14,7 @@ import subprocess
 import sys
 from tempfile import TemporaryDirectory
 from threading import Event, Thread
-from time import sleep
+from time import monotonic, sleep
 
 from adore.config import default_config
 from adore.preparation import resolve_plan
@@ -36,18 +25,18 @@ import adore.web.app as web_app
 from adore.web.commands import CommandWorker
 from adore.web.configuration import ConfigurationWorker
 from adore.web.ownership import WorkerOwner
+import adore.web.store as web_store
 from adore.web.store import WebStore
 from adore.wizard import run_wizard
+from argon2 import PasswordHasher
 from fastapi import BackgroundTasks, HTTPException, Request
 import uvicorn
 
-# CONSTANTS
 SOFTWARE = Path(__file__).resolve().parents[2]
 
 
-# LOCAL HELPERS
 def fixture_run(*args, **kwargs) -> RunState:
-    """@brief Build current-schema offline job evidence without external commands."""
+    """Build current-schema offline job evidence without external commands."""
     run = RunState(*args, **kwargs)
     run.execution = {
         "plan": resolve_plan(default_config()), "resource": {}, "status": "not-required",
@@ -57,23 +46,24 @@ def fixture_run(*args, **kwargs) -> RunState:
 
 
 def offline_probe(_argv, **_kwargs) -> CommandResult:
-    """@brief Reject every setup/readiness probe without invoking host tools."""
+    """Reject every setup/readiness probe without invoking host tools."""
     return CommandResult(exit_code=127)
 
 
 def offline_wizard(*args, **kwargs):
-    """@brief Keep project-creation probes on the same simulated boundary."""
+    """Keep project-creation probes on the same simulated boundary."""
     kwargs["runner"] = offline_probe
     return run_wizard(*args, **kwargs)
 
 
 def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
-    """@brief Simulate a conductor exit without launching an external process.
+    """
+    Simulate a conductor exit without launching an external process.
 
-    @param[in] argv Fixed conductor command produced by the real worker.
-    @param[in] _env Isolated environment supplied by the worker.
-    @return Zero for tickets 42 and 44, idle polls and pickup control; seven for ticket 43.
-    @exception ValueError An unexpected command reaches the fake boundary.
+    argv: Fixed conductor command produced by the real worker.
+    _env: Isolated environment supplied by the worker.
+    Returns: Zero for tickets 42 and 44, idle polls and pickup control; seven for ticket 43.
+    Raises ValueError: An unexpected command reaches the fake boundary.
     """
     workflow = None
     if "--workflow" in argv:
@@ -129,13 +119,16 @@ def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
     raise ValueError("unsupported offline test command")
 
 
-# PUBLIC API
 def main() -> None:
-    """@brief Run the temporary API and fake-boundary worker on loopback.
-
-    @note Inherited ADORE_HOME is replaced before profiles or the worker exist.
-    @exception RuntimeError A failed worker prevents server readiness.
     """
+    Run the temporary API and fake-boundary worker on loopback.
+
+    Note: Inherited ADORE_HOME is replaced before profiles or the worker exist.
+    Raises RuntimeError: A failed worker prevents server readiness.
+    """
+    # This disposable process keeps real password checks without production hashing
+    # cost on every authenticated request. Python auth contracts retain that cost.
+    web_store._HASHER = PasswordHasher(time_cost=1, memory_cost=1024, parallelism=1)
     with TemporaryDirectory(prefix="adore-e2e-") as directory:
         home = Path(directory)
         os.environ["ADORE_HOME"] = str(home)
@@ -170,12 +163,14 @@ def main() -> None:
         (clone / ".git").mkdir(parents=True)
         (clone / ".agentic").mkdir()
         for filename in ("aegis.py", "aegis.toml"):
+            # REUSE-IgnoreStart
             (clone / ".agentic" / filename).write_text(
                 "# Copyright (c) 2026 DDP Engineering\n"
                 "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
                 "# Commercial use requires a separate commercial license.\n"
                 "# See LICENSE.txt. SPDX-License-Identifier: "
                 "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+            # REUSE-IgnoreEnd
         workflow_clones = {}
         for workflow, name in (("direct", "direct-fixture"), ("aegis", "aegis-only-fixture"),
                                ("child", "child-fixture"), ("empty", "empty-fixture")):
@@ -192,12 +187,14 @@ def main() -> None:
                 manifest.write_text("module fixture\n", encoding="utf-8")
             if workflow == "aegis":
                 (folder / ".agentic").mkdir()
+                # REUSE-IgnoreStart
                 (folder / ".agentic" / "aegis.py").write_text(
                     "# Copyright (c) 2026 DDP Engineering\n"
                     "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
                     "# Commercial use requires a separate commercial license.\n"
                     "# See LICENSE.txt. SPDX-License-Identifier: "
                     "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+                # REUSE-IgnoreEnd
             workflow_clones[workflow] = str(folder)
         probe_mode = {"mode": "failed"}
         # Offline forge tickets shared by the fixture projects (their configs keep the
@@ -243,7 +240,7 @@ def main() -> None:
         }
 
         def fixture_forge(argv):
-            """@brief Answer glab issue reads and label edits from the offline fixture."""
+            """Answer glab issue reads and label edits from the offline fixture."""
             issues = forge_issues
             if argv[:3] == ["glab", "issue", "list"]:
                 return CommandResult(argv=argv, stdout=json.dumps(issues))
@@ -264,7 +261,7 @@ def main() -> None:
             return None
 
         def fixture_probe(argv, **_kwargs):
-            """@brief Simulate explicit readiness without any external services."""
+            """Simulate explicit readiness without any external services."""
             if argv[:1] == ["glab"]:
                 answer = fixture_forge(list(argv))
                 if answer is not None:
@@ -311,6 +308,7 @@ def main() -> None:
                     items = (("aegis.py",) if "/aegis-only-" in argv[-2]
                              else ("aegis.py", "aegis.toml"))
                     for item in items:
+                        # REUSE-IgnoreStart
                         (dest / ".agentic" / item).write_text(
                             "# Copyright (c) 2026 DDP Engineering\n"
                             "# This software is licensed under the "
@@ -318,6 +316,7 @@ def main() -> None:
                             "# Commercial use requires a separate commercial license.\n"
                             "# See LICENSE.txt. SPDX-License-Identifier: "
                             "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+                        # REUSE-IgnoreEnd
                 return CommandResult(argv=argv)
             if argv[:1] == ["git"] and "-C" in argv:
                 recipe = ("jobs:\n  setup:\n    container:\n"
@@ -337,7 +336,7 @@ def main() -> None:
                 127 if probe_mode["mode"] == "failed" else 0), stdout="fixture-1.0")
 
         def fixture_chatgpt(argv, **_kwargs):
-            """@brief Start the offline ChatGPT helper on the mounted credential directory."""
+            """Start the offline ChatGPT helper on the mounted credential directory."""
             argv = [str(part) for part in argv]
             mount = argv[argv.index("--volume") + 1]
             directory = mount[: -len(":/adore/chatgpt")]
@@ -353,11 +352,11 @@ def main() -> None:
         @app.post("/__e2e__/provider")
         def provider_fixture(request: Request, value: str) -> dict:
             """
-            @brief Switch fixture project alpha between an API key and the ChatGPT subscription.
-            @param[in] request Test-control header, never present in the shipped API.
-            @param[in] value `chatgpt` or `openai`.
-            @return The provider now configured.
-            @exception HTTPException For a missing header or an unsupported value.
+            Switch fixture project alpha between an API key and the ChatGPT subscription.
+            request: Test-control header, never present in the shipped API.
+            value: `chatgpt` or `openai`.
+            Returns: The provider now configured.
+            Raises HTTPException: For a missing header or an unsupported value.
             """
             if request.headers.get("X-ADORE-E2E") != "local-test" or value not in {
                     "chatgpt", "openai"}:
@@ -373,7 +372,7 @@ def main() -> None:
             return {"provider": value}
 
         def reset_simulated_starts(name: str) -> None:
-            """@brief Remove only terminal offline Start trials from this fixture project."""
+            """Remove only terminal offline Start trials from this fixture project."""
             profile = profiles.load(name)
             state = StateStore(profile.store_root or profiles.default_store_root(name))
             for ticket in (42, 44):
@@ -391,11 +390,11 @@ def main() -> None:
         @app.post("/__e2e__/jobs")
         def jobs_fixture(request: Request, mode: str = "seed") -> dict:
             """
-            @brief Persist realistic offline lifecycle evidence in the disposable profiles.
-            @param[in] request Test-control header, never present in the shipped API.
-            @param[in] mode Seed, reset, mutate or corrupt an owned fixture source.
-            @return Composite identities for the browser assertions.
-            @exception HTTPException For missing authorization or unsupported fixture mode.
+            Persist realistic offline lifecycle evidence in the disposable profiles.
+            request: Test-control header, never present in the shipped API.
+            mode: Seed, reset, mutate or corrupt an owned fixture source.
+            Returns: Composite identities for the browser assertions.
+            Raises HTTPException: For missing authorization or unsupported fixture mode.
             """
             if request.headers.get("X-ADORE-E2E") != "local-test" or mode not in {
                 "seed", "reset", "mutate", "corrupt", "legacy-timestamp", "direct",
@@ -548,12 +547,13 @@ def main() -> None:
 
         @app.post("/__e2e__/settings-workflow")
         def settings_workflow_fixture(request: Request, workflow: str) -> dict:
-            """@brief Bind disposable alpha settings to an actual offline workflow clone.
+            """
+            Bind disposable alpha settings to an actual offline workflow clone.
 
-            @param[in] request Local test-control authorization.
-            @param[in] workflow Direct, AEGIS or reset to the original fixture config.
-            @return The selected fixture workflow, without executing repository code.
-            @exception HTTPException An unauthorized or unknown selection is rejected.
+            request: Local test-control authorization.
+            workflow: Direct, AEGIS or reset to the original fixture config.
+            Returns: The selected fixture workflow, without executing repository code.
+            Raises HTTPException: An unauthorized or unknown selection is rejected.
             """
             if request.headers.get("X-ADORE-E2E") != "local-test" or workflow not in {
                 "direct", "aegis", "reset",
@@ -567,12 +567,13 @@ def main() -> None:
 
         @app.post("/__e2e__/enrollment")
         def enrollment_fixture(request: Request, mode: str = "failed") -> dict:
-            """@brief Return disposable server clone and select a fake probe outcome.
+            """
+            Return disposable server clone and select a fake probe outcome.
 
-            @param[in] request Local test-control authorization.
-            @param[in] mode Failed or partial offline evidence.
-            @return Temporary clone path owned by this fixture.
-            @exception HTTPException An unauthorized or unknown mode is rejected.
+            request: Local test-control authorization.
+            mode: Failed or partial offline evidence.
+            Returns: Temporary clone path owned by this fixture.
+            Raises HTTPException: An unauthorized or unknown mode is rejected.
             """
             if request.headers.get("X-ADORE-E2E") != "local-test" or mode not in {
                 "failed", "partial",
@@ -587,7 +588,7 @@ def main() -> None:
 
         @asynccontextmanager
         async def lifespan(_app):
-            """@brief Stop and join the isolated worker on graceful shutdown."""
+            """Stop and join the isolated worker on graceful shutdown."""
             supervisor = store.register_worker("supervisor")
             store.set_worker_activity(supervisor, "idle")
             config_owner = store.register_worker("configuration")
@@ -603,13 +604,17 @@ def main() -> None:
             control_errors = []
 
             def control():
-                """@brief Consume durable configuration with the same offline API collaborators."""
+                """Consume durable configuration with the same offline API collaborators."""
+                heartbeat_at = 0.0
                 try:
                     while not stop.is_set():
-                        store.touch_worker(supervisor)
-                        store.touch_worker(config_owner)
-                        for owner in project_owners:
-                            store.touch_worker(owner)
+                        now = monotonic()
+                        if now >= heartbeat_at:
+                            store.touch_worker(supervisor)
+                            store.touch_worker(config_owner)
+                            for owner in project_owners:
+                                store.touch_worker(owner)
+                            heartbeat_at = now + 1
                         configuration.tick()
                         for command in commands:
                             command.run_pending()
@@ -638,13 +643,14 @@ def main() -> None:
 
         @app.post("/__e2e__/shutdown")
         def shutdown(request: Request, background: BackgroundTasks) -> dict:
-            """@brief Allow the local test runner to clean up on Windows too.
+            """
+            Allow the local test runner to clean up on Windows too.
 
-            @param[in] request Fixture-control header required by teardown.
-            @param[in,out] background Runs shutdown after returning the response.
-            @return Fixture identity and acknowledgement.
-            @exception HTTPException The fixture-control header is absent.
-            @note This route exists only in this disposable test server.
+            request: Fixture-control header required by teardown.
+            background: Runs shutdown after returning the response.
+            Returns: Fixture identity and acknowledgement.
+            Raises HTTPException: The fixture-control header is absent.
+            Note: This route exists only in this disposable test server.
             """
             if request.headers.get("X-ADORE-E2E") != "local-test":
                 raise HTTPException(403, "test runner header required")
@@ -656,5 +662,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-# END OF FILE
