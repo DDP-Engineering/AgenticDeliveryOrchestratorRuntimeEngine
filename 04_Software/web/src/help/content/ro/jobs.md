@@ -167,4 +167,6 @@ Pentru cel mai recent job anulat, alege **Repornește jobul** în Tichete, selec
 
 Execuția nouă are identitate, resurse de lucru, conversație și bugete distincte. Jobul anulat, activitatea, sesiunile salvate și rezultatul rămân accesibile. **Jobul anterior** și **Jobul nou** leagă execuțiile; un job vechi deja repornit nu poate crea un duplicat. Confirmarea deschide jobul nou după admiterea durabilă.
 
+În cazul unei reporniri neconfirmate, reîncarcă Joburi sau Tichete și caută jobul nou înainte de a reîncerca. Lipsa confirmării nu înseamnă că a eșuat curățarea sau că nu s-a creat un job. O repornire refuzată este raportată separat.
+
 Istoricul nu expiră automat. Operatorul poate șterge o execuție veche selectată prin `adore delete RUN_ID --force`. Retenția auditului nu șterge istoricul joburilor.

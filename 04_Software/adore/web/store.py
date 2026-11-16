@@ -1582,7 +1582,8 @@ class WebStore:
         return self._operation_with_current_project(row)
 
     def acknowledge_start(self, operation_id: int, *, owner: WorkerOwner,
-                          generation: int, run_id: str, run_owner: WorkerOwner) -> None:
+                          generation: int, run_id: str, run_owner: WorkerOwner,
+                          command_run_owner: WorkerOwner | None = None) -> None:
         """
         Confirm Start only after exact durable run admission and pickup evidence.
         operation_id: Requested Start operation.
@@ -1590,11 +1591,13 @@ class WebStore:
         generation: Exact claim generation.
         run_id: Durably admitted job identity.
         run_owner: Current exclusive run owner.
+        command_run_owner: Separately held owner of the job being restarted.
         Completion describes admission; the subsequent job has its own lifecycle.
         """
         from adore.state import StateError, StateStore
 
-        operation = self.authorize_effect(operation_id, owner=owner, generation=generation)
+        operation = self.authorize_effect(operation_id, owner=owner, generation=generation,
+                                          run_owner=command_run_owner)
         if (not isinstance(run_owner, WorkerOwner) or run_owner.role != "run"
                 or run_owner.project_id != owner.project_id or run_owner.run_id != run_id):
             raise OwnershipError("start run ownership mismatch")
@@ -1636,6 +1639,8 @@ class WebStore:
             connection.execute("BEGIN IMMEDIATE")
             self._participant(connection, owner)
             self._participant(connection, run_owner)
+            if command_run_owner is not None:
+                self._participant(connection, command_run_owner)
             row = connection.execute(
                     "SELECT * FROM operations WHERE id=?", (operation_id,)).fetchone()
             self._operation_owner(row, owner, generation)

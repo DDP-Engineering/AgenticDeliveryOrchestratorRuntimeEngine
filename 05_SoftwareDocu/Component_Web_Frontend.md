@@ -125,6 +125,10 @@ contracts. Stopping pickup prevents automatic new admissions; it does not stop
 active jobs. Start explicitly requests one eligible ticket even when pickup is
 paused. Confirmation is required for destructive restart/delete actions.
 
+Restart results distinguish an explicit refusal from an unconfirmed operation in
+all four locales. An unconfirmed result asks the operator to refresh Jobs/Tickets
+and check for a new job; it does not assert that cleanup failed or no job exists.
+
 ## Rendering, preferences and request ownership
 
 `forgeMarkdown.ts` renders forge Markdown through the pinned Markdown/GFM

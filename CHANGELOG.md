@@ -23,6 +23,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Allow up to 30 seconds for Pi conversation startup inspection, separately from
+  the final usage check, while preserving cancellation and shorter stage deadlines.
+- Confirm cancelled-job Restart with both predecessor and successor ownership intact;
+  distinguish a refused restart from an unconfirmed result that may already have created a job.
 - Keep the System status storage label, availability badge and free-space value together.
 
 - Address Azure REST operations by exact Microsoft location IDs rather than ambiguous

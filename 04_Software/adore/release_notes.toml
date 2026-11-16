@@ -13,6 +13,16 @@ version = "0.18.0"
 date = "2026-11-16"
 
 [[release.entry]]
+category = "fixed"
+topic = { en = "Agent sessions", fr = "Sessions d’agent", de = "Agent-Sitzungen", ro = "Sesiunile agentului" }
+text = { en = "Pi has up to 30 seconds to initialize its conversation before receiving the task.", fr = "Pi dispose de 30 secondes pour initialiser sa conversation avant de recevoir la tâche.", de = "Pi hat bis zu 30 Sekunden, um die Unterhaltung vor dem Auftrag zu initialisieren.", ro = "Pi are până la 30 de secunde pentru inițializarea conversației înainte de primirea sarcinii." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Restart confirms the new job correctly and distinguishes refused from unconfirmed actions.", fr = "Le redémarrage confirme le nouveau travail et distingue refus et absence de confirmation.", de = "Neustart bestätigt den neuen Job korrekt und unterscheidet Ablehnung und fehlende Bestätigung.", ro = "Repornirea confirmă corect jobul nou și distinge refuzul de lipsa confirmării." }
+
+[[release.entry]]
 category = "new"
 topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
 text = { en = "Restart cancelled jobs with current settings while keeping their history.", fr = "Redémarrez les travaux annulés avec les paramètres actuels en conservant leur historique.", de = "Abgebrochene Jobs mit aktuellen Einstellungen neu starten und ihren Verlauf behalten.", ro = "Repornește joburile anulate cu setările curente, păstrând istoricul." }

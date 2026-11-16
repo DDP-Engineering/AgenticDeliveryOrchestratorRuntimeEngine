@@ -963,14 +963,23 @@ def test_cli_restart_emits_bound_refusal(tmp_path, monkeypatch, capsys):
     class Engine:
         def restart(self, run_id, expected_revision, *, workflow):
             assert workflow == "direct"
-            raise IsolationError("checkpoint conflict")
+            raise self.failure
 
-    monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda *a, **kw: Engine())
-    assert (
-        main(["--profile", "alpha", "restart", run_id, "--force",
-              "--expected-revision", revision, "--workflow", "direct"])
-        == 1
-    )
-    assert read_restart_result(
-        capsys.readouterr().out, run_id=run_id, revision=revision, exit_code=1, ticket=12
-    ) == ("cleanup_refused", False)
+    engine = Engine()
+    monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda *a, **kw: engine)
+    for failure, reason in ((IsolationError("checkpoint conflict"), "cleanup_refused"),
+                            (RuntimeError("PRIVATE"), "engine_fault")):
+        engine.failure = failure
+        assert (
+            main(["--profile", "alpha", "restart", run_id, "--force",
+                  "--expected-revision", revision, "--workflow", "direct"])
+            == 1
+        )
+        output = capsys.readouterr().out
+        assert read_restart_result(
+            output, run_id=run_id, revision=revision, exit_code=1, ticket=12
+        ) == (reason, False)
+        assert "PRIVATE" not in output
+        if reason == "engine_fault":
+            assert "restart could not be confirmed" in output
+            assert "cleanup could not be confirmed" not in output

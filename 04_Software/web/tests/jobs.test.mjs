@@ -105,6 +105,9 @@ test("retained old branches are localized as successful recovery evidence", asyn
   for (const locale of ["en", "fr", "de", "ro"]) {
     assert.equal(operationResultText("restart:retained", locale), recoveryCopy[locale].retained);
     assert.notEqual(operationResultText("restart:retained", locale), recoveryCopy[locale].failed);
+    assert.equal(operationResultText("restart:rejected", locale), recoveryCopy[locale].rejected);
+    assert.equal(operationResultText("restart:failed", locale), recoveryCopy[locale].failed);
+    assert.notEqual(recoveryCopy[locale].rejected, recoveryCopy[locale].failed);
   }
 });
 

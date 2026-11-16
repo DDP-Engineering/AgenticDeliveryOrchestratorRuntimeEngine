@@ -139,16 +139,16 @@ def test_cancelled_restart_acknowledges_new_execution_and_retains_previous(tmp_p
         state.journal("run-42-r1", "picked", ticket=42)
         state.journal("run-42-r1", "restarted-from",
                       previous_run_id="foreign" if bad_evidence else "run-42")
-        run_owner = web.register_worker("run", project_id=owner.project_id, run_id="run-42-r1")
-        if bad_evidence:
-            with pytest.raises(WebStoreError):
-                web.acknowledge_start(operation["id"], owner=owner,
-                                      generation=context["generation"], run_id="run-42-r1",
-                                      run_owner=run_owner)
-        else:
-            web.acknowledge_start(operation["id"], owner=owner,
-                                  generation=context["generation"], run_id="run-42-r1",
-                                  run_owner=run_owner)
+        attached = WorkerContext(web, owner, operation["id"], context["generation"])
+        try:
+            with attached.run_scope("run-42"):
+                if bad_evidence:
+                    with pytest.raises(WebStoreError, match="restart admission evidence"):
+                        attached.admitted(state.load("run-42-r1"))
+                else:
+                    attached.admitted(state.load("run-42-r1"))
+        finally:
+            attached.close()
         return 0
 
     assert CommandWorker(profiles, web, runner=runner, admit_only=True).run_pending() == 1

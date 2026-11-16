@@ -127,6 +127,19 @@ tests/test_retry_revalidation.py; existing queue authorization remains unchanged
 
 ## Revision-bound restart
 
+Cancelled-job admission holds two distinct run owners: the predecessor through
+cleanup and the successor through admission. `WorkerContext.admitted` passes the
+canonical command run owner separately from the successor owner to
+`WebStore.acknowledge_start`. Authorization checks the predecessor's exact handle;
+the confirmation transaction rechecks both live run owners and the command claim.
+Revision, ticket, workflow and restart-journal checks remain required. No ownership
+check is skipped when a successor is created.
+
+Generic Restart errors report an unconfirmed restart, not unproven cleanup failure:
+admission may already have created the successor before confirmation failed.
+Operators refresh Jobs/Tickets before attempting another restart. Explicit refusals
+remain distinct from unconfirmed results.
+
 The durable `restart` action stores `<run-id>.<state-sha256>` in the existing operation target. The worker rechecks current actor/project grants, immutable project identity, failed or cancelled lifecycle and exact state bytes before launching fixed CLI argv `restart <run-id> --force --expected-revision <sha256>`. The CLI checks again under the conductor lock. Changed incarnations are `restart:job_changed`; unsuccessful invocation is localized as incomplete/refused recovery, with bounded redacted diagnostics. In-flight worker loss remains uncertain and is never replayed automatically. Offline proof: `tests/test_drift_recovery.py`.
 
 Confirmed deletion clears the owning profile/job usage projections while holding their SQLite write transaction across source removal; old reporting readers cannot restore a discarded cursor. The CLI binds this callback only to the registered profile matching its exact resolved config path. No account, grant, audit or other project projection is reset.

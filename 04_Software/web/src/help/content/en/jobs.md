@@ -167,4 +167,6 @@ For the latest cancelled job, choose **Restart job** in Tickets, select **Workfl
 
 The fresh execution has a new identity, working resources, conversation and budgets. The cancelled job, activity, saved sessions and outcome remain readable. **Previous job** and **New job** navigate between executions; an older restarted job cannot start another duplicate. Confirmation succeeds after durable admission and opens the new job.
 
+If Restart cannot be confirmed, refresh Jobs or Tickets and check for the new job before trying again. An unconfirmed result does not mean cleanup failed or that no job was created. A refused restart is reported separately.
+
 History has no automatic expiry. An operator can delete a selected old execution with `adore delete RUN_ID --force`. Audit retention does not remove job history.

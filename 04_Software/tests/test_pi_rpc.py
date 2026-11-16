@@ -39,7 +39,7 @@ from tests.test_orchestrator import (
 FAKE = Path(__file__).with_name("fake_pi_rpc.py")
 FIXTURES = Path(__file__).parent / "fixtures" / "pi_rpc"
 PROMPT = "Implement the stage."
-FAST = {"abort_grace": 2.0, "exit_grace": 2.0, "stats_grace": 2.0}
+FAST = {"abort_grace": 2.0, "exit_grace": 2.0, "stats_grace": 2.0, "startup_grace": 2.0}
 
 
 

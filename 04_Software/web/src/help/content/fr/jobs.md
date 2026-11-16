@@ -167,4 +167,6 @@ Pour le dernier travail annulé, choisissez **Redémarrer le travail** dans Tick
 
 La nouvelle exécution possède une identité, des ressources, une conversation et des budgets distincts. Le travail annulé, son activité, ses sessions enregistrées et son résultat restent lisibles. **Travail précédent** et **Nouveau travail** relient les exécutions ; un ancien travail déjà redémarré ne crée pas de doublon. La confirmation ouvre le nouveau travail après son admission durable.
 
+Si le redémarrage n’est pas confirmé, actualisez Travaux ou Tickets et cherchez le nouveau travail avant de réessayer. L’absence de confirmation ne signifie pas que le nettoyage a échoué ou qu’aucun travail n’a été créé. Un redémarrage refusé est signalé séparément.
+
 L’historique n’expire pas automatiquement. Un opérateur peut supprimer une ancienne exécution avec `adore delete RUN_ID --force`. La rétention d’audit ne supprime pas cet historique.

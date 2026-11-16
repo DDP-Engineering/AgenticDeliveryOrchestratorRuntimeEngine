@@ -964,7 +964,9 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
         return finish(EXIT_ERROR, "cleanup_refused")
     except Exception:  # noqa: BLE001 - no untrusted exception text in web results
         if args.command in {"delete", "restart"}:
-            print("error: cleanup could not be confirmed; inspect retained job evidence")
+            print("error: restart could not be confirmed; refresh Jobs or Tickets to check "
+                  "whether a new job was created" if args.command == "restart" else
+                  "error: cleanup could not be confirmed; inspect retained job evidence")
             return finish(EXIT_ERROR, "engine_fault")
         if args.command != "retry":
             raise

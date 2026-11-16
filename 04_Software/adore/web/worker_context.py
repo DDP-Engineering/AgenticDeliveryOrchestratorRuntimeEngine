@@ -121,9 +121,11 @@ class WorkerContext:
         """Own the durable admitted job before confirming its Start operation."""
         self.authorize()
         self._own_run(run.run_id)
-        self.web.acknowledge_start(self.operation_id, owner=self.owner,
-                                   generation=self.generation, run_id=run.run_id,
-                                   run_owner=self.runs[run.run_id])
+        with self.lock:
+            self.web.acknowledge_start(self.operation_id, owner=self.owner,
+                                       generation=self.generation, run_id=run.run_id,
+                                       run_owner=self.runs[run.run_id],
+                                       command_run_owner=self.runs.get(self.command_run_id))
 
     @contextmanager
     def run_scope(self, run_id: str):

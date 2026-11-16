@@ -256,7 +256,10 @@ const retryReasonCopy: Record<Locale, Record<string, string>> = {
 
 /** Render bound Start/Retry results and the job's persisted terminal cause. */
 export function operationResultText(result: string, locale: Locale): string {
-  if (result.startsWith("restart:")) return result === "restart:job_changed" ? recoveryCopy[locale].changed : result === "restart:retained" ? recoveryCopy[locale].retained : recoveryCopy[locale].failed;
+  if (result.startsWith("restart:")) {
+    const copy = recoveryCopy[locale];
+    return result === "restart:job_changed" ? copy.changed : result === "restart:retained" ? copy.retained : result === "restart:rejected" ? copy.rejected : copy.failed;
+  }
   if (result.startsWith("retry:")) {
     const copy = { ...startReasonCopy[locale], ...retryReasonCopy[locale] };
     if (result.startsWith("retry:failed:")) return copy.failed + result.slice(13);

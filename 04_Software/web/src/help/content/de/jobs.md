@@ -167,4 +167,6 @@ Wählen Sie für den letzten abgebrochenen Job **Job neu starten** unter Tickets
 
 Die neue Ausführung erhält eigene Identität, Arbeitsressourcen, Unterhaltung und Budgets. Der abgebrochene Job mit Aktivitäten, gespeicherten Sitzungen und Ergebnis bleibt lesbar. **Vorheriger Job** und **Neuer Job** verbinden die Ausführungen; ein bereits neu gestarteter älterer Job erzeugt kein Duplikat. Nach dauerhafter Zulassung öffnet die Bestätigung den neuen Job.
 
+Wenn der Neustart nicht bestätigt wird, aktualisieren Sie Jobs oder Tickets und suchen Sie vor einem erneuten Versuch nach dem neuen Job. Fehlende Bestätigung bedeutet weder fehlgeschlagene Bereinigung noch einen fehlenden neuen Job. Ein abgelehnter Neustart wird gesondert gemeldet.
+
 Der Verlauf läuft nicht automatisch ab. Betreiber können eine ausgewählte alte Ausführung mit `adore delete RUN_ID --force` löschen. Audit-Aufbewahrung entfernt keinen Jobverlauf.

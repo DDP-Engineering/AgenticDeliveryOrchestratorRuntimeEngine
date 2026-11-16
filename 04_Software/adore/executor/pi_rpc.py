@@ -24,6 +24,7 @@ ABORT_GRACE_SECONDS = 10.0
 EXIT_GRACE_SECONDS = 5.0
 KILL_GRACE_SECONDS = 5.0
 STATS_GRACE_SECONDS = 5.0
+STARTUP_GRACE_SECONDS = 30.0
 POLL_SECONDS = 0.2
 
 MAX_RECORD_BYTES = 16 * 1024 * 1024
@@ -546,6 +547,7 @@ def run_pi_rpc(
     abort_grace: float = ABORT_GRACE_SECONDS,
     exit_grace: float = EXIT_GRACE_SECONDS,
     stats_grace: float = STATS_GRACE_SECONDS,
+    startup_grace: float = STARTUP_GRACE_SECONDS,
     max_record_bytes: int = MAX_RECORD_BYTES,
     stdout_tail_bytes: int = TAIL_BYTES,
 ) -> PiRpcResult:
@@ -565,6 +567,7 @@ def run_pi_rpc(
     abort_grace: Seconds allowed for `agent_settled` after `abort`.
     exit_grace: Seconds allowed for an exit after stdin closes.
     stats_grace: Seconds allowed for the usage cross-check answer.
+    startup_grace: Total seconds allowed for pre-prompt identity and usage inspection.
     max_record_bytes: Largest stdout record held in memory.
     stdout_tail_bytes: Bound for in-memory evidence, up to one MiB.
     Returns: The launch outcome; never raises for Pi's own failures.
@@ -608,11 +611,11 @@ def run_pi_rpc(
         if conversation is not None:
             # No model work occurs during identity/statistics inspection. Include
             # startup in the same deadline and cancellation boundary as the turn.
+            until = min(time.monotonic() + startup_grace,
+                        deadline if deadline is not None else float("inf"))
             for request_id, command in ((_STATE_ID, "get_state"),
                                         (_BASELINE_ID, "get_session_stats")):
                 launch.send({"id": request_id, "type": command})
-                until = min(time.monotonic() + stats_grace,
-                            deadline if deadline is not None else float("inf"))
                 answer = None
                 while time.monotonic() < until:
                     if cancelled is not None and cancelled():

@@ -233,6 +233,10 @@ The authenticated `/api/v1/projects/{id}/workflow-selection` read returns `defau
 
 ## Cancelled jobs and storage
 
+Restart refusal and an unconfirmed restart are shown separately. If confirmation
+fails, refresh Jobs or Tickets and check for the new execution before trying again;
+the new job may already exist even though the operation could not be confirmed.
+
 For the latest cancelled job, Jobs offers Restart job with/without AEGIS. Tickets offers Restart job with the compact workflow selector. Confirmation starts from current settings while preserving cancelled history. Durable admission opens the new job; Previous job and New job navigate related executions. Earlier executions that already have a successor cannot create another restart. Failed-job Retry and destructive abandonment remain separate.
 
 System status places the Storage label, availability badge and free/total capacity together below Workers. Job history has no automatic retention policy; audit limits apply only to administrative events. Individual job deletion is an explicit CLI operation.
