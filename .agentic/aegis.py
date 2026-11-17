@@ -38,7 +38,7 @@ from pathlib import Path
 
 import tomllib
 
-VERSION = "0.16.0"
+VERSION = "0.16.1"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -112,7 +112,7 @@ test = "pytest -q"
 # Nothing here by default: a command is stopped only when you ask for it,
 # because a limit short enough to cut off a healthy suite would report a
 # failure that never happened. A stopped command is reported as proving
-# nothing - never as a failure.
+# nothing (`command-timeout`) - never as a failed test.
 # test = 5400
 # lint = 120
 
@@ -126,7 +126,7 @@ docs = []  # documentation paths; still scanned for secrets, not source
 # Set this when the branch your work merges into is not the one AEGIS would
 # find on its own. Without it the base is whatever `origin/HEAD` points at,
 # then a local `master`, then a local `main`. It decides what `check`,
-# `impacted`, `anchor` and `evolution` consider changed.
+# `test --impacted` and `report` consider changed.
 
 [interaction]
 # false stops at every completed stage and presents the next choices.
@@ -264,6 +264,16 @@ def read_text(path: Path) -> str:
         return path.read_text(encoding="utf-8").replace("\r\n", "\n")
     except UnicodeDecodeError as exc:
         raise UserError(f"{rel(path)} is not valid UTF-8: {exc}") from None
+
+
+def read_raw_text(path: Path) -> str:
+    """Read UTF-8 text with its newlines untouched, for a file `init` edits in place."""
+    try:
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            return handle.read()  # newline="" disables universal-newline translation
+    except UnicodeDecodeError as exc:
+        raise UserError(f"{rel(path)} is not valid UTF-8; save it as UTF-8 and "
+                        f"run init again ({exc})") from None
 
 
 def write_text(path: Path, text: str) -> None:
@@ -645,9 +655,17 @@ def fingerprint(path: Path, name: str) -> dict | None:
                 raise UserError(f"{name} changed while it was being fingerprinted")
             return {"kind": "file", "sha256": digest.hexdigest()}
         if path.is_dir():
-            head = run_git("-C", name, "rev-parse", "HEAD")
-            if head and head[0] == 0 and head[1].strip():
-                return {"kind": "submodule", "commit": head[1].strip()}
+            # without its own `.git`, `git -C` would answer for the repository
+            # above; an uninitialised submodule is the commit the index records
+            if (path / ".git").exists():
+                head = run_git("-C", name, "rev-parse", "HEAD")
+                commit = head[1].strip() if head and head[0] == 0 else ""
+            else:
+                entry = run_git("ls-files", "--stage", "--", name)
+                fields = entry[1].split() if entry and entry[0] == 0 else []
+                commit = fields[1] if fields[:1] == ["160000"] else ""
+            if commit:
+                return {"kind": "submodule", "commit": commit}
             raise UserError(f"cannot fingerprint repository directory entry: {name}")
         if not path.exists():
             return None
@@ -929,8 +947,7 @@ def write_pointer(name: str) -> str:
         write_text(path, f"# {name}\n\n{block}")
         return "created"
 
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        raw = handle.read()  # newline="" disables universal-newline translation
+    raw = read_raw_text(path)
     crlf = "\r\n" in raw
     text = raw.replace("\r\n", "\n")
 
@@ -994,8 +1011,7 @@ def write_ignore_block(commit: bool) -> str:
         write_text(path, block)
         return "created"
 
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        raw = handle.read()
+    raw = read_raw_text(path)
     crlf = "\r\n" in raw
     text = raw.replace("\r\n", "\n")
 
@@ -1136,7 +1152,7 @@ def scaffold_template(name: str) -> str:
 
 def cmd_task(args: argparse.Namespace) -> int:
     """Scaffold a task journal from .agentic/templates/task.md."""
-    title = args.title.strip()
+    title = one_line(args.title)  # a line break would continue into the header
     if not title:
         raise UserError("task title must not be empty")
     if re.fullmatch(r"TASK-[0-9A-Fa-f]{4,12}", title):
@@ -1274,7 +1290,7 @@ def cmd_status(args: argparse.Namespace) -> int:
               f"{header.get('type', '?'):<8} {title}")
     if len(parsed) > STATUS_CAP:
         print(f"  ... {len(parsed) - STATUS_CAP} more (see .agentic/tasks/)")
-    print("Resume one with: python .agentic/aegis.py status TASK-<id>")
+    print("Resume one with: python .agentic/aegis.py brief TASK-<id>")
     return 0
 
 
@@ -1357,6 +1373,7 @@ RULING_SOURCES = ("user", "repository", "requirement", "technical")
 DEFAULT_MAX_FIX_CYCLES = 2
 #: the largest accepted `[review] max_fix_cycles`; total rounds are one more.
 MAX_FIX_CYCLES_LIMIT = 255
+MAX_REVIEW_ROUNDS = 1 + MAX_FIX_CYCLES_LIMIT
 SUMMARY_VALUE_LIMIT = 240
 BRIEF_VALUE_LIMIT = 240
 BRIEF_RULING_LIMIT = 8
@@ -1569,8 +1586,9 @@ def parse_stage_report(text: str) -> dict[str, str]:
         if value and allowed is not None and value not in allowed:
             raise UserError(f"invalid Stage report {key}; expected {', '.join(allowed)}")
         if key == "review_round" and value and (
-                not value.isdecimal() or not 1 <= int(value) <= 6):
-            raise UserError("invalid Stage report review_round; expected 1 through 6")
+                not value.isdecimal() or not 1 <= int(value) <= MAX_REVIEW_ROUNDS):
+            raise UserError("invalid Stage report review_round; expected 1 through "
+                            f"{MAX_REVIEW_ROUNDS}")
         fields[key] = value
     return fields
 
@@ -1766,8 +1784,8 @@ def parse_state(text: str) -> dict[str, str]:
                 and value not in REVIEW_VERDICTS:
             raise UserError(f"invalid State {key}; expected {', '.join(REVIEW_VERDICTS)}")
         if key == "review_round" and value and (
-                not value.isdecimal() or not 1 <= int(value) <= 6):
-            raise UserError("invalid State review_round; expected 1 through 6")
+                not value.isdecimal() or not 1 <= int(value) <= MAX_REVIEW_ROUNDS):
+            raise UserError(f"invalid State review_round; expected 1 through {MAX_REVIEW_ROUNDS}")
         fields[key] = value
     return fields
 
@@ -2196,8 +2214,8 @@ def cmd_verdict(args: argparse.Namespace) -> int:
     if not enabled:
         raise UserError("explicit review is disabled in .agentic/aegis.toml; "
                         "verdicts stay disabled")
-    if args.round is not None and not 1 <= args.round <= min(6, 1 + max_fix_cycles):
-        raise UserError(f"review round must be 1 through {min(6, 1 + max_fix_cycles)}")
+    if args.round is not None and not 1 <= args.round <= 1 + max_fix_cycles:
+        raise UserError(f"review round must be 1 through {1 + max_fix_cycles}")
     previous = stored_state(text)
     state = {key: previous.get(key, "") for key in STATE_FIELDS}
     if not state["reported"].startswith(f"{stage} - ") or not state["status"]:
@@ -2553,6 +2571,9 @@ def is_ticket_reference(hit: str) -> bool:
     return hit.split("-", 1)[0].upper() not in NOT_TICKET_PREFIXES
 
 DIFF_HEADER_RE = re.compile(r"^diff --git a/(.*) b/(.*)$")
+#: `git diff` formats for people: a user's `color.ui` or `diff.external` changes
+#: what it prints, and a patch the parser cannot read looks like a clean one.
+PLAIN_PATCH = ("--no-color", "--no-ext-diff")
 
 CHECK_EPILOG = (
     f"the {len(CHECKS)} checks (slug - what silent means):\n"
@@ -2755,7 +2776,7 @@ def collect_diff(cfg: dict,
     # quotepath=false keeps non-ASCII names unquoted so header attribution
     # works for them; names with quotes or backslashes stay quoted and are
     # picked up by the per-file fallback below.
-    patch = run_git("-c", "core.quotepath=false", "diff", resolved, "--")
+    patch = run_git("-c", "core.quotepath=false", "diff", *PLAIN_PATCH, resolved, "--")
     if patch and patch[0] == 0:
         current = ""
         for line in patch[1].split("\n"):
@@ -2775,7 +2796,7 @@ def collect_diff(cfg: dict,
     # diff them one at a time, where the name is known from the file list.
     unattributed = [f for f in files if f not in seen_in_patch]
     for name in unattributed[:MAX_REDIFF_FILES]:
-        one = run_git("diff", resolved, "--", name)
+        one = run_git("diff", *PLAIN_PATCH, resolved, "--", name)
         if one and one[0] == 0:
             added.extend((name, line[1:]) for line in one[1].split("\n")
                          if line.startswith("+") and not line.startswith("+++ "))

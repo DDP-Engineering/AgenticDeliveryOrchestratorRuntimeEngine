@@ -58,7 +58,7 @@ components): one shared journal is a merge hotspot, separate ones are not.
 5. Take the first unticked component. Read its source **and its existing
    tests**; the tests are the primary evidence of intended behavior.
 6. Write `.agentic/knowledge/<component>.md` from the template, leaving out
-   the template's license comment and `AEGIS:TEMPLATE` notes. Derive
+   the template's license comment and guidance comment. Derive
    `## Routing`, `## Purpose and boundaries`, `## Public interface`,
    `## Invariants`, `## Key behaviors` and `## Files` from the exact source
    and tests. Add `## Change map` when several independent edit-and-test

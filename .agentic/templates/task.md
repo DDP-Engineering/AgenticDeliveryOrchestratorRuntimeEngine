@@ -13,8 +13,8 @@ Who writes what:
 - The CLI writes the header stage, the Done checklist, Log lines, Rulings and
   State. `advance` moves to the next stage (or `--to` a named one),
   `pause` records a stop or a blocker, `log` adds one durable event, `ruling`
-  adds one decision and `verdict` records explicit review results. Each prints
-  the summary and the next step.
+  adds one decision and `verdict` records explicit review results. `advance`,
+  `pause` and `verdict` print the summary.
 - You edit Frame, Requirement coverage and Design directly, tick Done checklist
   items as they are met, and edit the header lines type, interaction,
   requirements and parent in place: one `key: value` per line, no blank lines
