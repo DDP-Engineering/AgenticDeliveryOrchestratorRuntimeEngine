@@ -2,7 +2,7 @@ import {settingsSave,settingsImpact,saveSettings,discardSettings} from "./settin
 import {settingsSaveCopy} from "../src/settingsSave";
 import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
 import { connectionRowVisible, settingVisible } from "../src/settings";
-import { test, expect, type Page, type APIResponse, type Route } from "@playwright/test";
+import { test, expect, type Page, type APIResponse, type Route, type Locator } from "@playwright/test";
 import { configurationResponse } from "./configuration";
 import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
 
@@ -17,6 +17,11 @@ async function openSettings(page: Page, name = "alpha", user = "admin") {
   await expect(page.getByRole("heading", { name: "Project settings", exact: true })).toBeVisible();
   await expect(page.locator("#project-settings > .setting-groups > details[open]")).toHaveCount(0);
   for (const summary of await page.locator("#project-settings > .setting-groups > details > summary").all()) await summary.click();
+}
+
+async function ensureOpen(details: Locator) {
+  if (await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
+  await expect(details).toHaveAttribute("open", "");
 }
 
 const branchFixturePages = new WeakSet<Page>();
@@ -141,7 +146,7 @@ test("branch naming previews invalid drafts and applies both fields through exac
     await review.getByRole("button", { name: "Save changes", exact: true }).click();
     await expect(review).toHaveCount(0);
     await expect(page.locator(".settings-save-bar")).toHaveCount(0);
-    await page.locator('[data-setting-purpose="repository"] > summary').click();
+    await ensureOpen(page.locator('[data-setting-purpose="repository"]'));
     const rule = page.locator('[id="setting-worktree.branch_rule"]');
     await rule.getByRole("button", { name: "Edit Optional branch name rule", exact: true }).click();
     const regex = rule.getByRole("textbox", { name: "Optional branch name rule", exact: true });
@@ -162,7 +167,7 @@ test("branch naming previews invalid drafts and applies both fields through exac
     expect(applied.config.worktree.branch_rule).toBe("^(?P<prefix>feature)/.*$");
     // Restore the isolated profile through the same reviewed workflow, rule first.
     for (const [key, label, value] of [["worktree.branch_rule", "Optional branch name rule", before.config.worktree.branch_rule], ["worktree.branch_template", "Job branch name template", before.config.worktree.branch_template]]) {
-      await page.locator('[data-setting-purpose="repository"] > summary').click();
+      await ensureOpen(page.locator('[data-setting-purpose="repository"]'));
       const row = page.locator(`[id="setting-${key}"]`);
       await row.getByRole("button", { name: "Edit " + label, exact: true }).click();
       await row.getByRole("textbox").fill(value);
@@ -324,7 +329,7 @@ test("request review from edits one account per line through reviewed apply", as
   await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.reviewers).toEqual(["alice", "bob.smith"]);
   // Restore the independent test profile using the same reviewed workflow.
-  await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "PR/MR and review" }).click();
+  await ensureOpen(row.locator("xpath=ancestor::details[1]"));
   await row.getByRole("button", { name: "Edit Request review from", exact: true }).click();
   await editor.fill(before.config.delivery.reviewers.join("\n"));
   await settingsSave(page).click();
@@ -354,7 +359,7 @@ test("publication state offers draft and ready with explicit reviewed apply", as
   await expect(row.locator("code")).toHaveText("Ready for review");
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.draft).toBe(false);
   // Restore the independent test profile through the same reviewed UI.
-  await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "PR/MR and review" }).click();
+  await ensureOpen(row.locator("xpath=ancestor::details[1]"));
   await row.getByRole("button", { name: "Edit PR/MR state at publication", exact: true }).click();
   await row.getByRole("combobox").selectOption({ label: "Draft" });
   await settingsSave(page).click();

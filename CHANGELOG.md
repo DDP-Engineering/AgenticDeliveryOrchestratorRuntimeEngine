@@ -5,11 +5,6 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
-### Fixed
-
-- Coalesce manual Statistics refreshes until both reporting sources finish, even
-  when one completes earlier, without changing independent automatic polling.
-
 ## [0.18.0] - 2026-11-16
 
 ### Added
@@ -27,6 +22,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Speed up Python test fixtures with worker-local cached example input and inexpensive real Argon2 outside authentication contracts; retain production hashing for authentication tests and allow an explicit override. Run Python test files across two isolated workers by default, with serial targeted execution available. Use inexpensive real hashing and fewer heartbeat writes in the disposable browser server.
 
 ### Fixed
+
+- Stabilize configuration and heartbeat test fixtures under load; align affected
+  browser journeys with retained Settings disclosures, cancelled reads and current refresh feedback.
+- Coalesce manual Statistics refreshes until both reporting sources finish, even
+  when one completes earlier, without changing independent automatic polling.
 
 - Refresh Statistics, Jobs, consumption, change history and Users without blanking
   valid same-context content or resetting controls. Coalesce reads, publish scoped

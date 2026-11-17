@@ -69,7 +69,8 @@ for (const scope of ["global", "project"]) test(`${scope} Statistics keeps all t
 
 for (const scope of ["global", "project"] as const) for (const heldSource of ["usage", "metrics"] as const) {
   test(`${scope} manual Refresh coalesces after one source completes while ${heldSource} is pending`, async ({ page }) => {
-    const time = new Date("2026-11-16T12:00:00Z");
+    // Freeze timers near server time so current readiness evidence stays valid.
+    const time = new Date();
     await page.clock.install({ time }); await page.clock.pauseAt(new Date(time.getTime() + 1000));
     await signIn(page);
     const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
@@ -110,6 +111,7 @@ for (const scope of ["global", "project"] as const) for (const heldSource of ["u
       // Independent automatic cadences still work after the manual cohort settles.
       await page.clock.fastForward(15000);
       await expect.poll(() => reads).toEqual({ metrics: scope === "project" ? 4 : 3, usage: 3 });
+      await expect(refresh).toHaveAttribute("aria-disabled", "false");
       await page.clock.fastForward(15000);
       await expect.poll(() => reads).toEqual({ metrics: scope === "project" ? 5 : 4, usage: 4 });
       await expect(refresh).toHaveAttribute("aria-disabled", "false");

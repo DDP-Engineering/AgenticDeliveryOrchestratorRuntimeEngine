@@ -29,7 +29,7 @@ class TestClient(HttpClient):
         identity = str(tasks.profiles.home.resolve())
         with _WORKER_LOCK:
             if identity not in _WORKERS:
-                _WORKERS[identity] = [ConfigurationWorker(tasks), 0]
+                _WORKERS[identity] = [ConfigurationWorker(tasks), 0, 0.0]
             shared = _WORKERS[identity]
             worker = shared[0]
             shared[1] += 1
@@ -37,7 +37,10 @@ class TestClient(HttpClient):
             deadline = time.monotonic() + 30
             while time.monotonic() < deadline:
                 with _WORKER_LOCK:
-                    worker.tick()
+                    # Avoid competing with handler writes on every completion poll.
+                    if time.monotonic() >= shared[2]:
+                        worker.tick()
+                        shared[2] = time.monotonic() + 0.1
                 operation = worker.web.operation(accepted["id"])
                 if operation["status"] not in ("pending", "running"):
                     outcome = worker.tasks.outcome(operation)
@@ -51,7 +54,7 @@ class TestClient(HttpClient):
                     return httpx.Response(
                         outcome["status_code"], json=outcome["body"], request=response.request
                     )
-                time.sleep(0.002)
+                time.sleep(0.02)
             raise AssertionError("configuration operation exceeded the offline test budget")
         finally:
             with _WORKER_LOCK:

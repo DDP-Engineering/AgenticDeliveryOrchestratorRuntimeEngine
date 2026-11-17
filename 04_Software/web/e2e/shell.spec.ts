@@ -217,8 +217,9 @@ test("pending job details cannot refill another project's view", async ({ page }
   await page.goto("/jobs?project=alpha&run=historical-job");
   await observed;
   await page.locator("#jobs-project").selectOption(projects.find((item: { name: string }) => item.name === "beta").id);
-  const completed = page.waitForResponse(response => response.url().includes("/historical-job"));
-  release(); await completed;
+  // Scope changes abort the old request; a response event is no longer guaranteed.
+  release();
+  await page.unrouteAll({ behavior: "wait" });
   await expect(page.locator("#jobs-project option:checked")).toHaveText("beta");
   await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
   await expect(page.locator(".detail-panel")).toHaveCount(0);
@@ -237,7 +238,7 @@ test("configuration and administration request failures have explicit feedback",
   await page.goto("/admin/users");
   await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
   await page.unroute("**/api/v1/users");
-  await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.locator(".topbar .refresh-status").getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByText("Could not load data", { exact: true })).toHaveCount(0);
   await page.route("**/api/v1/audit-page?*", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"request_failed"}}' }));
   await page.goto("/admin/audit");
@@ -253,11 +254,11 @@ test("header Refresh appears only on pages that do not refresh themselves", asyn
   const refresh = page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true });
   await page.goto("/admin/users");
   await expect(refresh).toBeVisible();
-  await expect(page.locator(".topbar .refresh-stamp")).toContainText("Last refreshed");
+  await expect(page.locator(".topbar .refresh-status time")).toBeVisible();
   for (const path of ["/", "/projects", "/jobs", "/metrics", "/admin/status", "/admin/audit", `/projects/${alpha}`, `/projects/${alpha}/jobs`, `/projects/${alpha}/statistics`, `/projects/${alpha}/configuration`, `/projects/${alpha}/access`, `/projects/${alpha}/history`]) {
     await page.goto(path); await expect(page.locator(".topbar").getByRole("button", { name: "About", exact: true }), path).toBeVisible();
     await expect(refresh, path).toHaveCount(0);
-    await expect(page.locator(".topbar .refresh-stamp"), path).toHaveCount(0);
+    await expect(page.locator(".topbar .refresh-status"), path).toHaveCount(0);
   }
 });
 

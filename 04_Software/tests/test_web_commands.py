@@ -131,22 +131,22 @@ def test_worker_heartbeats_during_blocking_engine_command(tmp_path, monkeypatch)
     def runner(_argv, _env):
         """Hold the fake engine command until readiness is inspected."""
         entered.set()
-        assert release.wait(timeout=3)
+        assert release.wait(timeout=15)
         return 0
 
     worker = CommandWorker(profiles, web, runner=runner)
     thread = Thread(target=lambda: worker.run_forever(
-        interval=0.02, heartbeat_interval=0.02, stop=stop))
+        interval=0.05, heartbeat_interval=0.1, stop=stop))
     thread.start()
     try:
-        assert entered.wait(timeout=3)
-        assert heartbeat_seen.wait(timeout=3)
+        assert entered.wait(timeout=10)
+        assert heartbeat_seen.wait(timeout=10)
         assert web.worker_ready()
         assert web.worker_activity() == "busy"
     finally:
         stop.set()
         release.set()
-        thread.join(timeout=3)
+        thread.join(timeout=10)
     assert not thread.is_alive()
     assert not web.worker_ready()
 

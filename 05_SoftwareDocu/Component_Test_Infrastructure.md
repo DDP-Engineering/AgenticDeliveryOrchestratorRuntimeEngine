@@ -10,6 +10,12 @@ its lock file. These helpers are not installed in the application wheel.
 
 ## Fixture and authentication boundaries
 
+`tests/configuration_client.py` shares a consumer only between concurrent clients
+of the same isolated home. Completion reads run at most every 20 ms; dispatch
+and heartbeat ticks at most every 100 ms. Test polling cannot flood SQLite writes;
+real durable authorization and completion remain active. The last client drains
+and closes its worker.
+
 Each test keeps its own `tmp_path` and `ADORE_HOME`. Neither applications nor
 databases, profiles, sessions or credentials are cached across tests.
 
@@ -42,6 +48,17 @@ verification. Commands and fixture conventions are maintained in
 [Code style](../01_Documentation/Code_Style.md#tests-and-component-documentation).
 
 ## Platform and browser fixtures
+
+The blocking-command heartbeat test waits for explicit entered/heartbeat events
+with bounded scheduler headroom, holding the fake command until assertions finish.
+Live RPC visibility uses a ten-second safety deadline; success still requires
+observing the on-disk message before cancellation and process exit.
+
+Controlled browser clocks start near current server time so readiness timestamps
+remain valid. Settings journeys open disclosures only when closed: saving preserves
+their state. Scope-change tests settle intercepted routes without requiring a
+response event from an aborted request. Refresh assertions use the current Retry
+action and semantic timestamp instead of retired presentation classes or text.
 
 Azure request-file mode assertions apply on POSIX; Windows does not expose ACLs
 as POSIX permission bits. Simulated POSIX launchers quote their interpreter path,

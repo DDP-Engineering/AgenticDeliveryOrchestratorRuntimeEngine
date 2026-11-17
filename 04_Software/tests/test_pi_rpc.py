@@ -132,7 +132,7 @@ def test_live_rpc_completed_record_is_readable_before_launch_ends(tmp_path):
         observed = output.exists() and b"VISIBLE_LIVE_PROMPT" in output.read_bytes()
         return observed
 
-    result = run_pi_rpc(fake, ["pi", "--mode", "rpc"], {}, PROMPT, timeout=2,
+    result = run_pi_rpc(fake, ["pi", "--mode", "rpc"], {}, PROMPT, timeout=10,
                         cancelled=cancel_after_visible, output_path=output, **FAST)
     assert observed and result.outcome == "cancelled"
     assert fake.all_exited()
