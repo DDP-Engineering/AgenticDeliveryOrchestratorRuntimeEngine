@@ -207,6 +207,8 @@ implementation. Fresh candidate evidence and the configured approval policy appl
 
 `review.on_pipeline_failure` chooses automatic revision, notification or ignore.
 Automatic repairs and human-requested revisions share the review-round limit.
+Only a revision requested with the label is given the MR/PR comments; add the
+label when the agent should act on review feedback.
 ADORE reads pipeline verdicts; it does not host CI or fetch pipeline job logs.
 After a human merge it records completion and honors the configured source-branch
 removal policy. An unmerged closed review fails the job.

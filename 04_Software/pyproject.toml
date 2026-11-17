@@ -9,8 +9,12 @@ authors = [{ name = "Eng. Dan Dumitru Pasare" }]
 dependencies = []
 
 [project.optional-dependencies]
+# The lower bounds are the releases in uv.lock, the ones the tests run with.
+# starlette and pydantic are imported directly, so they are declared here too.
 web = [
-    "fastapi>=0.116,<1",
+    "fastapi>=0.141,<1",
+    "starlette>=1.7,<2",
+    "pydantic>=2.13,<3",
     "uvicorn>=0.35,<1",
     "argon2-cffi>=25.1,<26",
     "tzdata>=2026.4",

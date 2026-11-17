@@ -99,8 +99,7 @@ def test_file_heavy_directories_have_a_scan_limit(tmp_path):
     assert result["truncated"] is True
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX links verified natively on Linux")
-def test_links_are_not_followed_during_host_navigation(tmp_path):
+def test_links_are_not_followed_during_host_navigation(tmp_path, symlink_support):
     """Directory symlinks are omitted and linked paths fail closed."""
     from adore.web.host_folders import HostFolderError, list_host_folders
 

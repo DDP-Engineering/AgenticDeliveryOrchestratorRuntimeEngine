@@ -93,7 +93,7 @@ fi
 [ -f "${SOFTWARE_DIR}/pyproject.toml" ] && [ -d "${SOFTWARE_DIR}/adore" ] \
     || fail "runtime not found at '${SOFTWARE_DIR}'; keep 02_Tools/setup beside 04_Software in a source checkout"
 note "checking host prerequisites"
-need_cmd uv   "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
+need_cmd uv   "Install it as described at https://docs.astral.sh/uv/getting-started/installation/"
 need_cmd git  "Install: sudo apt-get install -y git"
 if ! command -v glab >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1 \
     && ! command -v tea >/dev/null 2>&1; then
@@ -134,6 +134,10 @@ fi
 if [ ! -f "${SOFTWARE_DIR}/.env" ]; then
     note "note: no .env file (fine when glab/gh/tea host auth covers everything;"
     note "      see .env.example for the canonical secret list)"
+elif [ -n "$(find "${SOFTWARE_DIR}/.env" -maxdepth 0 -perm /077 2>/dev/null)" ]; then
+    # Advisory only: the file holds secrets and other accounts can open it.
+    note "warning: .env can be read or changed by other accounts;"
+    note "         restrict it with: chmod 600 ${SOFTWARE_DIR}/.env"
 fi
 
 # 4. executor base image (build only when absent; rebuilds are an explicit choice)
@@ -167,6 +171,12 @@ fi
 if [ "${WITH_SERVICE}" -eq 1 ]; then
     note "installing systemd unit for user '${ADORE_USER}' (override with ADORE_USER=...)"
     id -u "${ADORE_USER}" >/dev/null 2>&1 || fail "user '${ADORE_USER}' does not exist"
+    # The path is written into the unit as it is. These characters would change
+    # the substitution or the meaning of the unit, so the unit would not start.
+    case "${SOFTWARE_DIR}" in
+        *[[:space:]\|\&%\\\"\']*)
+            fail "the checkout path '${SOFTWARE_DIR}' has a space or one of | & % \\ \" ' and cannot be written into a systemd unit; move the checkout to a plain path" ;;
+    esac
     rendered="$(mktemp)"
     sed -e "s|__ADORE_DIR__|${SOFTWARE_DIR}|g" \
         -e "s|__ADORE_USER__|${ADORE_USER}|g" \

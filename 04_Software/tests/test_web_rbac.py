@@ -1,9 +1,11 @@
 """Public API project-scope and financial privacy tests."""
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import json
 import sqlite3
 
+from adore import metrics
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
 from adore.web.app import create_app
@@ -11,13 +13,22 @@ from fastapi.testclient import TestClient
 import pytest
 
 from tests.execution_records import execution_record
+from tests.usage_events import versioned_usage
 
 
 def test_developer_project_scope_and_cost_privacy(tmp_path):
     """A developer sees only assigned project data without money fields."""
     profiles = ProfileStore(tmp_path / "home")
-    profiles.create("alpha", repo="org/alpha")
+    alpha = profiles.create("alpha", repo="org/alpha", store_root=str(tmp_path / "state"))
     profiles.create("beta", repo="org/beta")
+    # Priced usage: without it no role would be shown a money field.
+    state = StateStore(alpha.store_root)
+    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="done", execution=execution_record())
+    state.save(run)
+    state.journal(run.run_id, "picked")
+    state.journal(run.run_id, "usage", **versioned_usage(run.run_id, 3,
+                                                         tokens_in=12, tokens_out=3, cost_usd=0.1))
+    metrics.record_summary(state.root / "metrics.db", metrics.summarize_run(state, run.run_id))
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
@@ -33,7 +44,9 @@ def test_developer_project_scope_and_cost_privacy(tmp_path):
         assert [item["name"] for item in response.json()] == ["alpha"]
         assert client.get("/api/v1/projects/beta").status_code == 404
         assert client.get("/api/v1/projects/beta/metrics").status_code == 404
-        assert "cost" not in str(client.get("/api/v1/projects/alpha/metrics").json()).lower()
+        usage = client.get("/api/v1/projects/alpha/metrics").json()
+        assert usage["totals"]["tokens_in"] == 12
+        assert "cost" not in str(usage).lower()
         assert client.get("/api/v1/users").status_code == 403
         assert client.post(
             "/api/v1/users/1/enable", headers={"X-CSRF-Token": login.json()["csrf"]}
@@ -72,7 +85,7 @@ def test_account_preferences_require_session_csrf_and_allowed_values(tmp_path):
             "language": None, "theme": None, "ticket_body_mode": None}
         assert web.preferences(dev["id"]) == {
             "language": "de", "theme": "dark", "ticket_body_mode": None}
-        with sqlite3.connect(web.path) as connection:
+        with closing(sqlite3.connect(web.path)) as connection, connection:
             connection.execute("UPDATE user_preferences SET theme='invalid' WHERE user_id=?",
                                (dev["id"],))
         client.delete("/api/v1/session", headers={
@@ -140,7 +153,7 @@ def test_ticket_body_mode_api_refuses_corrupt_preferences(tmp_path):
         headers = {"X-CSRF-Token": login.json()["csrf"]}
         assert client.patch("/api/v1/me/preferences", headers=headers, json={
             "ticket_body_mode": "source"}).status_code == 200
-        with sqlite3.connect(web.path) as connection:
+        with closing(sqlite3.connect(web.path)) as connection, connection:
             connection.execute("UPDATE user_preferences SET ticket_body_mode='invalid'")
             before = connection.execute("SELECT * FROM user_preferences").fetchall()
         for response in (client.get("/api/v1/me/preferences"),
@@ -148,7 +161,7 @@ def test_ticket_body_mode_api_refuses_corrupt_preferences(tmp_path):
                              "language": "fr"})):
             assert response.status_code == 503
             assert response.json()["detail"]["code"] == "preferences_corrupt"
-        with sqlite3.connect(web.path) as connection:
+        with closing(sqlite3.connect(web.path)) as connection, connection:
             assert connection.execute("SELECT * FROM user_preferences").fetchall() == before
 
 
@@ -414,13 +427,13 @@ def test_audit_policy_rejects_corrupt_persisted_state(tmp_path):
     web = app.state.web_store
     web.set_audit_policy(1, None)
     web.audit(None, "test")
-    with sqlite3.connect(web.path) as connection:
+    with closing(sqlite3.connect(web.path)) as connection, connection:
         connection.execute("UPDATE audit_policy SET retention_days='invalid'")
     from adore.web.store import WebStoreError
 
     with pytest.raises(WebStoreError):
         web.recent_audit()
-    with sqlite3.connect(web.path) as connection:
+    with closing(sqlite3.connect(web.path)) as connection, connection:
         connection.execute("UPDATE audit_policy SET retention_days=1")
         connection.execute(
             "UPDATE audit SET created_at='invalid' "
@@ -436,7 +449,7 @@ def test_audit_retention_age_and_unlimited_read_integrity(tmp_path):
     app = create_app(tmp_path / "home")
     web = app.state.web_store
     web.audit(None, "old-event")
-    with sqlite3.connect(web.path) as connection:
+    with closing(sqlite3.connect(web.path)) as connection, connection:
         connection.execute(
             "UPDATE audit SET created_at='2020-01-01T00:00:00+00:00' "
             "WHERE action='old-event'")
@@ -445,7 +458,7 @@ def test_audit_retention_age_and_unlimited_read_integrity(tmp_path):
     assert not any(row["action"] == "old-event" for row in web.recent_audit())
     web.set_audit_policy(None, None)
     web.audit(None, "bad-event")
-    with sqlite3.connect(web.path) as connection:
+    with closing(sqlite3.connect(web.path)) as connection, connection:
         connection.execute(
             "UPDATE audit SET created_at='garbage' WHERE action='bad-event'")
     with pytest.raises(WebStoreError):
@@ -534,7 +547,7 @@ def test_corrupt_persisted_membership_returns_typed_error(tmp_path):
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(dev["id"], ["alpha"])
-    with sqlite3.connect(web.path) as connection:
+    with closing(sqlite3.connect(web.path)) as connection, connection:
         connection.execute(
             "UPDATE memberships SET project='../outside' WHERE user_id=?",
             (dev["id"],),

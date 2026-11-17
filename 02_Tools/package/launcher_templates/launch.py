@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 import errno
 import hashlib
 import json
@@ -144,7 +145,10 @@ def _atomic_json(path: Path, data: dict) -> None:
     """Replace one complete owner/stop record on the same filesystem."""
     temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
     try:
-        temporary.write_text(json.dumps(data), encoding="utf-8")
+        # The owner record holds the stop token: readable by its owner only.
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(data))
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
@@ -244,11 +248,14 @@ def _stop(children: list, service_stop: Path) -> None:
         try:
             process.wait(timeout=max(0.1, deadline - time.monotonic()))
         except subprocess.TimeoutExpired:
-            if os.name != "nt":
-                os.killpg(process.pid, signal.SIGKILL)
-            else:
-                process.kill()
-            process.wait(timeout=5)
+            # A group that ended by itself, or one that outlives the kill, must
+            # not keep the remaining services from being stopped.
+            with suppress(ProcessLookupError, subprocess.TimeoutExpired):
+                if os.name != "nt":
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
+                process.wait(timeout=5)
 
 
 def _service(role: str, home: Path, port: int, service_stop: Path) -> int:
@@ -456,13 +463,21 @@ def main(argv: list[str] | None = None) -> int:
                     ready = False
                     while not stop.wait(0.2):
                         if stop_path.exists():
-                            if stop_path.stat().st_size > 8192:
-                                raise DeliveryError("launcher stop record is too large")
-                            request = json.loads(stop_path.read_text(encoding="utf-8"))
-                            if (not isinstance(request, dict) or set(request) != {"token"}
-                                    or not isinstance(request["token"], str)
-                                    or not re.fullmatch(r"[a-f0-9]{32}", request["token"])):
-                                raise DeliveryError("invalid launcher stop record")
+                            # Only this owner's token stops it. A record that
+                            # cannot be read is dropped; it never ends ADORE.
+                            try:
+                                if stop_path.stat().st_size > 8192:
+                                    raise ValueError("record is too large")
+                                request = json.loads(stop_path.read_text(encoding="utf-8"))
+                                if (not isinstance(request, dict) or set(request) != {"token"}
+                                        or not isinstance(request["token"], str)
+                                        or not re.fullmatch(r"[a-f0-9]{32}", request["token"])):
+                                    raise ValueError("record has an unexpected shape")
+                            except (OSError, ValueError) as error:
+                                LOG.warning("Ignoring an unreadable stop record: %s", error)
+                                request = None
+                                with suppress(OSError):
+                                    stop_path.unlink()
                             if request == {"token": token}:
                                 stop.set()
                                 break

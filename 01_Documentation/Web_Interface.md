@@ -195,6 +195,11 @@ image-definition sources. Separate credential stores and pending changes are not
 exported. Inline secrets already present in raw TOML remain part of that exact file;
 protect and review it before sharing.
 
+Import saves the file as it is. That includes settings the Settings page does not
+let the browser change, such as `[container] run_args` and `[workflow] aegis_python`.
+An administrator who imports a project is therefore trusted like the operator of
+the server. Read a file that comes from another source before importing it.
+
 Portable working rules are a separate closed JSON format with their own scope,
 source validation and transfer endpoints. See [Portable project settings](Portable_Project_Settings.md).
 

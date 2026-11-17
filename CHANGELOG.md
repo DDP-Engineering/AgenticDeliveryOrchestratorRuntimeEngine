@@ -11,6 +11,11 @@ This project follows Keep a Changelog and Semantic Versioning.
   The clone's checkout is no longer mounted, so a job cannot change files that
   ADORE runs on the host. A container created by an earlier build is refused:
   finish or cancel active jobs and remove their containers before starting this build.
+- Forge comments reach the agent as discussion written by people, not as ADORE
+  instructions: each comment has a heading that names its author and every
+  line of it is quoted. An automatic repair round after a failed pipeline no
+  longer receives the MR/PR comments; add the revise label when the agent
+  should act on review feedback.
 
 ### Fixed
 
@@ -106,6 +111,20 @@ This project follows Keep a Changelog and Semantic Versioning.
   project setup receives an empty 401.
 - The web build uses vite 7.3.7 and source-map-js 1.2.2, which close the
   advisories reported for the development server.
+- The portable launcher drops a stop record it cannot read instead of ending
+  ADORE, writes its owner record readable by its owner only, and still stops
+  the other service when one has already ended during a forced stop.
+- The Linux service installer refuses a checkout path that cannot be written
+  into a systemd unit (a space or one of `|`, `&`, `%`, `\`, a quote), warns
+  when `.env` is open to other accounts, and names the uv installation page
+  instead of a pipe-to-shell command.
+- `set_version.py` replaces the old version only where it stands alone and
+  keeps the mode of the files it rewrites. The delivery package reads its
+  archive in pieces to compute the checksum.
+- The web extra declares `starlette` and `pydantic` and takes the locked
+  FastAPI release as its lower bound. The web build states the Node releases
+  it supports.
+- Tests that run `git` use an empty global and system Git configuration.
 
 ## [0.19.0] - 2026-11-17
 

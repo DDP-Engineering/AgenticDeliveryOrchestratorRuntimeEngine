@@ -3461,7 +3461,9 @@ class Orchestrator:
         if auto_repair:
             self._record_pipeline(run, observed)
         try:
-            comments = self.forge.list_mr_comments(run.mr_iid)
+            # Nobody asked for an automatic repair, so nobody vouched for the
+            # discussion either: that round gets the pipeline brief alone.
+            comments = self.forge.list_mr_comments(run.mr_iid) if requested else []
             self._transient(run, "revision-provision", lambda: self._provision(run))
             task_id = None
             if run.workflow == "aegis":
@@ -3636,11 +3638,27 @@ class Orchestrator:
         with contextlib.suppress(ForgeError):
             self.forge.post_mr_comment(run.mr_iid, body)
 
-    @staticmethod
-    def _render_thread(comments: list[Comment], limit: int = 20) -> str:
-        """Render the newest bounded non-system forge discussion."""
+    def _render_thread(self, comments: list[Comment], limit: int = 20) -> str:
+        """
+        Render the newest bounded non-system forge discussion for the prompt.
+        Every comment gets a heading that names its author, and its lines are
+                    quoted. Text inside one comment can then pass neither for
+                    another person's comment nor for ADORE's own instructions.
+        comments: Forge comments, oldest first.
+        limit: Number of newest comments kept.
+        Returns: The framed discussion, or "" when no human comment is left.
+        """
         kept = [item for item in comments if not item.system][-limit:]
-        return "\n\n".join(f"{item.author}: {item.body.strip()}" for item in kept)
+        if not kept:
+            return ""
+        blocks = []
+        for number, item in enumerate(kept, 1):
+            # A display name is forge data too: keep it on the heading line.
+            author = " ".join(item.author.split()) or "unknown author"
+            lines = item.body.strip().splitlines() or [""]
+            quoted = "\n".join(f"> {line}".rstrip() for line in lines)
+            blocks.append(f"Comment {number} of {len(kept)}, by {author}:\n{quoted}")
+        return self.prompts.render("review/discussion.md", comments="\n\n".join(blocks))
 
     def _read_questions(self, run: RunState) -> str:
         """Read and remove the executor question handoff file."""

@@ -285,7 +285,8 @@ and forge account login are separate. Reconnect to rotate; revoke old tokens on
 the forge. OAuth applications and forge passwords are not supported by this form.
 
 repository-auth.json is a strict scope-bound secret beside config, with POSIX 0600
-permissions; Windows installations require restricted profile-home ACLs. Backups
+permissions; Windows installations require restricted profile-home ACLs (see
+[Windows: who can read the ADORE home](#windows-who-can-read-the-adore-home)). Backups
 contain the file and require equal protection. Tokens do not enter argv, API
 responses, browser storage, config/portable export, audit or executor environments.
 The matching forge CLI gets isolated temporary config/environment; shared login
@@ -298,6 +299,35 @@ local Gitea/GitLab; tokens are unencrypted on that path. Origin subpaths are exc
 CLI mechanisms: [gh environment](https://cli.github.com/manual/gh_help_environment),
 [glab configuration](https://docs.gitlab.com/cli/config/) and
 [tea config schema](https://gitea.com/gitea/tea/src/branch/main/modules/config).
+
+## Windows: who can read the ADORE home
+
+On Linux ADORE writes its secret files for their owner only and refuses to read
+one that is more open. Windows has no such file modes. There, ADORE sets and
+checks nothing: the repository tokens, the ChatGPT sign-in and the provider keys
+are as private as the folder that holds them.
+
+The default home is `%APPDATA%\adore`, inside the profile of the account that
+runs ADORE. Windows normally lets only that account, `SYSTEM` and the
+administrators open it. Other software can add accounts to a folder, so look
+before relying on it, and always look when `ADORE_HOME` names a folder outside
+the profile:
+
+```powershell
+icacls "$env:APPDATA\adore"
+```
+
+Every name in the list can open the files. To leave only the account that runs
+ADORE, `SYSTEM` and the administrators, run this as that account and name the
+folder you use:
+
+```powershell
+icacls "D:\adore" /inheritance:r /grant:r "${env:USERDOMAIN}\${env:USERNAME}:(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F"
+```
+
+The files and folders inside take the same access. If a different account runs
+the service, name that account instead of your own, or it loses its access. A
+FAT or exFAT disk has no access lists, so do not keep the ADORE home on one.
 
 ## Project provider keys in the web interface
 

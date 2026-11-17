@@ -353,7 +353,9 @@ label uses, so the repair ends at strict validation and follows the project
 approval policy before publication; `notify` posts one comment and waits; `ignore` skips
 the pipeline read. All three obey `max_review_rounds`, which bounds repairs and
 human-requested revisions together. Only a changed verdict is a signal, and an
-unreadable verdict is silent.
+unreadable verdict is silent. Nobody asked for an automatic repair round, so it
+is not given the comments on the MR/PR. A revision requested with the revise
+label is given the newest 20.
 
 `reviewers` lists the forge accounts to request a review from when a new
 PR/MR is created; an empty list requests no review. Each account is 1–255

@@ -9,6 +9,7 @@ import io
 import os
 from pathlib import Path
 import re
+import shutil
 import sys
 import tempfile
 import tomllib
@@ -83,6 +84,12 @@ def check_current(version: str) -> None:
             slides = [n for n in archive.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)]
             if not slides or any(version not in archive.read(n).decode("utf-8") for n in slides):
                 raise ValueError(f"current version missing from a slide in {path.name}")
+
+
+def swap_version(value: str, old: str, new: str) -> str:
+    """Replace the old version where it stands alone, never inside a longer number."""
+    alone = r"(?<![0-9.])" + re.escape(old) + r"(?!\.?[0-9])"
+    return re.sub(alone, lambda _: new, value)
 
 
 def presentations() -> list[Path]:
@@ -167,7 +174,7 @@ def build_plan(old: str, new: str, day: str) -> dict[Path, bytes]:
     text("04_Software/adore/release_notes.toml", notes)
 
     for relative in TEXT_VERSIONS:
-        value = read(relative).replace(old, new)
+        value = swap_version(read(relative), old, new)
         if relative.endswith("README.md") and relative.startswith(("01_", "05_")):
             value = re.sub(
                 r"(\*\*ADORE " + re.escape(new) + r"\*\* \()\d{4}-\d{2}-\d{2}(\))",
@@ -181,7 +188,7 @@ def build_plan(old: str, new: str, day: str) -> dict[Path, bytes]:
             for member in source.infolist():
                 data = source.read(member)
                 if member.filename.endswith((".xml", ".rels")):
-                    data = data.decode("utf-8").replace(old, new).encode("utf-8")
+                    data = swap_version(data.decode("utf-8"), old, new).encode("utf-8")
                 target.writestr(member, data)
         changes[path] = output.getvalue()
     return changes
@@ -194,6 +201,8 @@ def write_plan(changes: dict[Path, bytes]) -> None:
         try:
             with os.fdopen(fd, "wb") as stream:
                 stream.write(content)
+            # The temporary file is owner-only; keep the mode of the file it replaces.
+            shutil.copymode(path, temporary)
             os.replace(temporary, path)
         finally:
             Path(temporary).unlink(missing_ok=True)

@@ -15,6 +15,8 @@ source = { editable = "." }
 web = [
     { name = "argon2-cffi" },
     { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "starlette" },
     { name = "tzdata" },
     { name = "uvicorn" },
 ]
@@ -30,7 +32,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "argon2-cffi", marker = "extra == 'web'", specifier = ">=25.1,<26" },
-    { name = "fastapi", marker = "extra == 'web'", specifier = ">=0.116,<1" },
+    { name = "fastapi", marker = "extra == 'web'", specifier = ">=0.141,<1" },
+    { name = "pydantic", marker = "extra == 'web'", specifier = ">=2.13,<3" },
+    { name = "starlette", marker = "extra == 'web'", specifier = ">=1.7,<2" },
     { name = "tzdata", marker = "extra == 'web'", specifier = ">=2026.4" },
     { name = "uvicorn", marker = "extra == 'web'", specifier = ">=0.35,<1" },
 ]

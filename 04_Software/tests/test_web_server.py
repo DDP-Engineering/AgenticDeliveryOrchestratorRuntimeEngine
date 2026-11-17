@@ -1,5 +1,6 @@
 """Web listener exposure boundary."""
 
+from contextlib import closing
 import sqlite3
 
 from adore.web.app import create_app
@@ -79,12 +80,12 @@ def test_corrupt_or_stale_worker_heartbeat_fails_readiness(tmp_path):
     web = app.state.web_store
     owner = web.register_worker("supervisor")
     web.touch_worker(owner)
-    with sqlite3.connect(web.path) as connection:
+    with closing(sqlite3.connect(web.path)) as connection, connection:
         connection.execute("UPDATE worker_owners SET updated_at=?", (
             "2020-01-01T00:00:00+00:00",))
     with TestClient(app) as client:
         assert client.get("/api/v1/ready").status_code == 503
-        with sqlite3.connect(web.path) as connection:
+        with closing(sqlite3.connect(web.path)) as connection, connection:
             connection.execute("UPDATE worker_owners SET updated_at=?", (
                 "not-a-timestamp",))
         response = client.get("/api/v1/ready")

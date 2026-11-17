@@ -44,6 +44,11 @@ Direct uses implementation.md. There are no independent verification-command or
 verification-failure fragments. The agent chooses repository checks for either
 workflow. The full exact filename list is `FRAGMENTS`, not a second prose inventory.
 
+Forge comments enter a prompt through `review/discussion.md` only. Each comment
+gets a heading that names its author and every line of it is quoted, so text
+inside one comment can pass neither for another person's comment nor for an
+ADORE instruction. The fragment introduces them as discussion written by people.
+
 The live instruction wrapper substitutes user/text literally for both captured
 initial-prompt fallback and live delivery. Composition does not establish receipt;
 that belongs to [Instructions](Component_Instructions.md).

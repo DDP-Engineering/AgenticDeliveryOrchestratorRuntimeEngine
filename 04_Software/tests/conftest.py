@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import errno
 from pathlib import Path
-import sys
 
 import pytest
 
@@ -42,9 +41,12 @@ def isolated_password_hashing(request: pytest.FixtureRequest,
     if (request.config.getoption("--real-password-hashing")
             or request.node.get_closest_marker("real_password_hashing")):
         return
-    store = sys.modules.get("adore.web.store")
-    if store is not None:
-        monkeypatch.setattr(store, "_HASHER", request.getfixturevalue("fast_password_hasher"))
+    try:
+        # Imported here, so the first web test of a worker is fast as well.
+        from adore.web import store
+    except ImportError:
+        return
+    monkeypatch.setattr(store, "_HASHER", request.getfixturevalue("fast_password_hasher"))
 
 
 @pytest.fixture
@@ -68,6 +70,31 @@ def symlink_support(tmp_path: Path) -> None:
         if link.is_symlink():
             link.unlink()
         source.unlink()
+
+
+@pytest.fixture(scope="session")
+def empty_git_config(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """
+    Create one empty Git configuration file per pytest worker.
+    tmp_path_factory: Session-scoped temporary directory factory.
+    Returns: Path of the empty file.
+    """
+    path = tmp_path_factory.mktemp("git-config") / "gitconfig"
+    path.write_bytes(b"")
+    return path
+
+
+@pytest.fixture(autouse=True)
+def isolated_git_config(empty_git_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep real `git` calls away from the developer's own Git settings.
+    Tests that run `git` would otherwise inherit signing, hooks, line-ending
+                and default-branch settings of the machine they run on.
+    empty_git_config: Empty file used as the global configuration.
+    monkeypatch: Restore the environment after each test.
+    """
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_git_config))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
 
 
 @pytest.fixture(autouse=True)

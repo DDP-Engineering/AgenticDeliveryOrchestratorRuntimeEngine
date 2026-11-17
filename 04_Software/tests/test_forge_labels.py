@@ -219,7 +219,7 @@ def test_administrators_create_missing_labels_through_the_api(tmp_path):
         ).json()["csrf"]
         assert client.post(
             "/api/v1/projects/alpha/labels/ensure", headers={"X-CSRF-Token": dev}
-        ).status_code in (403, 404)
+        ).status_code == 403
 
 
 def test_a_failure_reason_keeps_the_forge_cause_not_the_command_line():

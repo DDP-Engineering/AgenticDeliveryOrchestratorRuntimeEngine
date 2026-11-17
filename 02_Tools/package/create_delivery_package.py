@@ -361,7 +361,8 @@ def main(argv: list[str] | None = None) -> int:
             os.replace(publication, archive)
         finally:
             publication.unlink(missing_ok=True)
-    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    with archive.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
     # REUSE-IgnoreStart
     archive.with_name(archive.name + ".sha256").write_text(
         "# Copyright (c) 2026 DDP Engineering\n"

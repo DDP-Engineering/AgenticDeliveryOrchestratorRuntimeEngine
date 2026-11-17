@@ -41,6 +41,7 @@ FRAGMENTS = (
     "recovery/no-progress.md",
     "review/pipeline.md",
     "review/ticket-content-changed.md",
+    "review/discussion.md",
     "system/internet-off.md",
     "system/server-internet.md",
 )

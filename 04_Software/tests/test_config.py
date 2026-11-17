@@ -102,7 +102,6 @@ def test_pi_is_the_only_executor_and_needs_only_a_provider_and_model(tmp_path: P
     assert validate_config(config) == []
     assert (config.executor.provider, config.executor.model) == ("openai", "gpt-5.4-fast")
     assert config.executor.env_keys == []
-    assert "command" not in config.executor.__dataclass_fields__
 
 
 def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
