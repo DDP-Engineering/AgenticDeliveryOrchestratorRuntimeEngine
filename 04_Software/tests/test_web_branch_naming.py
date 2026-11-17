@@ -100,6 +100,32 @@ def test_invalid_preview_and_candidate_never_change_source(project, key, value):
         assert path.read_bytes() == original
 
 
+def test_previews_beyond_two_at_once_are_refused_at_once_and_then_served(project):
+    """A burst cannot start a rule-check process per request; the limit frees itself."""
+    from adore.web import app as app_module
+
+    client, _profiles, _path, _state, _app, headers = project
+    revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+    target = "/api/v1/projects/alpha/config/branch-preview"
+    body = {"template": "feature/{iid}", "rule": "^feature/.*$", "revision": revision}
+    slots = app_module._BRANCH_PREVIEW_SLOTS
+    assert slots.acquire(blocking=False) and slots.acquire(blocking=False)
+    try:
+        refused = client.post(target, headers=headers, json=body)
+        assert refused.status_code == 429
+        assert refused.json()["detail"]["code"] == "branch_preview_busy"
+    finally:
+        slots.release()
+        slots.release()
+    assert client.post(target, headers=headers, json=body).json()["valid"] is True
+    # A refused or failed preview gives its place back: both are free again.
+    assert client.post(target, headers=headers,
+                       json={**body, "revision": "0" * 64}).status_code == 409
+    assert slots.acquire(blocking=False) and slots.acquire(blocking=False)
+    slots.release()
+    slots.release()
+
+
 def test_preview_http_and_external_environment_boundaries(project):
     """Strict request, exact revision and external path/runtime restrictions persist."""
     client, _profiles, path, _state, _app, headers = project

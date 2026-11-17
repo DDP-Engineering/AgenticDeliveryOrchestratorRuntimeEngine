@@ -3,8 +3,8 @@
     "02_Tools/package/release_checks/stamp_web_assets.py": "2e68391bf4a65de67e9a72886b1739194d3a0fd9669d6055eeda5ec74ec7eec4",
     "04_Software/web/THIRD_PARTY_NOTICES.md": "d37d52874114ed0021bdd24e27054209dd0278ba72a8bca3171a0db77235ed86",
     "04_Software/web/index.html": "05d8acb61c45252d1264f91ec12d5d6acfa42f39c7d0da22f3e70e8d6d29a4c8",
-    "04_Software/web/package-lock.json": "69da0dd711620920274da603fd585d41db624c7170dcef9bde81d1bf506f54e6",
-    "04_Software/web/package.json": "84b4c964d20a69066300c3d73a22ae841b37b5384ce74eb7e930afbbb47a8717",
+    "04_Software/web/package-lock.json": "28ace573e9979eebad905bce32c1b6ca4ff6d70110e2860b306481fa678290ec",
+    "04_Software/web/package.json": "f6e27eaa8068854dfe7634138ddfac45beab2a245599ab11f84be4d76dc8cc3f",
     "04_Software/web/src/AccountActionDialog.tsx": "593635e855b8ac75a555ad814f9760ff09eab8e0afbbd62d2cfcd4da2b4c8640",
     "04_Software/web/src/AgentConnectionEditor.tsx": "23549539ab864b42a4b279cccdb9c580864a735fa82541e0577786760e113311",
     "04_Software/web/src/App.tsx": "66e9a4994131495cf8b5fd71b45fd3f0e893d595a350f30bc0bc36301c5d354b",
@@ -49,7 +49,7 @@
     "04_Software/web/src/auditPolicy.ts": "faa311c18f6314e81b178940a63341ca318002bcb507849f22456480f0592151",
     "04_Software/web/src/azureDevops.ts": "73e4bc9b8e1b080da8fb01409b09a63222f2753eab88eba947e7cc5c791fb0d1",
     "04_Software/web/src/chatgptCopy.ts": "e39d440f00bcbcea2e70128e0e7190237efc93151a03cf20303792b4d2ec9431",
-    "04_Software/web/src/configurationTasks.ts": "76013fe627005b5e390d5c745a821b71da94e00bc061bd561daf52c14bb9992e",
+    "04_Software/web/src/configurationTasks.ts": "cd7802edd777758a64a8eb3042e5b4eaf814d4cc20750d9ef308445a827044f4",
     "04_Software/web/src/conversationCopy.ts": "daa5ddac656646eebe82bc29da87557b33524fb8e123f69cc0ee990f7b43983e",
     "04_Software/web/src/deleteCloneCopy.ts": "defb3ae6ebee323350c60de4e2ec751ab0ad548b544b848eb25e304cd89e7453",
     "04_Software/web/src/enrollmentCopy.ts": "a4e137b5137135977dea648a958ec45f91cfbcaf12cf2c56359c5da0dcd4b4e8",
@@ -131,7 +131,7 @@
     "04_Software/web/src/settingKeys.json": "0bd7161682262bbec58a08ec2d0a9246a8814959c81386a73dbf5b59f82a5fc4",
     "04_Software/web/src/settingLabels.ts": "72cefaa429749a3705ce49920aad3a6e5f5dcd1ad4a3d048dec0bcff7666b9dd",
     "04_Software/web/src/settings.ts": "40af4b5b448c46c4b08dff34b2232ead42c0ba2a6f48473135d78ab89588c3be",
-    "04_Software/web/src/settingsCopy.ts": "4380bc6f6f8a3e38e3c1ce102c64285ff6440685f52c43bceb5fc4b10a1a02d3",
+    "04_Software/web/src/settingsCopy.ts": "f9e43ab0b24deb579e50e5020c879112e595738450e115830f1018bc9014de54",
     "04_Software/web/src/settingsDrafts.ts": "f253eb6d229f46625e8358d0258323b900e9fc3911a8d3e4b878821a240901d1",
     "04_Software/web/src/settingsSave.ts": "f7c9d445bea38e06aa49173cb0d741a9189f6f8fd03e0aa46fe8fb0154e32687",
     "04_Software/web/src/setupCopy.ts": "d1583e1713f8352281100324b3b3327c6e37fc56fdc4411e2647478fa04b7174",
@@ -154,8 +154,8 @@
     "LICENSE.txt": "2494616d0c43cfda4aa0fd8c53f429d615a2e38b50d45c3d9e6db264149e65a6",
     "THIRD_PARTY_NOTICES.md": "d37d52874114ed0021bdd24e27054209dd0278ba72a8bca3171a0db77235ed86",
     "assets/DDP_Engineering_logo_dark-BgzND1ZS.png": "4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481",
-    "assets/index-BCG6GICf.js": "df8b6888dc2bf9e24a92143535c89b80276caab18df5f6a7514146c347f20ad4",
     "assets/index-Bp9FiNOO.css": "979e693e11a6476bdc8e49f651d22d05f31447d356d1d6403183da5e0d5eb0e9",
-    "index.html": "0f579efde23a89fa3050d9a4b696ff0a90bd47ef52d9893a6665e4d01782c576"
+    "assets/index-DpMPeArc.js": "102d75e1301ee1a5c6f621c5ebf843d5c4247638166eed981da3673053d71995",
+    "index.html": "601fbf7f76b2354f48df1d2cb94d52ffdf9a0cdd7f9a55fd5be10b09caf94312"
   }
 }

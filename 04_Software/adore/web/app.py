@@ -20,7 +20,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from time import monotonic
 import tomllib
 from typing import Annotated, Literal
@@ -192,6 +192,7 @@ _STORE_ERROR_CODES = {
     "cannot disable the last administrator": "last_administrator",
     "project not found": "project_not_found",
     "project does not exist": "project_not_found",
+    "operation queue is full": "operation_queue_full",
     "price version already exists or actor is invalid": "price_exists",
     "invalid price": "invalid_price",
     "invalid price identity": "invalid_price",
@@ -2237,6 +2238,9 @@ _CHOSEN_ENVIRONMENT_KEYS = frozenset({
     "local.path",
 })
 _IMAGE_LIST_TIMEOUT = 15
+# Branch previews that may run at once on this server. Each one may start a
+# process of up to one second to check the naming rule.
+_BRANCH_PREVIEW_SLOTS = BoundedSemaphore(2)
 _IMAGE_LIST_LIMIT = 1000
 # An image reference (never an option or argv); the runtime is the bare command or a WSL wrapper.
 _IMAGE_REFERENCE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}")
@@ -4757,6 +4761,10 @@ def create_app(home: str | Path | None = None,
         # on Windows where an open reader can prevent replacing the source.
         item = project(name, user)
         path = profiles.config_path(item.name)
+        # Refused at once rather than queued: a waiting request would hold a
+        # server thread, and a burst of previews would then stall every page.
+        if not _BRANCH_PREVIEW_SLOTS.acquire(blocking=False):
+            raise _error(429, "branch_preview_busy")
         try:
             raw = path.read_bytes()
             if not secrets.compare_digest(sha256(raw).hexdigest(), body.revision):
@@ -4767,6 +4775,8 @@ def create_app(home: str | Path | None = None,
                 raise _error(409, "stale_config_revision")
         except (OSError, ValueError, TypeError) as exc:
             raise _error(503, "config_corrupt") from exc
+        finally:
+            _BRANCH_PREVIEW_SLOTS.release()
         return {**result, "revision": body.revision}
 
     def recipe_failure(exc):

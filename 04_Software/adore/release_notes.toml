@@ -17,6 +17,11 @@ topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
 text = { en = "Comments reach the agent quoted by author; an automatic repair no longer reads them.", fr = "Les commentaires arrivent à l’agent cités par auteur ; la réparation automatique les ignore.", de = "Kommentare erreichen den Agenten als Zitat je Autor; die automatische Reparatur liest sie nicht.", ro = "Comentariile ajung la agent citate pe autor; repararea automată nu le mai citește." }
 
 [[release.entry]]
+category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "In French, German and Romanian every setting has a short name instead of a help sentence.", fr = "En français, allemand et roumain, chaque paramètre a un nom court au lieu d’une phrase d’aide.", de = "Jede Einstellung hat auf Französisch, Deutsch und Rumänisch nun einen kurzen Namen.", ro = "În franceză, germană și română, fiecare setare are acum un nume scurt, nu o propoziție." }
+
+[[release.entry]]
 category = "fixed"
 topic = { en = "Accounts", fr = "Comptes", de = "Konten", ro = "Conturi" }
 text = { en = "When your session ends, the sign-in form appears instead of a repeating error.", fr = "Quand la session expire, le formulaire de connexion remplace l’erreur répétée.", de = "Endet die Sitzung, erscheint das Anmeldeformular statt einer wiederholten Fehlermeldung.", ro = "Când sesiunea expiră, apare formularul de autentificare în locul unei erori repetate." }

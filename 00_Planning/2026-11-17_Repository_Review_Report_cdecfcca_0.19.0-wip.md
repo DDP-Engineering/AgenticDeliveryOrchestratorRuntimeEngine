@@ -85,12 +85,17 @@ Suggested order of work is in section 15.
 
 ### 2.1 Remediation status
 
-Updated 2026-11-17. The changes below were committed locally on `master` as `f77db636`
-(on top of `3ec545f3`, ADORE 0.19.0). Rows marked "second commit" were committed locally
-in the remediation commit that follows it on the same day. Nothing is pushed. No real
-container, forge, packaging run or service installer was exercised.
-Rows marked "uncommitted" are in the working tree only: the tooling, test and dependency
-batch of the same day, checked with the modules it touches and not with the full suite.
+Updated 2026-11-17. The first changes were committed on `master` as `f77db636` (on top of
+`3ec545f3`, ADORE 0.19.0). Rows marked "second commit" are in `738db488`, rows marked
+"third commit" in `20850cd1` and rows marked "fourth commit" in the commit that follows it,
+all of the same day. No real container, forge, packaging run or service installer was
+exercised.
+
+The full Python suite ran on top of the third commit, on a tree that held the FE-5 change:
+3929 passed, 30 skipped, none failed. The changes made after it (FE-6, WEB-15, WEB-16) were
+checked with the test modules they touch only. The built web bundle in
+`04_Software/adore/web/static/` holds FE-5 and FE-6 but not the two error messages added
+with WEB-15 and WEB-16; it is rebuilt with the final checks.
 
 The full Python suite ran once, on the tree of the second commit: 3927 passed, 30 skipped,
 1 failed. The failure was the replay of captured AEGIS commands, which pins the old form of
@@ -176,27 +181,35 @@ unit tests gave 189 passed and the type check is clean.
 | DOC-16 | Remediated, second commit | The component document is a link. The mode text already read "POSIX 0600" | Read only |
 | DEP-1 | Remediated, second commit | `npm audit` confirmed the advisory range 7.0.0 to 7.3.6. vite is 7.3.7 and source-map-js 1.2.2; the audit reports no vulnerability | Frontend unit tests: 189 passed; bundle rebuilt; dev server starts |
 | TOOL-3 | Open by decision | Not implemented: service hardening could stop ADORE or the executor from writing where they must, and that risk was declined on 2026-11-17 | - |
-| TOOL-7 | Remediated, uncommitted | The old version is replaced only where it stands alone, not inside a longer number | For 0.19.0 the six text sources and five presentations give the same result as the plain replacement; no release was cut |
-| TOOL-8 | Remediated in part, uncommitted | A rewritten file keeps the mode of the file it replaces. Files are still replaced one at a time; a failed run is undone with Git | Compile only |
-| TOOL-9 | Remediated, uncommitted | A stop record that cannot be read is logged and removed and no longer ends the launcher; the owner record is created with mode 0600 | Compile only; the portable package was not built or run |
-| TOOL-10 | Remediated, uncommitted | A service group that already ended, or that outlives the forced kill, no longer keeps the other service from being stopped | Compile only |
-| TOOL-12 | Remediated, uncommitted | `--service` refuses a checkout path with a space, a pipe, an ampersand, a percent sign, a backslash or a quote before the unit is written | Guard exercised in WSL with 11 paths; installer not run |
-| TOOL-13 | Remediated, uncommitted | The installer warns when `.env` grants any group or other permission. It does not change the file and does not stop | Probe exercised in WSL for modes 600, 640 and 604; installer not run |
-| TOOL-15 | Remediated, uncommitted | The hint names the uv installation page | Shell syntax check |
-| TOOL-16 | Remediated in part, uncommitted | The package checksum is computed from a stream. A missing checksum file is still accepted by the release check | Compile only |
-| TEST-1, TEST-4 | Remediated in part, uncommitted | An automatic fixture points Git at an empty global configuration and disables the system one. The tests still run real `git`, and `HOME`, `USERPROFILE`, `APPDATA` and `XDG_*` are not redirected | The three modules that run `git` and fifteen other modules pass (766 passed, 13 skipped); full suite not run |
-| TEST-5 | Remediated in part, uncommitted | The absence assertion in `tests/test_config.py` is removed. The AEGIS and state cases stay, as they are fail-closed checks | `tests/test_config.py` |
-| TEST-11 | Remediated, uncommitted | The test expects 403, the answer of the administrator check | `tests/test_forge_labels.py` |
-| TEST-12 | Remediated, uncommitted | The project has priced usage before the developer reads its metrics; the test checks the token total and the absence of money fields | `tests/test_web_rbac.py` |
-| TEST-15 | Remediated, uncommitted | The ten direct SQLite connections in the two modules are closed | `tests/test_web_server.py`, `tests/test_web_rbac.py` |
-| TEST-17 | Remediated, uncommitted, not exercised on Windows | The link test uses the `symlink_support` fixture instead of a platform skip. On this Windows account links cannot be created, so the test was skipped | `tests/test_host_folders.py`: 12 passed, 1 skipped |
-| TEST-18 | Remediated, uncommitted | The fixture imports the store module itself, so the first web test of a worker uses the fast hasher too | `tests/test_web_auth.py` |
-| DEP-2 | Remediated, uncommitted | The web extra declares `starlette` and `pydantic` and takes FastAPI 0.141 as its lower bound. `uv lock` changed the project's own metadata only; no locked version moved | Lock diff: 5 lines added, 1 removed |
+| TOOL-7 | Remediated, third commit | The old version is replaced only where it stands alone, not inside a longer number | For 0.19.0 the six text sources and five presentations give the same result as the plain replacement; no release was cut |
+| TOOL-8 | Remediated in part, third commit | A rewritten file keeps the mode of the file it replaces. Files are still replaced one at a time; a failed run is undone with Git | Compile only |
+| TOOL-9 | Remediated, third commit | A stop record that cannot be read is logged and removed and no longer ends the launcher; the owner record is created with mode 0600 | Compile only; the portable package was not built or run |
+| TOOL-10 | Remediated, third commit | A service group that already ended, or that outlives the forced kill, no longer keeps the other service from being stopped | Compile only |
+| TOOL-12 | Remediated, third commit | `--service` refuses a checkout path with a space, a pipe, an ampersand, a percent sign, a backslash or a quote before the unit is written | Guard exercised in WSL with 11 paths; installer not run |
+| TOOL-13 | Remediated, third commit | The installer warns when `.env` grants any group or other permission. It does not change the file and does not stop | Probe exercised in WSL for modes 600, 640 and 604; installer not run |
+| TOOL-15 | Remediated, third commit | The hint names the uv installation page | Shell syntax check |
+| TOOL-16 | Remediated in part, third commit | The package checksum is computed from a stream. A missing checksum file is still accepted by the release check | Compile only |
+| TEST-1, TEST-4 | Remediated in part, third commit | An automatic fixture points Git at an empty global configuration and disables the system one. The tests still run real `git`, and `HOME`, `USERPROFILE`, `APPDATA` and `XDG_*` are not redirected | The three modules that run `git` and fifteen other modules pass (766 passed, 13 skipped); full suite not run |
+| TEST-5 | Remediated in part, third commit | The absence assertion in `tests/test_config.py` is removed. The AEGIS and state cases stay, as they are fail-closed checks | `tests/test_config.py` |
+| TEST-11 | Remediated, third commit | The test expects 403, the answer of the administrator check | `tests/test_forge_labels.py` |
+| TEST-12 | Remediated, third commit | The project has priced usage before the developer reads its metrics; the test checks the token total and the absence of money fields | `tests/test_web_rbac.py` |
+| TEST-15 | Remediated, third commit | The ten direct SQLite connections in the two modules are closed | `tests/test_web_server.py`, `tests/test_web_rbac.py` |
+| TEST-17 | Remediated, third commit, not exercised on Windows | The link test uses the `symlink_support` fixture instead of a platform skip. On this Windows account links cannot be created, so the test was skipped | `tests/test_host_folders.py`: 12 passed, 1 skipped |
+| TEST-18 | Remediated, third commit | The fixture imports the store module itself, so the first web test of a worker uses the fast hasher too | `tests/test_web_auth.py` |
+| DEP-2 | Remediated, third commit | The web extra declares `starlette` and `pydantic` and takes FastAPI 0.141 as its lower bound. `uv lock` changed the project's own metadata only; no locked version moved | Lock diff: 5 lines added, 1 removed |
 | DEP-3 | No change | The same suppressions stand on reviewed process calls in product code, so they are a repository convention. Enabling the rule would flag every process call | - |
-| DEP-4 | Remediated in part, uncommitted | `package.json` and its lock state the Node releases vite 7 supports. Exact and caret pins are still mixed | `npm ci --dry-run` |
-| WEB-6 | Open by decision, documented, uncommitted | Confirmed in code for `container.run_args` and `workflow.aegis_python`: import checks the form of the file only, and the dialog shows the project name only. `workflow.verify_command` is no longer a setting, and the absolute paths are required by import and shown for review. Kept as it is on 2026-11-17: an administrator who imports is trusted like the server operator. `01_Documentation/Web_Interface.md` now says so | Read only |
-| ORC-8 | Remediated in part, uncommitted | Comments enter a prompt through the new fragment `review/discussion.md`: a heading per comment names its author, every line is quoted, and the text says they are discussion written by people, not ADORE instructions. An automatic repair round no longer reads the MR/PR comments; a revision requested with the label still does. Not changed: there is no filter on the author's role, and the ticket title and description stay unfenced because they are the order itself. The effect on a real model was not measured | `test_forge_discussion_is_quoted_under_author_headings`, two changed tests; `tests/test_orchestrator.py` and `tests/test_prompts.py`: 453 passed, 10 skipped; five related modules: 170 passed |
-| FRG-7 | Documented by decision, uncommitted | Confirmed in code: on Windows ADORE sets and checks no access restriction. The default home is `%APPDATA%\adore`, inside the user profile. No code was changed: an automatic restriction could remove the access of the account that runs the service. `01_Documentation/Security_And_Credentials.md` now has a section with the command that lists who can open the home and the command that restricts it. On the review machine the default home also lists a local sandbox group and two more accounts with read access, added by other software, so the profile location alone is not proof | Both commands were run on a throwaway folder: three entries remain and the files inside inherit them |
+| DEP-4 | Remediated in part, third commit | `package.json` and its lock state the Node releases vite 7 supports. Exact and caret pins are still mixed | `npm ci --dry-run` |
+| WEB-6 | Open by decision, documented, third commit | Confirmed in code for `container.run_args` and `workflow.aegis_python`: import checks the form of the file only, and the dialog shows the project name only. `workflow.verify_command` is no longer a setting, and the absolute paths are required by import and shown for review. Kept as it is on 2026-11-17: an administrator who imports is trusted like the server operator. `01_Documentation/Web_Interface.md` now says so | Read only |
+| ORC-8 | Remediated in part, third commit | Comments enter a prompt through the new fragment `review/discussion.md`: a heading per comment names its author, every line is quoted, and the text says they are discussion written by people, not ADORE instructions. An automatic repair round no longer reads the MR/PR comments; a revision requested with the label still does. Not changed: there is no filter on the author's role, and the ticket title and description stay unfenced because they are the order itself. The effect on a real model was not measured | `test_forge_discussion_is_quoted_under_author_headings`, two changed tests; `tests/test_orchestrator.py` and `tests/test_prompts.py`: 453 passed, 10 skipped; five related modules: 170 passed |
+| FRG-7 | Documented by decision, third commit | Confirmed in code: on Windows ADORE sets and checks no access restriction. The default home is `%APPDATA%\adore`, inside the user profile. No code was changed: an automatic restriction could remove the access of the account that runs the service. `01_Documentation/Security_And_Credentials.md` now has a section with the command that lists who can open the home and the command that restricts it. On the review machine the default home also lists a local sandbox group and two more accounts with read access, added by other software, so the profile location alone is not proof | Both commands were run on a throwaway folder: three entries remain and the files inside inherit them |
+| FE-5 | Remediated, fourth commit | The wait between two questions starts at 150 ms and grows by half each time up to 2 seconds. Up to three unreachable-server answers in a row are retried and the fourth is reported as `network_error`; an unreadable or unexpected answer is the coded error `unexpected_response`. No pause was added for a hidden page: browsers already slow its timers. The 61-minute limit is unchanged | Three new tests in `tests/configurationTasks.test.mjs`; frontend unit tests: 192 passed; type check and bundle build pass; not exercised against a running server |
+| FE-6 | Remediated, fourth commit | Measured first: of the 111 settings of the default configuration, 52 were named by a help sentence in each of the three languages (median 91 characters in Romanian). Each now has a short name in French, German and Romanian, and three key patterns (container environment, task type per ticket label, stage time limit) build theirs. Measured again: none is left, apart from three priority labels whose short name equals a short help sentence. The French and German names were not reviewed by a native speaker | New test in `tests/settingHelp.test.mjs`; frontend unit tests: 193 passed; type check and bundle build pass; not viewed in a running interface |
+| WEB-15 | Remediated, fourth commit | One project may have at most 256 start, retry and restart operations pending or running; a further new one is refused with 409 `operation_queue_full`. A replayed idempotency key still returns its operation, each project has its own count, and cancel is never counted or refused. Duplicate requests for one job are not merged. The interface has the message in four languages; its bundle is not rebuilt yet | `test_full_job_queue_refuses_new_work_but_never_a_cancel`; `tests/test_web_errors.py`: 7 passed; `tests/errors.test.mjs`: 6 passed |
+| WEB-16 | Remediated, fourth commit | At most two branch previews run at once on a server; a further one is refused at once with 429 `branch_preview_busy` and holds no server thread. The limit is on the web route only: the same check at job admission and in configuration validation is unchanged. There is no per-user limit. The interface has the message in four languages; its bundle is not rebuilt yet | `test_previews_beyond_two_at_once_are_refused_at_once_and_then_served`; `tests/test_web_branch_naming.py`: 11 passed; `tests/errors.test.mjs`: 6 passed |
+| WEB-17 | Documented by decision, fourth commit | Confirmed in code: a developer's configuration response carries the server paths of the project and, for local execution, the account and machine; only the cost cap and the configuration file path are withheld. Kept as it is on 2026-11-17. `01_Documentation/Web_Interface.md` now says what a developer reads | Read only |
+| WEB-18 | No change by decision | Confirmed in code: `GET /api/v1/chatgpt-sign-in` ends a finished sign-in attempt and writes an audit row, and the statistics reads bring the usage projection up to date. The session cookie is set with `SameSite=Strict`, so a request started from another site arrives without it and is refused. The first route does what the administrator's own page does every few seconds; the second is repeatable upkeep. Left as it is on 2026-11-17 | Read only |
+| WEB-19 | No change by decision | Not reachable through the shipped entry point: `adore-web` refuses any bind address but loopback (`adore/web/server.py`), so a proxy on another host cannot connect, and forwarded headers are trusted from loopback, so a proxy or tunnel on the same host yields the HTTPS scheme and the `Secure` flag. A launcher of the operator's own that binds elsewhere is outside this guarantee | Read only |
+| WEB-20 | No change by decision | True for the supervising process only. The engine child keeps a heartbeat of its own and checks its ownership before every external command (`adore/web/worker_context.py`), so a child that lost its place stops at its next effect. The supervising heartbeat gives up after one failed write, so stopping the child on that signal would end a running job on a momentary store error. Left as it is on 2026-11-17 | Read only |
 | WEB-1 | Reclassified | Not a defect: active requirement REQ-UX-178abcf8 specifies a reminder, not a forced change. It stays a product decision to revisit | - |
 
 Consequences to know:
@@ -430,7 +443,7 @@ without the check that its siblings have was found.
 - **WEB-6** (medium, A, plausible) `adore/web/app.py:2473-2474` - Importing a whole TOML file
   or a bundle bypasses the rule that web edits may not set operator-owned keys such as
   `workflow.verify_command`, `container.run_args` or absolute storage paths.
-  *Status 2026-11-17:* open by decision, documented, uncommitted (section 2.1).
+  *Status 2026-11-17:* open by decision, documented, third commit (section 2.1).
 - **WEB-7** (medium, A) `adore/web/store.py:2421-2423` - Audit pruning re-reads and
   re-validates every audit row on every audit write and every audit page read, under the
   writer lock.
@@ -459,17 +472,23 @@ without the check that its siblings have was found.
   *Status 2026-11-17:* remediated for the `sk-` prefix, second commit (section 2.1).
 - **WEB-15** (low, A) `adore/web/store.py:1472-1481` - Queued execution operations have no
   upper bound; only `configure` is capped at 256.
+  *Status 2026-11-17:* remediated, fourth commit (section 2.1).
 - **WEB-16** (low, A, plausible) `adore/web/app.py:4626-4628`; `adore/config.py:843-846` - Any
   project member can make the host start a one-second Python process per request (branch
   rule preview), with no per-user limit.
+  *Status 2026-11-17:* remediated, fourth commit (section 2.1).
 - **WEB-17** (low, A, plausible) `adore/web/app.py:4588-4590`, `:4609-4613` - Non-administrators
   receive host paths and the host account name in the project configuration response.
+  *Status 2026-11-17:* documented by decision, code unchanged, fourth commit (section 2.1).
 - **WEB-18** (low, A) `adore/web/app.py:4232-4249`, `:2633-2637` - Two `GET` handlers change
   state without the CSRF check. `SameSite=Strict` blocks the practical attack.
+  *Status 2026-11-17:* no change by decision (section 2.1).
 - **WEB-19** (low, A, plausible) `adore/web/app.py:3098` - The cookie `Secure` flag follows
   the request scheme. Behind a TLS proxy on another host the cookie is issued without it.
+  *Status 2026-11-17:* no change by decision, not reachable (section 2.1).
 - **WEB-20** (low, A) `adore/web/supervisor.py:410-411` - A lost heartbeat is noticed only
   after the engine child ends; nothing stops the child.
+  *Status 2026-11-17:* no change by decision (section 2.1).
 - **WEB-21** (low, A) `adore/web/commands.py:69-72` - All engine output is captured in memory
   for up to six hours and then discarded.
 - **WEB-22** (low, A, plausible) `adore/web/analytics.py:63-65` - A time-zone key that names a
@@ -542,7 +561,7 @@ without the check that its siblings have was found.
 - **ORC-8** (medium, V for the code) `adore/orchestrator.py:3574` - Ticket comments reach the
   Pi prompt as `author: body` with no delimiter and no filter on the author. The ticket
   description is also unfenced. The pipeline auto-repair path needs no human trigger.
-  *Status 2026-11-17:* remediated in part, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated in part, third commit (section 2.1).
 - **ORC-9** (medium, A) `adore/orchestrator.py:745`, `:753` - Restart deletes the old job
   before the replacement is admitted. If admission fails, the failed job's state, worktree
   and unpublished branch are gone.
@@ -626,7 +645,7 @@ without the check that its siblings have was found.
 - **FRG-7** (medium, A, plausible) `adore/repository_auth.py:175-186`, `:293`;
   `adore/chatgpt.py:253-255` - On Windows the token file and the ChatGPT directory get no
   access-control restriction; protection relies on the inherited profile permissions.
-  *Status 2026-11-17:* documented by decision, code unchanged, uncommitted (section 2.1).
+  *Status 2026-11-17:* documented by decision, code unchanged, third commit (section 2.1).
 - **FRG-8** (low, V) `adore/wizard.py:340` - The generated configuration says
   `adore init --profile NAME --force`. `--profile` is a top-level option (`cli.py:65`), so
   that command fails.
@@ -722,8 +741,10 @@ No cross-site scripting path was found.
 - **FE-5** (medium, A) `web/src/configurationTasks.ts:15`, `:29` - A pending configuration
   operation is polled every 150 ms for up to 61 minutes, with no back-off and no pause when
   the page is hidden. Its errors bypass the normal error mapping.
+  *Status 2026-11-17:* remediated, fourth commit (section 2.1).
 - **FE-6** (medium, A) `web/src/settingLabels.ts:25` - In French, German and Romanian most
   setting labels fall back to the first sentence of the help text.
+  *Status 2026-11-17:* remediated, fourth commit (section 2.1).
 - **FE-7** (low, V) `web/src/jobCopy.ts:72`, `:115`, `:154`, `:193` - The cancel confirmation
   ends with "Cancellation cannot be undone." only in English.
   *Status 2026-11-17:* remediated, second commit (section 2.1).
@@ -925,35 +946,35 @@ exception found by the lead reviewer (CMP-1).
   reproducible.
 - **TOOL-7** (low, A, plausible) `02_Tools/package/set_version.py:170`, `:184` - The old
   version string is replaced wherever it occurs, including inside longer numbers.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated, third commit (section 2.1).
 - **TOOL-8** (low, A) `02_Tools/package/set_version.py:190-199` - Files are replaced one at a
   time; a failure leaves mixed versions, and replaced files get mode 0600 on POSIX.
-  *Status 2026-11-17:* remediated in part, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated in part, third commit (section 2.1).
 - **TOOL-9** (low, A, plausible) `02_Tools/package/launcher_templates/launch.py:458-468`,
   `:143-150`, `:375` - A malformed stop record ends the launcher; the token record is written
   with default permissions.
-  *Status 2026-11-17:* remediated, uncommitted, package not run (section 2.1).
+  *Status 2026-11-17:* remediated, third commit, package not run (section 2.1).
 - **TOOL-10** (low, A, plausible) `02_Tools/package/launcher_templates/launch.py:247-248` -
   `ProcessLookupError` on a forced kill escapes from `finally`.
-  *Status 2026-11-17:* remediated, uncommitted, package not run (section 2.1).
+  *Status 2026-11-17:* remediated, third commit, package not run (section 2.1).
 - **TOOL-11** (low, A, plausible) `adore.sh:3`, `start-adore.sh:3`, `stop-adore.sh:3` - The
   wrappers resolve their directory from `$0` and break when called through a link.
 - **TOOL-12** (low, A, plausible) `02_Tools/setup/install_linux_service.sh:164-165` - A
   checkout path with `|`, `&`, a space or `%` corrupts the generated unit.
-  *Status 2026-11-17:* remediated, uncommitted, installer not run (section 2.1).
+  *Status 2026-11-17:* remediated, third commit, installer not run (section 2.1).
 - **TOOL-13** (low, A, plausible) `02_Tools/setup/adore.service:22-25` - The permissions of
   the `.env` file are never checked or set.
-  *Status 2026-11-17:* remediated as a warning, uncommitted, installer not run (section 2.1).
+  *Status 2026-11-17:* remediated as a warning, third commit, installer not run (section 2.1).
 - **TOOL-14** (low, A, plausible) `02_Tools/setup/install_windows_service.ps1:177`, `:126`,
   `:88` - The task user drops the domain; the runtime string is split on spaces; paths with
   brackets fail.
 - **TOOL-15** (low, A) `02_Tools/setup/install_linux_service.sh:89` - The installer prints a
   pipe-to-shell command as its installation hint.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated, third commit (section 2.1).
 - **TOOL-16** (low, A) `02_Tools/package/release_checks/check_release_consistency.py:401`;
   `create_delivery_package.py:374` - A missing checksum file is accepted; the checksum reads
   the whole archive into memory.
-  *Status 2026-11-17:* remediated in part, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated in part, third commit (section 2.1).
 - **TOOL-17** (low, A, plausible) `02_Tools/package/verify_delivery_package.py:131-146` - The
   built bundle is not scanned for local configuration, `.env`, auth files or state.
 
@@ -978,7 +999,7 @@ were read fully; the rest were searched for patterns. Nothing was run.
 - **TEST-1** (medium, A) `tests/test_clone_cleanup.py:45-46`, `:353-379`, `:441-443` - Runs
   real `git` and inherits the developer's global Git configuration, against the rule that
   unit tests use injected runners.
-  *Status 2026-11-17:* remediated in part, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated in part, third commit (section 2.1).
 - **TEST-2** (medium, A) `tests/test_orchestrator.py` (about 98 calls); `tests/test_prompts.py:70`,
   `:185`, `:384`; `tests/test_doctor.py:52`; `tests/test_wizard.py:21` - Tests call private
   methods directly.
@@ -987,11 +1008,11 @@ were read fully; the rest were searched for patterns. Nothing was run.
   *Status 2026-11-17:* remediated with WEB-3 (section 2.1).
 - **TEST-4** (medium, A) `tests/conftest.py:73-86` - Only `ADORE_HOME` is isolated. `HOME`,
   `USERPROFILE`, `APPDATA`, `XDG_*` and the Git configuration are not.
-  *Status 2026-11-17:* remediated in part, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated in part, third commit (section 2.1).
 - **TEST-5** (medium, A, plausible) `tests/test_config.py:105`; `tests/test_aegis.py:222-229`,
   `:521-523`; `tests/test_state.py:214-229` - Tests assert the absence of retired features.
   The AEGIS and state cases also serve as fail-closed checks; `test_config.py:105` does not.
-  *Status 2026-11-17:* remediated in part, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated in part, third commit (section 2.1).
 - **TEST-6** (medium, A) `tests/test_wizard.py:45`; `tests/test_worker_acceptance.py:211`;
   `tests/test_host_folders.py:72` - Module-wide patches replace `subprocess.run`, `time.sleep`
   and `os.scandir` for the whole process.
@@ -1006,24 +1027,24 @@ were read fully; the rest were searched for patterns. Nothing was run.
   spawned worker imports the 5000-line orchestrator test module.
 - **TEST-11** (low, A) `tests/test_forge_labels.py:222` - Accepts 403 or 404, so it cannot
   tell which control refused.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated, third commit (section 2.1).
 - **TEST-12** (low, A, plausible) `tests/test_web_rbac.py:36` - The cost-privacy assertion
   runs on a project with no usage events.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated, third commit (section 2.1).
 - **TEST-13** (low, A) `tests/test_prompts.py:129-131` - An assertion checks the patch the
   test just installed.
 - **TEST-14** (low, A) `tests/test_worker_acceptance.py:214` - Pins an internal retry count.
 - **TEST-15** (low, A) `tests/test_web_server.py:82-89`; `tests/test_web_rbac.py:75`, `:143`,
   `:151` - SQLite connections are committed but never closed.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated, third commit (section 2.1).
 - **TEST-16** (low, A, plausible) `tests/test_orchestrator.py:147`, `:170` - Fake paths default
   to `C:/repo`; on POSIX that is a relative path inside the repository.
 - **TEST-17** (low, A) `tests/test_host_folders.py:102-111` - The link guard is tested on
   POSIX only, although a `symlink_support` fixture exists (`conftest.py:51`).
-  *Status 2026-11-17:* remediated, uncommitted, not exercised on Windows (section 2.1).
+  *Status 2026-11-17:* remediated, third commit, not exercised on Windows (section 2.1).
 - **TEST-18** (low, A, plausible) `tests/conftest.py:45-47` - The fast password hasher is
   installed only if the store module is already imported.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated, third commit (section 2.1).
 - **DEP-1** (medium, A; one source, not cross-checked) `04_Software/web/package-lock.json:2694-2695`
   - `vite 7.3.6` is reported to fall in a directory-traversal advisory fixed in 7.3.7
   (SNYK-JS-VITE-21282039). It affects the development server, not production builds.
@@ -1031,13 +1052,13 @@ were read fully; the rest were searched for patterns. Nothing was run.
 - **DEP-2** (medium, A) `04_Software/pyproject.toml:13-16` - The web extra allows old
   FastAPI releases, and `starlette` and `pydantic` are imported but not declared. The lock
   file pins patched versions, so only installs outside the lock are exposed.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated, third commit (section 2.1).
 - **DEP-3** (low, A, plausible) `04_Software/ruff.toml:6` - Security rules are not selected,
   yet three tests carry suppressions for them.
   *Status 2026-11-17:* no change (section 2.1).
 - **DEP-4** (low, A) `04_Software/web/package.json:16-27` - Exact pins are mixed with caret
   ranges; there is no `engines` field.
-  *Status 2026-11-17:* remediated in part, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated in part, third commit (section 2.1).
 - **DEP-5** (low, A) The repository has no continuous-integration configuration.
 
 Modules with no direct test: `web/analytics.py`, `web/executor_evidence.py`,

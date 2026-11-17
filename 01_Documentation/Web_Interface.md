@@ -13,6 +13,11 @@ Administrators manage accounts, project grants, service controls and protected
 credentials. Developers see and operate only authorized projects; the server
 rechecks rights for requests and queued operations.
 
+A developer reads all settings of an authorized project, without the cost cap
+and without credentials. That includes the server folders the project uses and,
+for local execution, the account and machine that run it. Grant a project only
+to people who may know where it lives on the server.
+
 The interface supports English, French, German and Romanian, and light, dark or
 system themes. Account presentation preferences are separate from project settings.
 How ADORE works opens the help center; About shows the release, license and notes.

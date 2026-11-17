@@ -188,6 +188,8 @@ External forge/model/runtime calls remain separately bounded and fallible.
 
 TicketStartInput and OperationInput accept optional Literal aegis/direct workflow. Non-Start/Restart actions refuse an override. Replay checks project identity, target/action and workflow before returning an existing operation. The authorized workflow-selection read reports project default and read-only payload presence without invoking repository code; admission remains authoritative for usability. Direct-default readiness reports Direct independently of installed AEGIS.
 
+One project may have at most 256 Start, Retry and Restart operations pending or running. A further new one is refused with 409 `operation_queue_full`; a replayed idempotency key still returns its operation. Cancel is never counted and never refused, so a full queue cannot keep a job from being stopped. Pause, Resume and Delete are administrator actions outside this limit.
+
 ## Cancelled execution restart
 
 The existing project Restart operation accepts cancelled as well as failed state after CSRF, role/project-grant, idempotency and exact state-revision checks. The worker repeats these checks before effects. Cancelled restart acknowledgement binds retained previous state, picked ticket, selected workflow and new run ownership, exposing admitted_run_id for navigation. Job projections expose validated previous_run_id/restarted_run_id journal links. Tickets projects the latest validated generation and includes state_revision for cancelled-job confirmation.

@@ -29,6 +29,9 @@ from adore.web.ownership import OwnershipError, WebStoreError, WorkerOwner, proc
 
 _HASHER = PasswordHasher()
 _DECOY_HASHES: dict[int, str] = {}
+# Requests to start, retry or restart a job that one project may have queued or
+# running at a time. Cancel is never counted and never refused.
+_QUEUED_WORK_LIMIT = 256
 
 
 def _decoy_hash() -> str:
@@ -1544,6 +1547,17 @@ class WebStore:
         stamp = _now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            # A repeated key returns its operation; only a new request is counted.
+            if (action in ("start", "retry", "restart")
+                    and connection.execute(
+                        "SELECT 1 FROM operations WHERE actor_id=? AND idempotency_key=?",
+                        (actor_id, key)).fetchone() is None
+                    and connection.execute(
+                        "SELECT COUNT(*) FROM operations WHERE domain='execution' "
+                        "AND project_id=? AND action IN ('start','retry','restart') "
+                        "AND status IN ('pending','running')",
+                        (identity[0],)).fetchone()[0] >= _QUEUED_WORK_LIMIT):
+                raise WebStoreError("operation queue is full")
             cursor = connection.execute(
                 "INSERT OR IGNORE INTO operations(actor_id,project,project_id,"
                 "action,run_id,status,created_at,updated_at,idempotency_key,domain,"

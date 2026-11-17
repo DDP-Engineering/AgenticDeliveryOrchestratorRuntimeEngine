@@ -104,6 +104,32 @@ def test_price_and_operation_conflicts_return_stable_codes(tmp_path):
                           json=key), 409, "idempotency_conflict")
 
 
+def test_full_job_queue_refuses_new_work_but_never_a_cancel(tmp_path, monkeypatch):
+    """One project's queued starts are bounded; a repeated request and a cancel still pass."""
+    home = tmp_path / "home"
+    ProfileStore(home).create("alpha")
+    ProfileStore(home).create("beta")
+    app = create_app(home)
+    monkeypatch.setattr("adore.web.store._QUEUED_WORK_LIMIT", 2)
+    with TestClient(app) as client:
+        headers = _admin(client)
+
+        def start(project: str, ticket: int, key: str):
+            return client.post(f"/api/v1/projects/{project}/operations/start", headers=headers,
+                               json={"idempotency_key": key, "ticket_iid": ticket})
+
+        first = start("alpha", 1, "start-key-1")
+        assert first.status_code == 200 and start("alpha", 2, "start-key-2").status_code == 200
+        _code(start("alpha", 3, "start-key-3"), 409, "operation_queue_full")
+        # The same request again is answered with its operation, not counted anew.
+        assert start("alpha", 1, "start-key-1").json()["id"] == first.json()["id"]
+        # Each project has a queue of its own.
+        assert start("beta", 1, "start-key-4").status_code == 200
+        # Stopping a job is never refused by the limit.
+        cancel = app.state.web_store.enqueue(1, "alpha", "cancel", "run-1", "cancel-key-1")
+        assert cancel["status"] == "pending"
+
+
 def test_project_setup_failure_keeps_diagnostic_in_message(tmp_path):
     """Wizard explanations survive beside a stable creation code."""
     app = create_app(tmp_path / "home")

@@ -125,6 +125,19 @@ This project follows Keep a Changelog and Semantic Versioning.
   FastAPI release as its lower bound. The web build states the Node releases
   it supports.
 - Tests that run `git` use an empty global and system Git configuration.
+- While it waits for a configuration request, the web interface asks the server
+  less and less often, two seconds apart at most, instead of every 150 ms. A
+  short loss of the server is retried; a lasting one is reported as a network
+  error.
+- One project may have at most 256 requests to start, retry or restart a job
+  queued or running; a further one is refused with `operation_queue_full`. A
+  cancel is never refused.
+- At most two branch name previews run at once on a server; a further one is
+  refused at once with `branch_preview_busy`. Each preview may start a
+  rule-check process of up to one second.
+- In French, German and Romanian every setting has a short name of its own.
+  For 52 settings the interface showed the first sentence of the help text as
+  the name.
 
 ## [0.19.0] - 2026-11-17
 

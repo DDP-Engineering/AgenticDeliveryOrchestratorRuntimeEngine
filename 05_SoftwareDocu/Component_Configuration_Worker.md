@@ -46,7 +46,9 @@ repository connection, model/readiness, recipe and label-ensure routes return
 acceptance. Existing setup/import/transfer review/check/create/environment routes
 and shared ChatGPT routes use the same durable bridge. Branch preview remains a
 short scoped developer-readable request; account/audit/access changes remain short
-independent server transactions.
+independent server transactions. At most two branch previews run at once on a
+server, because each may start a rule-check process of up to one second; a
+further one is refused at once with 429 `branch_preview_busy` instead of waiting.
 `GET /api/v1/operations/{id}` exposes administrator-only configuration outcomes:
 identity/domain/status/reason/times plus `outcome: {status_code, body}` only after
 confirmed success/failure; pending/running/uncertain have no outcome.
