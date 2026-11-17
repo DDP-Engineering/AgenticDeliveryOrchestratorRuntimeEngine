@@ -210,6 +210,39 @@ _MAX_ACCOUNT_BODY_BYTES = 64 * 1024
 _ACCOUNT_BODY_PATHS = frozenset({"/api/v1/session", "/api/v1/me/password"})
 
 
+class _ResponseHeaders:
+    """
+    Add browser protections to every response that does not set them itself.
+    The page is never shown inside another site, a response is never treated as
+    another content type, the address is not passed to other sites, and API
+    answers, which carry the CSRF token and project data, are not stored.
+    """
+
+    _ALWAYS = ((b"x-content-type-options", b"nosniff"), (b"x-frame-options", b"DENY"),
+               (b"referrer-policy", b"same-origin"))
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        wanted = self._ALWAYS
+        if scope["path"].startswith("/api/"):
+            wanted = (*wanted, (b"cache-control", b"no-store"))
+
+        async def with_headers(message) -> None:
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", ()))
+                present = {name.lower() for name, _ in headers}
+                headers += [item for item in wanted if item[0] not in present]
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, with_headers)
+
+
 class _BodyLimit:
     """
     Refuse a request body above its route's bound with 413 before it is buffered.
@@ -2946,6 +2979,8 @@ def create_app(home: str | Path | None = None,
     chatgpt_pending: dict[str, chatgpt.SignIn | None] = {"session": None}
     app = FastAPI(title="ADORE", version=__version__, docs_url=None, redoc_url=None)
     app.add_middleware(_BodyLimit)
+    # Added last, so it is outermost and also covers the body-limit refusal.
+    app.add_middleware(_ResponseHeaders)
     app.state.web_store = web
     app.state.profiles = profiles
     app.state.configuration_tasks = configuration

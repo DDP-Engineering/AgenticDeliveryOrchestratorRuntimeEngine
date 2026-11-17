@@ -45,7 +45,9 @@ from adore.util import (
     parse_duration,
 )
 
-_QUIET_HOURS_RE = re.compile(r"^\d{2}:\d{2}-\d{2}:\d{2}$")
+# 24:00 stays valid as "until midnight"; 99:99 never named a time.
+_QUIET_TIME = r"(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)"
+_QUIET_HOURS_RE = re.compile(rf"^{_QUIET_TIME}-{_QUIET_TIME}$")
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 _MANAGED_CONTAINER_ENV = frozenset({
     "HOME",
@@ -388,10 +390,10 @@ class ContainerConfig:
              selinux_relabel adds the SELinux relabel suffix ADORE's host bind
              mounts need on an enforcing host; see SELINUX_RELABEL_MODES for
              why only the shared label is offered.
-    `parked_state` was removed (review finding ADORE-ARCH-007): it
-             was validated but never consulted at runtime - `keep_parked` is
-             the field parking actually reads - so a redundant, misleading
-             twin was deleted rather than kept as permanent dead config.
+    `keep_parked` and the three `parked_ttl_*` fields are reserved: they
+             are accepted and validated, and no run-time path reads them.
+             A parked container is stopped and retained until it resumes or
+             is cleaned up explicitly.
     """
 
     runtime: str = "docker"
@@ -1531,6 +1533,20 @@ def _config_issues(config: Config) -> list[str]:
     check(isinstance(config.labels.selection.type_epic, str) and
           bool(config.labels.selection.type_epic.strip()),
           "[labels.selection] type_epic must be a non-empty label")
+    # An empty label matches every ticket on some forges, and one label in
+    # two roles makes a state unreadable.
+    role_labels = [
+        (f"[labels.{section}] {name}", value)
+        for section, spec in (("lifecycle", config.labels.lifecycle),
+                              ("control", config.labels.control))
+        for name, value in asdict(spec).items()
+    ]
+    for where, value in role_labels:
+        check(isinstance(value, str) and bool(value.strip()),
+              f"{where} must be a non-empty label")
+    named = [value for _, value in role_labels if isinstance(value, str) and value.strip()]
+    check(len(set(named)) == len(named),
+          "[labels] lifecycle and control labels must be distinct from each other")
     lifecycle_labels = set(asdict(config.labels.lifecycle).values())
     control_labels = set(asdict(config.labels.control).values())
     check(

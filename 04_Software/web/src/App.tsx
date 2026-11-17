@@ -92,12 +92,17 @@ type StorageStatus = { threshold_bytes: number; low: boolean; volumes: Array<{ s
 type AuditPolicy = { retention_days: number | null; max_bytes: number | null };
 
 const localeNames: Record<Locale, string> = { en: "English", fr: "Français", de: "Deutsch", ro: "Română" };
+// Storage can be blocked by the browser; the interface then works without remembering.
+const readStored = (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } };
+const writeStored = (key: string, value: string) => { try { localStorage.setItem(key, value); } catch { /* blocked */ } };
 const initialLocale = (): Locale => {
-  const saved = localStorage.getItem("adore-language") as Locale | null;
+  const saved = readStored("adore-language") as Locale | null;
   if (saved && saved in messages) return saved;
   const browser = navigator.language.slice(0, 2) as Locale;
   return browser in messages ? browser : "en";
 };
+
+const SESSION_ENDED = "adore:session-ended";
 
 async function request<T>(path: string, method = "GET", body?: unknown, csrf?: string, signal?: AbortSignal): Promise<T> {
   let response: Response;
@@ -116,6 +121,8 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
     const detail = payload?.detail;
     if (typeof detail?.code === "string") {
       const failure=new ApiError(detail.code,typeof detail.message === "string" ? detail.message : "");
+      // Every poll and action reports an ended session through one signal.
+      if (detail.code === "authentication_required") window.dispatchEvent(new Event(SESSION_ENDED));
       if (detail.code==="worker_unavailable" && Array.isArray(detail.components) && detail.components.length>0
         && detail.components.every((role:unknown)=>role==="supervisor"||role==="configuration")) failure.components=detail.components;
       throw failure;
@@ -143,7 +150,7 @@ async function readPrices(path: string): Promise<Price[]> {
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>(initialLocale);
-  const [theme, setTheme] = useState(localStorage.getItem("adore-theme") || "system");
+  const [theme, setTheme] = useState(readStored("adore-theme") || "system");
   const [session, setSession] = useState<Session | null>(null);
   const [ticketBodyMode, setTicketBodyMode] = useState<TicketBodyMode>("rendered");
   const confirmedTicketMode = useRef<TicketBodyMode>("rendered");
@@ -437,12 +444,12 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.lang = locale;
-    localStorage.setItem("adore-language", locale);
+    writeStored("adore-language", locale);
   }, [locale]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem("adore-theme", theme);
+    writeStored("adore-theme", theme);
   }, [theme]);
 
   useEffect(() => {
@@ -460,6 +467,27 @@ export default function App() {
     }).catch(() => { if (currentView()) setSession(null); }).finally(() => { if (currentView()) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    const csrf = session.csrf;
+    let active = true, checking = false;
+    // A request of an earlier session may still be in flight, so ask the
+    // server once before showing the sign-in form.
+    const confirmEnded = async () => {
+      if (checking) return;
+      checking = true;
+      try { await request<Session>("/me"); }
+      catch (cause) {
+        if (active && cause instanceof ApiError && cause.code === "authentication_required") {
+          setSession(previous => previous?.csrf === csrf ? null : previous);
+        }
+      }
+      finally { checking = false; }
+    };
+    window.addEventListener(SESSION_ENDED, confirmEnded);
+    return () => { active = false; window.removeEventListener(SESSION_ENDED, confirmEnded); };
+  }, [session?.csrf]);
 
   useEffect(() => {
     if (!session?.user.factory_password) return;
@@ -846,8 +874,12 @@ export default function App() {
 
   const signOut = async () => {
     if (enrollmentGuard.current && !enrollmentGuard.current()) return;
+    let failure: unknown = null;
     try { await request("/session", "DELETE", undefined, (session ?? passwordSession)?.csrf); }
-    finally { clearPrivateDrafts(sessionStorage); setSession(null); setPasswordSession(null); clearPrivateView(); window.history.pushState(null, "", "/"); }
+    catch (cause) { failure = cause; }
+    clearPrivateDrafts(sessionStorage); setSession(null); setPasswordSession(null); clearPrivateView(); window.history.pushState(null, "", "/");
+    // The private view is cleared either way; say so when the server did not confirm the sign-out.
+    if (failure && !(failure instanceof ApiError && failure.code === "authentication_required")) setError(failure);
   };
 
   const operate = async (action: "start" | "retry" | "cancel" | "pause" | "resume", target = "", projectId = selected) => {

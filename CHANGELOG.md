@@ -44,11 +44,68 @@ This project follows Keep a Changelog and Semantic Versioning.
   all user names; successful sign-ins do not count.
 - `adore config validate` and every engine command report a setting of the wrong
   TOML type, or a section given as a single value, as an issue instead of a traceback.
+- An automatic repair after a failed pipeline is no longer dropped when the project
+  is at its active job limit; it starts when a place becomes free.
+- Every web response tells the browser not to show the page inside another site,
+  not to guess content types and not to pass the address to other sites; API
+  answers are never stored by the browser.
+- The delivery package installs dependencies only when they match the hashes in
+  the lock file.
+- The Linux service installer refuses to run as root or through `sudo` unless
+  `ADORE_USER` is set explicitly, so the service no longer becomes a root service
+  by accident.
+- The Windows `-Mode once` task ends a pass after `-PassTimeLimitHours` (default
+  24) instead of letting one pass that never finishes stop the schedule.
 - Evidence in ticket and MR/PR comments no longer keeps the credential of an
   `Authorization: Bearer <credential>` line; only the scheme word was redacted.
 - A job whose state or resources cannot be trusted no longer stops the poll: the
   jobs after it are reconciled and a free slot still admits a new ticket. The job
   is left untouched, logged and still counts toward the active job limit.
+- Two engine processes that start together can no longer read a half-written
+  instance lock or deletion audit file: both now appear already complete.
+- A job step that finds its execution slot still held by the cleanup of the
+  previous step waits up to 0.75 seconds instead of failing at once.
+- The process log keeps writing when its rotation is refused because another
+  process holds the file open.
+- The web supervisor no longer ends an engine process after six hours when the
+  project's `max_wall_clock_seconds` is longer: the limit is that budget plus one
+  hour, and never less than six hours.
+- The push-access check of `adore doctor` and `adore init` ends after 30 seconds
+  and never waits on a credential prompt.
+- `adore init` asks again for a branch template with an unbalanced brace, and
+  writes a valid file for an answer that holds a line break.
+- On Gitea, `draft = false` with a title that starts with `WIP:` opens a ready
+  pull request without the prefix instead of a draft.
+- Model provider keys that start with `sk-` are masked in engine text shown by
+  the web interface; the failure text of a retry is masked the same way, and so
+  are platform errors in the poll log.
+- A settings import that names the table of a removed coding agent is refused
+  as unknown structure at once.
+- When the session ends, the web interface shows the sign-in form instead of
+  polling with an error; a display failure shows a reload prompt instead of an
+  empty page; a request refused as too large has its own message.
+- The cancel confirmation says in French, German and Romanian that cancelling
+  cannot be undone, and the Settings help lists the Tickets tab.
+- `adore config validate` and every engine command report an empty lifecycle or
+  control label, one label used in two of those roles, and quiet hours that are
+  not clock times (`24:00` stays valid). A configuration with such a value no
+  longer starts until it is corrected.
+- `adore init NAME` and `adore profile rename` refuse a name that is a path, so
+  a profile is never written outside the profiles folder.
+- The `.env` reader removes one matching pair of quotes only; a value that
+  itself ends in a quote character is kept whole.
+- A ticket title that starts with `-` no longer fails the creation of its AEGIS
+  task.
+- The revalidation prompt no longer carries a mis-encoded apostrophe.
+- A statistics request whose time zone names a folder of zones, such as
+  `America`, is refused as an invalid time zone instead of a server error.
+- A refused sign-in takes the time of one password check whether or not the
+  user name exists.
+- The web interface works when the browser blocks its storage, reports a
+  sign-out the server did not confirm, and shows the session as ended when
+  project setup receives an empty 401.
+- The web build uses vite 7.3.7 and source-map-js 1.2.2, which close the
+  advisories reported for the development server.
 
 ## [0.19.0] - 2026-11-17
 

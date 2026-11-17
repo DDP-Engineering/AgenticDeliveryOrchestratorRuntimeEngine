@@ -791,3 +791,16 @@ def test_state_listing_propagates_exhausted_sharing_denial(tmp_path, monkeypatch
     monkeypatch.setattr(state_module.time, "sleep", lambda _: None)
     with pytest.raises(StateError, match="storage unavailable"):
         getattr(store, listing)()
+
+
+def test_lock_is_published_whole_and_leaves_no_draft(tmp_path: Path) -> None:
+    """A second starter never reads a half-written lock, and no draft file stays behind."""
+    store = _store(tmp_path)
+    assert store.acquire_lock() is True
+    assert store.acquire_lock() is False
+    names = sorted(path.name for path in store.lock_path.parent.iterdir()
+                   if path.name.startswith(store.lock_path.name))
+    assert names == [store.lock_path.name]
+    info = store.lock_info()
+    assert info is not None and info["pid"] == os.getpid()
+    store.release_lock()

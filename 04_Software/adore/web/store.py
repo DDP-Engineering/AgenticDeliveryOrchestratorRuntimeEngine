@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import hashlib
@@ -28,6 +28,15 @@ from adore.web import audit as audit_contract
 from adore.web.ownership import OwnershipError, WebStoreError, WorkerOwner, process_birth
 
 _HASHER = PasswordHasher()
+_DECOY_HASHES: dict[int, str] = {}
+
+
+def _decoy_hash() -> str:
+    """A hash of a random secret, made once per hasher, that no password matches."""
+    key = id(_HASHER)
+    if key not in _DECOY_HASHES:
+        _DECOY_HASHES[key] = _HASHER.hash(secrets.token_hex(16))
+    return _DECOY_HASHES[key]
 # Fixed at 1 throughout pre-release; change _SCHEMA in place, never add migrations.
 # Existing stores must match the current structure as well as this identifier.
 _SCHEMA_VERSION = 1
@@ -869,6 +878,10 @@ class WebStore:
                 "SELECT * FROM users WHERE username=?", (username,)
             ).fetchone()
         if row is None or row["disabled"]:
+            # Spend the time of a real check, so how fast the refusal comes
+            # does not tell which user names exist.
+            with suppress(VerificationError, InvalidHashError):
+                _HASHER.verify(_decoy_hash(), password)
             return None
         try:
             if not _HASHER.verify(row["password_hash"], password):
@@ -2005,8 +2018,11 @@ class WebStore:
                 "SELECT * FROM worker_owners WHERE status='active' "
                 "AND (? IS NULL OR project_id=?) AND (? IS NULL OR role=?)",
                 (project_id, project_id, role, role)).fetchall()
+            # Ended owners keep their rows; reading only live ones keeps this
+            # per-tick query small however long the history grows.
             participants = connection.execute(
-                "SELECT * FROM worker_processes ORDER BY owner_id,pid,birth").fetchall()
+                "SELECT p.* FROM worker_processes p JOIN worker_owners o ON o.id=p.owner_id "
+                "WHERE o.status='active' ORDER BY p.owner_id,p.pid,p.birth").fetchall()
         recovered = 0
         for owner in owners:
             self._worker_record(owner)

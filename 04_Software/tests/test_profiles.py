@@ -474,3 +474,15 @@ def test_identity_lookup_rejects_malformed_requested_ids(tmp_path, identity):
     with pytest.raises(ProfileError, match="invalid project ID"):
         store.find_by_id(identity)
     assert not store.profiles_dir.exists()
+
+
+@pytest.mark.parametrize("name", ["../../x", "a/b", "a" + chr(92) + "b", "..", "c:evil", " "])
+def test_profile_names_that_are_paths_are_refused(tmp_path: Path, name: str) -> None:
+    """A name is one directory under the profiles folder, never a path out of it."""
+    store = _store(tmp_path)
+    with pytest.raises(ProfileError, match="plain name"):
+        store.create(name)
+    store.create("alpha")
+    with pytest.raises(ProfileError, match="plain name"):
+        store.rename("alpha", name)
+    assert [entry.name for entry in store.profiles_dir.iterdir()] == ["alpha"]

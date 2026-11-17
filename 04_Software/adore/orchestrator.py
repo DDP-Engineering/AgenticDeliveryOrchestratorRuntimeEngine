@@ -344,7 +344,7 @@ class Orchestrator:
                         self.poll_once()
                         failed = False
                     except ForgeError as exc:
-                        self.log(f"poll error (platform): {exc}")
+                        self.log(f"poll error (platform): {_sanitize(exc)}")
                         failed = True
                     except Exception as exc:  # noqa: BLE001 - the loop outlives one pass
                         # One run's unexpected failure must not end the daemon
@@ -456,6 +456,27 @@ class Orchestrator:
         ))
         occupied.discard(excluding)
         return len(occupied) < admission_limit(self.config)
+
+    @contextlib.contextmanager
+    def _execution_slot(self, run_id: str) -> Iterator[None]:
+        """
+        Hold the run's execution slot, waiting out a capacity probe.
+        Another conductor counting free places takes every slot lock for an
+                    instant. Meeting that instant must not cost a resumed run
+                    its launch, so a held slot is tried again for under a
+                    second before it is reported as owned by someone else.
+        Raises LockHeldError: When the slot stays held.
+        """
+        with contextlib.ExitStack() as held:
+            for delay in (0.05, 0.1, 0.2, 0.4, None):
+                try:
+                    held.enter_context(self.store.execution_slot(run_id))
+                    break
+                except LockHeldError:
+                    if delay is None:
+                        raise
+                    self.sleep(delay)
+            yield
 
     def _reserve_execution(self, run: RunState) -> bool:
         """Reserve a resumed executor place before any execution-side effects."""
@@ -1422,7 +1443,7 @@ class Orchestrator:
                 raise StateError("pending job has consumed dispatch authority")
             if not self._activate_initial_dispatch(run, dispatch["config_revision"]):
                 return
-        with self.store.execution_slot(run.run_id):
+        with self._execution_slot(run.run_id):
             if not self._refresh_budgets(run):
                 return
             try:
@@ -1808,7 +1829,6 @@ class Orchestrator:
                     )
                     failure_context = self.prompts.render(
                         "recovery/continuation.md", task_id=task.task_id,
-                        evidence=_sanitize("\n".join(added)),
                     )
                     continue
                 evidence = f"executor exited zero but AEGIS remained at {task.stage}"
@@ -2707,7 +2727,7 @@ class Orchestrator:
         intended = (
             "A fresh executor remediation attempt will be launched."
             if retry else
-            "The configured attempt limit is reached; no fourth launch will occur."
+            "The configured attempt limit is reached; no further launch will occur."
         )
         body = (
             f"{self.identity.tag} Problem in stage `{failed_stage}` - attempt "
@@ -3417,6 +3437,8 @@ class Orchestrator:
             and self.config.review.on_pipeline_failure == "revise"
             and run.review_rounds < self.config.review.max_review_rounds
         )
+        if observed and not auto_repair:
+            self._record_pipeline(run, observed)
         if pipeline_failed and not auto_repair and not requested:
             # Either the mode is notify/ignore, or the round budget is spent:
             # say so on the MR and leave the run for a human.
@@ -3434,7 +3456,10 @@ class Orchestrator:
             )
             return
         if not self._reserve_execution(run):
+            # At capacity. An automatic repair stays unrecorded and is tried again.
             return
+        if auto_repair:
+            self._record_pipeline(run, observed)
         try:
             comments = self.forge.list_mr_comments(run.mr_iid)
             self._transient(run, "revision-provision", lambda: self._provision(run))
@@ -3564,12 +3589,21 @@ class Orchestrator:
             return ""
         if status in {"unknown", "none"} or status == run.pipeline_reported:
             return ""
+        return status
+
+    def _record_pipeline(self, run: RunState, status: str) -> None:
+        """
+        Remember a verdict as handled, so it is not acted on again.
+        Kept apart from the read: a failure that should start a repair is
+                    recorded only once the repair holds its execution slot.
+                    Recorded earlier, a project at capacity would drop the
+                    repair for good, because the next poll sees no change.
+        """
         run.pipeline_reported = status
         self.store.save(run)
         self.store.journal(
             run.run_id, "pipeline-observed", status=status, mr=run.mr_iid
         )
-        return status
 
     def _notify_pipeline_failure(self, run: RunState) -> None:
         """

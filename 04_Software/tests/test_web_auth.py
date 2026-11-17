@@ -6,6 +6,7 @@ import sqlite3
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
 from adore.web.app import create_app
+import adore.web.store as store_module
 from adore.web.store import WebStore, WebStoreError
 from fastapi.testclient import TestClient
 import pytest
@@ -318,6 +319,27 @@ def test_a_body_without_a_declared_length_is_bounded_while_it_arrives(tmp_path):
         assert refused.json() == {"detail": {"code": "request_too_large"}}
 
 
+def test_every_response_carries_browser_protections(tmp_path):
+    """Pages, API answers, errors and refusals all tell the browser how to treat them."""
+    with TestClient(create_app(tmp_path / "home")) as client:
+        responses = [
+            client.get("/"),
+            client.get("/api/v1/health"),
+            client.get("/api/v1/projects"),
+            client.post("/api/v1/session", json={"username": "admin", "password": "admin"}),
+            client.post("/api/v1/session", content=b"x" * (64 * 1024 + 1),
+                        headers={"content-type": "application/json"}),
+        ]
+        assert [response.status_code for response in responses] == [200, 200, 401, 200, 413]
+        for response in responses:
+            assert response.headers["x-content-type-options"] == "nosniff"
+            assert response.headers["x-frame-options"] == "DENY"
+            assert response.headers["referrer-policy"] == "same-origin"
+        assert all(response.headers["cache-control"] == "no-store" for response in responses[1:])
+        # Static pages keep their own caching; only API answers are never stored.
+        assert responses[0].headers.get("cache-control") != "no-store"
+
+
 def test_own_password_change_bounds_both_passwords(tmp_path):
     """A password above the accepted length is refused before it is hashed."""
     with TestClient(create_app(tmp_path / "home")) as client:
@@ -511,3 +533,23 @@ def test_factory_notice_requires_actual_creation(tmp_path, capsys, monkeypatch):
     reopened = WebStore(path)
     assert "admin/admin" not in capsys.readouterr().out
     assert reopened.authenticate("admin", "new-long-password") is not None
+
+
+def test_unknown_and_disabled_names_spend_one_password_check(tmp_path, monkeypatch):
+    """A refusal costs one hash check whether or not the user name exists."""
+    store = WebStore(tmp_path / "web.db")
+    checks: list[str] = []
+    real = store_module._HASHER
+
+    class Counting:
+        def hash(self, password):
+            return real.hash(password)
+
+        def verify(self, stored, password):
+            checks.append(stored)
+            return real.verify(stored, password)
+
+    monkeypatch.setattr(store_module, "_HASHER", Counting())
+    assert store.authenticate("nobody", "admin") is None
+    assert store.authenticate("admin", "wrong") is None
+    assert len(checks) == 2 and checks[0] != checks[1]

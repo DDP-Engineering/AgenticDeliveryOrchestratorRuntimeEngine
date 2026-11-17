@@ -19,6 +19,7 @@ import tempfile
 from threading import local
 import time
 from typing import Any
+from uuid import uuid4
 
 from adore.branding import DEFAULT_STATE_ROOT, PRODUCT_SLUG
 from adore.preparation import PreparationError, validate_plan
@@ -1140,18 +1141,21 @@ class StateStore:
         Atomically create the lock file, recording pid + host.
         Returns: True when this call created it; False when it already existed.
         """
+        # The record is written to a private file first and then published under
+        # the lock name in one step. Created empty and filled afterwards, a crash
+        # in between left a lock nobody could ever prove stale.
+        draft = self.lock_path.with_name(f"{self.lock_path.name}.{os.getpid()}.{uuid4().hex}")
         try:
-            with self.lock_path.open("x", encoding="utf-8") as handle:
-                json.dump(
-                    {
-                        "pid": os.getpid(),
-                        "acquired_at": utc_now_iso(),
-                        "host": socket.gethostname(),
-                    },
-                    handle,
-                )
+            draft.write_text(json.dumps({
+                "pid": os.getpid(),
+                "acquired_at": utc_now_iso(),
+                "host": socket.gethostname(),
+            }), encoding="utf-8")
+            os.link(draft, self.lock_path)
         except FileExistsError:
             return False
+        finally:
+            draft.unlink(missing_ok=True)
         return True
 
     def _lock_is_stale(self) -> bool:

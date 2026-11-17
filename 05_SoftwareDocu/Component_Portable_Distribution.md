@@ -18,6 +18,7 @@ Application code remains in `04_Software/`.
 
 - Include managed CPython from Astral Python Standalone Builds and dependency
   wheels selected by the frozen lock's `web` extra, with third-party licenses.
+  Each wheel must match the hash recorded in the lock; a mismatch stops the build.
 - Include the application wheel, precompiled web assets, curated user documentation,
   legal notices, native start/stop/CLI wrappers and checksum inventory.
 - Start a bounded API/worker pair, open a ready browser interface, reopen the

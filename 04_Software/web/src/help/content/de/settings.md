@@ -8,7 +8,7 @@ Azure DevOps Services ergänzt **Organisations-URL**, **Azure-Projekt**, **Berei
 
 ## Wo Sie die Einstellungen finden {#where}
 
-Öffnen Sie [Projekte](/projects), wählen Sie ein Projekt und dann den Reiter **Einstellungen**. Die Reiter sind Zusammenfassung, Einstellungen, Aufträge, Statistiken, Verlauf und, für Administratoren, Zugriff.
+Öffnen Sie [Projekte](/projects), wählen Sie ein Projekt und dann den Reiter **Einstellungen**. Die Reiter sind Zusammenfassung, Einstellungen, Aufträge, Tickets, Statistiken, Verlauf und, für Administratoren, Zugriff.
 
 Die gespeicherten Einstellungen werden alle 15 Sekunden aktualisiert, solange der Browser-Tab sichtbar ist. Bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen pausiert die Aktualisierung. Auch bei der Eingabe eines Preises oder API-Schlüssels und bei der ChatGPT-Anmeldung pausiert die Aktualisierung.
 

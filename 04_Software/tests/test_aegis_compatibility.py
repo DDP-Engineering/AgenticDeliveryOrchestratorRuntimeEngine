@@ -39,7 +39,15 @@ def test_aegis_016_public_cli_is_compatible():
     assert client.task_status(task).stage == "validate"
     check = client.check(task, strict=True, run=True)
     assert check.passed and len(check.executed_runs) == 1
-    assert runner.calls == [["python", ".agentic/aegis.py", *records[key]["argv"]] for key in order]
+    expected = [["python", ".agentic/aegis.py", *records[key]["argv"]] for key in order]
+    # The capture has the title before `--type`. The client now sends it after
+    # `--`, which AEGIS reads as the same task and which also accepts a title
+    # that starts with "-".
+    assert records["create"]["argv"] == ["task", "Compatibility fixture", "--type", "change"]
+    expected[order.index("create")] = [
+        "python", ".agentic/aegis.py", "task", "--type", "change", "--", "Compatibility fixture",
+    ]
+    assert runner.calls == expected
     assert "advance, pause, log, ruling, verdict" in data["journal"]
     assert "## State" in data["journal"]
 

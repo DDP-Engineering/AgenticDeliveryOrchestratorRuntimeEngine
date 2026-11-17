@@ -4,8 +4,7 @@ Administrarea acoperă conturile de utilizator, accesul la proiecte, starea sist
 
 > Tot ce se află pe această pagină cere rolul de Administrator.
 
-
-Un semnal recent arată că supervisorul este disponibil. **Ocupat** înseamnă o comandă, o verificare de proiect sau o lucrare în curs; **Activitate necunoscută** înseamnă că dovada lipsește. Proiectele progresează independent, cu lucrări paralele până la limita fiecăruia. Comenzile de configurare au un lucrător separat. Pornirile așteaptă un loc; anularea autorizată poate ajunge la o lucrare activă.
+Starea sistemului afișează separat **Supervisor**, **Worker de configurare**, **Worker de proiect** și workerii activi de lucrare/control. Un heartbeat recent arată contactul, nu un loc liber de execuție sau o operație reușită. Activitatea este Lucrează, Inactiv sau necunoscută. Un worker de proiect lipsă afectează doar proiectul numit. Disponibilitatea serverului numește supervisorul sau workerul de configurare indisponibil; defectele workerilor de proiect rămân locale.
 
 ## Utilizatori {#users}
 

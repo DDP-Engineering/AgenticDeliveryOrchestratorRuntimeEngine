@@ -11,6 +11,56 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+[[release.entry]]
+category = "fixed"
+topic = { en = "Accounts", fr = "Comptes", de = "Konten", ro = "Conturi" }
+text = { en = "When your session ends, the sign-in form appears instead of a repeating error.", fr = "Quand la session expire, le formulaire de connexion remplace l’erreur répétée.", de = "Endet die Sitzung, erscheint das Anmeldeformular statt einer wiederholten Fehlermeldung.", ro = "Când sesiunea expiră, apare formularul de autentificare în locul unei erori repetate." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Accounts", fr = "Comptes", de = "Konten", ro = "Conturi" }
+text = { en = "Unsuccessful sign-in attempts are limited per user name and per client.", fr = "Les tentatives de connexion échouées sont limitées par nom d’utilisateur et par client.", de = "Fehlgeschlagene Anmeldeversuche sind pro Benutzername und pro Client begrenzt.", ro = "Încercările eșuate de autentificare sunt limitate pe nume de utilizator și pe client." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
+text = { en = "A display failure shows a reload prompt instead of an empty page.", fr = "Une erreur d’affichage propose de recharger au lieu d’une page vide.", de = "Bei einem Anzeigefehler erscheint ein Hinweis zum Neuladen statt einer leeren Seite.", ro = "La o eroare de afișare apare opțiunea de reîncărcare în locul unei pagini goale." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Long jobs are no longer stopped after six hours when the project budget allows more.", fr = "Les travaux longs ne sont plus arrêtés après six heures si le budget du projet le permet.", de = "Lange Jobs enden nicht mehr nach sechs Stunden, wenn das Projektbudget mehr erlaubt.", ro = "Lucrările lungi nu mai sunt oprite după șase ore dacă bugetul proiectului permite." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "An automatic repair after a failed pipeline waits for a free place instead of being dropped.", fr = "La réparation automatique après un pipeline en échec attend une place libre.", de = "Die automatische Reparatur nach fehlgeschlagener Pipeline wartet auf einen freien Platz.", ro = "Repararea automată după un pipeline eșuat așteaptă un loc liber în loc să fie pierdută." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "One job with unreadable state no longer stops the other jobs from being checked.", fr = "Un travail à l’état illisible n’empêche plus la vérification des autres travaux.", de = "Ein Job mit unlesbarem Zustand verhindert nicht mehr die Prüfung der anderen Jobs.", ro = "O lucrare cu stare ilizibilă nu mai împiedică verificarea celorlalte lucrări." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "The cancel confirmation says in every language that cancelling cannot be undone.", fr = "La confirmation d’annulation précise dans chaque langue qu’elle est irréversible.", de = "Die Abbruchbestätigung nennt in jeder Sprache, dass der Abbruch endgültig ist.", ro = "Confirmarea anulării precizează în fiecare limbă că anularea nu poate fi retrasă." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Provider keys and bearer credentials are masked in job evidence and command results.", fr = "Les clés de fournisseur et identifiants Bearer sont masqués dans les preuves et résultats.", de = "Anbieterschlüssel und Bearer-Zugangsdaten werden in Nachweisen und Ergebnissen maskiert.", ro = "Cheile de furnizor și credențialele Bearer sunt mascate în dovezi și rezultate." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "A wrong type, an empty or repeated label or an impossible time is reported as an issue.", fr = "Un type incorrect, une étiquette vide ou répétée ou une heure impossible sont signalés.", de = "Falscher Typ, leeres oder doppeltes Label oder unmögliche Uhrzeit werden als Problem gemeldet.", ro = "Tipul greșit, o etichetă goală sau repetată ori o oră imposibilă sunt raportate ca probleme." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Delivery", fr = "Livraison", de = "Lieferung", ro = "Livrare" }
+text = { en = "On Gitea, a ready pull request no longer opens as a draft when its title starts with WIP.", fr = "Sur Gitea, une demande prête ne s’ouvre plus en brouillon si son titre commence par WIP.", de = "Auf Gitea wird ein fertiger Pull Request mit WIP im Titel nicht mehr als Entwurf geöffnet.", ro = "Pe Gitea, o cerere pregătită nu se mai deschide ca schiță când titlul începe cu WIP." }
+
 [[release]]
 version = "0.19.0"
 date = "2026-11-17"

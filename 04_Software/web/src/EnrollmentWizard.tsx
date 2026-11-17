@@ -298,9 +298,11 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         cache: "no-store", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify(body) });
     } catch { throw new ApiError("network_error"); }
     response = await completedConfiguration(response);
-    const value = await response.json().catch(() => { throw new ApiError("unexpected_response"); });
+    // A 401 without a readable body still means the session ended.
+    const unreadable = response.status === 401 ? "authentication_required" : "unexpected_response";
+    const value = await response.json().catch(() => { throw new ApiError(unreadable); });
     if (!response.ok) {
-      if (typeof value?.detail?.code !== "string") throw new ApiError("unexpected_response");
+      if (typeof value?.detail?.code !== "string") throw new ApiError(unreadable);
       throw new SetupError(value.detail.code, isFindings(value.detail.issues) ? value.detail.issues : []);
     }
     return value;

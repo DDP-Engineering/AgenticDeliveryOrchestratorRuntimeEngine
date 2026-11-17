@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, suppress
 from datetime import UTC, datetime
 import os
 from pathlib import Path
@@ -13,16 +13,6 @@ import sqlite3
 from adore.state import StateError
 
 NAME = "deletion-audit.db"
-_COLUMNS = {
-    "event_key",
-    "project",
-    "project_id",
-    "run_id",
-    "created_at",
-    "result",
-    "imported",
-    "dirty",
-}
 
 
 class DeletionAuditError(StateError):
@@ -39,19 +29,25 @@ class DeletionAudit:
             home.mkdir(parents=True, exist_ok=True)
             if self.path.is_symlink():
                 raise DeletionAuditError("deletion audit path is a symbolic link")
-            try:
-                fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            except FileExistsError:
-                fd = None
-            if fd is not None:
-                os.close(fd)
-                with closing(sqlite3.connect(self.path)) as connection, connection:
-                    connection.execute(
-                        "CREATE TABLE events(event_key TEXT PRIMARY KEY, project TEXT NOT NULL, "
-                        "project_id TEXT, run_id TEXT NOT NULL, created_at TEXT NOT NULL, "
-                        "result TEXT NOT NULL, imported INTEGER NOT NULL, dirty INTEGER NOT NULL)"
-                    )
-                    connection.execute("PRAGMA user_version=1")
+            if not self.path.exists():
+                # Build the complete store beside its final name and publish it in
+                # one step. Created empty first, a second opener or a crash in
+                # between saw a store without its schema and refused it for good.
+                draft = self.path.with_name(f"{os.getpid()}.{secrets.token_hex(8)}.{NAME}")
+                try:
+                    os.close(os.open(draft, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+                    with closing(sqlite3.connect(draft)) as connection, connection:
+                        connection.execute(
+                            "CREATE TABLE events(event_key TEXT PRIMARY KEY, "
+                            "project TEXT NOT NULL, project_id TEXT, run_id TEXT NOT NULL, "
+                            "created_at TEXT NOT NULL, result TEXT NOT NULL, "
+                            "imported INTEGER NOT NULL, dirty INTEGER NOT NULL)"
+                        )
+                        connection.execute("PRAGMA user_version=1")
+                    with suppress(FileExistsError):
+                        os.link(draft, self.path)
+                finally:
+                    draft.unlink(missing_ok=True)
             with self.connect() as connection:
                 self.validate(connection)
         except (OSError, sqlite3.Error, ValueError) as exc:

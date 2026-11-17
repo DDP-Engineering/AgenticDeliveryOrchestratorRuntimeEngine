@@ -590,3 +590,32 @@ def test_wizard_reports_unsupported_present_payload_without_direct_fallback(tmp_
     assert any("aegis 1.0.0" in line for line in lines)
     assert not any("No AEGIS found" in line for line in lines)
     assert validate_config(load_config(store.config_path("unsupported"))) == []
+
+
+def test_wizard_reprompts_on_malformed_branch_template(tmp_path: Path) -> None:
+    """A template with an unclosed brace asks again instead of ending in a traceback."""
+    store = _store(tmp_path)
+    clone = _clone(tmp_path)
+    asker = ScriptedAsker(_answers(
+        clone, branch_template=["{iid}-{slug", "feature/{iid}"],
+    ))
+    run_wizard(store, asker=asker, out=lambda _l: None, runner=_runner(),
+               os_key="linux", name="b")
+    assert asker.reads.count("branch_template") == 2
+    assert load_config(store.config_path("b")).worktree.branch_template == "feature/{iid}"
+
+
+def test_toml_string_keeps_a_multi_line_answer_valid() -> None:
+    """Line breaks and control characters are escaped, so the written file still parses."""
+    for value in ("plain", "it's", "two" + chr(10) + "lines", "tab" + chr(9) + 'and "quote"'):
+        assert tomllib.loads("key = " + wizard._toml_string(value))["key"] == value
+
+
+def test_wizard_refuses_a_profile_name_that_is_a_path(tmp_path: Path) -> None:
+    """A name given on the command line cannot place the profile outside its folder."""
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(_clone(tmp_path)))
+    with pytest.raises(WizardError, match="plain name"):
+        run_wizard(store, asker=asker, out=lambda _l: None, runner=_runner(),
+                   os_key="linux", name="../../outside")
+    assert not (tmp_path / "outside").exists()

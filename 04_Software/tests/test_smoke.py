@@ -831,3 +831,17 @@ def test_cli_manual_start_binds_exceptions_and_success(
     record = json.loads(line.removeprefix("ADORE_START_RESULT "))
     assert record == {"schema": 1, "ticket": 7, "exit_code": code, "reason": reason}
     assert "PRIVATE" not in line
+
+
+def test_process_log_keeps_writing_when_rotation_is_refused(tmp_path: Path, monkeypatch) -> None:
+    """A rename refused while another process holds the file must not lose the line."""
+    logger = ProcessLogger(tmp_path / "adore.log", max_bytes=10, backups=2)
+
+    def refused(_incoming: int) -> None:
+        raise PermissionError("file is in use")
+
+    monkeypatch.setattr(logger, "_rotate_if_needed", refused)
+    logger.append("first line")
+    logger.append("second line")
+    text = (tmp_path / "adore.log").read_text(encoding="utf-8")
+    assert "first line" in text and "second line" in text

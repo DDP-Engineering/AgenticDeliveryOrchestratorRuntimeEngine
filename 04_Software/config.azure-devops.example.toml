@@ -28,7 +28,7 @@ branch_template = "{slug}/{run_id}"
 [executor]
 provider = "openai"
 model = "gpt-5.5"
-env_keys = ["OPENAI_API_KEY"]
+env_keys = []                       # the provider key is included automatically
 
 [container]
 runtime = "docker"

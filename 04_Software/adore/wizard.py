@@ -1,4 +1,4 @@
-"""The `adore init` assisted-configuration wizard (Assisted_Config_And_"""
+"""The `adore init` assisted-configuration wizard."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from adore.pi_providers import (
     provider_ids,
     valid_endpoint_url,
 )
-from adore.profiles import Profile, ProfileStore
+from adore.profiles import Profile, ProfileStore, is_plain_name
 from adore.util import CommandRunner, run_command
 
 # REUSE-IgnoreStart
@@ -295,6 +295,9 @@ def _toml_string(value: str) -> str:
     if "'" not in value and "\n" not in value:
         return f"'{value}'"
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    # A basic string may not hold a raw line break or control character.
+    escaped = "".join(f"\\u{ord(char):04x}" if ord(char) < 32 or ord(char) == 127 else char
+                      for char in escaped)
     return f'"{escaped}"'
 
 
@@ -392,6 +395,9 @@ def run_wizard(
             validate=lambda v: None if re.match(r"^[a-z0-9][a-z0-9._-]{0,63}$", v)
             else "use lowercase letters/digits/._- (start alphanumeric)",
         ), asker, out)
+    if not is_plain_name(name):
+        # A name given on the command line skips the prompt's own check.
+        raise WizardError(f"profile name must be a plain name, not a path: {name!r}")
     if store.exists(name) and not force:
         raise WizardError(f"profile {name!r} already exists (use --force to overwrite)")
 
@@ -491,7 +497,8 @@ def run_wizard(
             return "must contain {run_id} or {iid} (branches must be unique per ticket)"
         try:
             sample = value.format(slug=slug, run_id="sample-run-1", iid=1)
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, ValueError):
+            # ValueError: an unbalanced or empty brace, such as "feature/{slug".
             return "only {slug}, {run_id}, {iid} placeholders are allowed"
         if branch_rule and not re.compile(branch_rule).match(sample):
             return f"renders {sample!r}, which the push rule would REJECT"

@@ -138,12 +138,9 @@ def _declared(value: object, template: object, prefix: str = "") -> None:
         if type(value) is not dict:
             raise PortableSettingsError()
         for key, item in value.items():
-            if prefix == "executor" and key not in template:
-                _declared(item, {"command": "", "model": ""}, f"executor.{key}")
-            elif key not in template or prefix == "executor" and key == "commands":
+            if key not in template:
                 raise PortableSettingsError()
-            else:
-                _declared(item, template[key], f"{prefix}.{key}" if prefix else key)
+            _declared(item, template[key], f"{prefix}.{key}" if prefix else key)
     elif type(template) is list:
         if type(value) is not list:
             raise PortableSettingsError()

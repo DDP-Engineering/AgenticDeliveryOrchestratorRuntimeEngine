@@ -236,3 +236,13 @@ def test_read_agent_file_never_follows_a_link(tmp_path, symlink_support) -> None
     with pytest.raises(UnsafeFileError) as refused:
         read_agent_file(path, 16)
     assert "private" not in str(refused.value)
+
+
+def test_load_env_file_removes_one_matching_quote_pair_only(tmp_path) -> None:
+    """A value that itself ends in a quote character is kept whole."""
+    env = tmp_path / ".env"
+    lines = ["PLAIN=abc'", 'PAIRED="p q"', "INNER='it" + '"' + "s'", 'OPEN="half']
+    env.write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
+    assert load_env_file(env) == {
+        "PLAIN": "abc'", "PAIRED": "p q", "INNER": 'it"s', "OPEN": '"half',
+    }

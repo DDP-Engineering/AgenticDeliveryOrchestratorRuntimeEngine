@@ -31,6 +31,16 @@ LOG = logging.getLogger(__name__)
 _EXECUTION = ("start", "retry", "restart", "cancel")
 _CONFIGURATION = ("pause", "resume", "delete")
 _OWNER = "ADORE_PROJECT_COMMAND_OWNER"
+_CHILD_SECONDS = 21600
+
+
+def child_time_limit(config) -> float:
+    """
+    Seconds after which a child process counts as stuck and is ended.
+    Six hours, or the project's job time budget plus an hour when that is
+    longer: a job may never be cut short by a bound below its own budget.
+    """
+    return max(_CHILD_SECONDS, config.budgets.max_wall_clock_seconds + 3600)
 
 
 def _environment(profiles: ProfileStore) -> dict[str, str]:
@@ -218,7 +228,7 @@ class ProjectWorker:
             if code is None:
                 # A blocked admission/command has a finite independent budget;
                 # it cannot hold polling or progress in another project.
-                if now - self.started[key] > 21600:
+                if now - self.started[key] > child_time_limit(config):
                     child.request_stop()
                     child.kill()
                 continue
@@ -407,7 +417,11 @@ def main() -> int:
             argv = [sys.executable, "-m", "adore", "--profile", profile.name]
             argv.extend(["conduct", args.run_id, "--config-revision", args.revision]
                         if args.role == "run" else ["run", "--once", "--admit-only"])
-            outcome = _run(argv, env)
+            try:
+                limit = child_time_limit(load_config(profiles.config_path(profile.name)))
+            except (OSError, ValueError, TypeError, AttributeError):
+                limit = _CHILD_SECONDS
+            outcome = _run(argv, env, timeout=limit)
             return 1 if failed.is_set() else outcome.code
     finally:
         if args.role in ("run", "command"):

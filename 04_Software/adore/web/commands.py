@@ -60,7 +60,7 @@ _NOT_STARTED = re.compile(
 _COMMAND_ACTIONS = ("start", "retry", "restart", "cancel", "pause", "resume", "delete")
 
 
-def _run(argv: list[str], env: dict[str, str]) -> CommandOutcome:
+def _run(argv: list[str], env: dict[str, str], *, timeout: float = 21600) -> CommandOutcome:
     """
     Run a fixed CLI argument vector with a finite timeout, keeping its output.
     stderr joins stdout so the kept lines stay in the order they were printed.
@@ -69,7 +69,7 @@ def _run(argv: list[str], env: dict[str, str]) -> CommandOutcome:
         result = subprocess.run(
             argv, env=automatic_environment(env), stdin=subprocess.DEVNULL,
             **background_process_options(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, encoding="utf-8", errors="replace", check=False, timeout=21600,
+            text=True, encoding="utf-8", errors="replace", check=False, timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
         output = exc.output
@@ -301,7 +301,7 @@ class CommandWorker:
                     failed = state.load(target)
                     if failed.lifecycle != "failed" or not failed.outcome:
                         raise StateError("Retry failure evidence is unavailable")
-                    result = "retry:failed:" + failed.outcome[:2200]
+                    result = "retry:failed:" + redact_text(failed.outcome)[:2200]
                 except (FileNotFoundError, StateError, OSError):
                     result = "retry:state_unavailable"
         if action == "restart" and code != 124:

@@ -346,7 +346,8 @@ class AegisClient:
         clean = title.strip()
         if not clean or clean != title or len(clean.encode("utf-8")) > 2048:
             raise AegisProtocolError("AEGIS task title must be a bounded trimmed string")
-        result = self._run(["task", title, "--type", task_type])
+        # "--" ends the options: a ticket title may itself start with "-".
+        result = self._run(["task", "--type", task_type, "--", title])
         lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
         if len(lines) != 1:
             raise AegisProtocolError("AEGIS task creation must print exactly one path")

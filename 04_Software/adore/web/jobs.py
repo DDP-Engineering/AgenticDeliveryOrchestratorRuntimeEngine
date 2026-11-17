@@ -32,7 +32,9 @@ _AUTH = re.compile(r"(?i)(\b(?:Bearer|Basic)\s+)\S+")
 # A bounded scheme keeps runs such as "a.a.a." linear; real schemes are short.
 _URL_CREDENTIAL = re.compile(r"(?i)(\b[a-z][a-z0-9+.-]{0,31}://[^/\s:@]+:)[^@\s/]+(@)")
 _FORGE_TOKEN = re.compile(
-    r"\b(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|glpat-[A-Za-z0-9_-]{16,})"
+    r"\b(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|glpat-[A-Za-z0-9_-]{16,}"
+    # Model provider keys share the "sk-" prefix and reach engine output bare.
+    r"|sk-[A-Za-z0-9_-]{20,})"
 )
 
 

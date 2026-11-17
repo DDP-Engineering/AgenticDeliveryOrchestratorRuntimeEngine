@@ -1,4 +1,4 @@
-"""Runtime-project profiles: the cross-platform store that lets one ADORE"""
+"""Runtime-project profiles: the store that lets one ADORE install serve several projects."""
 
 from __future__ import annotations
 
@@ -94,6 +94,16 @@ def validate_display_name(value: object) -> str:
         raise ProfileError("invalid display name", code="invalid_display_name",
                            field="display_name")
     return value
+
+
+def is_plain_name(name: object) -> bool:
+    """
+    Whether a profile name is one directory name rather than a path.
+    name: Requested or stored profile name.
+    Returns: False for separators, a drive colon, NUL, "." or "..".
+    """
+    return (isinstance(name, str) and bool(name.strip()) and name not in (".", "..")
+            and not any(char in name for char in "/\\:\x00"))
 
 
 def validate_profile_id(name: object) -> str:
@@ -323,6 +333,8 @@ class ProfileStore:
         Returns: The saved Profile (created_at/updated_at stamped).
         Raises ProfileError: When the profile exists and overwrite is False.
         """
+        if not is_plain_name(name):
+            raise ProfileError(f"profile name must be a plain name, not a path: {name!r}")
         if self.exists(name) and not overwrite:
             raise ProfileError(f"profile already exists: {name!r}")
         if "display_name" in fields_:
@@ -456,6 +468,8 @@ class ProfileStore:
         """
         if not self.exists(old):
             raise ProfileError(f"no such profile: {old!r}")
+        if not is_plain_name(new):
+            raise ProfileError(f"profile name must be a plain name, not a path: {new!r}")
         if self.exists(new):
             raise ProfileError(f"profile already exists: {new!r}")
         self.profile_dir(old).replace(self.profile_dir(new))

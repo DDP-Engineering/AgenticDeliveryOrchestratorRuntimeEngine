@@ -17,7 +17,7 @@ from adore.web import commands
 from adore.web.ownership import OwnershipError, process_birth
 from adore.web.processes import ProcessTree, assert_ancestry, stop_trees
 from adore.web.store import WebStore
-from adore.web.supervisor import ProjectWorker, Supervisor
+from adore.web.supervisor import ProjectWorker, Supervisor, child_time_limit
 import pytest
 
 from tests.execution_records import execution_record
@@ -724,3 +724,12 @@ def test_failed_project_scope_cleanup_preserves_other_worker_processes(tmp_path)
     assert alpha.project_id in supervisor.retiring
     assert supervisor.children[beta.project_id] is before[beta.project_id]
     assert supervisor.children["configuration"] is before["configuration"]
+
+
+def test_child_time_limit_follows_the_project_budget():
+    """A wall-clock budget longer than six hours is not cut at the fixed floor."""
+    def config(seconds):
+        return SimpleNamespace(budgets=SimpleNamespace(max_wall_clock_seconds=seconds))
+
+    assert child_time_limit(config(3600)) == 21600
+    assert child_time_limit(config(86400)) == 90000

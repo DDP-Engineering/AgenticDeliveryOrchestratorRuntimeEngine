@@ -34,7 +34,9 @@ bash 02_Tools/setup/install_linux_service.sh --uninstall
 ```
 
 The first command prepares only. `--service` installs and starts `adore.service`
-using the adjacent template. `ADORE_USER` selects the service account. Logs use
+using the adjacent template. `ADORE_USER` selects the service account. Run the
+script as that account, not with `sudo`: it asks for `sudo` itself where needed and
+refuses to start as root unless `ADORE_USER` is set explicitly. Logs use
 `journalctl -u adore -f` and the configured run store. `--skip-image` skips image
 preparation; `--allow-open-egress` explicitly allows unattended open egress.
 
@@ -47,7 +49,9 @@ On Windows:
 .\02_Tools\setup\install_windows_service.ps1 -Uninstall
 ```
 
-The default registers the CLI loop at logon. `-NoTask` prepares only.
+The default registers the CLI loop at logon. `-NoTask` prepares only. In
+`-Mode once` a pass that still runs after `-PassTimeLimitHours` (default 24) is
+ended, so one pass that never finishes cannot stop every later one.
 `-Runtime` selects Docker, Podman or a WSL wrapper; `-ImageTag` selects the prepared
 image. Windows verifies images instead of building them. `-SkipImageCheck` skips
 that verification. `-AllowOpenEgress` explicitly allows unattended open egress.

@@ -215,8 +215,9 @@ Choosing local execution omits container selection and offers a project tools PA
 
 ## Shared launch default
 
-Recommended and custom CLI prompts and web enrollment default to 20 executor
-launches, aligned with `BudgetsConfig`. Explicit operator values stay authoritative.
+Recommended and custom CLI prompts default to 20 executor launches, aligned with
+`BudgetsConfig`; a web enrollment request that names no value defaults to 12.
+Explicit operator values stay authoritative.
 The recommended profile keeps 5400 cumulative active seconds. `test_wizard.py`
 validates generated profiles with the normal configuration validator and golden
 values; its known regex fixture process is injected independently of host startup

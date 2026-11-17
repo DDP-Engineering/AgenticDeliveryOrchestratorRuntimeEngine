@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 from adore.branding import PROCESS_LOG_FILE
@@ -58,7 +59,11 @@ class ProcessLogger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with resource_lock(self.path.with_name(self.path.name + ".write.lock")):
-                self._rotate_if_needed(data_size)
+                # Another process can hold the file open, which on Windows
+                # refuses the rename. Keep logging past the size bound and
+                # rotate on a later line; a lost line would be worse.
+                with contextlib.suppress(OSError):
+                    self._rotate_if_needed(data_size)
                 with self.path.open("a", encoding="utf-8") as handle:
                     handle.write(record)
         except ResourceLockError as exc:

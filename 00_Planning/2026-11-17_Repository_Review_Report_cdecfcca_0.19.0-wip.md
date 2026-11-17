@@ -85,9 +85,18 @@ Suggested order of work is in section 15.
 
 ### 2.1 Remediation status
 
-Updated 2026-11-17. The changes below are in the working tree on `master`, on top of
-`3ec545f3` (ADORE 0.19.0). They are not committed. Only the affected test modules were
-run, never the full suite, and no real container was started.
+Updated 2026-11-17. The changes below were committed locally on `master` as `f77db636`
+(on top of `3ec545f3`, ADORE 0.19.0). Rows marked "second commit" were committed locally
+in the remediation commit that follows it on the same day. Nothing is pushed. No real
+container, forge, packaging run or service installer was exercised.
+
+The full Python suite ran once, on the tree of the second commit: 3927 passed, 30 skipped,
+1 failed. The failure was the replay of captured AEGIS commands, which pins the old form of
+the task-creation command (ORC-15). The new form was then run against the real AEGIS 0.16.1
+command line in a temporary copy: a one-word title such as `-hotfix` prints the help text in
+the old form and creates the task in the new one. The test was brought in line and its
+module passes; the full suite was not run again after that one-file change. The frontend
+unit tests gave 189 passed and the type check is clean.
 
 | Finding | State | What changed | Proof |
 |---|---|---|---|
@@ -111,6 +120,60 @@ run, never the full suite, and no real container was started.
 | ORC-9 | Remediated (main cause) | Restart probes the repository workflow before it deletes the stopped job and returns `workflow_unavailable` instead. A forge error while relabelling after the deletion is still possible | `test_restart_workflow_refusal_precedes_destructive_cleanup` |
 | WEB-5 | Remediated | A second window counts one client across all user names: 30 unsuccessful attempts in ten minutes; successful sign-ins do not count | Two more tests in `tests/test_web_auth.py` |
 | FRG-3, FRG-5 | Remediated | `validate_config` reports a section given as a single value and turns a wrong-type failure into an issue; the CLI reports a wrong type met while loading. `load_config` itself still raises on a wrong-type agent name, because job details rely on that to mark a configuration corrupt | `tests/test_config.py`, `tests/test_smoke.py` |
+| ORC-5 | Remediated, second commit | The pipeline verdict is recorded as handled only after an automatic repair holds its execution slot; at capacity nothing is recorded and the next poll tries again | `test_failed_pipeline_repair_waits_for_capacity_instead_of_being_dropped`; `tests/test_orchestrator.py`: 356 passed, 10 skipped |
+| WEB-10 | Remediated in part, second commit | Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`; API answers carry `Cache-Control: no-store` unless the route sets its own. No `Content-Security-Policy` yet: it needs a check of the built page first | `test_every_response_carries_browser_protections` |
+| TOOL-1 | Remediated, second commit, not run | The package export keeps the lock's hashes and dependencies are installed with `--require-hashes`; the project wheel is installed in a separate step. The packaging itself was not run | Compile and lint only |
+| TOOL-2 | Remediated, second commit, not run | The Linux installer refuses to start as root or through `sudo` unless `ADORE_USER` is set explicitly; uninstall is unaffected | Shell syntax check only |
+| TOOL-4 | Remediated, second commit, not run | In `-Mode once` the scheduled task ends a pass after `-PassTimeLimitHours` (default 24); `-Mode loop` stays unlimited | PowerShell parse check only |
+| ORC-6 | Remediated, second commit | The instance lock is written to a draft file and published with a hard link, so no reader sees it empty | `test_lock_is_published_whole_and_leaves_no_draft` |
+| ORC-7 | Remediated, second commit | A held execution slot is retried four times (0.05 to 0.4 s) before the error is raised | `test_execution_slot_waits_for_a_briefly_held_slot`, `test_execution_slot_gives_up_after_bounded_waits` |
+| ORC-11 | Remediated, second commit | The incident text says "no further launch" | `tests/test_orchestrator.py`: 358 passed, 10 skipped |
+| ORC-13 | Remediated, second commit | The deletion audit store is built in a draft file and published complete | `test_audit_store_is_published_whole_and_reopens` |
+| ORC-14 | Remediated, second commit | A platform error in the poll log passes `_sanitize` | Read only; no dedicated test |
+| ORC-16 | Remediated in part, second commit | The unused constant and the unused template argument are removed. `_claim_and_conduct` stays: two tests use it and removing it is a test rewrite with no product gain | `tests/test_cli_deletion_audit.py`, `tests/test_prompts.py` |
+| ORC-17 | Remediated, second commit | A refused rotation no longer loses the line; the log grows past its bound and rotates on a later line | `test_process_log_keeps_writing_when_rotation_is_refused` |
+| WEB-8 | Remediated in part, second commit | Recovery reads only the process rows of active owners. Ended rows are still never deleted | `tests/test_web_ownership.py`, `tests/test_web_supervisor.py`, `tests/test_web_audit_evidence.py` |
+| WEB-9 | Remediated, second commit | The child time limit is the project wall-clock budget plus one hour, never less than six hours | `test_child_time_limit_follows_the_project_budget` |
+| WEB-13 | Remediated, second commit | The failure text of a retry passes `redact_text` before it is stored | `tests/test_web_commands.py` |
+| WEB-14 | Remediated, second commit | Keys with the `sk-` prefix are masked. Other bare key formats still pass | `test_redact_text_masks_url_credentials_and_forge_tokens` |
+| FRG-11 | Remediated, second commit | The class docstring now calls the four settings reserved, as the configuration reference already did. The settings stay inert | Read only |
+| FRG-12 | Remediated, second commit | A malformed branch template asks again | `test_wizard_reprompts_on_malformed_branch_template` |
+| FRG-13 | Remediated, second commit | The TOML fallback escapes control characters | `test_toml_string_keeps_a_multi_line_answer_valid` |
+| FRG-15 | Remediated, second commit | The remote probe has a 30 second timeout and sets `GIT_TERMINAL_PROMPT=0` | `test_detect_push_access_never_waits_on_a_credential_prompt` |
+| FRG-17 | No change needed in part | GitHub: the caller treats every state other than opened as absent, so a closed pull request is harmless. Gitea: still open; it needs a branch template that renders digits only | Read of the publish path in `orchestrator.py` |
+| FRG-18 | Remediated, second commit | With `draft = False` the `WIP:` prefix is removed from the title | `test_gitea_open_pr_title_prefix_edges_and_missing_url` |
+| FRG-19 | Open | Not changed: the thread status accepted on creation needs a live Azure check, which needs operator authorization | - |
+| FRG-20 | Remediated in part, second commit | The docstring states the bound of 500. No failure was added, so a large repository is not blocked | Read only |
+| FRG-23 | Remediated, second commit | The branch for per-agent tables is removed; such a table is refused as unknown structure | `test_portable_omits_recognized_nested_secrets_and_rejects_unknown_source` |
+| FRG-24 | Remediated, second commit | Both module docstrings are complete sentences | Read only |
+| FE-1 | Remediated, second commit | Every request reports an ended session through one event; the interface confirms with one `/me` call and then shows the sign-in form | Type check and bundle build; the expiry path was not exercised against a running server |
+| FE-3 | Remediated, second commit | An error boundary shows a reload prompt in the page language | Sign-in page renders through the boundary in the dev server; the fallback itself was not triggered |
+| FE-7 | Remediated, second commit | The sentence is present in French, German and Romanian | Frontend unit tests: 189 passed |
+| FE-8 | Remediated, second commit | The four help pages list the Tickets tab | `tests/help.test.mjs` |
+| FE-12 | Open by decision | Not changed: the value backs the redirect of older addresses to the summary tab | - |
+| TEST-3 | Remediated with WEB-3 | The route test exists | `test_sign_in_route_limits_wrong_passwords_and_recovers_after_success` |
+| FRG-4, WEB-7, WEB-25 | Open | Not changed: each is a rewrite of a working path (Azure reads, audit retention, the consistent job snapshot) for a performance gain only | - |
+| TEST-1, TEST-2, TEST-4 to TEST-18 | Open | Not changed: test refactors or dependency changes with no product effect | - |
+| FRG-6 | Remediated, second commit | Every lifecycle and control label must be non-empty and distinct from the others. Selection labels are not checked, so existing configurations with unused priorities keep loading | `test_validation_rejects_empty_and_repeated_role_labels` |
+| FRG-14 | Remediated, second commit | `create`, `rename` and the wizard refuse a name with a separator, a drive colon, `.` or `..`. Existing names in other letter cases stay valid | `test_profile_names_that_are_paths_are_refused`, `test_wizard_refuses_a_profile_name_that_is_a_path` |
+| FRG-21 | Remediated, second commit | Quiet hours must be clock times; `24:00` stays valid | `test_validation_checks_quiet_hours_are_real_times` |
+| FRG-22 | Remediated, second commit | The `.env` reader removes one matching pair of quotes only | `test_load_env_file_removes_one_matching_quote_pair_only` |
+| ORC-10 | Remediated, second commit | The apostrophe is plain ASCII in the prompt and in the test baseline | `tests/test_prompts.py` |
+| ORC-15 | Remediated, second commit | The title follows `--` in the AEGIS command | `test_task_title_that_starts_with_a_dash_is_not_read_as_an_option`; both forms run against real AEGIS 0.16.1 in a temporary copy |
+| WEB-12 | Remediated, second commit | An unknown or disabled name spends one hash check against a decoy hash | `test_unknown_and_disabled_names_spend_one_password_check` |
+| WEB-22 | Remediated, second commit | An OS error from the zone lookup is an invalid time zone | `test_timezone_key_that_names_a_directory_is_refused_as_invalid` |
+| FE-2 | Remediated, second commit | The private view is still cleared; a sign-out the server did not confirm is shown on the sign-in page | Type check and bundle build only |
+| FE-4 | Remediated, second commit | Storage reads and writes are guarded | Sign-in page checked in the dev server with storage available; blocked storage not exercised |
+| FE-9 | Remediated, second commit | The Romanian paragraph matches the other three locales | `tests/help.test.mjs` |
+| FE-10 | Open by design | Not changed: `readJob` fails closed at the transport boundary on purpose | - |
+| FE-11 | Open | Not changed: the same loader serves the reread after a save, where keeping old values would show stale settings. It needs a check against a running server | - |
+| FE-13 | Remediated, second commit | A 401 without a readable body is reported as an ended session | Type check and bundle build only |
+| CMP-9 | Remediated, second commit | The component document names both defaults: 20 for the CLI, 12 for a web request | Read only |
+| DOC-14 | Remediated, second commit | The Azure example sets `env_keys = []` | `tests/test_config.py` |
+| DOC-15 | No change needed | In the portable package `User_Guide.md` is shipped as `README.md`, so the link is right where these two guides are read | `01_Documentation/README.md` |
+| DOC-16 | Remediated, second commit | The component document is a link. The mode text already read "POSIX 0600" | Read only |
+| DEP-1 | Remediated, second commit | `npm audit` confirmed the advisory range 7.0.0 to 7.3.6. vite is 7.3.7 and source-map-js 1.2.2; the audit reports no vulnerability | Frontend unit tests: 189 passed; bundle rebuilt; dev server starts |
+| TOOL-3 | Open by decision | Not implemented: service hardening could stop ADORE or the executor from writing where they must, and that risk was declined on 2026-11-17 | - |
 | WEB-1 | Reclassified | Not a defect: active requirement REQ-UX-178abcf8 specifies a reminder, not a forced change. It stays a product decision to revisit | - |
 
 Consequences to know:
@@ -124,16 +187,16 @@ Consequences to know:
 - Second batch (ORC-2, ORC-4, FRG-1, FRG-2): eight affected test modules, 725 passed, 9 skipped.
 - Third batch (WEB-3, WEB-4, FRG-8, DOC-1 to DOC-3): all 42 web test modules and the wizard
   tests, 1314 passed, 4 skipped.
-- The web interface has no translated text for `request_too_large`; it shows its generic
-  message with the code.
+- The web interface had no translated text for `request_too_large`; the second commit adds
+  it in the four languages.
 - Fourth batch (H1, WEB-2, WEB-5, documentation): all web modules plus eleven modules that
   touch the changed code, 2128 passed, 15 skipped. The link cases are skipped on this
   Windows account; the hard-link cases run everywhere.
 - H1 covers host reads only. The host still writes fixed file names in the agent-writable
   IO directory with plain `open` (ISO-1).
 - Documentation findings left as they are: DOC-6 (release history stays intact by rule),
-  DOC-9 (banners), DOC-13 and DOC-14 (example content), DOC-15 (link is right inside the
-  package), DOC-17, CMP-9, CMP-12 and CMP-13.
+  DOC-9 (banners), DOC-13 (example content), DOC-15 (link is right inside the package),
+  DOC-17, CMP-12 and CMP-13. DOC-14 and CMP-9 were corrected in the second commit.
 - Fifth batch (ISO-1, ORC-9, WEB-5, FRG-3, FRG-5): the first run of all web modules plus
   twenty related modules gave 2507 passed, 2 failed. One failure was a regression of this
   batch and was corrected; the other, `test_parent_crash_quiesces_tree_and_preserves_uncertain_claim`,
@@ -232,12 +295,12 @@ and runs repository code.
   - Route B: every poll runs `<aegis_python> .agentic/aegis.py --version` on the host with
     the clone as working directory. The agent overwrites that file in the mounted checkout.
   Concurrent runs of one project share the same `.git`, so one run can also alter another.
-  *Status 2026-11-17:* route B remediated, uncommitted; route A open by decision (section 2.1).
+  *Status 2026-11-17:* route B remediated; route A open by decision (section 2.1).
 - **H1** (high, V) `adore/orchestrator.py:3578-3586`; `adore/executor/launcher.py:345`, `:529`;
   `adore/aegis.py:513` - The host reads agent-written files with calls that follow links.
   A questions file that is a link to a host file is read and posted as a ticket comment.
   The native-mode path already refuses links; the container path does not.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **H2** (high, V; needs a proxy restart) `adore/isolation.py:2360`, `:1866`, `:2410-2421` -
   The Squid allowlist is written inside the run IO directory, which the agent has mounted
   read-write. The file is written only when the proxy is absent; a stopped proxy is
@@ -250,7 +313,7 @@ and runs repository code.
   `adore/aegis.py:473`; `adore/executor/pi_rpc.py:261` - The host creates, truncates or
   copies fixed file names in the agent-writable IO directory with plain `open`. A planted
   link makes the host overwrite a file of its own account.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **ISO-2** (medium, V) `adore/isolation.py:2378-2387` - The generated Squid configuration has
   no `Safe_ports` or `CONNECT` port limit and no deny for loopback or link-local targets.
   An allowed name works on any port; a wildcard name that an attacker can resolve to an
@@ -327,20 +390,20 @@ without the check that its siblings have was found.
   `configuration-tasks/<ref>.request.json` with the raw session cookie and CSRF token. The
   request body, which can hold a forge token or a model key, goes to the same file. The file
   stays if the worker is down, crashes, or the request is judged corrupt.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **WEB-3** (medium, V) `adore/web/app.py:294-298`, `:3088`; `adore/web/server.py:20` - No
   request size limit exists, including on the unauthenticated login route.
   `PasswordChange` has no maximum length, so a huge value is hashed with Argon2.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **WEB-4** (medium, V) `adore/web/store.py:613`, `:1145-1155` - `login_failures` gets a row
   per unknown user name and is cleared only by that identity's successful login. Expired
   sessions are never purged. An unauthenticated client can grow `web.db` without bound.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **WEB-5** (medium, A) `adore/web/app.py:3090-3096`; `adore/web/store.py:585-594` - The login
   limit is check, verify, record. Parallel requests all pass the check before any failure
   is stored. The key is user name plus client address, so one address can try one password
   against any number of names.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **WEB-6** (medium, A, plausible) `adore/web/app.py:2473-2474` - Importing a whole TOML file
   or a bundle bypasses the rule that web edits may not set operator-owned keys such as
   `workflow.verify_command`, `container.run_args` or absolute storage paths.
@@ -350,19 +413,26 @@ without the check that its siblings have was found.
 - **WEB-8** (medium, A) `adore/web/store.py:1948-1949` - `worker_owners` and
   `worker_processes` rows are never deleted; `recover_interrupted` reads the whole table on
   each supervisor tick (every 0.2 s).
+  *Status 2026-11-17:* remediated in part, second commit (section 2.1).
 - **WEB-9** (medium, A, plausible) `adore/web/supervisor.py:221-223`; `adore/web/commands.py:72`
   - Any child process is killed after six hours, whatever wall-clock budget the project
   configures.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **WEB-10** (low, V) No response carries `Content-Security-Policy`, `X-Frame-Options` or
   `frame-ancestors`; only one response sets `X-Content-Type-Options` (`app.py:4796`).
+  *Status 2026-11-17:* remediated except the Content-Security-Policy, second commit
+  (section 2.1).
 - **WEB-11** (low, V; impact plausible) `adore/web/store.py:623`, `:354` - `web.db` and its
   marker file are created under the process umask. No code sets a mode.
 - **WEB-12** (low, A) `adore/web/store.py:813-814` - An unknown or disabled user returns
   before any hash is computed, so response time reveals which names exist.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **WEB-13** (low, A) `adore/web/commands.py:304`; `adore/web/store.py:2037` - Engine outcome
   text reaches the operation API without the redaction that the job view applies.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **WEB-14** (low, A) `adore/web/jobs.py:486-494` - `redact_text` masks keyword-adjacent
   values and known token prefixes. A bare provider key in engine output passes through.
+  *Status 2026-11-17:* remediated for the `sk-` prefix, second commit (section 2.1).
 - **WEB-15** (low, A) `adore/web/store.py:1472-1481` - Queued execution operations have no
   upper bound; only `configure` is capped at 256.
 - **WEB-16** (low, A, plausible) `adore/web/app.py:4626-4628`; `adore/config.py:843-846` - Any
@@ -380,6 +450,7 @@ without the check that its siblings have was found.
   for up to six hours and then discarded.
 - **WEB-22** (low, A, plausible) `adore/web/analytics.py:63-65` - A time-zone key that names a
   directory may raise an uncaught `OSError` and return 500.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **WEB-23** (low, A, plausible) `adore/web/analytics.py:817-822` - Cost per completed job uses
   in-period cost for a job that started before the period.
 - **WEB-24** (low, A) `adore/web/analytics.py:323`, `:356` - Money totals are summed as floats.
@@ -418,56 +489,66 @@ without the check that its siblings have was found.
   `Authorization:`. `Authorization: Bearer <token>` becomes `Authorization: [REDACTED] <token>`.
   The output goes to public ticket and merge-request comments. Confirmed by running the
   pattern on a sample string.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **ORC-2** (medium, V) `adore/orchestrator.py:1727-1728` - On the AEGIS path a failed target
   integration is treated as a conflict even when it already failed the run. The executor is
   launched once more and the real failure code is overwritten. The direct path checks the
   lifecycle (`:1563`); this path does not.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **ORC-3** (medium, V) `adore/orchestrator.py:3088-3092` - The reconcile loop catches only
   `LockHeldError`. One run that raises `IsolationError` or `StateError` on every poll stops
   reconciliation of later runs and all new admissions for the project.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **ORC-4** (medium, V) `adore/orchestrator.py:1361-1364` - The worktree and branch are
   created before the first state save. If workflow resolution then fails, the leftover
   worktree makes every later admission of that ticket fail until someone cleans up by hand.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **ORC-5** (medium, A) `adore/orchestrator.py:3532-3533`, `:3401-3402` - A failed pipeline
   is recorded as reported before the repair starts. If the project is at capacity the
   repair is skipped and never retried.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-6** (medium, A, plausible) `adore/state.py:1102-1121`, `:1157-1175` - The admission
   lock file is created and then written. A crash in between leaves an empty file that is
   never treated as stale; a reused process identifier has the same effect.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-7** (medium, A, narrow window) `adore/state.py:1075-1086`; `adore/orchestrator.py:1403`
   - A capacity probe that holds an execution lock at the wrong moment makes a resumed run
   fail to take its slot; it is later failed as stale.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-8** (medium, V for the code) `adore/orchestrator.py:3574` - Ticket comments reach the
   Pi prompt as `author: body` with no delimiter and no filter on the author. The ticket
   description is also unfenced. The pipeline auto-repair path needs no human trigger.
 - **ORC-9** (medium, A) `adore/orchestrator.py:745`, `:753` - Restart deletes the old job
   before the replacement is admitted. If admission fails, the failed job's state, worktree
   and unpublished branch are gone.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **ORC-10** (low, V) `adore/prompts/recovery/revalidation-route.md:7` - A double-encoded
   apostrophe is sent to the model verbatim.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-11** (low, V) `adore/orchestrator.py:2684` - The incident text says "no fourth launch"
   although the limit is configurable.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-12** (low, V) `adore/orchestrator.py:2481` - A docstring still names AEGIS 0.15.0; the
   floor is 0.16 (`aegis.py:25`). Reported in the same state: `config.py:94`,
   `web/implementation_settings.py:16`.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **ORC-13** (low, A) `adore/deletion_audit.py:43-56` - The audit database is created empty
   and initialised afterwards. Two concurrent first uses, or a crash in between, leave a file
   that is refused as unsupported.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-14** (low, A) `adore/orchestrator.py:340` - A platform error is logged without
   `_sanitize`; the sibling branch at `:351` applies it.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-15** (low, A) `adore/aegis.py:349`; `adore/orchestrator.py:3416` - A ticket title that
   starts with `-` is parsed by AEGIS as an option and fails the author's own ticket.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-16** (low, A) Dead code: `Orchestrator._claim_and_conduct` (`orchestrator.py:1381`) is
   called only by tests; `evidence=` at `:1783-1786` is passed to a template that has no such
   placeholder; `deletion_audit.py:16` defines an unused constant.
+  *Status 2026-11-17:* remediated in part, second commit (section 2.1).
 - **ORC-17** (low, A, plausible) `adore/process_log.py:85` - Log rotation by rename can raise
   on Windows while another process has the file open, and `emit` does not catch it.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-18** (low, A, plausible) `adore/orchestrator.py:3676-3677` - With a preparation recipe
   the base reference becomes a fixed commit, so the target-moved checks cannot fire.
 
@@ -497,35 +578,36 @@ without the check that its siblings have was found.
 - **FRG-1** (medium, V) `adore/wizard.py:441`, used at `:511` and `:719` - A loop variable
   named `key` overwrites the host operating-system key. For an Azure DevOps profile the WSL
   runtime probe is skipped and `profile.json` stores `host_os = "area_path"`.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **FRG-2** (medium, V) `adore/config.py:72-76`; `adore/repository_auth.py:18-39` - Two lists
   of forge credential variables have drifted. `env_keys` validation does not refuse
   `GH_ENTERPRISE_TOKEN`, `GITHUB_ENTERPRISE_TOKEN`, `GITLAB_ACCESS_TOKEN` or `OAUTH_TOKEN`,
   so such a token can be passed into the executor container.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **FRG-3** (medium, A) `adore/config.py:1134`, `:1081`, `:1092` - `validate_config` assumes
   field types. `poll_interval_seconds = "60"` raises `TypeError`; a numeric `[agent] name`
   raises `AttributeError`. `config validate`, `status` and engine commands end in a traceback.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **FRG-4** (medium, A) `adore/forge/azure_devops.py:249`; `adore/azure_cli.py:111` - Each
   Work Item is read by a separate call that starts two Python processes and re-fetches the
   resource areas. 150 ready items cost about 150 process pairs per poll.
 - **FRG-5** (medium, A) `adore/config.py:604-605`, `:874-875` - A section that is not a table
   (`polling = 5`) is replaced by defaults without any issue being reported.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **FRG-6** (medium, A, plausible) `adore/config.py:1507-1512` - Lifecycle, control, revise and
   selection labels are not checked for being non-empty and distinct. An empty ready label
   may select every open ticket on GitLab and GitHub.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-7** (medium, A, plausible) `adore/repository_auth.py:175-186`, `:293`;
   `adore/chatgpt.py:253-255` - On Windows the token file and the ChatGPT directory get no
   access-control restriction; protection relies on the inherited profile permissions.
 - **FRG-8** (low, V) `adore/wizard.py:340` - The generated configuration says
   `adore init --profile NAME --force`. `--profile` is a top-level option (`cli.py:65`), so
   that command fails.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **FRG-9** (low, V) `adore/forge/__init__.py:1`, `:34` - The docstrings list three forges and
   omit Azure DevOps.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **FRG-10** (low, V for the docstring) `adore/forge/azure_devops.py:276-283`;
   `adore/forge/base.py:165-170` - The base contract says `get_ticket` returns `None` for a
   deleted ticket. The Azure adapter documents that it raises instead, so
@@ -533,34 +615,47 @@ without the check that its siblings have was found.
 - **FRG-11** (low, A) `adore/config.py:397-400` - `keep_parked` and the three `parked_ttl_*`
   settings are read nowhere at run time, yet the class docstring calls `keep_parked` "the
   field parking actually reads" and the example file presents all four as active.
+  *Status 2026-11-17:* docstring corrected, second commit (section 2.1).
 - **FRG-12** (low, A) `adore/wizard.py:491-493` - A malformed branch template raises an
   uncaught `ValueError` instead of prompting again.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-13** (low, A) `adore/wizard.py:295-298` - The TOML fallback does not escape control
   characters; a multi-line answer produces an invalid file and a traceback.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-14** (low, A) `adore/wizard.py:387-396`; `adore/profiles.py:317-338`, `:449-465` -
   The profile name is validated only in the interactive prompt. `adore init ../../x` writes
   outside the profiles directory.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-15** (low, A) `adore/doctor.py:645` - The remote probe sets neither
   `GIT_TERMINAL_PROMPT=0` nor a short timeout; a credential prompt can stall for ten minutes.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-16** (low, A) `adore/wizard.py:816`; `adore/doctor.py:465-479` - The Azure
   authentication probe always fails at that point; the Gitea probe ignores the configured login.
 - **FRG-17** (low, A, plausible) `adore/forge/github.py:220-223`; `adore/forge/gitea.py:198` -
   A branch lookup on GitHub may return a closed pull request; on Gitea a branch named with
   digits is read as a pull-request number.
+  *Status 2026-11-17:* GitHub half needs no change; Gitea half open (section 2.1).
 - **FRG-18** (low, A) `adore/forge/gitea.py:371` - With `draft = False` a title that starts
   with `WIP:` still creates a draft.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-19** (low, A, plausible) `adore/forge/azure_devops.py:539` - Status comments create
   active threads, which block completion where a policy requires resolved comments.
+  *Status 2026-11-17:* open, needs a live check (section 2.1).
 - **FRG-20** (low, A) `adore/forge/github.py:66` - `--limit 500` truncates silently, against
   the function's own docstring; the other adapters page or fail.
+  *Status 2026-11-17:* docstring corrected, second commit (section 2.1).
 - **FRG-21** (low, A) `adore/config.py:48`; `adore/util.py:269` - Quiet hours accept
   `99:99-99:99`.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-22** (low, A) `adore/util.py:412` - The `.env` parser strips every leading and
   trailing quote character, so a secret that ends in a quote is truncated.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-23** (low, A) `adore/portable_settings.py:141-144` - A branch still accepts the
   per-agent tables of removed coding agents; validation refuses them later with a generic error.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-24** (low, A) `adore/profiles.py:1`; `adore/wizard.py:1` - Module docstrings are cut
   off mid-sentence.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 
 ### 7.2 Verified as sound
 
@@ -587,13 +682,17 @@ No cross-site scripting path was found.
 - **FE-1** (medium, A) `web/src/App.tsx:477` - `authentication_required` is handled only in
   one refresh loop. When the session expires elsewhere the interface keeps polling and
   shows an error that says to sign in, with no sign-in form.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FE-2** (medium, A, plausible) `web/src/App.tsx:849-850` - A failed logout request still
   clears the local interface while the cookie may remain valid.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FE-3** (medium, A) `web/src/main.tsx:6-8` - There is no error boundary; any render
   exception blanks the page.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FE-4** (medium, A) `web/src/App.tsx:96`, `:146`, `:440`, `:445` - `localStorage` is used
   without a guard. Where storage is blocked the first render throws; with FE-3 that is a
   white page.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FE-5** (medium, A) `web/src/configurationTasks.ts:15`, `:29` - A pending configuration
   operation is polled every 150 ms for up to 61 minutes, with no back-off and no pause when
   the page is hidden. Its errors bypass the normal error mapping.
@@ -601,18 +700,25 @@ No cross-site scripting path was found.
   setting labels fall back to the first sentence of the help text.
 - **FE-7** (low, V) `web/src/jobCopy.ts:72`, `:115`, `:154`, `:193` - The cancel confirmation
   ends with "Cancellation cannot be undone." only in English.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FE-8** (low, V) `web/src/help/content/*/settings.md:11` - The list of project tabs omits
   Tickets in all four locales; the interface has it (`App.tsx:323`).
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FE-9** (low, A) `web/src/help/content/ro/administration.md:8` - A stale paragraph; the
   other three locales have a newer one. The structural test ignores paragraphs.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FE-10** (low, A) `web/src/jobModel.ts:49`, `:95` - One malformed evidence link makes the
   whole job list fail validation.
+  *Status 2026-11-17:* open by design (section 2.1).
 - **FE-11** (low, A) `web/src/App.tsx:604-605`, `:628-629` - One failed background poll clears
   prices or configuration that were already shown.
+  *Status 2026-11-17:* open, needs a check against a running server (section 2.1).
 - **FE-12** (low, A) `web/src/App.tsx:85`, `:89`; `web/src/routes.ts:5` - A `"projects"`
   metrics tab type is dead code.
+  *Status 2026-11-17:* open by decision (section 2.1).
 - **FE-13** (low, A, plausible) `web/src/EnrollmentWizard.tsx:301-303` - A bare 401 is shown
   as "unexpected response".
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FE-14** (low, A) `04_Software/web/package.json:9-11` - Build scripts need `uv`, a virtual
   environment and Node 22.6 or later; there is no `engines` field.
 
@@ -642,53 +748,56 @@ No cross-site scripting path was found.
 - **DOC-1** (medium, V) `README.md:109-110` - "Web enrollment still requires AEGIS in this
   build". `Web_Interface.md:51`, `Getting_Started.md:43-44`, `CHANGELOG.md:219` and
   `adore/web/app.py:789` say and do the opposite.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-2** (medium, V) `01_Documentation/Configuration_Reference.md` - It never names
   `worktree.repo_path` (required), `worktree.branch_template`, `worktree.branch_rule` or
   `delivery.publish_checkpoints`. Reported in the same state: `worktree.root`,
   `metrics.enabled`. The default of `delivery.target_branch` is `develop`
   (`config.py:485`), while line 322 and `Getting_Started.md:97` show `main`.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-3** (medium, V) `01_Documentation/Local_Execution.md:3`, `:4`, `:76` - An arrow
   character is garbled into three bytes of mojibake.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-4** (low, V) `01_Documentation/Releases.md:52-53` - The example
   `set_version.py 0.19.0` fails once the version is 0.19.0, because the script refuses a
   version that is not higher.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-5** (low, V) `04_Software/README.md:12-13` - The forge list omits Azure DevOps Services.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-6** (low, V) `CHANGELOG.md:183-1154` - The 0.15.0 section repeats `### Added` six
   times and `### Changed` and `### Fixed` five times each. There is no 0.14.0 heading,
   although the text refers to a 0.14.0 delivery.
 - **DOC-7** (low, V) `AGENTS.md:3` - "`claude.md` and `QWEN.md` only link here." Both also
   carry the full managed AEGIS block.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-8** (low, V) `00_Planning/README.md:16-18` - The workflow-selection plan is called
   "planned"; the plan file records an implementation result and 0.17.0 shipped it.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-9** (low, V) `AGENTS.md:81-82` forbids license banners in documentation.
   `00_Planning/README.md`, both existing plans and `04_Software/.env.example` have one.
 - **DOC-10** (low, A) `01_Documentation/Security_And_Credentials.md:125-127`;
   `Configuration_Reference.md:179-181` - The list of refused `env_keys` omits the three
   Azure names that `config.py:72-76` refuses.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-11** (low, A) `01_Documentation/CLI_Reference.md:35-36` - The list of commands that
   load `.env` omits `conduct`, `restart`, `handoff` and `logs`.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-12** (low, A) `04_Software/adore/release_notes.toml:2-3` - It points to an
   `AGENTS.md` heading that does not exist; the rules are in `Releases.md:26-39`.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-13** (low, A) `04_Software/config.example.toml:105`, `:116`, `:164` - The example
   sets a project image, four tool checks and a reviewer that do not exist by default.
   Copied as it is, it fails on the base image.
 - **DOC-14** (low, A) `04_Software/config.azure-devops.example.toml:31` - `env_keys` repeats
   the provider key, which is always added.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **DOC-15** (low, A) `01_Documentation/Administrator_Guide.md:145`; `Troubleshooting.md:88` -
   "Back to the user guide" links to `README.md`, which is the documentation index in the
   repository. The link is right only inside the portable package.
+  *Status 2026-11-17:* no change needed (section 2.1).
 - **DOC-16** (low, A) `01_Documentation/Security_And_Credentials.md:301`, `:284-285` - A bare
   file name that is not a link, and "POSIX0600" without a space.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **DOC-17** (low, A) The five `.pptx` presentations have no Markdown source in the repository.
 
 ### 9.2 Verified as correct
@@ -720,36 +829,37 @@ exception found by the lead reviewer (CMP-1).
 - **CMP-2** (medium, V) `05_SoftwareDocu/Component_Packaging.md:102-103` - Says the installers
   provision the web extra. Both run `uv sync --frozen` only
   (`install_linux_service.sh:100`, `install_windows_service.ps1:90`).
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-3** (medium, V) `05_SoftwareDocu/Component_Executor_Configuration.md:56` - Points to
   `tests/test_web_launch_presets.py`, which does not exist.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-4** (medium, A) `05_SoftwareDocu/Component_Wizard.md:117-118` - `kind` is said to
   accept three forges; `wizard.py:414` accepts four, and line 3 of the same document says so.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-5** (medium, A) `05_SoftwareDocu/Component_Web_Identity.md:167` - The operation list
   omits `restart` (`web/store.py:1457`).
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-6** (medium, A) `05_SoftwareDocu/Component_Orchestrator.md:30-32` - The lifecycle list
   omits `stale` (`state.py:40-42`).
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-7** (medium, A) `05_SoftwareDocu/Component_Executor_Launcher.md:168` - "Sessions are
   not resumed across stages" contradicts lines 15-16 of the same document and
   `executor/launcher.py:253-255`.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-8** (medium, A) `05_SoftwareDocu/Component_Portable_Distribution.md:182-185` -
   Attributes the archive inventory and link check to `test_delivery_package`; it is done by
   `verify_delivery_package.py:131-146`.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-9** (medium, A) `05_SoftwareDocu/Component_Wizard.md:218-219` - Says web enrollment
   defaults to 20 executor launches; the API default is 12 (`web/app.py:385`) and only the
   interface sends 20.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **CMP-10** (low, A) `05_SoftwareDocu/Component_CLI.md:221-223` - The start-refusal codes
   omit `pickup_paused` (`cli.py:659-665`).
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-11** (low, A) `05_SoftwareDocu/Component_Aegis_Client.md:58` - The supported version
   is described without the 0.16 floor.
-  *Status 2026-11-17:* remediated, uncommitted (section 2.1).
+  *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-12** (low, A) Only three documents use the headings of
   `component_documentation_template.md`; 48 use an older ten-section layout.
 - **CMP-13** (low, A) Modules named in no component document: `web/settings_batch.py`,
@@ -770,14 +880,18 @@ exception found by the lead reviewer (CMP-1).
 
 - **TOOL-1** (medium, V) `02_Tools/package/create_delivery_package.py:195` - Dependencies for
   the bundled interpreter are exported with `--no-hashes`, although `uv.lock` has hashes.
+  *Status 2026-11-17:* remediated, second commit, packaging not run (section 2.1).
 - **TOOL-2** (medium, V) `02_Tools/setup/install_linux_service.sh:30` - The service user
   defaults to the invoking user. Run with `sudo`, the unit gets `User=root` and the
   environment is created root-owned.
+  *Status 2026-11-17:* remediated, second commit, installer not run (section 2.1).
 - **TOOL-3** (medium, V) `02_Tools/setup/adore.service:32-35` - The unit sets only
   `NoNewPrivileges` and `PrivateTmp`; no `ProtectSystem`, `ProtectHome` or `ReadWritePaths`.
+  *Status 2026-11-17:* open by decision (section 2.1).
 - **TOOL-4** (medium, V) `02_Tools/setup/install_windows_service.ps1:179-190` - The comment
   says a wedged pass cannot block the schedule. The task uses `IgnoreNew` with an unlimited
   execution time, so a hung pass blocks every later one.
+  *Status 2026-11-17:* remediated, second commit, installer not run (section 2.1).
 - **TOOL-5** (medium, A, plausible) `02_Tools/package/bundle_native_tools.py:150-155` - Pi's
   transitive npm dependencies are not pinned and the lock files are deleted afterwards.
 - **TOOL-6** (medium, A, plausible) `02_Tools/package/create_delivery_package.py:355-356` -
@@ -835,6 +949,7 @@ were read fully; the rest were searched for patterns. Nothing was run.
   methods directly.
 - **TEST-3** (medium, A) `adore/web/app.py:3090-3091` - The HTTP 429 login limit has no
   test; only the store function is tested (`tests/test_web_auth.py:223-226`).
+  *Status 2026-11-17:* remediated with WEB-3 (section 2.1).
 - **TEST-4** (medium, A) `tests/conftest.py:73-86` - Only `ADORE_HOME` is isolated. `HOME`,
   `USERPROFILE`, `APPDATA`, `XDG_*` and the Git configuration are not.
 - **TEST-5** (medium, A, plausible) `tests/test_config.py:105`; `tests/test_aegis.py:222-229`,
@@ -870,6 +985,7 @@ were read fully; the rest were searched for patterns. Nothing was run.
 - **DEP-1** (medium, A; one source, not cross-checked) `04_Software/web/package-lock.json:2694-2695`
   - `vite 7.3.6` is reported to fall in a directory-traversal advisory fixed in 7.3.7
   (SNYK-JS-VITE-21282039). It affects the development server, not production builds.
+  *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **DEP-2** (medium, A) `04_Software/pyproject.toml:13-16` - The web extra allows old
   FastAPI releases, and `starlette` and `pydantic` are imported but not declared. The lock
   file pins patched versions, so only installs outside the lock are exposed.

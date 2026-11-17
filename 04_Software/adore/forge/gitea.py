@@ -368,7 +368,11 @@ class GiteaForge(Forge):
         """
         del remove_source_branch  # The conductor owns leased post-merge cleanup.
         del cwd  # pure API call; no local checkout involved
-        wip_title = title if not draft or _WIP_RE.match(title) else f"WIP: {title}"
+        if draft:
+            wip_title = title if _WIP_RE.match(title) else f"WIP: {title}"
+        else:
+            # Gitea reads the prefix itself as "draft"; a ready PR must not carry it.
+            wip_title = _WIP_RE.sub("", title, count=1).strip() or title
         result = self._api(
             "POST", f"repos/{self.repo}/pulls",
             fields=[("title", wip_title), ("body", body),

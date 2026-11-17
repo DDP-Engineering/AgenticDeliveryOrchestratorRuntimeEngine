@@ -64,6 +64,7 @@ def test_portable_omits_recognized_nested_secrets_and_rejects_unknown_source():
         b'\n[unknown]\nsecret="SECRET-SENTINEL"\n',
         b'\n[polling.unexpected]\nsecret="SECRET-SENTINEL"\n',
         b'\n[executor.opencode.extra]\nsecret="SECRET-SENTINEL"\n',
+        b'\n[executor.opencode]\ncommand="SECRET-SENTINEL"\n',
     ):
         with pytest.raises(portable.PortableSettingsError) as error:
             portable.export_settings(raw + extra)

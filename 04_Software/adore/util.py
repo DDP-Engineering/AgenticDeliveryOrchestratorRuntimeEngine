@@ -409,7 +409,10 @@ def load_env_file(path: str | Path = ".env") -> dict[str, str]:
             continue
         key, _, value = line.partition("=")
         key = key.strip()
-        value = value.strip().strip("'\"")
+        value = value.strip()
+        # Remove one matching pair only: a secret may itself end in a quote.
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
         if key:
             values[key] = value
     return values

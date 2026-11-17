@@ -23,7 +23,7 @@ from adore.metrics import aggregate, load_summaries, profile_stats
 import adore.orchestrator as orchestrator_module
 from adore.orchestrator import Orchestrator
 from adore.preparation import resolve_plan
-from adore.state import RunState, StateStore, content_hash
+from adore.state import LockHeldError, RunState, StateStore, content_hash
 from adore.util import CommandResult, utc_now_iso
 import pytest
 
@@ -3804,6 +3804,38 @@ def test_failed_pipeline_starts_a_governed_repair_round(
     assert forge.mr.labels == []
 
 
+def test_failed_pipeline_repair_waits_for_capacity_instead_of_being_dropped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    A red verdict seen while the project is at capacity is not recorded as
+             handled: the repair starts on the first poll that finds a free place.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    forge.pipeline = "failed"
+    run = _review_run(engine, forge)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _ReviewClient)
+    monkeypatch.setattr(engine, "_conduct", lambda *a, **k: None)
+    capacity = {"free": False}
+    monkeypatch.setattr(engine, "_has_capacity", lambda **kwargs: capacity["free"])
+
+    engine._reconcile_review(run, {"revised": 0})
+
+    waiting = engine.store.load(run.run_id)
+    assert waiting.review_rounds == 0 and waiting.lifecycle == "in-review"
+    assert waiting.pipeline_reported == ""
+    assert not any(event["event"] == "pipeline-observed"
+                   for event in engine.store.read_journal(run.run_id))
+
+    capacity["free"] = True
+    engine._reconcile_review(waiting, {"revised": 0})
+
+    repaired = engine.store.load(run.run_id)
+    assert repaired.review_rounds == 1 and repaired.lifecycle == "working"
+    assert [event["status"] for event in engine.store.read_journal(run.run_id)
+            if event["event"] == "pipeline-observed"] == ["failed"]
+
+
 def test_failed_pipeline_is_not_repaired_twice_for_one_verdict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -5521,3 +5553,36 @@ def test_delivered_instruction_receipt_recovers_record_after_conductor_restart(t
     ]
     assert len(events) == 1
     assert sum("Receipt survived restart" in text for text in forge.ticket_comments.values()) == 1
+
+
+def test_execution_slot_waits_for_a_briefly_held_slot(tmp_path: Path) -> None:
+    """A slot still held by the previous step's cleanup is retried, then entered."""
+    engine, _, _, _, _ = make_engine(tmp_path)
+    real, attempts, delays = engine.store.execution_slot, [], []
+
+    def slot(run_id: str):
+        attempts.append(run_id)
+        if len(attempts) < 3:
+            raise LockHeldError("execution slot is held")
+        return real(run_id)
+
+    engine.store.execution_slot = slot
+    engine.sleep = delays.append
+    with engine._execution_slot(engine._run_id(7)):
+        pass
+    assert len(attempts) == 3 and delays == [0.05, 0.1]
+
+
+def test_execution_slot_gives_up_after_bounded_waits(tmp_path: Path) -> None:
+    """A slot that stays held is reported instead of being waited on forever."""
+    engine, _, _, _, _ = make_engine(tmp_path)
+    delays: list[float] = []
+
+    def slot(run_id: str):
+        raise LockHeldError("execution slot is held")
+
+    engine.store.execution_slot = slot
+    engine.sleep = delays.append
+    with pytest.raises(LockHeldError), engine._execution_slot(engine._run_id(7)):
+        pass
+    assert delays == [0.05, 0.1, 0.2, 0.4]

@@ -703,3 +703,27 @@ def test_cost_cap_zero_is_explicit_opt_out_and_invalid_inputs_fail_closed(tmp_pa
         assert issues == []
     else:
         assert any("max_cost_usd" in issue for issue in issues)
+
+
+def test_validation_rejects_empty_and_repeated_role_labels(tmp_path: Path) -> None:
+    """An empty lifecycle label or one label in two roles is reported, not accepted."""
+    text = MINIMAL_VALID + """
+[labels.lifecycle]
+ready = ""
+working = "agent-hold"
+"""
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert any("[labels.lifecycle] ready must be a non-empty label" in issue for issue in issues)
+    assert any("must be distinct from each other" in issue for issue in issues)
+    assert validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID))) == []
+
+
+def test_validation_checks_quiet_hours_are_real_times(tmp_path: Path) -> None:
+    """A window names clock times; 24:00 stays valid as the end of the day."""
+    def issues(window: str) -> list[str]:
+        text = MINIMAL_VALID + f'[polling]{chr(10)}quiet_hours = ["{window}"]{chr(10)}'
+        return [issue for issue in validate_config(load_config(_write_config(tmp_path, text)))
+                if "quiet_hours" in issue]
+
+    assert issues("99:99-99:99") and issues("22:60-06:00")
+    assert issues("22:00-06:00") == [] and issues("22:00-24:00") == []

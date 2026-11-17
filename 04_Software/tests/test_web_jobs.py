@@ -810,6 +810,8 @@ def test_redact_text_stays_linear_on_long_word_runs(unit):
          "ghp_abcdefghijklmnopqrstuvwxyz0123456789"),
         ("found glpat-AbCdEfGhIjKlMnOpQrSt in a log", "glpat-AbCdEfGhIjKlMnOpQrSt"),
         ("github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz", "11ABCDEFG0123456789"),
+        ("provider refused sk-example-0000000000000000000000 as invalid",
+         "sk-example-0000000000000000000000"),
     ],
 )
 def test_redact_text_masks_url_credentials_and_forge_tokens(raw, secret):

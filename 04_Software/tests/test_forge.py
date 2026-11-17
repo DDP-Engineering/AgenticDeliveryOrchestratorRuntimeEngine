@@ -785,6 +785,9 @@ def test_gitea_open_pr_title_prefix_edges_and_missing_url() -> None:
     runner = FakeRunner(_api_ok(created))
     GiteaForge("o/r", runner).open_merge_request("s", "m", "plain", "b", draft=False)
     assert "title=plain" in runner.calls[0]
+    runner = FakeRunner(_api_ok(created))
+    GiteaForge("o/r", runner).open_merge_request("s", "m", "WIP: ready now", "b", draft=False)
+    assert "title=ready now" in runner.calls[0]
     with pytest.raises(ForgeError):
         GiteaForge("o/r", FakeRunner(_api_ok('{"number": 32}'))).open_merge_request(
             "s", "m", "t", "b"

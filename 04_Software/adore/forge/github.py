@@ -49,9 +49,9 @@ class GitHubForge(Forge):
         """
         List open issues carrying the label via `gh issue list`.
         `--limit 500` (gh paginates internally up to the limit) so a
-                    busy repository does not silently truncate the selection
-                    pool at 100 and drop a high-priority ticket the caller would
-                    have ranked first.
+                    busy repository is not cut at gh's default of 30. The
+                    selection pool is still bounded: beyond 500 ready issues
+                    the rest are not seen in that poll.
         ready_label: Eligibility label.
         Returns: Eligible tickets, unordered (caller ranks by priority).
         Raises ForgeError: When gh fails.

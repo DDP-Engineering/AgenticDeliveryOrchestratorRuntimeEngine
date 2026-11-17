@@ -61,7 +61,8 @@ class Scope:
             raise AnalyticsError("invalid_reporting_timezone", 422)
         try:
             zone = ZoneInfo(timezone)
-        except (ZoneInfoNotFoundError, ValueError) as exc:
+        except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
+            # OSError: a key that names a directory, such as "America".
             raise AnalyticsError("invalid_reporting_timezone", 422) from exc
         if granularity not in ("day", "week", "month"):
             raise AnalyticsError("invalid_granularity", 422)

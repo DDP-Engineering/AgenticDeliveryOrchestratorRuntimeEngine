@@ -8,7 +8,7 @@ Azure DevOps Services adaugă **URL organizație**, **Proiect Azure**, **Area Pa
 
 ## Unde găsiți Setările {#where}
 
-Deschideți [Proiecte](/projects), alegeți un proiect și selectați fila **Setări**. Filele sunt Rezumat, Setări, Lucrări, Statistici, Istoric și, pentru administratori, Acces.
+Deschideți [Proiecte](/projects), alegeți un proiect și selectați fila **Setări**. Filele sunt Rezumat, Setări, Lucrări, Tichete, Statistici, Istoric și, pentru administratori, Acces.
 
 Setările salvate se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea se oprește dacă aveți setări nesalvate sau dacă salvarea ori renunțarea la modificări este în curs. Actualizarea se oprește și când introduceți un tarif sau o cheie API ori când vă conectați la ChatGPT.
 

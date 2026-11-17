@@ -192,7 +192,6 @@ def main(argv: list[str] | None = None) -> int:
                     "--extra",
                     "web",
                     "--no-dev",
-                    "--no-hashes",
                     "--no-emit-project",
                     "--format",
                     "requirements-txt",
@@ -202,25 +201,16 @@ def main(argv: list[str] | None = None) -> int:
             encoding="utf-8",
         )
         (wheel,) = wheels.glob("adore-*.whl")
-        run(
-            [
-                uv,
-                "pip",
-                "install",
-                "--python",
-                str(interpreter),
-                "--system",
-                "--break-system-packages",
-                "--no-deps",
-                "--no-build",
-                "--link-mode",
-                "copy",
-                "-r",
-                str(requirements),
-                str(wheel),
-            ],
-            REPO,
-        )
+        install = [
+            uv, "pip", "install", "--python", str(interpreter), "--system",
+            "--break-system-packages", "--no-deps", "--no-build", "--link-mode", "copy",
+        ]
+        # Dependencies must match the hashes recorded in uv.lock: a file served
+        # under the same version by a replaced index is refused, not shipped.
+        run([*install, "--require-hashes", "-r", str(requirements)], REPO)
+        # The project wheel was built from this checkout a moment ago and has no
+        # recorded hash, so it is installed on its own.
+        run([*install, str(wheel)], REPO)
         # Console-script shebangs point into build staging. Public wrappers use -m.
         scripts = runtime / ("Scripts" if system == "windows" else "bin")
         if scripts.exists():

@@ -6,9 +6,11 @@
 #          exists for the configured runtime, and optionally register a Task
 #          Scheduler job - either the long-running poll loop at logon (-Mode
 #          loop, the default) or a repeating single pass (-Mode once
-#          -IntervalMinutes N). Secrets are never echoed and never appear in
+#          -IntervalMinutes N, each pass ended after -PassTimeLimitHours,
+#          default 24). Secrets are never echoed and never appear in
 #          argv; ADORE reads .env from its working directory.
 # @usage   .\02_Tools\setup\install_windows_service.ps1 [-Mode loop|once] [-IntervalMinutes 10]
+#              [-PassTimeLimitHours 24]
 #              [-Runtime "docker"] [-ImageTag "adore-executor-base:1.0.0"]
 #              [-SkipImageCheck] [-AllowOpenEgress] [-NoTask] [-Uninstall]
 #          With Docker Engine in WSL2: -Runtime "wsl -d Ubuntu-24.04 -- docker"
@@ -21,6 +23,8 @@ param(
     [string]$Mode = "loop",
     [ValidateRange(1, 1440)]
     [int]$IntervalMinutes = 10,
+    [ValidateRange(1, 168)]
+    [int]$PassTimeLimitHours = 24,
     [string]$Runtime = "docker",
     [string]$ImageTag = "adore-executor-base:1.0.0",
     [switch]$SkipImageCheck,
@@ -175,9 +179,14 @@ if ($Mode -eq "loop") {
     $action  = New-ScheduledTaskAction -Execute $AdoreExe `
         -Argument "-c config.toml run --loop" -WorkingDirectory $SoftwareDir
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    $timeLimit = New-TimeSpan -Seconds 0
 } else {
     # Repeating single pass: one poll every N minutes, first run one minute
-    # from now; each pass exits, so a wedged pass cannot block the schedule.
+    # from now. A new pass is skipped while the previous one still runs, so a
+    # pass that never ends would stop the schedule for good. It is therefore
+    # ended after -PassTimeLimitHours, set far above any job's own time budget
+    # so that real work is never cut short.
+    $timeLimit = New-TimeSpan -Hours $PassTimeLimitHours
     $action  = New-ScheduledTaskAction -Execute $AdoreExe `
         -Argument "-c config.toml run --once" -WorkingDirectory $SoftwareDir
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
@@ -186,7 +195,7 @@ if ($Mode -eq "loop") {
 }
 $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
-    -ExecutionTimeLimit (New-TimeSpan -Seconds 0) `
+    -ExecutionTimeLimit $timeLimit `
     -StartWhenAvailable `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 

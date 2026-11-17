@@ -1,6 +1,7 @@
 """Offline CLI deletion and durable History boundary tests."""
 
 from adore.cli import main
+from adore.deletion_audit import NAME, DeletionAudit
 from adore.state import StateStore
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
@@ -322,3 +323,11 @@ def test_delayed_import_retention_keeps_newer_event(tmp_path, policy):
         size = sum(len((value or "").encode("utf-8")) for value in row)
     web.set_audit_policy(1 if policy == "age" else None, size if policy == "size" else None)
     assert [row["action"] for row in web.recent_audit(None)] == ["login"]
+
+
+def test_audit_store_is_published_whole_and_reopens(tmp_path):
+    """The ledger appears already initialised, leaves no draft, and opens a second time."""
+    DeletionAudit(tmp_path)
+    assert [path.name for path in tmp_path.iterdir()] == [NAME]
+    DeletionAudit(tmp_path)
+    assert [path.name for path in tmp_path.iterdir()] == [NAME]

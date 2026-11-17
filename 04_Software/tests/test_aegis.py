@@ -257,8 +257,8 @@ def test_task_creation_and_status_are_pinned_and_validated() -> None:
     assert task.stage == "frame" and task.branch == "adore/run-1"
     assert task.requirements == ("REQ-FUNC-1",)
     assert execute.calls[0] == [
-        "python3", ".agentic/aegis.py", "task", "Implement bounded change",
-        "--type", "feature",
+        "python3", ".agentic/aegis.py", "task", "--type", "feature",
+        "--", "Implement bounded change",
     ]
 
 
@@ -380,7 +380,7 @@ def test_container_transport_quotes_title_and_reads_validated_stdout(
     assert calls == [["sh", f"/adore/io/{AEGIS_SCRIPT}"]]
     assert all(" " not in token for token in calls[0])
     script = (io_dir / AEGIS_SCRIPT).read_text(encoding="utf-8")
-    expected = shlex.join(["python3", AEGIS_CLI, "task", title, "--type", "fix"])
+    expected = shlex.join(["python3", AEGIS_CLI, "task", "--type", "fix", "--", title])
     assert "\r" not in script
     assert expected in script
     assert f"> /adore/io/{AEGIS_STDOUT_FILE}" in script
@@ -644,3 +644,10 @@ def test_backend_paths_control_aegis_file_transport(tmp_path):
             return CommandResult()
 
     assert AegisClient(Target(), io_dir=tmp_path).create_task("New task", "fix") == TASK_ID
+
+
+def test_task_title_that_starts_with_a_dash_is_not_read_as_an_option() -> None:
+    """The title follows the option separator, so AEGIS takes it as text."""
+    execute = FakeExec(result(stdout=f".agentic/tasks/{TASK_ID}.md" + chr(10)))
+    assert AegisClient(execute, "python3").create_task("-v flag is ignored", "fix") == TASK_ID
+    assert execute.calls[0][-2:] == ["--", "-v flag is ignored"]

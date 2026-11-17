@@ -27,6 +27,7 @@ UNIT_TEMPLATE="${SCRIPT_DIR}/adore.service"
 UNIT_PATH="/etc/systemd/system/adore.service"
 IMAGE_TAG="${IMAGE_TAG:-adore-executor-base:1.0.0}"
 IMAGE_DOCKERFILE="${IMAGE_DOCKERFILE:-Dockerfile.executor-base}"
+ADORE_USER_CHOSEN="${ADORE_USER:+yes}"
 ADORE_USER="${ADORE_USER:-$(id -un)}"
 
 # LOCAL HELPERS
@@ -80,6 +81,12 @@ if [ "${MODE}" = "uninstall" ]; then
         note "no unit at ${UNIT_PATH}; nothing to do"
     fi
     exit 0
+fi
+
+# Started through sudo, the invoking user is root: the service would run as root
+# and the Python environment would be root-owned. That is never the default.
+if [ "$(id -u)" -eq 0 ] && [ -z "${ADORE_USER_CHOSEN}" ]; then
+    fail "do not start this script as root or with sudo: it asks for sudo itself where needed. Run it as the account that will run ADORE, or set ADORE_USER explicitly (ADORE_USER=root to run as root on purpose)"
 fi
 
 # INSTALL - 1. host prerequisites (fail closed with a hint, never auto-install)

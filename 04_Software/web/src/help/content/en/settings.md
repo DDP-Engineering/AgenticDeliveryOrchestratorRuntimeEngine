@@ -8,7 +8,7 @@ Azure DevOps Services adds **Organization URL**, **Azure project**, **Work Item 
 
 ## Where to find Settings {#where}
 
-Open [Projects](/projects), choose a project and select the **Settings** tab. The tabs are Summary, Settings, Jobs, Statistics, History and, for administrators, Access.
+Open [Projects](/projects), choose a project and select the **Settings** tab. The tabs are Summary, Settings, Jobs, Tickets, Statistics, History and, for administrators, Access.
 
 Saved settings refresh every 15 seconds while the browser tab is visible. Updates pause while you have unsaved settings or while a save or discard is in progress. The refresh also pauses while you enter a price or API key, or complete ChatGPT sign-in.
 

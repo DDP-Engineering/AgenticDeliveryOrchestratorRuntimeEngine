@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import os
 from pathlib import Path
 import platform
 import re
@@ -642,7 +643,10 @@ def detect_push_access(
             name=GIT_PUSH, present=False,
             detail=f"the target clone directory does not exist: {root}",
         )
-    result = runner(["git", "ls-remote", "--heads", remote], cwd=str(root))
+    # No terminal is attached here: a credential prompt would wait unseen until
+    # the default ten-minute timeout. Ask git to fail instead and bound the probe.
+    result = runner(["git", "ls-remote", "--heads", remote], cwd=str(root), timeout=30,
+                    env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
     if result.exit_code == 127:
         return ToolStatus(name=GIT_PUSH, present=False, detail="git not found on PATH")
     if result.ok:

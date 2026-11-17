@@ -8,7 +8,7 @@ Azure DevOps Services ajoute **URL de l’organisation**, **Projet Azure**, **Ch
 
 ## Où trouver les Paramètres {#where}
 
-Ouvrez [Projets](/projects), choisissez un projet et sélectionnez l’onglet **Paramètres**. Les onglets sont Résumé, Paramètres, Tâches, Statistiques, Historique et, pour les administrateurs, Accès.
+Ouvrez [Projets](/projects), choisissez un projet et sélectionnez l’onglet **Paramètres**. Les onglets sont Résumé, Paramètres, Tâches, Tickets, Statistiques, Historique et, pour les administrateurs, Accès.
 
 Les paramètres enregistrés s’actualisent toutes les 15 secondes quand l’onglet du navigateur est visible. L’actualisation se met en pause en cas de modification non enregistrée, d’enregistrement ou d’abandon en cours. L’actualisation se met aussi en pause pendant la saisie d’un tarif ou d’une clé API et pendant la connexion ChatGPT.
 

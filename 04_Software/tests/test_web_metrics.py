@@ -5,6 +5,7 @@ import sqlite3
 from adore import metrics
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
+from adore.web import analytics
 from adore.web.app import create_app
 from adore.web.store import WebStoreError
 from fastapi.testclient import TestClient
@@ -1254,3 +1255,14 @@ def test_usage_rereads_only_each_selected_run_inside_projection(tmp_path, monkey
         response = client.get("/api/v1/projects/alpha/usage")
         assert response.status_code == 200, response.text
         assert len(reads) == 4  # two initial source reads plus one reread per run
+
+
+def test_timezone_key_that_names_a_directory_is_refused_as_invalid(monkeypatch):
+    """A lookup that ends in an OS error is an invalid time zone, not a server error."""
+    def directory(_key):
+        raise IsADirectoryError("America")
+
+    monkeypatch.setattr(analytics, "ZoneInfo", directory)
+    with pytest.raises(analytics.AnalyticsError) as refused:
+        analytics.Scope.create(None, None, "America", "day")
+    assert refused.value.code == "invalid_reporting_timezone"

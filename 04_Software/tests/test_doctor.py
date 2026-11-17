@@ -536,3 +536,15 @@ def test_aegis_guidance_names_hard_break(tmp_path: Path) -> None:
     assert "schema 1" in text and "only" in text.lower()
     assert "optional" in text.lower()
     assert "must carry" not in text and "Install the payload" not in text
+
+
+def test_detect_push_access_never_waits_on_a_credential_prompt(tmp_path: Path) -> None:
+    """The remote probe is bounded and forbids git's interactive prompt."""
+    seen: dict = {}
+
+    def runner(argv, *, cwd=None, timeout=None, env=None):
+        seen.update(timeout=timeout, env=env)
+        return _ok("abc123" + chr(9) + "refs/heads/main")
+
+    assert doctor.detect_push_access(tmp_path, runner).present
+    assert seen["timeout"] == 30 and seen["env"]["GIT_TERMINAL_PROMPT"] == "0"
