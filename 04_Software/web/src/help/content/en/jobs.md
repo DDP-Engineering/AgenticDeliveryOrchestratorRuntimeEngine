@@ -43,6 +43,8 @@ Direct **Implementation** uses the `build` override in `workflow.stage_timeout_o
 
 When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**. **Read the question** opens the question in **Job details**; **Answer on the ticket** uses its saved location.
 
+Direct jobs save a checkpoint before asking a question and publish it when progress publication is enabled. Exchange files are excluded; saving progress does not complete or approve the job.
+
 Reply with a normal comment on the ticket, then add `agent-answered`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.
 
 ## Approval {#approval}

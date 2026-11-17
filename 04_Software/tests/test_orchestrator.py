@@ -896,11 +896,20 @@ def test_direct_no_changes_fails_once_with_summary(tmp_path, monkeypatch, summar
 
 @pytest.mark.parametrize("question", ["", "Which behavior is required?"])
 @pytest.mark.parametrize("product_edit", [False, True])
+@pytest.mark.parametrize("publish", [False, True])
+@pytest.mark.parametrize("checkpoint_failure", [False, True])
 def test_direct_questions_park_and_resume_fresh_with_thread(
-    tmp_path, monkeypatch, question, product_edit,
+    tmp_path, monkeypatch, question, product_edit, publish, checkpoint_failure,
 ):
     """Presence (even empty) wins over progress/errors and keeps failure counters."""
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
+    engine.config.delivery.publish_checkpoints = publish
+    pushes = []
+    monkeypatch.setattr(engine, "_push_checkpoint", lambda run: pushes.append(run.run_id))
+    if checkpoint_failure:
+        def refuse(*args, **kwargs):
+            raise IsolationError("checkpoint denied")
+        monkeypatch.setattr(worktrees, "commit_all_if_dirty", refuse)
 
     def ask(root):
         if product_edit:
@@ -911,7 +920,17 @@ def test_direct_questions_park_and_resume_fresh_with_thread(
     executor.attempts.extend([ask, direct_edit(worktrees)])
     engine.poll_once(ticket_iid=7)
     parked = engine.store.load("github-owner-repo-7")
+    if checkpoint_failure:
+        assert parked.lifecycle == "failed" and parked.outcome.startswith("CHECKPOINT_FAILED:")
+        assert parked.clarification_rounds == 0 and not parked.question_comment_id
+        assert not pushes
+        if product_edit:
+            assert (work / "feature.txt").exists()
+        return
     assert parked.lifecycle == "parked-clarification" and parked.stage == "build"
+    assert worktrees.checkpoints == [
+        ("WIP " if publish else "") + "ADORE direct clarification"]
+    assert pushes == ([parked.run_id] if publish else [])
     assert parked.stage_failures == 0 and not parked.failure_history
     assert not parked.approval_comment_id and not (work / engine.questions_file).exists()
     assert parked.validation_evidence.get("implementation") is None

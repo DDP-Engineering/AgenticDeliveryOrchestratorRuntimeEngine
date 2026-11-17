@@ -43,6 +43,8 @@ La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon l
 
 Lorsque l’exécuteur demande des informations, ADORE publie un commentaire de clarification avec les questions et ajoute `agent-clarify`. Le travail indique l’attente de clarification. **Lire la question** ouvre la question dans **Détails du travail** ; **Répondre sur le ticket** utilise son emplacement enregistré.
 
+Les travaux directs enregistrent un point de contrôle avant une question et le publient si la publication de progression est activée. Les fichiers d’échange sont exclus ; cet enregistrement ne termine ni n’approuve le travail.
+
 Répondez par un commentaire normal sur le ticket, puis ajoutez `agent-answered`. Les deux sont nécessaires ; les commentaires d’ADORE lui-même ne comptent pas. ADORE retire les deux étiquettes et reprend. Les questions ne comptent pas comme des tentatives échouées. **Nombre maximal de tours de questions** (3 par défaut) limite le nombre de fois qu’une tâche peut poser des questions, et **Temps accordé à une réponse humaine** (72 heures par défaut) fait échouer la tâche à l’expiration.
 
 ## Approbation {#approval}

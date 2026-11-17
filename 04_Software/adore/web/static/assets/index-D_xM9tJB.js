@@ -319,182 +319,184 @@ Unter [Mein Konto](/account) enthält **Darstellung** die Auswahl **Sprache** (E
 Das ursprüngliche Administratorkonto sieht eine Erinnerung, bis das Anfangskennwort geändert wurde. **Passwort ändern** in der Erinnerung öffnet Mein Konto.
 
 Geben Sie beim Ändern das neue Passwort zweimal ein. Die Schaltflächen zeigen oder verbergen jede Eingabe. Mindestens 8 Zeichen sind erforderlich.
-`,TS=`# Lebenszyklus eines Auftrags
-
-Ein Auftrag ist die Arbeit, die ADORE für ein Ticket leistet, von der Aufnahme bis zur zusammengeführten Änderung. Dieser Artikel zeigt seine Phasen und wo Sie mitwirken. Labels und Eignung stehen unter [Tickets für die automatische Aufnahme](/help/tickets).
-
-
-Bestätigen Sie **Abbrechen**. Die Bereinigung versucht Laufzeit und Arbeitsverzeichnis einschließlich unveröffentlichter Arbeit zu entfernen; Ressourcen können bleiben. Status und Nachweise bleiben. Löschen ist eine separate Aktion.
-
-Öffnen Sie **Jobaktionen** neben der aktuellen Phase für **Wiederholen**, **Abbrechen** oder den bestätigten Neustart, soweit verfügbar. Nur für diesen Job zulässige Befehle werden angezeigt.
-
-Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt. Der Auftrag hat danach seinen eigenen Fortschritt und Ausgang. Ein wartender oder laufender Befehl bestätigt die Aufnahme allein nicht. Der Abbruch wird erst nach dem Auftragsstopp mit gespeichertem Abbruchergebnis bestätigt. Warteschlange oder Stoppsignal bestätigen keinen Abbruch. Prüfen Sie bei unklarem Ergebnis den Auftrag vor dem Wiederholen.
-
-Jedes Projekt hat eine gemeinsame Grenze für gleichzeitige Aufträge: Start, Wiederholen, Neustart und Fortsetzung. Die Überwachungspause stoppt die automatische Aufnahme und lässt den ausdrücklichen Start zu. Eine niedrigere Grenze lässt bestehende Aufträge weiterlaufen. Wartende Befehle und abgeschlossene Übergänge zur Klärungs-, Freigabe- oder Review-Wartephase nutzen keinen Executor; Initialisierung und Bereinigung behalten ihren Platz bis zur sicheren Freigabe. Warten vor der Ausführung verbraucht keine aktive Arbeitszeit.
-
-Parallele Aufträge haben eigene Arbeitsordner, Ressourcen, Zugangsdaten und Ausgaben. Wird einer abgebrochen, laufen die anderen weiter. Gemeinsame Aktualisierungen können warten; bereite Agenten arbeiten weiter.
-
-Projekte arbeiten unabhängig. Bei einer Grenze von zwei laufen zwei Aufträge gleichzeitig; der nächste Start wartet auf einen Platz. Das Beenden der Anwendung stoppt ihre Worker und Aufträge; unklare unterbrochene Arbeit muss vor einem ausdrücklichen Wiederholen geprüft werden.
-
-Nach einer niedrigeren Auftragsgrenze warten aufgenommene, noch nicht gestartete Aufträge auf einen Platz gemäß der neuen Grenze. Bereits laufende Aufträge arbeiten auch oberhalb dieser Grenze weiter; die Bereinigung behält ihren Platz bis zur sicheren Freigabe. Einstellungen anderer Projekte und die Serververwaltung bleiben verfügbar.
-
-## Phasen {#stages}
-
-ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.
-
-| Phase | Was geschieht |
-|---|---|
-| Rahmen | Der Umfang wird abgestimmt, und der Executor hält die bestehenden Anforderungen fest, die die Arbeit abdecken. |
-| Spezifikation | Die Anforderung wird geschrieben. |
-| Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |
-| Umsetzung | Der Agent implementiert das Ticket und wählt passende Prüfungen gemäß den Repository-Anweisungen. |
-| Validierung | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |
-
-Spezifikation und Entwurf können als übersprungen festgehalten werden, wenn bestehende Anforderungen die Arbeit bereits abdecken. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und setzt dasselbe Jobgespräch innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
-
-## Direkte Jobs {#direct-evidence}
-
-Liste und Jobseite zeigen **Workflow**: **AEGIS** oder **Direkt**, wie für den Job gespeichert. Ein direkter Job verwendet **Implementierung** (\`build\`), **Validierung** (\`validate\`), dann **Fertig**. Er hat weder Rahmen, Spezifikation, Entwurf noch eine AEGIS-Aufgabe. Der Verlauf zeigt nur gespeicherte Ereignisse, keine angenommenen abgeschlossenen Schritte.
-
-**Letzter gespeicherter Versuch** zeigt den letzten gespeicherten Agentenstart. Andernfalls erscheint **Versuch nicht verfügbar**. Tests und Prüfungen meldet der Agent; ADORE führt sie nicht zusätzlich aus.
-
-Direkte **Implementierung** nutzt \`build\` aus \`workflow.stage_timeout_overrides\`, sonst \`budgets.per_gate_timeout_seconds\`. **Validierung** (\`validate\`) speichert den Kandidaten zur Freigabe ohne separaten Testbefehl.
-
-## Klärung {#clarification}
-
-Wenn der Executor Informationen benötigt, veröffentlicht ADORE einen Klärungskommentar mit den Fragen und setzt \`agent-clarify\`. Der Job wartet auf Klärung. **Frage lesen** öffnet die Frage in **Jobdetails**; die Antwortaktion führt zum gespeicherten Ort im Ticket.
-
-Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann \`agent-answered\`. Beides ist nötig; Kommentare von ADORE selbst zählen nicht. ADORE entfernt beide Labels und setzt die Arbeit fort. Fragen zählen nicht als Fehlversuche. **Maximale Rückfragerunden** (standardmäßig 3) begrenzt, wie oft ein Auftrag fragen darf, und **Wartezeit auf eine menschliche Antwort** (standardmäßig 72 Stunden) lässt den Auftrag bei Ablauf fehlschlagen.
-
-## Freigabe {#approval}
-
-Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
-
-Wenn der Agent seinen Workflow beendet, speichert ADORE den Kandidaten, entfernt das alte Freigabelabel und fordert eine neue menschliche Freigabe an. Prüfungen im Journal wurden vom Agenten gemeldet.
-
-Prüfen Sie ihn und setzen Sie dann \`agent-approved\` erneut; nur ein frisches Setzen zählt. Die Freigabe ist an diesen Kandidaten und den Commit des Zielbranches gebunden. Ändert sich eines von beiden, ist die Freigabe ungültig, und ADORE integriert, validiert und fragt erneut. Dieses Warten hat keinen Timer. Die Auftragsdetails bieten **Kandidat auf der Forge prüfen**.
-
-Ist die Option deaktiviert, prüft ADORE den validierten Kandidaten und das Ziel und veröffentlicht ohne Label. ADORE führt nie zusammen.
-
-## Veröffentlichung und Prüfung {#review}
-
-Nach Validierung und gegebenenfalls Freigabe überträgt ADORE den Branch und öffnet den MR/PR gegen den Zielbranch, fordert bei den Konten unter **Review anfordern von** ein Review an und setzt \`agent-mr\`. **PR/MR-Status bei Veröffentlichung** wählt Entwurf (Standard) oder Bereit zur Prüfung. Der Auftrag zeigt **Veröffentlichung** und dann **Menschliche Prüfung**. ADORE führt nie zusammen. Nachdem ein Mensch zusammengeführt hat, setzt ADORE \`agent-done\`, der Auftrag zeigt **Abgeschlossen**, und standardmäßig wird der Remote-Branch entfernt. Ein ohne Merge geschlossener MR/PR lässt den Auftrag fehlschlagen.
-
-Um Änderungen anzufordern, setzt ein Reviewer \`agent-revise\` am MR/PR. ADORE entfernt das Label, startet neue Arbeit auf demselben Branch (eine neue Aufgabe bei AEGIS) und wiederholt Validierung und frische Freigabe, bevor es überträgt. **Maximale Überarbeitungsrunden** (standardmäßig 5) begrenzt das. Eine Anfrage über das Limit hinaus lässt den Auftrag fehlschlagen.
-
-Schlagen CI-Prüfungen am MR/PR fehl, entscheidet **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen**: Automatisch reparieren (Standard) startet eine Überarbeitung, Nur benachrichtigen postet einen Kommentar, und Ignorieren überspringt den CI-Status. Automatische Reparaturen teilen sich das Überarbeitungsbudget; ist es aufgebraucht, postet ADORE einen Hinweis, und der Auftrag bleibt in der Prüfung.
-
-## Fehler und Wiederherstellung {#failures}
-
-Schlägt eine Phase fehl, hält ADORE einen Störungskommentar am Ticket aktuell, mit Phase, Versuch, Fehlercode, Nachweisen und nächster Aktion; hat der Agent beendet, ohne die Phase voranzubringen, zeigen die Nachweise auch seine letzten Fehlerausgabezeilen. Nach dem letzten Versuch postet es einen abschließenden Kommentar, setzt \`agent-failed\`, stoppt den Container, behält den Worktree und gibt den Platz frei. Weitere Ursachen sind eine abgelaufene Antwortzeit, ein gelöschtes Quellticket und ein überschrittenes Limit wie Kosten oder geänderte Dateien. Das Schließen des Quelltickets, während ein Auftrag wartet, bricht ihn ab.
-
-Unter Aufträge zeigt ein fehlgeschlagener Auftrag **Fehlgeschlagen**, und seine Details erklären, dass Wiederherstellungsnachweise erhalten bleiben. **Wiederholen** bittet den Worker, den Auftrag wiederherzustellen; es umgeht weder Validierung noch erforderliche Freigabe. In der Ticketansicht ersetzt Wiederholen das Starten. Das Entfernen von \`agent-failed\` löst keine Wiederholung aus. **Abbrechen** erscheint bei unbeendeten Aufträgen und bittet den Worker, zu stoppen und aufzuräumen. Beendete Aufträge können nicht abgebrochen werden. Administratoren und zugewiesene Entwickler können beides nutzen. Ein eingereihter Befehl zeigt seinen Fortschritt, etwa Befehl eingereiht oder Befehl abgeschlossen. Ein fehlgeschlagener oder ungewisser Befehl nennt außerdem den Grund, wenn die Engine einen angibt, und zeigt die letzten Zeilen der Engine.
-
-Bei lokalen Aufträgen prüft **Wiederholen** den installierten Executor erneut und akzeptiert ein aktualisiertes Programm oder eine geänderte geerbte Umgebung auf demselben Computer und Konto. Aufgabe, Worktree, Branch, Verlauf und kumulative Grenzen bleiben erhalten. Die automatische Überwachung tut dies nicht. Geänderte Ausführungseinstellungen oder beschädigte Wiederherstellungsnachweise müssen korrigiert werden. Scheitert der Neustart, zeigt der Vorgang den gespeicherten Grund: fehlendes Programm, ungültige Version, Befehlsfehler oder Zeitüberschreitung. Diese Versionsprüfung sendet keine Modellanfrage; verwenden Sie dafür **KI-Verbindung testen**.
-
-Überschreitet ein Container-Befehl sein Zeitlimit, stoppt ADORE den Container vor dem nächsten Befehl. Der nächste zulässige Versuch startet denselben Container mit installierten Abhängigkeiten und Dateien; der Netzwerkzugriff bleibt unverändert. Lässt sich sicheres Stoppen oder Starten nicht bestätigen, schlägt der Auftrag fehl und bewahrt Nachweise zur Prüfung vor **Wiederholen**. Eine fehlgeschlagene Vorbereitung benötigt weiterhin ihre ausdrückliche Wiederherstellung.
-
-Container-Jobs behalten das beim Start gewählte Image und die Ressource, auch ohne Vorbereitung. Wird die Ressource ersetzt, starten Sie einen neuen Job. Die Vorbereitung bleibt optional.
-
-## Verwerfen und neu starten {#restart}
-
-Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.
-
-Wiederholen behebt keine geänderte Ausführungsart oder feste Einstellungen; die Jobdetails erklären dies und bieten die bestätigte Aktion an. Stellen Sie gespeicherte Einstellungen wieder her, um Arbeit zu behalten. Wiederholen kann veränderliche native Umgebungswerte weiterhin neu prüfen, auch Prozessorvariablen nach einer VM-Größenänderung.
-
-Fremde Ressourcen, andere Rechner oder Konten, beschädigte Eigentumsnachweise und geänderte Remote-Branches blockieren die Wiederherstellung. Eine Teilbereinigung behält restliche Nachweise ohne neuen Auftrag. Bei Änderungen nach der Bestätigung aktualisieren und prüfen Sie die Details erneut. Eine CLI-Sperre kann dem Web-Worker gehören: Überwachung in der Projektübersicht pausieren und das Ende des begrenzten Auftrags abwarten. Keine aktive Sperrdatei löschen.
-
-Hat ein früher gelöschter Auftrag einen Branch ohne gespeicherten Checkpoint hinterlassen, behält ADORE ihn und nutzt eine neue Generation. Ein geänderter bekannter Checkpoint blockiert weiterhin die Wiederherstellung. Höchstens drei alternative Namen werden geprüft; die Repository-Regeln müssen einen freien Namen erlauben. Andernfalls stoppt die Wiederherstellung vor der Bereinigung. Das Ergebnis nennt einen behaltenen alten Branch.
-
-## Aufträge verfolgen {#following-jobs}
-
-Automatische Abfragen behalten Zeilen, Verbrauch, Tabellensteuerung und offene Jobdetails. **Aktualisieren** nutzt dieselbe Hintergrundabfrage; **Letzte erfolgreiche Aktualisierung** zeigt ihren Abschluss. Bei einer vorübergehenden Verbindungsstörung der Liste oder des Verbrauchs kann der vorherige Stand mit Veraltet-Hinweis und **Wiederholen** bleiben. Ungültige Jobnachweise oder abgelaufene Seitenstände verlangen weiterhin Wiederherstellung oder Neuladen der ersten Seite; veraltete Informationen berechtigen nicht zu Jobaktionen.
-
-**Jobs** in der Seitenleiste oder den separaten **Jobs**-Reiter des Projekts verwenden. Die Tabelle enthält diese Spalten:
-
-| Spalte | Inhalt |
-|---|---|
-| Ticket | Nummer und Titel; öffnet die Auftragsdetails. |
-| Projekt | Das zugehörige Projekt. |
-| Status | Der Zustand, der gespeicherte Workflow, die aktuelle Phase und ein Link zum Ticket oder MR/PR, wenn ein Mensch handeln muss. |
-| Letzte Aktivität | Zeitpunkt des letzten gespeicherten Ereignisses. |
-| Verbrauch | Vom Auftrag verbrauchte Token. |
-
-Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.
-
-Die Detailansicht ersetzt ihre Ursprungsliste. **Aktivität**, **Agentensitzungen** und **Jobdetails** stehen über dem Titel, **Ticket anzeigen** und **Schließen** rechts. Status, Phase und Workflow folgen dem Titel. Budgets und Verbrauch stehen rechts. Erforderliche Frage-, Freigabe- und Reviewaktionen bleiben sichtbar. **Schließen** stellt Ansicht, Umfang, Suche, Filter und Seitenauswahl wieder her.
-
-**Aktivität** ist eine paginierte Tabelle mit Zeit, Aktivität, Phase und Sitzung. 10, 25, 50 oder Alle Zeilen wählen und Zurück/Weiter verwenden. **Unterhaltung öffnen** führt zur genauen Sitzung, wenn Phase und Versuch einen aufgezeichneten Start eindeutig bestimmen; andere Ereignisse haben keinen Link. Die Rückkehr erhält die Seite. Budgets und Verbrauch stehen rechts, auf schmalen Bildschirmen darunter.
-
-## Verlauf der Agentensitzungen {#agent-sessions}
-
-**Agentensitzungen** öffnet die aktuelle oder zuletzt abgeschlossene Sitzung. Die Unterhaltung zeigt die ursprüngliche Anweisung, Agentenantworten, Benutzernachrichten sowie ausklappbare Werkzeugaufrufe und Ergebnisse. Antworten verwenden lesbares Markdown. Nachrichten erscheinen direkt mit einer Autorenzeile; Überlegungen und Werkzeuge lassen sich aufklappen. Der Verbrauch bleibt rechts.
-
-Pi behält ein Implementierungsgespräch für den Job über Phasen, Fortsetzungen und Korrekturen hinweg. Prozesse können an Kontrollpunkten neu starten; das Gespräch wird mit Kontext und automatischer Komprimierung durch Pi fortgesetzt. Die Auswahl zeigt weiterhin gespeicherte Versuche mit jeweils neuer Aktivität und Nutzung. Unabhängige Prüfungen verwenden getrennte Kontexte, wenn die Prüfrichtlinie des Repositorys dies verlangt.
-
-Sitzung, Auswahl und Live-Aktivität stehen in einer Zeile direkt über der Unterhaltung und nutzen deren Breite. Die Unterhaltung nutzt die verfügbare Bildschirmhöhe und scrollt bei neuen Nachrichten intern. Die Sendeschaltflächen stehen auf breiten Bildschirmen rechts neben dem Textfeld, auf schmalen darunter.
-
-Der Verlauf lädt schrittweise, ohne gespeicherten Nachrichtentext zu kürzen. Neue Nachrichten werden nur am unteren Ende automatisch verfolgt; **Neue Nachrichten** führt dorthin zurück. Die Sitzungsauswahl erhält frühere Versuche, **Aktuelle Sitzung** führt zur laufenden Arbeit.
-
-Neue Starts speichern ausgehende Anweisungen und Nachrichtenzeiten ausdrücklich. Frühere Sitzungen zeigen nur vorhandene Aufzeichnungen. Zugriffsrechte für Administratoren und zugewiesene Entwickler bleiben unverändert; strukturierte Kosten bleiben Administratoren vorbehalten.
-
-**Maximieren** nutzt die ganze Seite für die Sitzung. **Wiederherstellen** oder Escape kehrt zur normalen Ansicht zurück. Gewählte Sitzung, Nachrichten und Entwurf bleiben erhalten.
-
-### Anweisungen senden {#instructions}
-
-Eine **Nachricht an den Agenten** unten in der aktuellen Unterhaltung eingeben. **Jetzt senden** übergibt sie an der nächsten sicheren Agentengrenze; **Nachricht einreihen** wartet auf den Abschluss der aktuellen Arbeit. Zwischen Sitzungen bleibt Einreihen während der Bearbeitung verfügbar. Historische Unterhaltungen sind schreibgeschützt.
-
-Die Nachricht erscheint mit **Wartend**, **Vom Agenten empfangen** oder einem Fehlerstatus. Empfangen bestätigt den Empfang, nicht die erledigte Arbeit. Eingabefehler werden beim Senden erklärt: 1–4000 Zeichen ohne NUL, höchstens 256 gespeicherte Anweisungen pro Job.
-
-Unbestätigte Anweisungen bleiben für eine spätere Sitzung eingereiht. Bestätigter Empfang wird im Job gespeichert und im Ticket veröffentlicht; vorübergehende Kommentarfehler werden unabhängig erneut versucht.
-
-## Jobbudgets {#budgets}
-
-Jobdetails zeigen **Executorstarts** (zum Beispiel 9 / 20) und **Aktive Arbeit (Sekunden)** neben den aktuellen Projektgrenzen, unabhängig von Tokenstatistiken. Ab 90 % erscheint ein Hinweis; bei Erreichen soll die Grenze vor dem Fortsetzen erhöht werden. Die Startvorgabe ist 20 bei Registrierung und \`adore init\`.
-
-Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen, **Implementierung** öffnen, nur Budgets ändern, **Speichern** wählen und die genauen Werte bestätigen. Solche geprüften Budgetänderungen sind bei wartenden Rückfragen erlaubt, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen behalten die üblichen Ruhe- und Pausenprüfungen; Entwickler haben Lesezugriff.
-
-Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.
-
-Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.
-
-## Jobdetails und Diagnose {#operational-evidence}
-
-**Jobdetails** zeigt das gespeicherte Ergebnis einmal, den aufgezeichneten **Branch**, den **Letzten veröffentlichten Commit**, falls vorhanden, den MR/PR-Link und Reviewrunden getrennt. Ein fehlender Branch wird als **Nicht aufgezeichnet** angezeigt. Der veröffentlichte Commit ist der letzte verifizierte, gepushte Kontrollpunkt, kein Kandidatenfingerabdruck.
-
-Bei Klärungsbedarf öffnet **Frage lesen** diesen Reiter. Die Frage verwendet lesbares Markdown; unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Antwort-, Freigabe- und Reviewaktionen bleiben bei Bedarf neben dem Status sichtbar. Die Originalfrage steht unter **Diagnose**.
-
-**Diagnose** ist zunächst eingeklappt. Dort stehen interne Projekt-/Jobkennungen, **Fehlversuche in der aktuellen Phase**, direkte Versuche oder Vorbereitungsergebnisse sowie die letzte Executorausgabe. Reviewrunden bleiben von aktuellen Phasenfehlern getrennt.
-
-**Nicht verfügbare Daten** nennt Ticket, Aktivitätsverlauf, Titel oder Aktivitätszeit nur bei fehlenden Quellen. Dies beschreibt verfügbare Nachweise, keinen Tokenverbrauch. Der Verbrauch bleibt rechts.
-
-Die letzte Executorausgabe zeigt normalisiertes operatives stdout/stderr mit Zeit, Versuch, Phase und Exitcode. Private Inhalte bleiben verborgen; höchstens 500 Einträge innerhalb 64 KiB je Stream werden behalten. Fehlende oder beschädigte Nachweise werden gemeldet; geänderte Nachweise bieten Erneut versuchen.
-
-**Aktivität** ist die einzige Ereignistabelle. Veröffentlichter Code ist über den MR/PR-Link erreichbar. Die Details verwenden gespeicherte Nachweise, erstellen keine Dateien und starten keinen Executor.
-
-## Projektkapazität {#project-capacity}
-
-**Zusammenfassung** zeigt die Grenze paralleler Jobs, freie Plätze und wartende Jobs neben den Betriebsdaten. Jobs und Tickets sind separate Projektreiter ohne Kapazitätsunterreiter. Die globale Jobs-Seite behält ihre Kapazitätstabelle mit Projektgrenzen, freien Plätzen, Warteschlange, Überwachung und Seitennavigation.
-
-Die Warteschlange zählt eingereichte Anfragen und aufgenommene Aufträge vor ihrem Start, keine nicht angeforderten Tickets. Ein volles Projekt blockiert keine anderen. Einstellungen zeigt weiterhin **Ihre letzten Vorgänge** und gespeicherte Ergebnisse; Eingereiht und In Bearbeitung bedeuten nicht Bestätigt.
-
-Ein vorgemerktes kleineres Limit hält neue Starts und Wiederaufnahmen bereits zurück, bis die Belegung darunter liegt; bereits laufende Aufträge laufen weiter; eingereihte Reservierungen warten auf einen Ausführungsplatz. Es erhöht niemals die aktive Grenze. Die sichere Anwendung wartet weiterhin auf unfertige Arbeit; gespeicherter Wert und Kandidat bleiben bis Speichern oder Änderungen verwerfen sichtbar.
-
-## Workflow auswählen {#workflow-choice}
-
-Wählen Sie in **Jobaktionen** für einen neuen Job **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** und bestätigen Sie den kurzen Browserdialog zum Verwerfen bestehender Arbeit. Fehlendes AEGIS deaktiviert diese Aktion. Tickets behält die Auswahl **Workflow** vor **Starten**. Wiederholen, Fortsetzung und Review-Korrekturen behalten den gespeicherten Workflow und dieselbe Pi-Unterhaltung.
-
-## Abgebrochene Jobs neu starten {#restart-cancelled}
-
-Wählen Sie für den letzten abgebrochenen Job **Job neu starten** unter Tickets, wählen Sie den Workflow und bestätigen Sie, oder wählen Sie **Job mit AEGIS neu starten** / **Job ohne AEGIS neu starten** in den Jobaktionen. ADORE verwendet aktuelle Projekteinstellungen und die normalen Zulassungsprüfungen; pausierte Überwachung bleibt pausiert.
-
-Die neue Ausführung erhält eigene Identität, Arbeitsressourcen, Unterhaltung und Budgets. Der abgebrochene Job mit Aktivitäten, gespeicherten Sitzungen und Ergebnis bleibt lesbar. **Vorheriger Job** und **Neuer Job** verbinden die Ausführungen; ein bereits neu gestarteter älterer Job erzeugt kein Duplikat. Nach dauerhafter Zulassung öffnet die Bestätigung den neuen Job.
-
-Wenn der Neustart nicht bestätigt wird, aktualisieren Sie Jobs oder Tickets und suchen Sie vor einem erneuten Versuch nach dem neuen Job. Fehlende Bestätigung bedeutet weder fehlgeschlagene Bereinigung noch einen fehlenden neuen Job. Ein abgelehnter Neustart wird gesondert gemeldet.
-
-Der Verlauf läuft nicht automatisch ab. Betreiber können eine ausgewählte alte Ausführung mit \`adore delete RUN_ID --force\` löschen. Audit-Aufbewahrung entfernt keinen Jobverlauf.
-
-Retry, Rückfragen und Review behalten die gespeicherten Ausführungseinstellungen und die Pi-Unterhaltung des Jobs. Änderungen am Projektimage, Modell oder Netzwerk gelten für neue Jobs. Ressourcenprüfung, aktuelle Freigaberegeln und Joblimits bleiben gültig. Nach einem Timeout zählen erhaltene Änderungen auch dann, wenn der nächste Versuch nur das Ergebnis prüft und zusammenfasst.
+`,TS=`# Lebenszyklus eines Auftrags\r
+\r
+Ein Auftrag ist die Arbeit, die ADORE für ein Ticket leistet, von der Aufnahme bis zur zusammengeführten Änderung. Dieser Artikel zeigt seine Phasen und wo Sie mitwirken. Labels und Eignung stehen unter [Tickets für die automatische Aufnahme](/help/tickets).\r
+\r
+\r
+Bestätigen Sie **Abbrechen**. Die Bereinigung versucht Laufzeit und Arbeitsverzeichnis einschließlich unveröffentlichter Arbeit zu entfernen; Ressourcen können bleiben. Status und Nachweise bleiben. Löschen ist eine separate Aktion.\r
+\r
+Öffnen Sie **Jobaktionen** neben der aktuellen Phase für **Wiederholen**, **Abbrechen** oder den bestätigten Neustart, soweit verfügbar. Nur für diesen Job zulässige Befehle werden angezeigt.\r
+\r
+Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt. Der Auftrag hat danach seinen eigenen Fortschritt und Ausgang. Ein wartender oder laufender Befehl bestätigt die Aufnahme allein nicht. Der Abbruch wird erst nach dem Auftragsstopp mit gespeichertem Abbruchergebnis bestätigt. Warteschlange oder Stoppsignal bestätigen keinen Abbruch. Prüfen Sie bei unklarem Ergebnis den Auftrag vor dem Wiederholen.\r
+\r
+Jedes Projekt hat eine gemeinsame Grenze für gleichzeitige Aufträge: Start, Wiederholen, Neustart und Fortsetzung. Die Überwachungspause stoppt die automatische Aufnahme und lässt den ausdrücklichen Start zu. Eine niedrigere Grenze lässt bestehende Aufträge weiterlaufen. Wartende Befehle und abgeschlossene Übergänge zur Klärungs-, Freigabe- oder Review-Wartephase nutzen keinen Executor; Initialisierung und Bereinigung behalten ihren Platz bis zur sicheren Freigabe. Warten vor der Ausführung verbraucht keine aktive Arbeitszeit.\r
+\r
+Parallele Aufträge haben eigene Arbeitsordner, Ressourcen, Zugangsdaten und Ausgaben. Wird einer abgebrochen, laufen die anderen weiter. Gemeinsame Aktualisierungen können warten; bereite Agenten arbeiten weiter.\r
+\r
+Projekte arbeiten unabhängig. Bei einer Grenze von zwei laufen zwei Aufträge gleichzeitig; der nächste Start wartet auf einen Platz. Das Beenden der Anwendung stoppt ihre Worker und Aufträge; unklare unterbrochene Arbeit muss vor einem ausdrücklichen Wiederholen geprüft werden.\r
+\r
+Nach einer niedrigeren Auftragsgrenze warten aufgenommene, noch nicht gestartete Aufträge auf einen Platz gemäß der neuen Grenze. Bereits laufende Aufträge arbeiten auch oberhalb dieser Grenze weiter; die Bereinigung behält ihren Platz bis zur sicheren Freigabe. Einstellungen anderer Projekte und die Serververwaltung bleiben verfügbar.\r
+\r
+## Phasen {#stages}\r
+\r
+ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.\r
+\r
+| Phase | Was geschieht |\r
+|---|---|\r
+| Rahmen | Der Umfang wird abgestimmt, und der Executor hält die bestehenden Anforderungen fest, die die Arbeit abdecken. |\r
+| Spezifikation | Die Anforderung wird geschrieben. |\r
+| Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |\r
+| Umsetzung | Der Agent implementiert das Ticket und wählt passende Prüfungen gemäß den Repository-Anweisungen. |\r
+| Validierung | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |\r
+\r
+Spezifikation und Entwurf können als übersprungen festgehalten werden, wenn bestehende Anforderungen die Arbeit bereits abdecken. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und setzt dasselbe Jobgespräch innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).\r
+\r
+## Direkte Jobs {#direct-evidence}\r
+\r
+Liste und Jobseite zeigen **Workflow**: **AEGIS** oder **Direkt**, wie für den Job gespeichert. Ein direkter Job verwendet **Implementierung** (\`build\`), **Validierung** (\`validate\`), dann **Fertig**. Er hat weder Rahmen, Spezifikation, Entwurf noch eine AEGIS-Aufgabe. Der Verlauf zeigt nur gespeicherte Ereignisse, keine angenommenen abgeschlossenen Schritte.\r
+\r
+**Letzter gespeicherter Versuch** zeigt den letzten gespeicherten Agentenstart. Andernfalls erscheint **Versuch nicht verfügbar**. Tests und Prüfungen meldet der Agent; ADORE führt sie nicht zusätzlich aus.\r
+\r
+Direkte **Implementierung** nutzt \`build\` aus \`workflow.stage_timeout_overrides\`, sonst \`budgets.per_gate_timeout_seconds\`. **Validierung** (\`validate\`) speichert den Kandidaten zur Freigabe ohne separaten Testbefehl.\r
+\r
+## Klärung {#clarification}\r
+\r
+Wenn der Executor Informationen benötigt, veröffentlicht ADORE einen Klärungskommentar mit den Fragen und setzt \`agent-clarify\`. Der Job wartet auf Klärung. **Frage lesen** öffnet die Frage in **Jobdetails**; die Antwortaktion führt zum gespeicherten Ort im Ticket.\r
+\r
+Direkte Jobs sichern vor einer Rückfrage einen Prüfpunkt und veröffentlichen ihn bei aktivierter Fortschrittsveröffentlichung. Austauschdateien sind ausgeschlossen; der Job wird dadurch weder abgeschlossen noch genehmigt.\r
+\r
+Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann \`agent-answered\`. Beides ist nötig; Kommentare von ADORE selbst zählen nicht. ADORE entfernt beide Labels und setzt die Arbeit fort. Fragen zählen nicht als Fehlversuche. **Maximale Rückfragerunden** (standardmäßig 3) begrenzt, wie oft ein Auftrag fragen darf, und **Wartezeit auf eine menschliche Antwort** (standardmäßig 72 Stunden) lässt den Auftrag bei Ablauf fehlschlagen.\r
+\r
+## Freigabe {#approval}\r
+\r
+Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.\r
+\r
+Wenn der Agent seinen Workflow beendet, speichert ADORE den Kandidaten, entfernt das alte Freigabelabel und fordert eine neue menschliche Freigabe an. Prüfungen im Journal wurden vom Agenten gemeldet.\r
+\r
+Prüfen Sie ihn und setzen Sie dann \`agent-approved\` erneut; nur ein frisches Setzen zählt. Die Freigabe ist an diesen Kandidaten und den Commit des Zielbranches gebunden. Ändert sich eines von beiden, ist die Freigabe ungültig, und ADORE integriert, validiert und fragt erneut. Dieses Warten hat keinen Timer. Die Auftragsdetails bieten **Kandidat auf der Forge prüfen**.\r
+\r
+Ist die Option deaktiviert, prüft ADORE den validierten Kandidaten und das Ziel und veröffentlicht ohne Label. ADORE führt nie zusammen.\r
+\r
+## Veröffentlichung und Prüfung {#review}\r
+\r
+Nach Validierung und gegebenenfalls Freigabe überträgt ADORE den Branch und öffnet den MR/PR gegen den Zielbranch, fordert bei den Konten unter **Review anfordern von** ein Review an und setzt \`agent-mr\`. **PR/MR-Status bei Veröffentlichung** wählt Entwurf (Standard) oder Bereit zur Prüfung. Der Auftrag zeigt **Veröffentlichung** und dann **Menschliche Prüfung**. ADORE führt nie zusammen. Nachdem ein Mensch zusammengeführt hat, setzt ADORE \`agent-done\`, der Auftrag zeigt **Abgeschlossen**, und standardmäßig wird der Remote-Branch entfernt. Ein ohne Merge geschlossener MR/PR lässt den Auftrag fehlschlagen.\r
+\r
+Um Änderungen anzufordern, setzt ein Reviewer \`agent-revise\` am MR/PR. ADORE entfernt das Label, startet neue Arbeit auf demselben Branch (eine neue Aufgabe bei AEGIS) und wiederholt Validierung und frische Freigabe, bevor es überträgt. **Maximale Überarbeitungsrunden** (standardmäßig 5) begrenzt das. Eine Anfrage über das Limit hinaus lässt den Auftrag fehlschlagen.\r
+\r
+Schlagen CI-Prüfungen am MR/PR fehl, entscheidet **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen**: Automatisch reparieren (Standard) startet eine Überarbeitung, Nur benachrichtigen postet einen Kommentar, und Ignorieren überspringt den CI-Status. Automatische Reparaturen teilen sich das Überarbeitungsbudget; ist es aufgebraucht, postet ADORE einen Hinweis, und der Auftrag bleibt in der Prüfung.\r
+\r
+## Fehler und Wiederherstellung {#failures}\r
+\r
+Schlägt eine Phase fehl, hält ADORE einen Störungskommentar am Ticket aktuell, mit Phase, Versuch, Fehlercode, Nachweisen und nächster Aktion; hat der Agent beendet, ohne die Phase voranzubringen, zeigen die Nachweise auch seine letzten Fehlerausgabezeilen. Nach dem letzten Versuch postet es einen abschließenden Kommentar, setzt \`agent-failed\`, stoppt den Container, behält den Worktree und gibt den Platz frei. Weitere Ursachen sind eine abgelaufene Antwortzeit, ein gelöschtes Quellticket und ein überschrittenes Limit wie Kosten oder geänderte Dateien. Das Schließen des Quelltickets, während ein Auftrag wartet, bricht ihn ab.\r
+\r
+Unter Aufträge zeigt ein fehlgeschlagener Auftrag **Fehlgeschlagen**, und seine Details erklären, dass Wiederherstellungsnachweise erhalten bleiben. **Wiederholen** bittet den Worker, den Auftrag wiederherzustellen; es umgeht weder Validierung noch erforderliche Freigabe. In der Ticketansicht ersetzt Wiederholen das Starten. Das Entfernen von \`agent-failed\` löst keine Wiederholung aus. **Abbrechen** erscheint bei unbeendeten Aufträgen und bittet den Worker, zu stoppen und aufzuräumen. Beendete Aufträge können nicht abgebrochen werden. Administratoren und zugewiesene Entwickler können beides nutzen. Ein eingereihter Befehl zeigt seinen Fortschritt, etwa Befehl eingereiht oder Befehl abgeschlossen. Ein fehlgeschlagener oder ungewisser Befehl nennt außerdem den Grund, wenn die Engine einen angibt, und zeigt die letzten Zeilen der Engine.\r
+\r
+Bei lokalen Aufträgen prüft **Wiederholen** den installierten Executor erneut und akzeptiert ein aktualisiertes Programm oder eine geänderte geerbte Umgebung auf demselben Computer und Konto. Aufgabe, Worktree, Branch, Verlauf und kumulative Grenzen bleiben erhalten. Die automatische Überwachung tut dies nicht. Geänderte Ausführungseinstellungen oder beschädigte Wiederherstellungsnachweise müssen korrigiert werden. Scheitert der Neustart, zeigt der Vorgang den gespeicherten Grund: fehlendes Programm, ungültige Version, Befehlsfehler oder Zeitüberschreitung. Diese Versionsprüfung sendet keine Modellanfrage; verwenden Sie dafür **KI-Verbindung testen**.\r
+\r
+Überschreitet ein Container-Befehl sein Zeitlimit, stoppt ADORE den Container vor dem nächsten Befehl. Der nächste zulässige Versuch startet denselben Container mit installierten Abhängigkeiten und Dateien; der Netzwerkzugriff bleibt unverändert. Lässt sich sicheres Stoppen oder Starten nicht bestätigen, schlägt der Auftrag fehl und bewahrt Nachweise zur Prüfung vor **Wiederholen**. Eine fehlgeschlagene Vorbereitung benötigt weiterhin ihre ausdrückliche Wiederherstellung.\r
+\r
+Container-Jobs behalten das beim Start gewählte Image und die Ressource, auch ohne Vorbereitung. Wird die Ressource ersetzt, starten Sie einen neuen Job. Die Vorbereitung bleibt optional.\r
+\r
+## Verwerfen und neu starten {#restart}\r
+\r
+Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.\r
+\r
+Wiederholen behebt keine geänderte Ausführungsart oder feste Einstellungen; die Jobdetails erklären dies und bieten die bestätigte Aktion an. Stellen Sie gespeicherte Einstellungen wieder her, um Arbeit zu behalten. Wiederholen kann veränderliche native Umgebungswerte weiterhin neu prüfen, auch Prozessorvariablen nach einer VM-Größenänderung.\r
+\r
+Fremde Ressourcen, andere Rechner oder Konten, beschädigte Eigentumsnachweise und geänderte Remote-Branches blockieren die Wiederherstellung. Eine Teilbereinigung behält restliche Nachweise ohne neuen Auftrag. Bei Änderungen nach der Bestätigung aktualisieren und prüfen Sie die Details erneut. Eine CLI-Sperre kann dem Web-Worker gehören: Überwachung in der Projektübersicht pausieren und das Ende des begrenzten Auftrags abwarten. Keine aktive Sperrdatei löschen.\r
+\r
+Hat ein früher gelöschter Auftrag einen Branch ohne gespeicherten Checkpoint hinterlassen, behält ADORE ihn und nutzt eine neue Generation. Ein geänderter bekannter Checkpoint blockiert weiterhin die Wiederherstellung. Höchstens drei alternative Namen werden geprüft; die Repository-Regeln müssen einen freien Namen erlauben. Andernfalls stoppt die Wiederherstellung vor der Bereinigung. Das Ergebnis nennt einen behaltenen alten Branch.\r
+\r
+## Aufträge verfolgen {#following-jobs}\r
+\r
+Automatische Abfragen behalten Zeilen, Verbrauch, Tabellensteuerung und offene Jobdetails. **Aktualisieren** nutzt dieselbe Hintergrundabfrage; **Letzte erfolgreiche Aktualisierung** zeigt ihren Abschluss. Bei einer vorübergehenden Verbindungsstörung der Liste oder des Verbrauchs kann der vorherige Stand mit Veraltet-Hinweis und **Wiederholen** bleiben. Ungültige Jobnachweise oder abgelaufene Seitenstände verlangen weiterhin Wiederherstellung oder Neuladen der ersten Seite; veraltete Informationen berechtigen nicht zu Jobaktionen.\r
+\r
+**Jobs** in der Seitenleiste oder den separaten **Jobs**-Reiter des Projekts verwenden. Die Tabelle enthält diese Spalten:\r
+\r
+| Spalte | Inhalt |\r
+|---|---|\r
+| Ticket | Nummer und Titel; öffnet die Auftragsdetails. |\r
+| Projekt | Das zugehörige Projekt. |\r
+| Status | Der Zustand, der gespeicherte Workflow, die aktuelle Phase und ein Link zum Ticket oder MR/PR, wenn ein Mensch handeln muss. |\r
+| Letzte Aktivität | Zeitpunkt des letzten gespeicherten Ereignisses. |\r
+| Verbrauch | Vom Auftrag verbrauchte Token. |\r
+\r
+Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.\r
+\r
+Die Detailansicht ersetzt ihre Ursprungsliste. **Aktivität**, **Agentensitzungen** und **Jobdetails** stehen über dem Titel, **Ticket anzeigen** und **Schließen** rechts. Status, Phase und Workflow folgen dem Titel. Budgets und Verbrauch stehen rechts. Erforderliche Frage-, Freigabe- und Reviewaktionen bleiben sichtbar. **Schließen** stellt Ansicht, Umfang, Suche, Filter und Seitenauswahl wieder her.\r
+\r
+**Aktivität** ist eine paginierte Tabelle mit Zeit, Aktivität, Phase und Sitzung. 10, 25, 50 oder Alle Zeilen wählen und Zurück/Weiter verwenden. **Unterhaltung öffnen** führt zur genauen Sitzung, wenn Phase und Versuch einen aufgezeichneten Start eindeutig bestimmen; andere Ereignisse haben keinen Link. Die Rückkehr erhält die Seite. Budgets und Verbrauch stehen rechts, auf schmalen Bildschirmen darunter.\r
+\r
+## Verlauf der Agentensitzungen {#agent-sessions}\r
+\r
+**Agentensitzungen** öffnet die aktuelle oder zuletzt abgeschlossene Sitzung. Die Unterhaltung zeigt die ursprüngliche Anweisung, Agentenantworten, Benutzernachrichten sowie ausklappbare Werkzeugaufrufe und Ergebnisse. Antworten verwenden lesbares Markdown. Nachrichten erscheinen direkt mit einer Autorenzeile; Überlegungen und Werkzeuge lassen sich aufklappen. Der Verbrauch bleibt rechts.\r
+\r
+Pi behält ein Implementierungsgespräch für den Job über Phasen, Fortsetzungen und Korrekturen hinweg. Prozesse können an Kontrollpunkten neu starten; das Gespräch wird mit Kontext und automatischer Komprimierung durch Pi fortgesetzt. Die Auswahl zeigt weiterhin gespeicherte Versuche mit jeweils neuer Aktivität und Nutzung. Unabhängige Prüfungen verwenden getrennte Kontexte, wenn die Prüfrichtlinie des Repositorys dies verlangt.\r
+\r
+Sitzung, Auswahl und Live-Aktivität stehen in einer Zeile direkt über der Unterhaltung und nutzen deren Breite. Die Unterhaltung nutzt die verfügbare Bildschirmhöhe und scrollt bei neuen Nachrichten intern. Die Sendeschaltflächen stehen auf breiten Bildschirmen rechts neben dem Textfeld, auf schmalen darunter.\r
+\r
+Der Verlauf lädt schrittweise, ohne gespeicherten Nachrichtentext zu kürzen. Neue Nachrichten werden nur am unteren Ende automatisch verfolgt; **Neue Nachrichten** führt dorthin zurück. Die Sitzungsauswahl erhält frühere Versuche, **Aktuelle Sitzung** führt zur laufenden Arbeit.\r
+\r
+Neue Starts speichern ausgehende Anweisungen und Nachrichtenzeiten ausdrücklich. Frühere Sitzungen zeigen nur vorhandene Aufzeichnungen. Zugriffsrechte für Administratoren und zugewiesene Entwickler bleiben unverändert; strukturierte Kosten bleiben Administratoren vorbehalten.\r
+\r
+**Maximieren** nutzt die ganze Seite für die Sitzung. **Wiederherstellen** oder Escape kehrt zur normalen Ansicht zurück. Gewählte Sitzung, Nachrichten und Entwurf bleiben erhalten.\r
+\r
+### Anweisungen senden {#instructions}\r
+\r
+Eine **Nachricht an den Agenten** unten in der aktuellen Unterhaltung eingeben. **Jetzt senden** übergibt sie an der nächsten sicheren Agentengrenze; **Nachricht einreihen** wartet auf den Abschluss der aktuellen Arbeit. Zwischen Sitzungen bleibt Einreihen während der Bearbeitung verfügbar. Historische Unterhaltungen sind schreibgeschützt.\r
+\r
+Die Nachricht erscheint mit **Wartend**, **Vom Agenten empfangen** oder einem Fehlerstatus. Empfangen bestätigt den Empfang, nicht die erledigte Arbeit. Eingabefehler werden beim Senden erklärt: 1–4000 Zeichen ohne NUL, höchstens 256 gespeicherte Anweisungen pro Job.\r
+\r
+Unbestätigte Anweisungen bleiben für eine spätere Sitzung eingereiht. Bestätigter Empfang wird im Job gespeichert und im Ticket veröffentlicht; vorübergehende Kommentarfehler werden unabhängig erneut versucht.\r
+\r
+## Jobbudgets {#budgets}\r
+\r
+Jobdetails zeigen **Executorstarts** (zum Beispiel 9 / 20) und **Aktive Arbeit (Sekunden)** neben den aktuellen Projektgrenzen, unabhängig von Tokenstatistiken. Ab 90 % erscheint ein Hinweis; bei Erreichen soll die Grenze vor dem Fortsetzen erhöht werden. Die Startvorgabe ist 20 bei Registrierung und \`adore init\`.\r
+\r
+Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen, **Implementierung** öffnen, nur Budgets ändern, **Speichern** wählen und die genauen Werte bestätigen. Solche geprüften Budgetänderungen sind bei wartenden Rückfragen erlaubt, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen behalten die üblichen Ruhe- und Pausenprüfungen; Entwickler haben Lesezugriff.\r
+\r
+Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.\r
+\r
+Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.\r
+\r
+## Jobdetails und Diagnose {#operational-evidence}\r
+\r
+**Jobdetails** zeigt das gespeicherte Ergebnis einmal, den aufgezeichneten **Branch**, den **Letzten veröffentlichten Commit**, falls vorhanden, den MR/PR-Link und Reviewrunden getrennt. Ein fehlender Branch wird als **Nicht aufgezeichnet** angezeigt. Der veröffentlichte Commit ist der letzte verifizierte, gepushte Kontrollpunkt, kein Kandidatenfingerabdruck.\r
+\r
+Bei Klärungsbedarf öffnet **Frage lesen** diesen Reiter. Die Frage verwendet lesbares Markdown; unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Antwort-, Freigabe- und Reviewaktionen bleiben bei Bedarf neben dem Status sichtbar. Die Originalfrage steht unter **Diagnose**.\r
+\r
+**Diagnose** ist zunächst eingeklappt. Dort stehen interne Projekt-/Jobkennungen, **Fehlversuche in der aktuellen Phase**, direkte Versuche oder Vorbereitungsergebnisse sowie die letzte Executorausgabe. Reviewrunden bleiben von aktuellen Phasenfehlern getrennt.\r
+\r
+**Nicht verfügbare Daten** nennt Ticket, Aktivitätsverlauf, Titel oder Aktivitätszeit nur bei fehlenden Quellen. Dies beschreibt verfügbare Nachweise, keinen Tokenverbrauch. Der Verbrauch bleibt rechts.\r
+\r
+Die letzte Executorausgabe zeigt normalisiertes operatives stdout/stderr mit Zeit, Versuch, Phase und Exitcode. Private Inhalte bleiben verborgen; höchstens 500 Einträge innerhalb 64 KiB je Stream werden behalten. Fehlende oder beschädigte Nachweise werden gemeldet; geänderte Nachweise bieten Erneut versuchen.\r
+\r
+**Aktivität** ist die einzige Ereignistabelle. Veröffentlichter Code ist über den MR/PR-Link erreichbar. Die Details verwenden gespeicherte Nachweise, erstellen keine Dateien und starten keinen Executor.\r
+\r
+## Projektkapazität {#project-capacity}\r
+\r
+**Zusammenfassung** zeigt die Grenze paralleler Jobs, freie Plätze und wartende Jobs neben den Betriebsdaten. Jobs und Tickets sind separate Projektreiter ohne Kapazitätsunterreiter. Die globale Jobs-Seite behält ihre Kapazitätstabelle mit Projektgrenzen, freien Plätzen, Warteschlange, Überwachung und Seitennavigation.\r
+\r
+Die Warteschlange zählt eingereichte Anfragen und aufgenommene Aufträge vor ihrem Start, keine nicht angeforderten Tickets. Ein volles Projekt blockiert keine anderen. Einstellungen zeigt weiterhin **Ihre letzten Vorgänge** und gespeicherte Ergebnisse; Eingereiht und In Bearbeitung bedeuten nicht Bestätigt.\r
+\r
+Ein vorgemerktes kleineres Limit hält neue Starts und Wiederaufnahmen bereits zurück, bis die Belegung darunter liegt; bereits laufende Aufträge laufen weiter; eingereihte Reservierungen warten auf einen Ausführungsplatz. Es erhöht niemals die aktive Grenze. Die sichere Anwendung wartet weiterhin auf unfertige Arbeit; gespeicherter Wert und Kandidat bleiben bis Speichern oder Änderungen verwerfen sichtbar.\r
+\r
+## Workflow auswählen {#workflow-choice}\r
+\r
+Wählen Sie in **Jobaktionen** für einen neuen Job **Verwerfen und mit AEGIS neu starten** oder **Verwerfen und ohne AEGIS neu starten** und bestätigen Sie den kurzen Browserdialog zum Verwerfen bestehender Arbeit. Fehlendes AEGIS deaktiviert diese Aktion. Tickets behält die Auswahl **Workflow** vor **Starten**. Wiederholen, Fortsetzung und Review-Korrekturen behalten den gespeicherten Workflow und dieselbe Pi-Unterhaltung.\r
+\r
+## Abgebrochene Jobs neu starten {#restart-cancelled}\r
+\r
+Wählen Sie für den letzten abgebrochenen Job **Job neu starten** unter Tickets, wählen Sie den Workflow und bestätigen Sie, oder wählen Sie **Job mit AEGIS neu starten** / **Job ohne AEGIS neu starten** in den Jobaktionen. ADORE verwendet aktuelle Projekteinstellungen und die normalen Zulassungsprüfungen; pausierte Überwachung bleibt pausiert.\r
+\r
+Die neue Ausführung erhält eigene Identität, Arbeitsressourcen, Unterhaltung und Budgets. Der abgebrochene Job mit Aktivitäten, gespeicherten Sitzungen und Ergebnis bleibt lesbar. **Vorheriger Job** und **Neuer Job** verbinden die Ausführungen; ein bereits neu gestarteter älterer Job erzeugt kein Duplikat. Nach dauerhafter Zulassung öffnet die Bestätigung den neuen Job.\r
+\r
+Wenn der Neustart nicht bestätigt wird, aktualisieren Sie Jobs oder Tickets und suchen Sie vor einem erneuten Versuch nach dem neuen Job. Fehlende Bestätigung bedeutet weder fehlgeschlagene Bereinigung noch einen fehlenden neuen Job. Ein abgelehnter Neustart wird gesondert gemeldet.\r
+\r
+Der Verlauf läuft nicht automatisch ab. Betreiber können eine ausgewählte alte Ausführung mit \`adore delete RUN_ID --force\` löschen. Audit-Aufbewahrung entfernt keinen Jobverlauf.\r
+\r
+Retry, Rückfragen und Review behalten die gespeicherten Ausführungseinstellungen und die Pi-Unterhaltung des Jobs. Änderungen am Projektimage, Modell oder Netzwerk gelten für neue Jobs. Ressourcenprüfung, aktuelle Freigaberegeln und Joblimits bleiben gültig. Nach einem Timeout zählen erhaltene Änderungen auch dann, wenn der nächste Versuch nur das Ergebnis prüft und zusammenfasst.\r
 `,OS=`# Was ADORE leistet
 
 Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
@@ -1243,182 +1245,184 @@ In [My account](/account), **Appearance** holds **Language** (English, Français
 The initial administrator sees a reminder until the factory password is changed. Follow **Change password** in the reminder to open My account.
 
 When changing your password, enter the new password twice. Use the buttons to show or hide each entry. The new password needs at least 8 characters.
-`,BS=`# Job lifecycle
-
-A job is the work ADORE does for one ticket, from pickup to a merged change. This article shows its stages and where you take part. Labels and eligibility are in [Tickets for automatic pickup](/help/tickets).
-
-
-Confirm **Cancel** before submitting it. Cleanup attempts to remove the runtime and worktree, including unpublished work; resources can remain if cleanup fails. Job state and evidence remain. Deleting a job is a separate action.
-
-Open **Job actions**, beside the current stage, for **Retry**, **Cancel** or the confirmed fresh-run recovery when available. Only commands allowed for this job are shown.
-
-Start is confirmed after the job is durably admitted and taken by the worker. The job then has its own progress and outcome. A queued or running command alone does not confirm admission. Cancel is confirmed only after the job has stopped with a saved cancellation result. Queueing the request or sending a stop signal does not confirm cancellation. If the result is uncertain, inspect the job before retrying.
-
-Each project has one concurrent-job limit, shared by Start, Retry, fresh restarts and resumed work. Pausing monitoring stops automatic pickup and keeps explicit Start available. Lowering the limit leaves existing jobs running. Queued commands and settled clarification, approval or review waits use no executor; initialization and cleanup keep their place until safe release. Waiting before execution does not consume active work.
-
-Concurrent jobs have separate working folders, execution resources, credentials and output. Cancelling one leaves the others running. Brief shared updates may wait; agents with ready resources continue.
-
-Projects progress independently. With a limit of two, two jobs can execute together while the next Start waits for a place. Stopping the application stops its workers and jobs; uncertain interrupted work requires inspection before an explicit Retry.
-
-After a lower job limit, admitted jobs that have not started wait for a place under the new limit. Jobs already executing continue, even above the lower limit, and cleanup keeps its place until safe release. Settings in another project and server administration remain available.
-
-## Stages {#stages}
-
-ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.
-
-| Stage | What happens |
-|---|---|
-| Frame | Scope is agreed and the executor records the existing requirements that cover the work. |
-| Specify | The requirement is written. |
-| Design | A short design note is written for non-trivial work. |
-| Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |
-| Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
-
-Specify and Design may be recorded as skipped when existing requirements already cover the work. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage, including Design to Specify. ADORE saves the stage and continues in the same job conversation within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
-
-## Direct jobs {#direct-evidence}
-
-The list and job page show **Workflow**: **AEGIS** or **Direct**, as recorded for that job. A direct job uses **Implementation** (\`build\`), **Validation** (\`validate\`), then **Done**. It has no Framing, Specification, Design or AEGIS task. The timeline shows only saved events, not assumed completed steps.
-
-**Latest recorded attempt** shows the last recorded agent launch. Without one, the page shows **Attempt unavailable**. Tests and checks are reported by the agent; ADORE does not execute them independently.
-
-Direct **Implementation** uses the \`build\` override in \`workflow.stage_timeout_overrides\`, falling back to \`budgets.per_gate_timeout_seconds\`. **Validation** (\`validate\`) records the candidate for approval without running a separate test command.
-
-## Clarification {#clarification}
-
-When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets \`agent-clarify\`. The job shows **Waiting for clarification**. **Read the question** opens the question in **Job details**; **Answer on the ticket** uses its saved location.
-
-Reply with a normal comment on the ticket, then add \`agent-answered\`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.
-
-## Approval {#approval}
-
-Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
-
-When the agent completes its workflow, ADORE records the candidate, removes the old approval label and asks for fresh human approval. Checks shown in the task journal are agent-reported.
-
-Review it, then add \`agent-approved\` again; only a fresh addition counts. The approval is bound to that candidate and the target branch commit. If either changes, the approval is void and ADORE integrates, validates and asks again. This wait has no timer. The job detail offers **Review the candidate on the forge**.
-
-When disabled, ADORE checks the validated candidate and target and publishes without waiting for a label. ADORE never merges.
-
-## Publication and review {#review}
-
-After validation and any required approval, ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets \`agent-mr\`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets \`agent-done\`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.
-
-To request changes, a reviewer adds \`agent-revise\` to the MR/PR. ADORE removes the label, starts new work on the same branch (a new task for AEGIS), and repeats validation and fresh approval before it pushes. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.
-
-If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Automatic repair (default) starts a revision, Notify only posts a comment, and Ignore skips CI status. Automatic repairs share the revision budget; once it is spent, ADORE posts a notice and the job stays in review.
-
-## Failure and recovery {#failures}
-
-When a stage fails, ADORE keeps one incident comment on the ticket up to date with the stage, attempt, error code, evidence and next action; when the agent exited without moving the stage on, the evidence also shows its last error-output lines. After the final attempt it posts a terminal comment, sets \`agent-failed\`, stops the container, keeps the worktree and frees the slot. Other causes are an expired answer time, a deleted source ticket and an exceeded limit such as cost or changed files. Closing the source ticket while a job waits cancels it.
-
-In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or any required approval. In the Tickets view, Retry replaces Start. Removing \`agent-failed\` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.
-
-For local jobs, explicit **Retry** rechecks the installed executor and accepts an updated executable or inherited environment on the same computer and account. It keeps the task, worktree, branch, history and cumulative limits. Automatic monitoring does not do this. Changed execution settings or corrupt recovery evidence still need correction. If restarting fails, the command is marked failed and shows the saved cause, such as a missing executable, invalid version, command failure or timeout. No model request is sent by this version check; use **Test AI connection** for that.
-
-When a container command exceeds its time limit, ADORE stops that container before another command can run. The next allowed attempt resumes the same container with its installed dependencies and files; network access stays unchanged. If safe stopping or restarting cannot be confirmed, the job fails and keeps its evidence for inspection before **Retry**. A failed preparation still needs its existing explicit recovery.
-
-Container jobs keep the image and resource selected when they start, even without preparation. If that resource is replaced, start a fresh job. Preparation remains optional.
-
-## Abandon and start again {#restart}
-
-For a failed job, **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** discards its saved state, worktree including unpublished work, and unchanged owned remote branch. Review the warning and confirm. ADORE verifies ownership before cleanup and starts the same open ticket with current settings only after cleanup succeeds. Monitoring stays paused if already paused. Administrators and assigned developers can use this action.
-
-Stable execution settings or backend drift cannot be fixed by Retry; Job details explains this and offers the confirmed action. Restore the saved settings to keep existing work. Native Retry can still revalidate volatile environment changes, including processor variables after resizing a VM.
-
-Foreign resources, another computer/account, corrupt ownership evidence or a changed remote branch block recovery. Partial cleanup keeps remaining evidence and starts no new job. If the job changes after confirmation, refresh its details and review again. A CLI lock may belong to the web worker: pause monitoring in Project Summary and wait for the current bounded job. Do not remove a live lock file.
-
-If an older deleted job left a branch without a recorded checkpoint, ADORE keeps that branch and uses a fresh generation. A known checkpoint that changed still blocks recovery. At most three alternative names are tried and repository naming rules must allow a free name; otherwise recovery stops before cleanup. The result explains when an older branch was kept.
-
-## Following jobs {#following-jobs}
-
-Automatic reads keep rows, consumption, table controls and open job details visible. **Refresh** uses the same background read; **Last successful update** shows when it completed. A temporary list or consumption connection failure can keep the previous snapshot with an out-of-date warning and **Retry**. Invalid job evidence or an expired paging snapshot still requires recovery or a first-page reload; stale information cannot authorize job actions.
-
-Use **Jobs** in the sidebar or the project’s separate **Jobs** tab. The table has these columns:
-
-| Column | Content |
-|---|---|
-| Ticket | Number and title; opens the job detail. |
-| Project | The owning project. |
-| Status | The state, recorded Workflow, current Stage, and a link to the ticket or MR/PR when a person must act. |
-| Last activity | Time of the last saved event. |
-| Consumption | Tokens used by the job. |
-
-Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.
-
-The detail replaces its originating list while open. Above the title are **Activity**, **Agent sessions** and **Job details**, with **Show ticket** and **Close** on the right. Saved status, stage and workflow appear below the title. Budgets and consumption occupy the right-hand column. Required question, approval and review actions stay visible. **Close** restores the originating view, scope, search, filters and pagination.
-
-**Activity** is a paginated table with time, activity, stage and session. Choose 10, 25, 50 or All rows and use Previous/Next. **Open conversation** opens the exact session when the stage and attempt identify one recorded launch; unrelated or ambiguous events have no link. Returning to Activity keeps its page. Job budgets and Consumption occupy the right-hand column, below the content on narrow screens.
-
-## Agent session history {#agent-sessions}
-
-**Agent sessions** opens the current session, or the latest completed session. The conversation shows the initial prompt, agent replies, user messages and expandable tool calls/results. Agent replies use readable Markdown. Messages appear inline with a single author label; reasoning and tools can be expanded. Usage remains in the right-hand Consumption panel.
-
-Pi keeps one implementation conversation for the job across stages, continuations and corrections. Processes can restart at checkpoints; the conversation resumes with its context and Pi's automatic compaction. The selector still shows recorded attempts, with only each attempt's new activity and usage. Independent reviews use separate contexts when the repository's review policy requires them.
-
-Session, its selector and the live activity indicator share a row directly above the conversation, aligned with its width. The conversation fits the available screen height and scrolls internally as messages arrive. Send now and Queue message sit beside the message box on wide screens, below it on narrow screens.
-
-History loads progressively without shortening retained message text. New messages follow automatically only while you are at the bottom; use **New messages** to return after reading earlier messages. The session selector keeps other attempts available, and **Current session** returns to live work.
-
-New launches explicitly retain their outgoing prompts and message times. Earlier sessions show only what was recorded. Administrators and assigned developers retain the same access; structured costs remain administrator-only.
-
-Use **Maximize** to fill the page with Agent sessions. **Restore** or Escape returns to the normal view. The selected session, messages and unsent draft are preserved.
-
-### Sending instructions {#instructions}
-
-Enter a **Message to the agent** at the bottom of the current conversation. **Send now** submits it at the next safe agent boundary; **Queue message** waits until current work finishes. Between sessions, Queue message remains available while the job is working. Historical conversations are read-only.
-
-Your message appears in the conversation with **Queued**, **Received by agent** or a failure status. Received confirms receipt, not completed work. Invalid input is explained only when sending: 1–4000 characters without NUL, with at most 256 retained instructions per job.
-
-Unacknowledged instructions remain queued for a later session. Acknowledged delivery is saved in the job and posted to the ticket; temporary comment failures retry independently.
-
-## Job budgets {#budgets}
-
-Job details shows **Executor launches** (for example 9 / 20) and **Active work (seconds)** beside the current project limits, independently of token statistics. At 90% it warns that a limit is near; at the limit it asks you to raise it before resuming. The default launch limit is 20 in both enrollment and \`adore init\`.
-
-Administrators can follow **Adjust budgets in project Settings**, open **Implementation**, edit only budgets, choose **Save** and confirm the exact values. A reviewed budget-only save is allowed while jobs wait for clarification, with no running conductor or unfinished operation. Other settings keep their usual idle and pause checks; developers have read-only settings.
-
-Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.
-
-If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.
-
-## Job details and diagnostic {#operational-evidence}
-
-**Job details** shows the saved result once, the recorded **Branch**, the **Last published commit** when available, the MR/PR link and **Review rounds** separately. A missing branch is shown as **Not recorded**. A published commit identifies the last verified pushed checkpoint, not a candidate fingerprint.
-
-When clarification is required, **Read the question** opens this tab. The question uses readable Markdown, with unsafe links inactive and images not loaded automatically. **Answer on the ticket**, approval and review actions remain visible near the status when needed. The original question is available inside **Diagnostic**.
-
-**Diagnostic** starts collapsed. Open it for internal project/job IDs, **Failed attempts in current stage**, direct-attempt or preparation evidence, and **View latest executor output**. Review rounds are separate from current-stage failures.
-
-**Unavailable data** names missing ticket, activity history, title or last activity time only when relevant sources are absent. This describes available evidence, not token usage. Consumption remains in the right-hand panel.
-
-**View latest executor output** reads normalized operational stdout/stderr for the latest recorded launch, with its time, attempt, stage and exit code. Private content is withheld; at most 500 diagnostic records within 64 KiB per stream are retained. Missing or corrupt evidence is reported explicitly, and changing evidence offers Retry.
-
-**Activity** is the single event table. Published code is accessible through the MR/PR link. Job details uses saved evidence and does not create files or start an executor.
-
-## Project capacity {#project-capacity}
-
-**Summary** shows **Parallel job limit**, **Free** and **Queued jobs** beside the project’s operational facts. Project Jobs and Tickets are separate top-level tabs and have no Capacity sub-tab. The global Jobs page retains its Capacity table with per-project limits, free places, queue and monitoring; use its existing pagination.
-
-The queue counts submitted requests and admitted jobs waiting for dispatch, not unrequested forge tickets. A project at capacity does not block other projects. Settings still shows **Your latest operations** with saved Start, Retry, Cancel and settings results; Queued and In progress do not mean Confirmed.
-
-A staged lower limit already stops new starts and resumptions until occupancy falls below it; already-running jobs continue; queued reservations wait for a current execution place. It never raises the active limit. Safe application still waits for unfinished work; the saved value and staged candidate remain visible until Save or Discard changes.
-
-## Choose the workflow {#workflow-choice}
-
-In **Job actions**, choose **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** for a fresh job, then accept the short browser confirmation that discards existing work. Missing AEGIS disables its action. Tickets keeps its **Workflow** selector before **Start**. **Retry**, continuation and review corrections retain the saved workflow and the same Pi conversation.
-
-## Restart cancelled jobs {#restart-cancelled}
-
-For the latest cancelled job, choose **Restart job** in Tickets, select **Workflow** and confirm, or choose **Restart job with AEGIS** / **Restart job without AEGIS** in **Job actions**. ADORE uses current project settings and normal admission checks; paused monitoring stays paused.
-
-The fresh execution has a new identity, working resources, conversation and budgets. The cancelled job, activity, saved sessions and outcome remain readable. **Previous job** and **New job** navigate between executions; an older restarted job cannot start another duplicate. Confirmation succeeds after durable admission and opens the new job.
-
-If Restart cannot be confirmed, refresh Jobs or Tickets and check for the new job before trying again. An unconfirmed result does not mean cleanup failed or that no job was created. A refused restart is reported separately.
-
-History has no automatic expiry. An operator can delete a selected old execution with \`adore delete RUN_ID --force\`. Audit retention does not remove job history.
-
-Retry, clarification and review keep the job’s saved execution settings and Pi conversation. Changes to the project image, model or network apply to new jobs. Resource identity checks, current approval rules and job limits still apply. After a timeout, retained implementation changes count even when the next attempt only checks the result and writes a summary.
+`,BS=`# Job lifecycle\r
+\r
+A job is the work ADORE does for one ticket, from pickup to a merged change. This article shows its stages and where you take part. Labels and eligibility are in [Tickets for automatic pickup](/help/tickets).\r
+\r
+\r
+Confirm **Cancel** before submitting it. Cleanup attempts to remove the runtime and worktree, including unpublished work; resources can remain if cleanup fails. Job state and evidence remain. Deleting a job is a separate action.\r
+\r
+Open **Job actions**, beside the current stage, for **Retry**, **Cancel** or the confirmed fresh-run recovery when available. Only commands allowed for this job are shown.\r
+\r
+Start is confirmed after the job is durably admitted and taken by the worker. The job then has its own progress and outcome. A queued or running command alone does not confirm admission. Cancel is confirmed only after the job has stopped with a saved cancellation result. Queueing the request or sending a stop signal does not confirm cancellation. If the result is uncertain, inspect the job before retrying.\r
+\r
+Each project has one concurrent-job limit, shared by Start, Retry, fresh restarts and resumed work. Pausing monitoring stops automatic pickup and keeps explicit Start available. Lowering the limit leaves existing jobs running. Queued commands and settled clarification, approval or review waits use no executor; initialization and cleanup keep their place until safe release. Waiting before execution does not consume active work.\r
+\r
+Concurrent jobs have separate working folders, execution resources, credentials and output. Cancelling one leaves the others running. Brief shared updates may wait; agents with ready resources continue.\r
+\r
+Projects progress independently. With a limit of two, two jobs can execute together while the next Start waits for a place. Stopping the application stops its workers and jobs; uncertain interrupted work requires inspection before an explicit Retry.\r
+\r
+After a lower job limit, admitted jobs that have not started wait for a place under the new limit. Jobs already executing continue, even above the lower limit, and cleanup keeps its place until safe release. Settings in another project and server administration remain available.\r
+\r
+## Stages {#stages}\r
+\r
+ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.\r
+\r
+| Stage | What happens |\r
+|---|---|\r
+| Frame | Scope is agreed and the executor records the existing requirements that cover the work. |\r
+| Specify | The requirement is written. |\r
+| Design | A short design note is written for non-trivial work. |\r
+| Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |\r
+| Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |\r
+\r
+Specify and Design may be recorded as skipped when existing requirements already cover the work. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage, including Design to Specify. ADORE saves the stage and continues in the same job conversation within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).\r
+\r
+## Direct jobs {#direct-evidence}\r
+\r
+The list and job page show **Workflow**: **AEGIS** or **Direct**, as recorded for that job. A direct job uses **Implementation** (\`build\`), **Validation** (\`validate\`), then **Done**. It has no Framing, Specification, Design or AEGIS task. The timeline shows only saved events, not assumed completed steps.\r
+\r
+**Latest recorded attempt** shows the last recorded agent launch. Without one, the page shows **Attempt unavailable**. Tests and checks are reported by the agent; ADORE does not execute them independently.\r
+\r
+Direct **Implementation** uses the \`build\` override in \`workflow.stage_timeout_overrides\`, falling back to \`budgets.per_gate_timeout_seconds\`. **Validation** (\`validate\`) records the candidate for approval without running a separate test command.\r
+\r
+## Clarification {#clarification}\r
+\r
+When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets \`agent-clarify\`. The job shows **Waiting for clarification**. **Read the question** opens the question in **Job details**; **Answer on the ticket** uses its saved location.\r
+\r
+Direct jobs save a checkpoint before asking a question and publish it when progress publication is enabled. Exchange files are excluded; saving progress does not complete or approve the job.\r
+\r
+Reply with a normal comment on the ticket, then add \`agent-answered\`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.\r
+\r
+## Approval {#approval}\r
+\r
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.\r
+\r
+When the agent completes its workflow, ADORE records the candidate, removes the old approval label and asks for fresh human approval. Checks shown in the task journal are agent-reported.\r
+\r
+Review it, then add \`agent-approved\` again; only a fresh addition counts. The approval is bound to that candidate and the target branch commit. If either changes, the approval is void and ADORE integrates, validates and asks again. This wait has no timer. The job detail offers **Review the candidate on the forge**.\r
+\r
+When disabled, ADORE checks the validated candidate and target and publishes without waiting for a label. ADORE never merges.\r
+\r
+## Publication and review {#review}\r
+\r
+After validation and any required approval, ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets \`agent-mr\`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets \`agent-done\`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.\r
+\r
+To request changes, a reviewer adds \`agent-revise\` to the MR/PR. ADORE removes the label, starts new work on the same branch (a new task for AEGIS), and repeats validation and fresh approval before it pushes. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.\r
+\r
+If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Automatic repair (default) starts a revision, Notify only posts a comment, and Ignore skips CI status. Automatic repairs share the revision budget; once it is spent, ADORE posts a notice and the job stays in review.\r
+\r
+## Failure and recovery {#failures}\r
+\r
+When a stage fails, ADORE keeps one incident comment on the ticket up to date with the stage, attempt, error code, evidence and next action; when the agent exited without moving the stage on, the evidence also shows its last error-output lines. After the final attempt it posts a terminal comment, sets \`agent-failed\`, stops the container, keeps the worktree and frees the slot. Other causes are an expired answer time, a deleted source ticket and an exceeded limit such as cost or changed files. Closing the source ticket while a job waits cancels it.\r
+\r
+In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or any required approval. In the Tickets view, Retry replaces Start. Removing \`agent-failed\` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.\r
+\r
+For local jobs, explicit **Retry** rechecks the installed executor and accepts an updated executable or inherited environment on the same computer and account. It keeps the task, worktree, branch, history and cumulative limits. Automatic monitoring does not do this. Changed execution settings or corrupt recovery evidence still need correction. If restarting fails, the command is marked failed and shows the saved cause, such as a missing executable, invalid version, command failure or timeout. No model request is sent by this version check; use **Test AI connection** for that.\r
+\r
+When a container command exceeds its time limit, ADORE stops that container before another command can run. The next allowed attempt resumes the same container with its installed dependencies and files; network access stays unchanged. If safe stopping or restarting cannot be confirmed, the job fails and keeps its evidence for inspection before **Retry**. A failed preparation still needs its existing explicit recovery.\r
+\r
+Container jobs keep the image and resource selected when they start, even without preparation. If that resource is replaced, start a fresh job. Preparation remains optional.\r
+\r
+## Abandon and start again {#restart}\r
+\r
+For a failed job, **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** discards its saved state, worktree including unpublished work, and unchanged owned remote branch. Review the warning and confirm. ADORE verifies ownership before cleanup and starts the same open ticket with current settings only after cleanup succeeds. Monitoring stays paused if already paused. Administrators and assigned developers can use this action.\r
+\r
+Stable execution settings or backend drift cannot be fixed by Retry; Job details explains this and offers the confirmed action. Restore the saved settings to keep existing work. Native Retry can still revalidate volatile environment changes, including processor variables after resizing a VM.\r
+\r
+Foreign resources, another computer/account, corrupt ownership evidence or a changed remote branch block recovery. Partial cleanup keeps remaining evidence and starts no new job. If the job changes after confirmation, refresh its details and review again. A CLI lock may belong to the web worker: pause monitoring in Project Summary and wait for the current bounded job. Do not remove a live lock file.\r
+\r
+If an older deleted job left a branch without a recorded checkpoint, ADORE keeps that branch and uses a fresh generation. A known checkpoint that changed still blocks recovery. At most three alternative names are tried and repository naming rules must allow a free name; otherwise recovery stops before cleanup. The result explains when an older branch was kept.\r
+\r
+## Following jobs {#following-jobs}\r
+\r
+Automatic reads keep rows, consumption, table controls and open job details visible. **Refresh** uses the same background read; **Last successful update** shows when it completed. A temporary list or consumption connection failure can keep the previous snapshot with an out-of-date warning and **Retry**. Invalid job evidence or an expired paging snapshot still requires recovery or a first-page reload; stale information cannot authorize job actions.\r
+\r
+Use **Jobs** in the sidebar or the project’s separate **Jobs** tab. The table has these columns:\r
+\r
+| Column | Content |\r
+|---|---|\r
+| Ticket | Number and title; opens the job detail. |\r
+| Project | The owning project. |\r
+| Status | The state, recorded Workflow, current Stage, and a link to the ticket or MR/PR when a person must act. |\r
+| Last activity | Time of the last saved event. |\r
+| Consumption | Tokens used by the job. |\r
+\r
+Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.\r
+\r
+The detail replaces its originating list while open. Above the title are **Activity**, **Agent sessions** and **Job details**, with **Show ticket** and **Close** on the right. Saved status, stage and workflow appear below the title. Budgets and consumption occupy the right-hand column. Required question, approval and review actions stay visible. **Close** restores the originating view, scope, search, filters and pagination.\r
+\r
+**Activity** is a paginated table with time, activity, stage and session. Choose 10, 25, 50 or All rows and use Previous/Next. **Open conversation** opens the exact session when the stage and attempt identify one recorded launch; unrelated or ambiguous events have no link. Returning to Activity keeps its page. Job budgets and Consumption occupy the right-hand column, below the content on narrow screens.\r
+\r
+## Agent session history {#agent-sessions}\r
+\r
+**Agent sessions** opens the current session, or the latest completed session. The conversation shows the initial prompt, agent replies, user messages and expandable tool calls/results. Agent replies use readable Markdown. Messages appear inline with a single author label; reasoning and tools can be expanded. Usage remains in the right-hand Consumption panel.\r
+\r
+Pi keeps one implementation conversation for the job across stages, continuations and corrections. Processes can restart at checkpoints; the conversation resumes with its context and Pi's automatic compaction. The selector still shows recorded attempts, with only each attempt's new activity and usage. Independent reviews use separate contexts when the repository's review policy requires them.\r
+\r
+Session, its selector and the live activity indicator share a row directly above the conversation, aligned with its width. The conversation fits the available screen height and scrolls internally as messages arrive. Send now and Queue message sit beside the message box on wide screens, below it on narrow screens.\r
+\r
+History loads progressively without shortening retained message text. New messages follow automatically only while you are at the bottom; use **New messages** to return after reading earlier messages. The session selector keeps other attempts available, and **Current session** returns to live work.\r
+\r
+New launches explicitly retain their outgoing prompts and message times. Earlier sessions show only what was recorded. Administrators and assigned developers retain the same access; structured costs remain administrator-only.\r
+\r
+Use **Maximize** to fill the page with Agent sessions. **Restore** or Escape returns to the normal view. The selected session, messages and unsent draft are preserved.\r
+\r
+### Sending instructions {#instructions}\r
+\r
+Enter a **Message to the agent** at the bottom of the current conversation. **Send now** submits it at the next safe agent boundary; **Queue message** waits until current work finishes. Between sessions, Queue message remains available while the job is working. Historical conversations are read-only.\r
+\r
+Your message appears in the conversation with **Queued**, **Received by agent** or a failure status. Received confirms receipt, not completed work. Invalid input is explained only when sending: 1–4000 characters without NUL, with at most 256 retained instructions per job.\r
+\r
+Unacknowledged instructions remain queued for a later session. Acknowledged delivery is saved in the job and posted to the ticket; temporary comment failures retry independently.\r
+\r
+## Job budgets {#budgets}\r
+\r
+Job details shows **Executor launches** (for example 9 / 20) and **Active work (seconds)** beside the current project limits, independently of token statistics. At 90% it warns that a limit is near; at the limit it asks you to raise it before resuming. The default launch limit is 20 in both enrollment and \`adore init\`.\r
+\r
+Administrators can follow **Adjust budgets in project Settings**, open **Implementation**, edit only budgets, choose **Save** and confirm the exact values. A reviewed budget-only save is allowed while jobs wait for clarification, with no running conductor or unfinished operation. Other settings keep their usual idle and pause checks; developers have read-only settings.\r
+\r
+Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.\r
+\r
+If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.\r
+\r
+## Job details and diagnostic {#operational-evidence}\r
+\r
+**Job details** shows the saved result once, the recorded **Branch**, the **Last published commit** when available, the MR/PR link and **Review rounds** separately. A missing branch is shown as **Not recorded**. A published commit identifies the last verified pushed checkpoint, not a candidate fingerprint.\r
+\r
+When clarification is required, **Read the question** opens this tab. The question uses readable Markdown, with unsafe links inactive and images not loaded automatically. **Answer on the ticket**, approval and review actions remain visible near the status when needed. The original question is available inside **Diagnostic**.\r
+\r
+**Diagnostic** starts collapsed. Open it for internal project/job IDs, **Failed attempts in current stage**, direct-attempt or preparation evidence, and **View latest executor output**. Review rounds are separate from current-stage failures.\r
+\r
+**Unavailable data** names missing ticket, activity history, title or last activity time only when relevant sources are absent. This describes available evidence, not token usage. Consumption remains in the right-hand panel.\r
+\r
+**View latest executor output** reads normalized operational stdout/stderr for the latest recorded launch, with its time, attempt, stage and exit code. Private content is withheld; at most 500 diagnostic records within 64 KiB per stream are retained. Missing or corrupt evidence is reported explicitly, and changing evidence offers Retry.\r
+\r
+**Activity** is the single event table. Published code is accessible through the MR/PR link. Job details uses saved evidence and does not create files or start an executor.\r
+\r
+## Project capacity {#project-capacity}\r
+\r
+**Summary** shows **Parallel job limit**, **Free** and **Queued jobs** beside the project’s operational facts. Project Jobs and Tickets are separate top-level tabs and have no Capacity sub-tab. The global Jobs page retains its Capacity table with per-project limits, free places, queue and monitoring; use its existing pagination.\r
+\r
+The queue counts submitted requests and admitted jobs waiting for dispatch, not unrequested forge tickets. A project at capacity does not block other projects. Settings still shows **Your latest operations** with saved Start, Retry, Cancel and settings results; Queued and In progress do not mean Confirmed.\r
+\r
+A staged lower limit already stops new starts and resumptions until occupancy falls below it; already-running jobs continue; queued reservations wait for a current execution place. It never raises the active limit. Safe application still waits for unfinished work; the saved value and staged candidate remain visible until Save or Discard changes.\r
+\r
+## Choose the workflow {#workflow-choice}\r
+\r
+In **Job actions**, choose **Abandon and restart with AEGIS** or **Abandon and restart without AEGIS** for a fresh job, then accept the short browser confirmation that discards existing work. Missing AEGIS disables its action. Tickets keeps its **Workflow** selector before **Start**. **Retry**, continuation and review corrections retain the saved workflow and the same Pi conversation.\r
+\r
+## Restart cancelled jobs {#restart-cancelled}\r
+\r
+For the latest cancelled job, choose **Restart job** in Tickets, select **Workflow** and confirm, or choose **Restart job with AEGIS** / **Restart job without AEGIS** in **Job actions**. ADORE uses current project settings and normal admission checks; paused monitoring stays paused.\r
+\r
+The fresh execution has a new identity, working resources, conversation and budgets. The cancelled job, activity, saved sessions and outcome remain readable. **Previous job** and **New job** navigate between executions; an older restarted job cannot start another duplicate. Confirmation succeeds after durable admission and opens the new job.\r
+\r
+If Restart cannot be confirmed, refresh Jobs or Tickets and check for the new job before trying again. An unconfirmed result does not mean cleanup failed or that no job was created. A refused restart is reported separately.\r
+\r
+History has no automatic expiry. An operator can delete a selected old execution with \`adore delete RUN_ID --force\`. Audit retention does not remove job history.\r
+\r
+Retry, clarification and review keep the job’s saved execution settings and Pi conversation. Changes to the project image, model or network apply to new jobs. Resource identity checks, current approval rules and job limits still apply. After a timeout, retained implementation changes count even when the next attempt only checks the result and writes a summary.\r
 `,HS=`# What ADORE does
 
 Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
@@ -2167,182 +2171,184 @@ Dans [Mon compte](/account), **Apparence** contient **Langue** (English, França
 L’administrateur initial voit un rappel jusqu’au changement du mot de passe initial. Choisissez **Changer le mot de passe** dans le rappel pour ouvrir Mon compte.
 
 Pour changer votre mot de passe, saisissez deux fois le nouveau. Les boutons affichent ou masquent chaque saisie. Il faut au moins 8 caractères.
-`,XS=`# Cycle de vie d’une tâche
-
-Une tâche est le travail qu’ADORE effectue pour un ticket, de la prise en charge à une modification fusionnée. Cet article présente ses étapes et les moments où vous intervenez. Les étiquettes et l’éligibilité sont décrites dans [Tickets et prise en charge automatique](/help/tickets).
-
-
-Confirmez **Annuler**. Le nettoyage tente de supprimer l’environnement et le dossier de travail, y compris les changements non publiés ; des ressources peuvent rester. L’état et les preuves restent. Supprimer une tâche est distinct.
-
-Ouvrez **Actions du travail**, près de l’étape actuelle, pour **Réessayer**, **Annuler** ou la reprise confirmée dans un nouveau travail si disponible. Seules les commandes autorisées pour ce travail sont affichées.
-
-Le démarrage est confirmé après l’enregistrement durable et la prise en charge de la tâche. Celle-ci garde sa propre progression et son résultat. Une commande en attente ou en cours ne confirme pas son admission. L’annulation est confirmée uniquement après l’arrêt de la tâche avec un résultat enregistré. La mise en attente ou un signal d’arrêt ne confirme pas l’annulation. Si le résultat est incertain, vérifiez la tâche avant de réessayer.
-
-Chaque projet a une limite de tâches simultanées, commune au démarrage, aux reprises, aux nouveaux départs et au travail repris. La pause arrête la prise en charge automatique et conserve le démarrage explicite. Réduire la limite laisse les tâches actives continuer. Les commandes en attente et les attentes stabilisées de réponse, approbation ou revue n’utilisent pas d’exécuteur ; l’initialisation et le nettoyage gardent leur place jusqu’à libération sûre. L’attente avant exécution ne consomme pas de travail actif.
-
-Les tâches simultanées ont leurs propres dossiers de travail, ressources, identifiants et sorties. Annuler une tâche laisse les autres actives. Les mises à jour communes peuvent attendre ; les agents prêts continuent.
-
-Les projets avancent indépendamment. Avec une limite de deux, deux tâches peuvent s’exécuter ensemble et le démarrage suivant attend une place. Arrêter l’application arrête ses workers et tâches ; un résultat interrompu incertain doit être vérifié avant de réessayer explicitement.
-
-Après une baisse de la limite, les tâches admises mais non démarrées attendent une place selon la nouvelle limite. Les tâches déjà exécutées continuent, même au-delà de cette limite, et le nettoyage garde sa place jusqu’à libération sûre. Les paramètres des autres projets et l’administration du serveur restent accessibles.
-
-## Étapes {#stages}
-
-ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.
-
-| Étape | Ce qui se passe |
-|---|---|
-| Cadrage | Le périmètre est convenu et l’exécuteur consigne les exigences existantes qui couvrent le travail. |
-| Spécification | L’exigence est rédigée. |
-| Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |
-| Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |
-| Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
-
-Spécification et Conception peuvent être consignées comme ignorées lorsque des exigences existantes couvrent déjà le travail. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans la même conversation du travail, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
-
-## Travaux directs {#direct-evidence}
-
-La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon le travail enregistré. Un travail direct utilise **Implémentation** (\`build\`), **Validation** (\`validate\`), puis **Terminée**. Il n’a ni Cadrage, Spécification, Conception, ni tâche AEGIS. La chronologie ne montre que les événements enregistrés, sans étapes terminées supposées.
-
-**Dernière tentative enregistrée** indique le dernier lancement enregistré de l’agent. Sinon, **Tentative indisponible** apparaît. Les tests et contrôles sont rapportés par l’agent ; ADORE ne les exécute pas indépendamment.
-
-**Implémentation** directe utilise la limite \`build\` dans \`workflow.stage_timeout_overrides\`, sinon \`budgets.per_gate_timeout_seconds\`. **Validation** (\`validate\`) enregistre le candidat pour approbation sans commande de test séparée.
-
-## Clarification {#clarification}
-
-Lorsque l’exécuteur demande des informations, ADORE publie un commentaire de clarification avec les questions et ajoute \`agent-clarify\`. Le travail indique l’attente de clarification. **Lire la question** ouvre la question dans **Détails du travail** ; **Répondre sur le ticket** utilise son emplacement enregistré.
-
-Répondez par un commentaire normal sur le ticket, puis ajoutez \`agent-answered\`. Les deux sont nécessaires ; les commentaires d’ADORE lui-même ne comptent pas. ADORE retire les deux étiquettes et reprend. Les questions ne comptent pas comme des tentatives échouées. **Nombre maximal de tours de questions** (3 par défaut) limite le nombre de fois qu’une tâche peut poser des questions, et **Temps accordé à une réponse humaine** (72 heures par défaut) fait échouer la tâche à l’expiration.
-
-## Approbation {#approval}
-
-L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
-
-Quand l’agent termine son workflow, ADORE enregistre le candidat, retire l’ancienne étiquette d’approbation et demande une nouvelle approbation humaine. Les contrôles du journal sont rapportés par l’agent.
-
-Examinez-le, puis ajoutez de nouveau \`agent-approved\` ; seul un nouvel ajout compte. L’approbation est liée à ce candidat et au commit de la branche cible. Si l’un des deux change, l’approbation est caduque et ADORE intègre, valide et redemande. Cette attente n’a pas de minuterie. Le détail de la tâche propose **Examiner le candidat sur la forge**.
-
-Si cette option est désactivée, ADORE vérifie le candidat validé et la cible puis publie sans attendre d’étiquette. ADORE ne fusionne jamais.
-
-## Publication et revue {#review}
-
-Après validation et approbation si requise, ADORE pousse la branche et ouvre la MR/PR vers la branche cible, demande une revue aux comptes indiqués dans **Demander une revue à**, et pose \`agent-mr\`. **État de la PR/MR à la publication** choisit Brouillon (par défaut) ou Prête pour revue. La tâche affiche **Publication** puis **Revue humaine**. ADORE ne fusionne jamais. Après la fusion par une personne, ADORE pose \`agent-done\`, la tâche affiche **Terminé**, et par défaut la branche distante est supprimée. Une MR/PR fermée sans fusion fait échouer la tâche.
-
-Pour demander des modifications, un relecteur ajoute \`agent-revise\` sur la MR/PR. ADORE retire l’étiquette, démarre un nouveau travail sur la même branche (une nouvelle tâche pour AEGIS), puis répète la validation et une nouvelle approbation avant de pousser. **Nombre maximal de tours de révision** (5 par défaut) borne ce mécanisme. Une demande au-delà de la limite fait échouer la tâche.
-
-Si les vérifications CI échouent sur la MR/PR, **Action en cas d’échec des vérifications CI de la PR/MR** décide : Réparation automatique (par défaut) démarre une révision, Notifier uniquement publie un commentaire, et Ignorer ignore l’état de la CI. Les réparations automatiques partagent le budget de révisions ; une fois celui-ci épuisé, ADORE publie un avis et la tâche reste en revue.
-
-## Échec et reprise {#failures}
-
-Lorsqu’une étape échoue, ADORE tient à jour un commentaire d’incident unique sur le ticket avec l’étape, la tentative, le code d’erreur, les preuves et la prochaine action ; si l’agent s’est arrêté sans faire avancer l’étape, les preuves montrent aussi ses dernières lignes de sortie d’erreur. Après la dernière tentative, il publie un commentaire final, pose \`agent-failed\`, arrête le conteneur, conserve le worktree et libère l’emplacement. Les autres causes sont un délai de réponse expiré, un ticket source supprimé et une limite dépassée comme le coût ou le nombre de fichiers modifiés. Fermer le ticket source pendant qu’une tâche attend l’annule.
-
-Dans Tâches, une tâche échouée affiche **Échouées**, et son détail explique que les preuves de reprise sont conservées. **Réessayer** demande au worker de récupérer la tâche ; cela ne contourne ni la validation ni l’approbation requise. Dans la vue Tickets, Relancer remplace Démarrer. Retirer \`agent-failed\` ne relance rien. **Annuler** apparaît pour les tâches inachevées et demande au worker de s’arrêter et de nettoyer. Les tâches terminées ne peuvent pas être annulées. Les administrateurs et les développeurs attribués peuvent utiliser les deux. Une commande en file affiche sa progression, par exemple Commande en file ou Commande terminée. Une commande échouée ou incertaine indique aussi pourquoi, quand le moteur nomme une raison, et affiche les dernières lignes du moteur.
-
-Pour les tâches locales, **Relancer** revérifie l’exécuteur installé et accepte un exécutable mis à jour ou un environnement hérité modifié sur le même ordinateur et compte. La tâche, le worktree, la branche, l’historique et les limites cumulées sont conservés. La surveillance automatique ne le fait pas. Les paramètres d’exécution modifiés ou les preuves de récupération corrompues doivent être corrigés. Si le redémarrage échoue, la commande indique l’échec et sa cause enregistrée : exécutable absent, version invalide, échec de commande ou délai dépassé. Ce contrôle de version n’envoie aucune requête au modèle ; utilisez **Tester la connexion IA** pour cela.
-
-Lorsqu’une commande en conteneur dépasse sa limite, ADORE arrête ce conteneur avant toute autre commande. La prochaine tentative autorisée reprend le même conteneur avec ses dépendances et fichiers ; l’accès réseau reste inchangé. Si l’arrêt ou le redémarrage sûr ne peut être confirmé, la tâche échoue et conserve ses preuves à examiner avant de **Relancer**. Une préparation échouée conserve sa procédure de reprise explicite.
-
-Les travaux en conteneur conservent l’image et la ressource choisies au démarrage, même sans préparation. Si cette ressource est remplacée, démarrez un nouveau travail. La préparation reste facultative.
-
-## Abandonner et recommencer {#restart}
-
-Pour une tâche échouée, **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.
-
-Réessayer ne corrige pas les changements de mode ou de paramètres stables ; les détails l’expliquent et proposent l’action confirmée. Restaurez les paramètres enregistrés pour conserver le travail. Réessayer peut toujours revalider les changements volatils de l’environnement natif, dont les variables processeur après redimensionnement d’une VM.
-
-Les ressources étrangères, un autre ordinateur ou compte, les preuves corrompues ou une branche distante modifiée bloquent la récupération. Un nettoyage partiel conserve les preuves restantes sans nouvelle tâche. Si la tâche change après confirmation, actualisez ses détails et vérifiez à nouveau. Le verrou CLI peut appartenir au worker web : mettez la surveillance en pause dans le Résumé du projet et attendez la fin de la tâche bornée. Ne supprimez pas un verrou actif.
-
-Si une ancienne tâche supprimée a laissé une branche sans checkpoint enregistré, ADORE la conserve et utilise une nouvelle génération. Un checkpoint connu modifié bloque toujours la récupération. Trois autres noms au maximum sont essayés et les règles du dépôt doivent autoriser un nom libre ; sinon la récupération s’arrête avant le nettoyage. Le résultat indique quand une ancienne branche est conservée.
-
-## Suivre les tâches {#following-jobs}
-
-Les lectures automatiques gardent les lignes, la consommation, les commandes du tableau et le détail ouvert visibles. **Actualiser** utilise la même lecture en arrière-plan ; **Dernière actualisation réussie** indique sa fin. Une panne de connexion temporaire de la liste ou de la consommation peut conserver l’instantané précédent avec un avertissement de péremption et **Réessayer**. Des preuves invalides ou un instantané de pagination expiré exigent toujours une reprise ou un retour à la première page ; des informations périmées n’autorisent pas les actions sur les tâches.
-
-Utilisez **Travaux** dans la barre latérale ou l’onglet **Travaux** distinct du projet. Le tableau comporte les colonnes suivantes :
-
-| Colonne | Contenu |
-|---|---|
-| Ticket | Numéro et titre ; ouvre le détail de la tâche. |
-| Projet | Le projet propriétaire. |
-| État | L’état, le Workflow enregistré, l’Étape courante, et un lien vers le ticket ou la MR/PR lorsqu’une personne doit agir. |
-| Dernière activité | Heure du dernier événement enregistré. |
-| Consommation | Jetons utilisés par la tâche. |
-
-Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.
-
-Le détail remplace sa liste d’origine. **Activité**, **Sessions de l’agent** et **Détails du travail** sont au-dessus du titre, avec **Afficher le ticket** et **Fermer** à droite. État, étape et workflow suivent le titre. Budgets et consommation occupent la colonne droite. Les actions de question, approbation et revue restent visibles si nécessaires. **Fermer** restaure la vue, le périmètre, la recherche, les filtres et la pagination.
-
-**Activité** est un tableau paginé avec heure, activité, étape et session. Choisissez 10, 25, 50 ou Tout et utilisez Précédent/Suivant. **Ouvrir la conversation** ouvre la session exacte quand l’étape et la tentative identifient un seul lancement enregistré ; les événements sans lien certain n’ont pas de lien. Le retour conserve la page. Budgets et consommation occupent la colonne droite, sous le contenu sur petit écran.
-
-## Historique des sessions de l’agent {#agent-sessions}
-
-**Sessions de l’agent** ouvre la session actuelle ou la dernière session terminée. La conversation montre la consigne initiale, les réponses de l’agent, les messages utilisateur et les appels/résultats d’outils dépliables. Les réponses utilisent Markdown. Les messages apparaissent directement avec un seul auteur ; le raisonnement et les outils peuvent être dépliés. La consommation reste dans le panneau droit.
-
-Pi conserve une conversation d’implémentation pour le travail entre étapes, reprises et corrections. Les processus peuvent redémarrer aux points de contrôle ; la conversation reprend avec son contexte et la compaction automatique de Pi. Le sélecteur montre toujours les tentatives enregistrées, avec leur nouvelle activité et consommation uniquement. Les revues indépendantes utilisent des contextes séparés si la politique du dépôt l’exige.
-
-Session, son sélecteur et l’activité en direct partagent une ligne juste au-dessus de la conversation, sur sa largeur. La conversation tient dans la hauteur disponible et défile à l’intérieur à l’arrivée des messages. Les boutons d’envoi sont à droite du champ sur grand écran et dessous sur petit écran.
-
-L’historique se charge progressivement sans raccourcir le texte conservé. Les nouveaux messages défilent automatiquement uniquement en bas ; **Nouveaux messages** permet d’y revenir. Le sélecteur conserve les autres tentatives et **Session actuelle** revient au travail en direct.
-
-Les nouveaux lancements conservent explicitement les consignes envoyées et l’heure des messages. Les anciennes sessions montrent uniquement ce qui a été enregistré. Les droits des administrateurs et développeurs affectés restent identiques ; les coûts structurés restent réservés aux administrateurs.
-
-**Agrandir** utilise toute la page pour les sessions. **Rétablir** ou Échap revient à la vue normale. La session choisie, les messages et le brouillon sont conservés.
-
-### Envoyer des instructions {#instructions}
-
-Saisissez un **Message à l’agent** au bas de la conversation actuelle. **Envoyer maintenant** soumet le message à la prochaine limite sûre ; **Mettre en attente** attend la fin du travail actuel. Entre les sessions, la mise en attente reste disponible pendant le travail. Les conversations historiques sont en lecture seule.
-
-Le message apparaît dans la conversation avec **En attente**, **Reçu par l’agent** ou un échec. Reçu confirme la réception, pas la fin du travail. Les erreurs de saisie sont expliquées à l’envoi : 1 à 4000 caractères sans NUL et au plus 256 instructions conservées par travail.
-
-Les instructions non confirmées restent en attente pour une session ultérieure. La réception confirmée est conservée dans le travail et publiée sur le ticket ; les échecs temporaires du commentaire sont réessayés séparément.
-
-## Budgets du travail {#budgets}
-
-Le détail affiche **Lancements de l’exécuteur** (par exemple 9 / 20) et **Travail actif (secondes)** avec les limites actuelles du projet, indépendamment des statistiques de jetons. À 90 %, il signale une limite proche ; à la limite, il demande de l’augmenter avant la reprise. La limite initiale est 20 dans l’inscription et \`adore init\`.
-
-Les administrateurs peuvent suivre **Ajuster les budgets dans les paramètres du projet**, ouvrir **Implémentation**, modifier uniquement les budgets, choisir **Enregistrer** et confirmer les valeurs exactes. Cet enregistrement révisé est permis pendant une attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres gardent leurs contrôles habituels ; les développeurs restent en lecture seule.
-
-Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative en cours garde son délai. Le travail actif est cumulé entre relances, réponses et révisions ; l’attente est exclue. Augmenter une limite conserve le travail consommé, la tâche et la progression. Une tâche échouée par épuisement exige toujours **Relancer** après ajustement. Une configuration invalide ou absente bloque les tentatives suivantes jusqu’à correction.
-
-Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.
-
-## Détails du travail et diagnostic {#operational-evidence}
-
-**Détails du travail** affiche une seule fois le résultat enregistré, la **Branche**, le **Dernier commit publié** si disponible, le lien MR/PR et les tours de revue séparément. Une branche absente indique **Non enregistré**. Le commit publié correspond au dernier point de contrôle poussé et vérifié, pas à une empreinte de candidat.
-
-Lorsqu’une clarification est requise, **Lire la question** ouvre cet onglet. La question utilise Markdown lisible, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les actions de réponse, approbation et revue restent visibles près de l’état si nécessaires. La question originale est dans **Diagnostic**.
-
-**Diagnostic** est replié au départ. Ouvrez-le pour les identifiants internes du projet et du travail, les **Tentatives échouées à l’étape actuelle**, les preuves de tentative directe ou de préparation et la dernière sortie de l’exécuteur. Les tours de revue sont distincts des échecs de l’étape actuelle.
-
-**Données indisponibles** nomme le ticket, l’historique, le titre ou l’heure d’activité seulement lorsque ces sources manquent. Il s’agit des preuves disponibles, pas des jetons consommés. La consommation reste à droite.
-
-La dernière sortie de l’exécuteur présente stdout/stderr opérationnels normalisés, avec heure, tentative, étape et code de sortie. Le contenu privé est masqué ; au plus 500 enregistrements dans 64 Kio par flux sont conservés. Les preuves absentes ou corrompues sont signalées et une lecture modifiée propose Réessayer.
-
-**Activité** est l’unique tableau d’événements. Le code publié est accessible par le lien MR/PR. Les détails utilisent les preuves sauvegardées sans créer de fichiers ni démarrer d’exécuteur.
-
-## Capacité du projet {#project-capacity}
-
-**Résumé** affiche la limite de travaux parallèles, les places libres et les travaux en attente avec les faits opérationnels du projet. Travaux et Tickets sont des onglets distincts sans sous-onglet Capacité. La page globale Travaux conserve son tableau Capacité avec limites, places libres, file et surveillance, ainsi que sa pagination.
-
-La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. Les paramètres conservent **Vos dernières opérations** et leurs résultats ; En file et En cours ne signifient pas Confirmé.
-
-Une limite réduite préparée retient déjà les nouveaux démarrages et reprises jusqu’à ce que l’occupation passe sous la limite ; les tâches déjà en cours continuent ; les réservations en file attendent une place d’exécution. Elle n’augmente jamais la limite active. L’application sûre attend les travaux inachevés ; la valeur enregistrée et le candidat restent visibles jusqu’à Enregistrer ou Abandonner les modifications.
-
-## Choisir le workflow {#workflow-choice}
-
-Dans **Actions du travail**, choisissez **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** pour un nouveau travail, puis acceptez la courte confirmation du navigateur qui supprime le travail existant. AEGIS absent désactive son action. Tickets conserve le sélecteur **Workflow** avant **Démarrer**. Réessayer, la continuation et les corrections de revue conservent le workflow enregistré et la même conversation Pi.
-
-## Redémarrer les travaux annulés {#restart-cancelled}
-
-Pour le dernier travail annulé, choisissez **Redémarrer le travail** dans Tickets, sélectionnez **Workflow** et confirmez, ou choisissez **Redémarrer avec AEGIS** / **Redémarrer sans AEGIS** dans les actions du travail. ADORE applique les paramètres actuels et les contrôles habituels ; la surveillance suspendue reste suspendue.
-
-La nouvelle exécution possède une identité, des ressources, une conversation et des budgets distincts. Le travail annulé, son activité, ses sessions enregistrées et son résultat restent lisibles. **Travail précédent** et **Nouveau travail** relient les exécutions ; un ancien travail déjà redémarré ne crée pas de doublon. La confirmation ouvre le nouveau travail après son admission durable.
-
-Si le redémarrage n’est pas confirmé, actualisez Travaux ou Tickets et cherchez le nouveau travail avant de réessayer. L’absence de confirmation ne signifie pas que le nettoyage a échoué ou qu’aucun travail n’a été créé. Un redémarrage refusé est signalé séparément.
-
-L’historique n’expire pas automatiquement. Un opérateur peut supprimer une ancienne exécution avec \`adore delete RUN_ID --force\`. La rétention d’audit ne supprime pas cet historique.
-
-Retry, les clarifications et la revue conservent les paramètres d’exécution et la conversation Pi du travail. Les changements d’image, de modèle ou de réseau du projet concernent les nouveaux travaux. Les contrôles d’identité des ressources, les règles d’approbation et les limites restent applicables. Après expiration, les modifications conservées comptent même si la tentative suivante vérifie seulement le résultat et rédige un résumé.
+`,XS=`# Cycle de vie d’une tâche\r
+\r
+Une tâche est le travail qu’ADORE effectue pour un ticket, de la prise en charge à une modification fusionnée. Cet article présente ses étapes et les moments où vous intervenez. Les étiquettes et l’éligibilité sont décrites dans [Tickets et prise en charge automatique](/help/tickets).\r
+\r
+\r
+Confirmez **Annuler**. Le nettoyage tente de supprimer l’environnement et le dossier de travail, y compris les changements non publiés ; des ressources peuvent rester. L’état et les preuves restent. Supprimer une tâche est distinct.\r
+\r
+Ouvrez **Actions du travail**, près de l’étape actuelle, pour **Réessayer**, **Annuler** ou la reprise confirmée dans un nouveau travail si disponible. Seules les commandes autorisées pour ce travail sont affichées.\r
+\r
+Le démarrage est confirmé après l’enregistrement durable et la prise en charge de la tâche. Celle-ci garde sa propre progression et son résultat. Une commande en attente ou en cours ne confirme pas son admission. L’annulation est confirmée uniquement après l’arrêt de la tâche avec un résultat enregistré. La mise en attente ou un signal d’arrêt ne confirme pas l’annulation. Si le résultat est incertain, vérifiez la tâche avant de réessayer.\r
+\r
+Chaque projet a une limite de tâches simultanées, commune au démarrage, aux reprises, aux nouveaux départs et au travail repris. La pause arrête la prise en charge automatique et conserve le démarrage explicite. Réduire la limite laisse les tâches actives continuer. Les commandes en attente et les attentes stabilisées de réponse, approbation ou revue n’utilisent pas d’exécuteur ; l’initialisation et le nettoyage gardent leur place jusqu’à libération sûre. L’attente avant exécution ne consomme pas de travail actif.\r
+\r
+Les tâches simultanées ont leurs propres dossiers de travail, ressources, identifiants et sorties. Annuler une tâche laisse les autres actives. Les mises à jour communes peuvent attendre ; les agents prêts continuent.\r
+\r
+Les projets avancent indépendamment. Avec une limite de deux, deux tâches peuvent s’exécuter ensemble et le démarrage suivant attend une place. Arrêter l’application arrête ses workers et tâches ; un résultat interrompu incertain doit être vérifié avant de réessayer explicitement.\r
+\r
+Après une baisse de la limite, les tâches admises mais non démarrées attendent une place selon la nouvelle limite. Les tâches déjà exécutées continuent, même au-delà de cette limite, et le nettoyage garde sa place jusqu’à libération sûre. Les paramètres des autres projets et l’administration du serveur restent accessibles.\r
+\r
+## Étapes {#stages}\r
+\r
+ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.\r
+\r
+| Étape | Ce qui se passe |\r
+|---|---|\r
+| Cadrage | Le périmètre est convenu et l’exécuteur consigne les exigences existantes qui couvrent le travail. |\r
+| Spécification | L’exigence est rédigée. |\r
+| Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |\r
+| Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |\r
+| Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |\r
+\r
+Spécification et Conception peuvent être consignées comme ignorées lorsque des exigences existantes couvrent déjà le travail. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans la même conversation du travail, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).\r
+\r
+## Travaux directs {#direct-evidence}\r
+\r
+La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon le travail enregistré. Un travail direct utilise **Implémentation** (\`build\`), **Validation** (\`validate\`), puis **Terminée**. Il n’a ni Cadrage, Spécification, Conception, ni tâche AEGIS. La chronologie ne montre que les événements enregistrés, sans étapes terminées supposées.\r
+\r
+**Dernière tentative enregistrée** indique le dernier lancement enregistré de l’agent. Sinon, **Tentative indisponible** apparaît. Les tests et contrôles sont rapportés par l’agent ; ADORE ne les exécute pas indépendamment.\r
+\r
+**Implémentation** directe utilise la limite \`build\` dans \`workflow.stage_timeout_overrides\`, sinon \`budgets.per_gate_timeout_seconds\`. **Validation** (\`validate\`) enregistre le candidat pour approbation sans commande de test séparée.\r
+\r
+## Clarification {#clarification}\r
+\r
+Lorsque l’exécuteur demande des informations, ADORE publie un commentaire de clarification avec les questions et ajoute \`agent-clarify\`. Le travail indique l’attente de clarification. **Lire la question** ouvre la question dans **Détails du travail** ; **Répondre sur le ticket** utilise son emplacement enregistré.\r
+\r
+Les travaux directs enregistrent un point de contrôle avant une question et le publient si la publication de progression est activée. Les fichiers d’échange sont exclus ; cet enregistrement ne termine ni n’approuve le travail.\r
+\r
+Répondez par un commentaire normal sur le ticket, puis ajoutez \`agent-answered\`. Les deux sont nécessaires ; les commentaires d’ADORE lui-même ne comptent pas. ADORE retire les deux étiquettes et reprend. Les questions ne comptent pas comme des tentatives échouées. **Nombre maximal de tours de questions** (3 par défaut) limite le nombre de fois qu’une tâche peut poser des questions, et **Temps accordé à une réponse humaine** (72 heures par défaut) fait échouer la tâche à l’expiration.\r
+\r
+## Approbation {#approval}\r
+\r
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.\r
+\r
+Quand l’agent termine son workflow, ADORE enregistre le candidat, retire l’ancienne étiquette d’approbation et demande une nouvelle approbation humaine. Les contrôles du journal sont rapportés par l’agent.\r
+\r
+Examinez-le, puis ajoutez de nouveau \`agent-approved\` ; seul un nouvel ajout compte. L’approbation est liée à ce candidat et au commit de la branche cible. Si l’un des deux change, l’approbation est caduque et ADORE intègre, valide et redemande. Cette attente n’a pas de minuterie. Le détail de la tâche propose **Examiner le candidat sur la forge**.\r
+\r
+Si cette option est désactivée, ADORE vérifie le candidat validé et la cible puis publie sans attendre d’étiquette. ADORE ne fusionne jamais.\r
+\r
+## Publication et revue {#review}\r
+\r
+Après validation et approbation si requise, ADORE pousse la branche et ouvre la MR/PR vers la branche cible, demande une revue aux comptes indiqués dans **Demander une revue à**, et pose \`agent-mr\`. **État de la PR/MR à la publication** choisit Brouillon (par défaut) ou Prête pour revue. La tâche affiche **Publication** puis **Revue humaine**. ADORE ne fusionne jamais. Après la fusion par une personne, ADORE pose \`agent-done\`, la tâche affiche **Terminé**, et par défaut la branche distante est supprimée. Une MR/PR fermée sans fusion fait échouer la tâche.\r
+\r
+Pour demander des modifications, un relecteur ajoute \`agent-revise\` sur la MR/PR. ADORE retire l’étiquette, démarre un nouveau travail sur la même branche (une nouvelle tâche pour AEGIS), puis répète la validation et une nouvelle approbation avant de pousser. **Nombre maximal de tours de révision** (5 par défaut) borne ce mécanisme. Une demande au-delà de la limite fait échouer la tâche.\r
+\r
+Si les vérifications CI échouent sur la MR/PR, **Action en cas d’échec des vérifications CI de la PR/MR** décide : Réparation automatique (par défaut) démarre une révision, Notifier uniquement publie un commentaire, et Ignorer ignore l’état de la CI. Les réparations automatiques partagent le budget de révisions ; une fois celui-ci épuisé, ADORE publie un avis et la tâche reste en revue.\r
+\r
+## Échec et reprise {#failures}\r
+\r
+Lorsqu’une étape échoue, ADORE tient à jour un commentaire d’incident unique sur le ticket avec l’étape, la tentative, le code d’erreur, les preuves et la prochaine action ; si l’agent s’est arrêté sans faire avancer l’étape, les preuves montrent aussi ses dernières lignes de sortie d’erreur. Après la dernière tentative, il publie un commentaire final, pose \`agent-failed\`, arrête le conteneur, conserve le worktree et libère l’emplacement. Les autres causes sont un délai de réponse expiré, un ticket source supprimé et une limite dépassée comme le coût ou le nombre de fichiers modifiés. Fermer le ticket source pendant qu’une tâche attend l’annule.\r
+\r
+Dans Tâches, une tâche échouée affiche **Échouées**, et son détail explique que les preuves de reprise sont conservées. **Réessayer** demande au worker de récupérer la tâche ; cela ne contourne ni la validation ni l’approbation requise. Dans la vue Tickets, Relancer remplace Démarrer. Retirer \`agent-failed\` ne relance rien. **Annuler** apparaît pour les tâches inachevées et demande au worker de s’arrêter et de nettoyer. Les tâches terminées ne peuvent pas être annulées. Les administrateurs et les développeurs attribués peuvent utiliser les deux. Une commande en file affiche sa progression, par exemple Commande en file ou Commande terminée. Une commande échouée ou incertaine indique aussi pourquoi, quand le moteur nomme une raison, et affiche les dernières lignes du moteur.\r
+\r
+Pour les tâches locales, **Relancer** revérifie l’exécuteur installé et accepte un exécutable mis à jour ou un environnement hérité modifié sur le même ordinateur et compte. La tâche, le worktree, la branche, l’historique et les limites cumulées sont conservés. La surveillance automatique ne le fait pas. Les paramètres d’exécution modifiés ou les preuves de récupération corrompues doivent être corrigés. Si le redémarrage échoue, la commande indique l’échec et sa cause enregistrée : exécutable absent, version invalide, échec de commande ou délai dépassé. Ce contrôle de version n’envoie aucune requête au modèle ; utilisez **Tester la connexion IA** pour cela.\r
+\r
+Lorsqu’une commande en conteneur dépasse sa limite, ADORE arrête ce conteneur avant toute autre commande. La prochaine tentative autorisée reprend le même conteneur avec ses dépendances et fichiers ; l’accès réseau reste inchangé. Si l’arrêt ou le redémarrage sûr ne peut être confirmé, la tâche échoue et conserve ses preuves à examiner avant de **Relancer**. Une préparation échouée conserve sa procédure de reprise explicite.\r
+\r
+Les travaux en conteneur conservent l’image et la ressource choisies au démarrage, même sans préparation. Si cette ressource est remplacée, démarrez un nouveau travail. La préparation reste facultative.\r
+\r
+## Abandonner et recommencer {#restart}\r
+\r
+Pour une tâche échouée, **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.\r
+\r
+Réessayer ne corrige pas les changements de mode ou de paramètres stables ; les détails l’expliquent et proposent l’action confirmée. Restaurez les paramètres enregistrés pour conserver le travail. Réessayer peut toujours revalider les changements volatils de l’environnement natif, dont les variables processeur après redimensionnement d’une VM.\r
+\r
+Les ressources étrangères, un autre ordinateur ou compte, les preuves corrompues ou une branche distante modifiée bloquent la récupération. Un nettoyage partiel conserve les preuves restantes sans nouvelle tâche. Si la tâche change après confirmation, actualisez ses détails et vérifiez à nouveau. Le verrou CLI peut appartenir au worker web : mettez la surveillance en pause dans le Résumé du projet et attendez la fin de la tâche bornée. Ne supprimez pas un verrou actif.\r
+\r
+Si une ancienne tâche supprimée a laissé une branche sans checkpoint enregistré, ADORE la conserve et utilise une nouvelle génération. Un checkpoint connu modifié bloque toujours la récupération. Trois autres noms au maximum sont essayés et les règles du dépôt doivent autoriser un nom libre ; sinon la récupération s’arrête avant le nettoyage. Le résultat indique quand une ancienne branche est conservée.\r
+\r
+## Suivre les tâches {#following-jobs}\r
+\r
+Les lectures automatiques gardent les lignes, la consommation, les commandes du tableau et le détail ouvert visibles. **Actualiser** utilise la même lecture en arrière-plan ; **Dernière actualisation réussie** indique sa fin. Une panne de connexion temporaire de la liste ou de la consommation peut conserver l’instantané précédent avec un avertissement de péremption et **Réessayer**. Des preuves invalides ou un instantané de pagination expiré exigent toujours une reprise ou un retour à la première page ; des informations périmées n’autorisent pas les actions sur les tâches.\r
+\r
+Utilisez **Travaux** dans la barre latérale ou l’onglet **Travaux** distinct du projet. Le tableau comporte les colonnes suivantes :\r
+\r
+| Colonne | Contenu |\r
+|---|---|\r
+| Ticket | Numéro et titre ; ouvre le détail de la tâche. |\r
+| Projet | Le projet propriétaire. |\r
+| État | L’état, le Workflow enregistré, l’Étape courante, et un lien vers le ticket ou la MR/PR lorsqu’une personne doit agir. |\r
+| Dernière activité | Heure du dernier événement enregistré. |\r
+| Consommation | Jetons utilisés par la tâche. |\r
+\r
+Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.\r
+\r
+Le détail remplace sa liste d’origine. **Activité**, **Sessions de l’agent** et **Détails du travail** sont au-dessus du titre, avec **Afficher le ticket** et **Fermer** à droite. État, étape et workflow suivent le titre. Budgets et consommation occupent la colonne droite. Les actions de question, approbation et revue restent visibles si nécessaires. **Fermer** restaure la vue, le périmètre, la recherche, les filtres et la pagination.\r
+\r
+**Activité** est un tableau paginé avec heure, activité, étape et session. Choisissez 10, 25, 50 ou Tout et utilisez Précédent/Suivant. **Ouvrir la conversation** ouvre la session exacte quand l’étape et la tentative identifient un seul lancement enregistré ; les événements sans lien certain n’ont pas de lien. Le retour conserve la page. Budgets et consommation occupent la colonne droite, sous le contenu sur petit écran.\r
+\r
+## Historique des sessions de l’agent {#agent-sessions}\r
+\r
+**Sessions de l’agent** ouvre la session actuelle ou la dernière session terminée. La conversation montre la consigne initiale, les réponses de l’agent, les messages utilisateur et les appels/résultats d’outils dépliables. Les réponses utilisent Markdown. Les messages apparaissent directement avec un seul auteur ; le raisonnement et les outils peuvent être dépliés. La consommation reste dans le panneau droit.\r
+\r
+Pi conserve une conversation d’implémentation pour le travail entre étapes, reprises et corrections. Les processus peuvent redémarrer aux points de contrôle ; la conversation reprend avec son contexte et la compaction automatique de Pi. Le sélecteur montre toujours les tentatives enregistrées, avec leur nouvelle activité et consommation uniquement. Les revues indépendantes utilisent des contextes séparés si la politique du dépôt l’exige.\r
+\r
+Session, son sélecteur et l’activité en direct partagent une ligne juste au-dessus de la conversation, sur sa largeur. La conversation tient dans la hauteur disponible et défile à l’intérieur à l’arrivée des messages. Les boutons d’envoi sont à droite du champ sur grand écran et dessous sur petit écran.\r
+\r
+L’historique se charge progressivement sans raccourcir le texte conservé. Les nouveaux messages défilent automatiquement uniquement en bas ; **Nouveaux messages** permet d’y revenir. Le sélecteur conserve les autres tentatives et **Session actuelle** revient au travail en direct.\r
+\r
+Les nouveaux lancements conservent explicitement les consignes envoyées et l’heure des messages. Les anciennes sessions montrent uniquement ce qui a été enregistré. Les droits des administrateurs et développeurs affectés restent identiques ; les coûts structurés restent réservés aux administrateurs.\r
+\r
+**Agrandir** utilise toute la page pour les sessions. **Rétablir** ou Échap revient à la vue normale. La session choisie, les messages et le brouillon sont conservés.\r
+\r
+### Envoyer des instructions {#instructions}\r
+\r
+Saisissez un **Message à l’agent** au bas de la conversation actuelle. **Envoyer maintenant** soumet le message à la prochaine limite sûre ; **Mettre en attente** attend la fin du travail actuel. Entre les sessions, la mise en attente reste disponible pendant le travail. Les conversations historiques sont en lecture seule.\r
+\r
+Le message apparaît dans la conversation avec **En attente**, **Reçu par l’agent** ou un échec. Reçu confirme la réception, pas la fin du travail. Les erreurs de saisie sont expliquées à l’envoi : 1 à 4000 caractères sans NUL et au plus 256 instructions conservées par travail.\r
+\r
+Les instructions non confirmées restent en attente pour une session ultérieure. La réception confirmée est conservée dans le travail et publiée sur le ticket ; les échecs temporaires du commentaire sont réessayés séparément.\r
+\r
+## Budgets du travail {#budgets}\r
+\r
+Le détail affiche **Lancements de l’exécuteur** (par exemple 9 / 20) et **Travail actif (secondes)** avec les limites actuelles du projet, indépendamment des statistiques de jetons. À 90 %, il signale une limite proche ; à la limite, il demande de l’augmenter avant la reprise. La limite initiale est 20 dans l’inscription et \`adore init\`.\r
+\r
+Les administrateurs peuvent suivre **Ajuster les budgets dans les paramètres du projet**, ouvrir **Implémentation**, modifier uniquement les budgets, choisir **Enregistrer** et confirmer les valeurs exactes. Cet enregistrement révisé est permis pendant une attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres gardent leurs contrôles habituels ; les développeurs restent en lecture seule.\r
+\r
+Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative en cours garde son délai. Le travail actif est cumulé entre relances, réponses et révisions ; l’attente est exclue. Augmenter une limite conserve le travail consommé, la tâche et la progression. Une tâche échouée par épuisement exige toujours **Relancer** après ajustement. Une configuration invalide ou absente bloque les tentatives suivantes jusqu’à correction.\r
+\r
+Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.\r
+\r
+## Détails du travail et diagnostic {#operational-evidence}\r
+\r
+**Détails du travail** affiche une seule fois le résultat enregistré, la **Branche**, le **Dernier commit publié** si disponible, le lien MR/PR et les tours de revue séparément. Une branche absente indique **Non enregistré**. Le commit publié correspond au dernier point de contrôle poussé et vérifié, pas à une empreinte de candidat.\r
+\r
+Lorsqu’une clarification est requise, **Lire la question** ouvre cet onglet. La question utilise Markdown lisible, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les actions de réponse, approbation et revue restent visibles près de l’état si nécessaires. La question originale est dans **Diagnostic**.\r
+\r
+**Diagnostic** est replié au départ. Ouvrez-le pour les identifiants internes du projet et du travail, les **Tentatives échouées à l’étape actuelle**, les preuves de tentative directe ou de préparation et la dernière sortie de l’exécuteur. Les tours de revue sont distincts des échecs de l’étape actuelle.\r
+\r
+**Données indisponibles** nomme le ticket, l’historique, le titre ou l’heure d’activité seulement lorsque ces sources manquent. Il s’agit des preuves disponibles, pas des jetons consommés. La consommation reste à droite.\r
+\r
+La dernière sortie de l’exécuteur présente stdout/stderr opérationnels normalisés, avec heure, tentative, étape et code de sortie. Le contenu privé est masqué ; au plus 500 enregistrements dans 64 Kio par flux sont conservés. Les preuves absentes ou corrompues sont signalées et une lecture modifiée propose Réessayer.\r
+\r
+**Activité** est l’unique tableau d’événements. Le code publié est accessible par le lien MR/PR. Les détails utilisent les preuves sauvegardées sans créer de fichiers ni démarrer d’exécuteur.\r
+\r
+## Capacité du projet {#project-capacity}\r
+\r
+**Résumé** affiche la limite de travaux parallèles, les places libres et les travaux en attente avec les faits opérationnels du projet. Travaux et Tickets sont des onglets distincts sans sous-onglet Capacité. La page globale Travaux conserve son tableau Capacité avec limites, places libres, file et surveillance, ainsi que sa pagination.\r
+\r
+La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. Les paramètres conservent **Vos dernières opérations** et leurs résultats ; En file et En cours ne signifient pas Confirmé.\r
+\r
+Une limite réduite préparée retient déjà les nouveaux démarrages et reprises jusqu’à ce que l’occupation passe sous la limite ; les tâches déjà en cours continuent ; les réservations en file attendent une place d’exécution. Elle n’augmente jamais la limite active. L’application sûre attend les travaux inachevés ; la valeur enregistrée et le candidat restent visibles jusqu’à Enregistrer ou Abandonner les modifications.\r
+\r
+## Choisir le workflow {#workflow-choice}\r
+\r
+Dans **Actions du travail**, choisissez **Abandonner et redémarrer avec AEGIS** ou **Abandonner et redémarrer sans AEGIS** pour un nouveau travail, puis acceptez la courte confirmation du navigateur qui supprime le travail existant. AEGIS absent désactive son action. Tickets conserve le sélecteur **Workflow** avant **Démarrer**. Réessayer, la continuation et les corrections de revue conservent le workflow enregistré et la même conversation Pi.\r
+\r
+## Redémarrer les travaux annulés {#restart-cancelled}\r
+\r
+Pour le dernier travail annulé, choisissez **Redémarrer le travail** dans Tickets, sélectionnez **Workflow** et confirmez, ou choisissez **Redémarrer avec AEGIS** / **Redémarrer sans AEGIS** dans les actions du travail. ADORE applique les paramètres actuels et les contrôles habituels ; la surveillance suspendue reste suspendue.\r
+\r
+La nouvelle exécution possède une identité, des ressources, une conversation et des budgets distincts. Le travail annulé, son activité, ses sessions enregistrées et son résultat restent lisibles. **Travail précédent** et **Nouveau travail** relient les exécutions ; un ancien travail déjà redémarré ne crée pas de doublon. La confirmation ouvre le nouveau travail après son admission durable.\r
+\r
+Si le redémarrage n’est pas confirmé, actualisez Travaux ou Tickets et cherchez le nouveau travail avant de réessayer. L’absence de confirmation ne signifie pas que le nettoyage a échoué ou qu’aucun travail n’a été créé. Un redémarrage refusé est signalé séparément.\r
+\r
+L’historique n’expire pas automatiquement. Un opérateur peut supprimer une ancienne exécution avec \`adore delete RUN_ID --force\`. La rétention d’audit ne supprime pas cet historique.\r
+\r
+Retry, les clarifications et la revue conservent les paramètres d’exécution et la conversation Pi du travail. Les changements d’image, de modèle ou de réseau du projet concernent les nouveaux travaux. Les contrôles d’identité des ressources, les règles d’approbation et les limites restent applicables. Après expiration, les modifications conservées comptent même si la tentative suivante vérifie seulement le résultat et rédige un résumé.\r
 `,ez=`# Ce que fait ADORE
 
 L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
@@ -3091,182 +3097,184 @@ Prezentare generală, Proiecte, Lucrări, Setări, Acces și Istoric ale proiect
 Administratorul inițial vede un memento până la schimbarea parolei inițiale. Alegeți **Schimbă parola** din memento pentru a deschide Contul meu.
 
 La schimbarea parolei, introduceți parola nouă de două ori. Butoanele afișează sau ascund fiecare câmp. Parola nouă trebuie să aibă cel puțin 8 caractere.
-`,uz=`# Ciclul de viață al lucrării
-
-O lucrare este munca pe care o face ADORE pentru un tichet, de la preluare până la o modificare integrată. Acest articol arată etapele ei și unde participați dumneavoastră. Etichetele și eligibilitatea sunt în [Tichete pentru preluare automată](/help/tickets).
-
-
-Confirmați **Anulează**. Curățarea încearcă să elimine mediul și directorul de lucru, inclusiv modificările nepublicate; pot rămâne resurse. Starea și dovezile rămân. Ștergerea este separată.
-
-Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **Anulează** sau recuperarea confirmată într-un job nou, când sunt disponibile. Apar doar comenzile permise pentru acest job.
-
-Pornirea este confirmată după admiterea durabilă și preluarea lucrării de către serviciu. Lucrarea are apoi propriul progres și rezultat. O comandă în coadă sau în curs nu confirmă singură admiterea. Anularea este confirmată numai după oprirea lucrării cu un rezultat de anulare salvat. Punerea cererii în coadă sau trimiterea semnalului de oprire nu confirmă anularea. Dacă rezultatul este incert, verifică lucrarea înainte de reluare.
-
-Fiecare proiect are o singură limită de lucrări simultane, comună pornirii, reîncercării, repornirii de la zero și reluării. Pauza monitorizării oprește preluarea automată și păstrează pornirea explicită. Reducerea limitei lasă lucrările existente să continue. Comenzile în coadă și așteptările stabilizate de clarificare, aprobare sau review nu ocupă un executor; inițializarea și curățarea păstrează locul până la eliberarea sigură. Așteptarea înainte de execuție nu consumă timp de lucru activ.
-
-Lucrările simultane au dosare de lucru, resurse, credențiale și ieșiri separate. Anularea uneia lasă celelalte lucrări active. Actualizările comune pot aștepta; agenții cu resurse pregătite continuă.
-
-Proiectele progresează independent. La limita de două, două lucrări pot rula împreună, iar următoarea pornire așteaptă un loc. Oprirea aplicației oprește lucrătorii și joburile; munca întreruptă cu rezultat incert cere verificare înainte de o reîncercare explicită.
-
-După reducerea limitei, lucrările admise care nu au început așteaptă un loc conform noii limite. Lucrările deja în execuție continuă, chiar peste limita redusă, iar curățarea păstrează locul până la eliberarea sigură. Setările altui proiect și administrarea serverului rămân disponibile.
-
-## Etape {#stages}
-
-ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.
-
-| Etapă | Ce se întâmplă |
-|---|---|
-| Încadrare | Se stabilește domeniul, iar executorul înregistrează cerințele existente care acoperă lucrarea. |
-| Specificare | Se scrie cerința. |
-| Proiectare | Se scrie o notă scurtă de proiectare pentru lucrările netriviale. |
-| Construire | Agentul implementează tichetul și alege verificările potrivite conform instrucțiunilor repository-ului. |
-| Validare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |
-
-Specificarea și Proiectarea pot fi înregistrate ca omise când cerințe existente acoperă deja lucrarea. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă în aceeași conversație a jobului, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
-
-## Joburi directe {#direct-evidence}
-
-Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, conform înregistrării jobului. Un job direct folosește **Implementare** (\`build\`), **Validare** (\`validate\`), apoi **Finalizată**. Nu are Încadrare, Specificare, Proiectare sau task AEGIS. Cronologia arată numai evenimente salvate, nu pași presupus terminați.
-
-**Ultima încercare înregistrată** arată ultima lansare înregistrată a agentului. Fără una, apare **Încercare indisponibilă**. Agentul raportează testele și verificările; ADORE nu le execută independent.
-
-**Implementare** directă folosește limita \`build\` din \`workflow.stage_timeout_overrides\`, cu revenire la \`budgets.per_gate_timeout_seconds\`. **Validare** (\`validate\`) înregistrează candidatul pentru aprobare fără o comandă de test separată.
-
-## Clarificare {#clarification}
-
-Când executorul cere informații, ADORE publică pe tichet un comentariu de clarificare cu întrebările și adaugă \`agent-clarify\`. Jobul arată așteptarea clarificării. **Citește întrebarea** deschide întrebarea în **Detalii job**, iar **Răspunde pe tichet** folosește locația salvată.
-
-Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați \`agent-answered\`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.
-
-## Aprobare {#approval}
-
-Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
-
-Când agentul încheie fluxul, ADORE înregistrează candidatul, elimină eticheta veche de aprobare și cere o nouă aprobare umană. Verificările din jurnal sunt raportate de agent.
-
-Revizuiți-l, apoi adăugați din nou \`agent-approved\`; contează doar o adăugare nouă. Aprobarea este legată de acel candidat și de commit-ul ramurii țintă. Dacă oricare dintre ele se schimbă, aprobarea devine nulă, iar ADORE integrează, validează și cere din nou aprobarea. Această așteptare nu are temporizator. Detaliile lucrării oferă **Verifică versiunea pe platforma Git**.
-
-Când opțiunea este dezactivată, ADORE verifică candidatul validat și ținta, apoi publică fără a aștepta eticheta. ADORE nu face merge.
-
-## Publicare și revizuire {#review}
-
-După validare și aprobarea necesară, ADORE face push ramurii și deschide MR/PR-ul către ramura țintă, cere review de la conturile din **Solicită review de la** și setează \`agent-mr\`. **Starea PR/MR la publicare** alege Draft (implicit) sau Pregătit pentru review. Lucrarea afișează **Publicare**, apoi **Revizie umană**. ADORE nu integrează niciodată. După ce o persoană integrează, ADORE setează \`agent-done\`, lucrarea afișează **Finalizat**, iar implicit ramura remote este ștearsă. Un MR/PR închis fără integrare face lucrarea să eșueze.
-
-Pentru a cere modificări, un recenzor adaugă \`agent-revise\` pe MR/PR. ADORE elimină eticheta, pornește lucru nou pe aceeași ramură (un task nou pentru AEGIS) și repetă validarea și o nouă aprobare înainte de push. **Numărul maxim de runde de revizie** (5 implicit) limitează acest proces. O cerere peste limită face lucrarea să eșueze.
-
-Dacă verificările CI eșuează pe MR/PR, decide **Acțiune când verificările CI ale PR/MR eșuează**: Reparare automată (implicit) pornește o revizie, Doar notificare postează un comentariu, iar Ignoră sare peste starea CI. Reparările automate consumă același buget de revizii; după epuizare, ADORE postează o notificare, iar lucrarea rămâne în revizuire.
-
-## Eșec și recuperare {#failures}
-
-Când o etapă eșuează, ADORE ține la zi un singur comentariu de incident pe tichet, cu etapa, încercarea, codul erorii, dovezile și următoarea acțiune; dacă agentul s-a oprit fără să avanseze etapa, dovezile arată și ultimele lui linii de ieșire de eroare. După ultima încercare postează un comentariu final, setează \`agent-failed\`, oprește containerul, păstrează worktree-ul și eliberează locul. Alte cauze sunt un timp de răspuns expirat, un tichet sursă șters și o limită depășită, precum costul sau fișierele modificate. Închiderea tichetului sursă cât timp o lucrare așteaptă o anulează.
-
-În Lucrări, o lucrare eșuată afișează **Eșuate**, iar detaliile ei explică faptul că dovezile de recuperare sunt păstrate. **Reîncearcă** cere workerului să recupereze lucrarea; nu ocolește validarea sau aprobarea cerută. În vizualizarea Tichete, Reia înlocuiește Pornește. Eliminarea \`agent-failed\` nu reîncearcă. **Anulează** apare pentru lucrările neterminate și cere workerului să se oprească și să curețe. Lucrările încheiate nu pot fi anulate. Administratorii și dezvoltatorii atribuiți le pot folosi pe ambele. O comandă din coadă își arată progresul, de exemplu Comandă în coadă sau Comandă terminată. O comandă eșuată sau incertă spune și motivul, când motorul îl numește, și arată ultimele linii ale motorului.
-
-Pentru lucrările locale, **Reia** verifică executorul instalat și acceptă actualizarea executabilului sau a mediului moștenit pe același calculator și cont. Păstrează sarcina, worktree-ul, ramura, istoricul și limitele cumulative. Monitorizarea automată nu face această revalidare. Setările de execuție schimbate sau dovezile de recuperare corupte trebuie corectate. Dacă repornirea eșuează, comanda apare eșuată cu motivul salvat: executabil lipsă, versiune invalidă, comandă eșuată sau expirarea timpului. Verificarea versiunii nu trimite cereri modelului; folosește **Testează conexiunea IA** pentru aceasta.
-
-Când o comandă în container depășește limita de timp, ADORE oprește containerul înaintea altei comenzi. Următoarea încercare permisă reia același container, cu dependențele și fișierele instalate; accesul la rețea rămâne neschimbat. Dacă oprirea sau repornirea sigură nu poate fi confirmată, lucrarea eșuează și păstrează dovezile pentru verificare înainte de **Reia**. Pregătirea eșuată păstrează procedura sa explicită de recuperare.
-
-Joburile în container păstrează imaginea și resursa alese la pornire, chiar fără pregătire. Dacă resursa este înlocuită, pornește un job nou. Pregătirea rămâne opțională.
-
-## Renunță și pornește din nou {#restart}
-
-Pentru un job eșuat, **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** șterge starea salvată, worktree-ul cu lucrul nepublicat și branchul remote propriu nemodificat. Citește avertismentul și confirmă. ADORE verifică proprietatea înainte de curățare și pornește același tichet deschis cu setările curente doar după curățarea completă. Monitorizarea rămâne în pauză dacă era oprită. Administratorii și dezvoltatorii alocați pot folosi acțiunea.
-
-Reîncercarea nu poate corecta mediul de execuție sau setările stabile schimbate; detaliile jobului explică situația și oferă acțiunea confirmată. Restabilește setările salvate pentru a păstra lucrul existent. Reîncercarea poate revalida schimbările volatile ale mediului nativ, inclusiv variabilele procesorului după redimensionarea unui VM.
-
-Resursele străine, alt calculator sau cont, dovezile de proprietate corupte ori un branch remote modificat blochează recuperarea. Curățarea parțială păstrează dovezile rămase fără un job nou. Dacă jobul se schimbă după confirmare, reîncarcă detaliile și verifică din nou. Lockul CLI poate aparține workerului web: pune monitorizarea în pauză din Rezumatul proiectului și așteaptă încheierea jobului limitat. Nu șterge un lock activ.
-
-Dacă un job șters anterior a lăsat un branch fără checkpoint înregistrat, ADORE îl păstrează și folosește o generație nouă. Un checkpoint cunoscut modificat blochează în continuare recuperarea. Sunt încercate cel mult trei nume alternative, iar regulile depozitului trebuie să permită un nume liber; altfel recuperarea se oprește înainte de curățare. Rezultatul explică păstrarea unui branch vechi.
-
-## Urmărirea lucrărilor {#following-jobs}
-
-Citirile automate păstrează rândurile, consumul, comenzile tabelului și detaliile lucrării deschise. **Reîmprospătează** folosește aceeași citire în fundal; **Ultima actualizare reușită** arată când s-a încheiat. O eroare temporară de conexiune a listei sau a consumului poate păstra instantaneul anterior cu un avertisment de învechire și **Reîncearcă**. Dovezile invalide sau un instantaneu expirat al paginării cer în continuare recuperare ori reîncărcarea primei pagini; informațiile învechite nu autorizează acțiuni asupra lucrării.
-
-Folosește **Lucrări** din meniul lateral sau fila separată **Lucrări** a proiectului. Tabelul are următoarele coloane:
-
-| Coloană | Conținut |
-|---|---|
-| Tichet | Numărul și titlul; deschide detaliile lucrării. |
-| Proiect | Proiectul căruia îi aparține. |
-| Stare | Starea, Flux de lucru înregistrat, Etapa curentă și un link către tichet sau MR/PR când o persoană trebuie să acționeze. |
-| Ultima activitate | Momentul ultimului eveniment salvat. |
-| Consum | Tokenurile folosite de lucrare. |
-
-Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potrivește titluri, numere, proiecte, ID-uri de lucrare, stare, etapă sau rezultat. Filtrul **Stare** oferă Lucrări active, În așteptare, Revizie umană și Joburi încheiate. Pagina se reîmprospătează singură cât timp este vizibilă.
-
-Detaliile înlocuiesc lista din care au fost deschise. Deasupra titlului sunt **Activitate**, **Sesiunile agentului** și **Detalii job**, cu **Arată tichetul** și **Închide** în dreapta. Statusul, etapa și workflow-ul sunt sub titlu. Bugetele și consumul ocupă coloana din dreapta. Acțiunile necesare pentru întrebare, aprobare și review rămân vizibile. **Închide** restaurează pagina, selecția proiectului, căutarea, filtrele și paginarea.
-
-**Activitate** este un tabel paginat cu ora, activitatea, etapa și sesiunea. Alege 10, 25, 50 sau Toate și folosește Anterior/Următor. **Deschide conversația** deschide sesiunea exactă atunci când etapa și încercarea identifică o singură lansare înregistrată; evenimentele fără o asociere sigură nu au legătură. Revenirea păstrează pagina. Bugetele și consumul sunt în coloana din dreapta, sub conținut pe ecrane înguste.
-
-## Istoricul sesiunilor agentului {#agent-sessions}
-
-**Sesiunile agentului** deschide sesiunea curentă sau ultima sesiune încheiată. Conversația arată promptul inițial, răspunsurile agentului, mesajele utilizatorului și apelurile/rezultatele instrumentelor care pot fi extinse. Răspunsurile folosesc Markdown lizibil. Mesajele apar direct, cu un singur autor; raționamentul și instrumentele pot fi extinse. Consumul rămâne în panoul din dreapta.
-
-Pi păstrează o conversație de implementare pentru job între etape, continuări și corecții. Procesele pot reporni la checkpointuri; conversația se reia cu contextul și compactarea automată Pi. Selectorul arată în continuare încercările înregistrate, fiecare cu activitatea și consumul propriu. Revizuirile independente folosesc contexte separate când politica repository-ului le cere.
-
-Sesiune, selectorul și activitatea în direct sunt pe același rând, deasupra conversației, aliniate cu lățimea acesteia. Conversația folosește înălțimea disponibilă și se derulează în interior când apar mesaje noi. Butoanele de trimitere sunt în dreapta câmpului pe ecrane late și sub el pe ecrane înguste.
-
-Istoricul se încarcă progresiv fără scurtarea textului păstrat. Mesajele noi sunt urmărite automat doar când ești la final; **Mesaje noi** te aduce înapoi. Selectorul păstrează celelalte încercări, iar **Sesiunea curentă** revine la lucrul în direct.
-
-Lansările noi păstrează explicit prompturile trimise și ora mesajelor. Sesiunile vechi arată doar ce a fost înregistrat. Drepturile administratorilor și dezvoltatorilor alocați rămân aceleași; costurile structurate rămân doar pentru administratori.
-
-**Maximizează** folosește toată pagina pentru sesiune. **Restabilește** sau Escape revine la afișarea normală. Sesiunea selectată, mesajele și mesajul netrimis se păstrează.
-
-### Trimiterea instrucțiunilor {#instructions}
-
-Introdu un **Mesaj pentru agent** la baza conversației curente. **Trimite acum** îl transmite la următorul punct sigur al agentului; **Pune mesajul în așteptare** așteaptă încheierea lucrului curent. Între sesiuni, punerea în așteptare rămâne disponibilă cât timp jobul lucrează. Conversațiile istorice sunt doar pentru citire.
-
-Mesajul apare în conversație cu **În așteptare**, **Primit de agent** sau eroare. Primit confirmă recepția, nu finalizarea lucrului. Erorile de introducere sunt explicate la trimitere: 1–4000 de caractere fără NUL și cel mult 256 de instrucțiuni păstrate pe job.
-
-Instrucțiunile neconfirmate rămân în așteptare pentru o sesiune ulterioară. Primirea confirmată este salvată în job și publicată pe tichet; erorile temporare ale comentariului sunt reîncercate separat.
-
-## Bugetele jobului {#budgets}
-
-Detaliile afișează **Lansări executor** (de exemplu 9 / 20) și **Lucru activ (secunde)** lângă limitele actuale ale proiectului, independent de statisticile de tokenuri. La 90% apare avertizarea de apropiere; la limită se cere majorarea înainte de reluare. Limita implicită este 20 în înrolare și \`adore init\`.
-
-Administratorii pot urma **Ajustează bugetele în Setările proiectului**, deschide **Implementare**, modifica doar bugete, alege **Salvează** și confirma valorile exacte. Salvarea revizuită numai a bugetelor este permisă când joburile așteaptă clarificări, fără conductor activ sau operații neterminate. Celelalte setări păstrează verificările obișnuite de repaus și pauză; dezvoltatorii au acces doar la citire.
-
-Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.
-
-Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
-
-## Detalii job și diagnostic {#operational-evidence}
-
-**Detalii job** arată o singură dată rezultatul salvat, **Branch**, **Ultimul commit publicat** când există, legătura MR/PR și rundele de review separat. Un branch absent apare ca **Neînregistrat**. Commitul publicat este ultimul checkpoint trimis și verificat, nu amprenta unui candidat.
-
-Când este necesară clarificarea, **Citește întrebarea** deschide această filă. Întrebarea folosește Markdown lizibil, legăturile nesigure sunt inactive și imaginile nu sunt încărcate automat. Acțiunile de răspuns, aprobare și review rămân vizibile lângă status când sunt necesare. Întrebarea originală este în **Diagnostic**.
-
-**Diagnostic** este inițial restrâns. Deschide-l pentru identificatorii interni ai proiectului și jobului, **Încercări eșuate în etapa curentă**, dovezi ale încercării directe sau pregătirii și ultima ieșire a executorului. Rundele de review sunt separate de erorile etapei curente.
-
-**Date indisponibile** numește tichetul, istoricul, titlul sau ora activității doar când aceste surse lipsesc. Acestea descriu dovezile disponibile, nu consumul de tokenuri. Consumul rămâne în dreapta.
-
-Ultima ieșire a executorului prezintă stdout/stderr operaționale normalizate, cu ora, încercarea, etapa și codul de ieșire. Conținutul privat este ascuns; sunt păstrate cel mult 500 de înregistrări în 64 KiB pe flux. Dovezile lipsă sau corupte sunt semnalate, iar datele modificate oferă Reîncearcă.
-
-**Activitate** este singurul tabel de evenimente. Codul publicat este accesibil prin legătura MR/PR. Detaliile folosesc dovezile salvate fără să creeze fișiere sau să pornească executorul.
-
-## Capacitatea proiectului {#project-capacity}
-
-**Rezumat** arată limita lucrărilor paralele, locurile libere și lucrările în așteptare alături de informațiile operaționale. Lucrări și Tichete sunt file separate în proiect, fără subfilă Capacitate. Pagina globală Lucrări păstrează tabelul Capacitate cu limite, locuri libere, coadă, monitorizare și paginarea existentă.
-
-Coada numără cererile trimise și joburile admise care așteaptă lansarea, nu tichetele necerute. Un proiect ocupat nu blochează alte proiecte. Setările păstrează **Ultimele tale operații** și rezultatele salvate; În coadă și În desfășurare nu înseamnă Confirmat.
-
-O limită redusă pregătită oprește deja pornirile și reluările noi până când ocuparea scade sub ea; joburile deja pornite continuă; rezervările în coadă așteaptă un loc de execuție. Nu mărește niciodată limita activă. Aplicarea sigură așteaptă în continuare lucrul neterminat; valoarea salvată și candidatul rămân vizibile până la Salvează sau Renunță la modificări.
-
-## Alegerea fluxului de lucru {#workflow-choice}
-
-În **Acțiuni job**, alegeți **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** pentru un job nou, apoi acceptați confirmarea scurtă a browserului privind ștergerea lucrului existent. Lipsa AEGIS dezactivează acea acțiune. Tichetele păstrează selectorul **Flux de lucru** înainte de **Pornește**. Reîncercarea, continuarea și corecțiile de review păstrează fluxul salvat și aceeași conversație Pi.
-
-## Repornirea joburilor anulate {#restart-cancelled}
-
-Pentru cel mai recent job anulat, alege **Repornește jobul** în Tichete, selectează fluxul și confirmă, sau alege **Repornește jobul cu AEGIS** / **Repornește jobul fără AEGIS** din acțiunile jobului. ADORE aplică setările curente și verificările normale de admitere; monitorizarea pauzată rămâne pauzată.
-
-Execuția nouă are identitate, resurse de lucru, conversație și bugete distincte. Jobul anulat, activitatea, sesiunile salvate și rezultatul rămân accesibile. **Jobul anterior** și **Jobul nou** leagă execuțiile; un job vechi deja repornit nu poate crea un duplicat. Confirmarea deschide jobul nou după admiterea durabilă.
-
-În cazul unei reporniri neconfirmate, reîncarcă Joburi sau Tichete și caută jobul nou înainte de a reîncerca. Lipsa confirmării nu înseamnă că a eșuat curățarea sau că nu s-a creat un job. O repornire refuzată este raportată separat.
-
-Istoricul nu expiră automat. Operatorul poate șterge o execuție veche selectată prin \`adore delete RUN_ID --force\`. Retenția auditului nu șterge istoricul joburilor.
-
-Retry, clarificările și revizuirea păstrează setările de execuție salvate și conversația Pi a jobului. Schimbările imaginii, modelului sau rețelei proiectului se aplică joburilor noi. Verificările identității resurselor, regulile curente de aprobare și limitele jobului rămân active. După timeout, implementarea păstrată contează chiar dacă următoarea încercare doar verifică rezultatul și scrie un sumar.
+`,uz=`# Ciclul de viață al lucrării\r
+\r
+O lucrare este munca pe care o face ADORE pentru un tichet, de la preluare până la o modificare integrată. Acest articol arată etapele ei și unde participați dumneavoastră. Etichetele și eligibilitatea sunt în [Tichete pentru preluare automată](/help/tickets).\r
+\r
+\r
+Confirmați **Anulează**. Curățarea încearcă să elimine mediul și directorul de lucru, inclusiv modificările nepublicate; pot rămâne resurse. Starea și dovezile rămân. Ștergerea este separată.\r
+\r
+Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **Anulează** sau recuperarea confirmată într-un job nou, când sunt disponibile. Apar doar comenzile permise pentru acest job.\r
+\r
+Pornirea este confirmată după admiterea durabilă și preluarea lucrării de către serviciu. Lucrarea are apoi propriul progres și rezultat. O comandă în coadă sau în curs nu confirmă singură admiterea. Anularea este confirmată numai după oprirea lucrării cu un rezultat de anulare salvat. Punerea cererii în coadă sau trimiterea semnalului de oprire nu confirmă anularea. Dacă rezultatul este incert, verifică lucrarea înainte de reluare.\r
+\r
+Fiecare proiect are o singură limită de lucrări simultane, comună pornirii, reîncercării, repornirii de la zero și reluării. Pauza monitorizării oprește preluarea automată și păstrează pornirea explicită. Reducerea limitei lasă lucrările existente să continue. Comenzile în coadă și așteptările stabilizate de clarificare, aprobare sau review nu ocupă un executor; inițializarea și curățarea păstrează locul până la eliberarea sigură. Așteptarea înainte de execuție nu consumă timp de lucru activ.\r
+\r
+Lucrările simultane au dosare de lucru, resurse, credențiale și ieșiri separate. Anularea uneia lasă celelalte lucrări active. Actualizările comune pot aștepta; agenții cu resurse pregătite continuă.\r
+\r
+Proiectele progresează independent. La limita de două, două lucrări pot rula împreună, iar următoarea pornire așteaptă un loc. Oprirea aplicației oprește lucrătorii și joburile; munca întreruptă cu rezultat incert cere verificare înainte de o reîncercare explicită.\r
+\r
+După reducerea limitei, lucrările admise care nu au început așteaptă un loc conform noii limite. Lucrările deja în execuție continuă, chiar peste limita redusă, iar curățarea păstrează locul până la eliberarea sigură. Setările altui proiect și administrarea serverului rămân disponibile.\r
+\r
+## Etape {#stages}\r
+\r
+ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.\r
+\r
+| Etapă | Ce se întâmplă |\r
+|---|---|\r
+| Încadrare | Se stabilește domeniul, iar executorul înregistrează cerințele existente care acoperă lucrarea. |\r
+| Specificare | Se scrie cerința. |\r
+| Proiectare | Se scrie o notă scurtă de proiectare pentru lucrările netriviale. |\r
+| Construire | Agentul implementează tichetul și alege verificările potrivite conform instrucțiunilor repository-ului. |\r
+| Validare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |\r
+\r
+Specificarea și Proiectarea pot fi înregistrate ca omise când cerințe existente acoperă deja lucrarea. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă în aceeași conversație a jobului, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).\r
+\r
+## Joburi directe {#direct-evidence}\r
+\r
+Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, conform înregistrării jobului. Un job direct folosește **Implementare** (\`build\`), **Validare** (\`validate\`), apoi **Finalizată**. Nu are Încadrare, Specificare, Proiectare sau task AEGIS. Cronologia arată numai evenimente salvate, nu pași presupus terminați.\r
+\r
+**Ultima încercare înregistrată** arată ultima lansare înregistrată a agentului. Fără una, apare **Încercare indisponibilă**. Agentul raportează testele și verificările; ADORE nu le execută independent.\r
+\r
+**Implementare** directă folosește limita \`build\` din \`workflow.stage_timeout_overrides\`, cu revenire la \`budgets.per_gate_timeout_seconds\`. **Validare** (\`validate\`) înregistrează candidatul pentru aprobare fără o comandă de test separată.\r
+\r
+## Clarificare {#clarification}\r
+\r
+Când executorul cere informații, ADORE publică pe tichet un comentariu de clarificare cu întrebările și adaugă \`agent-clarify\`. Jobul arată așteptarea clarificării. **Citește întrebarea** deschide întrebarea în **Detalii job**, iar **Răspunde pe tichet** folosește locația salvată.\r
+\r
+Joburile Direct salvează un checkpoint înainte de a cere clarificări și îl publică dacă publicarea progresului este activată. Fișierele de schimb sunt excluse; salvarea progresului nu finalizează și nu aprobă jobul.\r
+\r
+Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați \`agent-answered\`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.\r
+\r
+## Aprobare {#approval}\r
+\r
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.\r
+\r
+Când agentul încheie fluxul, ADORE înregistrează candidatul, elimină eticheta veche de aprobare și cere o nouă aprobare umană. Verificările din jurnal sunt raportate de agent.\r
+\r
+Revizuiți-l, apoi adăugați din nou \`agent-approved\`; contează doar o adăugare nouă. Aprobarea este legată de acel candidat și de commit-ul ramurii țintă. Dacă oricare dintre ele se schimbă, aprobarea devine nulă, iar ADORE integrează, validează și cere din nou aprobarea. Această așteptare nu are temporizator. Detaliile lucrării oferă **Verifică versiunea pe platforma Git**.\r
+\r
+Când opțiunea este dezactivată, ADORE verifică candidatul validat și ținta, apoi publică fără a aștepta eticheta. ADORE nu face merge.\r
+\r
+## Publicare și revizuire {#review}\r
+\r
+După validare și aprobarea necesară, ADORE face push ramurii și deschide MR/PR-ul către ramura țintă, cere review de la conturile din **Solicită review de la** și setează \`agent-mr\`. **Starea PR/MR la publicare** alege Draft (implicit) sau Pregătit pentru review. Lucrarea afișează **Publicare**, apoi **Revizie umană**. ADORE nu integrează niciodată. După ce o persoană integrează, ADORE setează \`agent-done\`, lucrarea afișează **Finalizat**, iar implicit ramura remote este ștearsă. Un MR/PR închis fără integrare face lucrarea să eșueze.\r
+\r
+Pentru a cere modificări, un recenzor adaugă \`agent-revise\` pe MR/PR. ADORE elimină eticheta, pornește lucru nou pe aceeași ramură (un task nou pentru AEGIS) și repetă validarea și o nouă aprobare înainte de push. **Numărul maxim de runde de revizie** (5 implicit) limitează acest proces. O cerere peste limită face lucrarea să eșueze.\r
+\r
+Dacă verificările CI eșuează pe MR/PR, decide **Acțiune când verificările CI ale PR/MR eșuează**: Reparare automată (implicit) pornește o revizie, Doar notificare postează un comentariu, iar Ignoră sare peste starea CI. Reparările automate consumă același buget de revizii; după epuizare, ADORE postează o notificare, iar lucrarea rămâne în revizuire.\r
+\r
+## Eșec și recuperare {#failures}\r
+\r
+Când o etapă eșuează, ADORE ține la zi un singur comentariu de incident pe tichet, cu etapa, încercarea, codul erorii, dovezile și următoarea acțiune; dacă agentul s-a oprit fără să avanseze etapa, dovezile arată și ultimele lui linii de ieșire de eroare. După ultima încercare postează un comentariu final, setează \`agent-failed\`, oprește containerul, păstrează worktree-ul și eliberează locul. Alte cauze sunt un timp de răspuns expirat, un tichet sursă șters și o limită depășită, precum costul sau fișierele modificate. Închiderea tichetului sursă cât timp o lucrare așteaptă o anulează.\r
+\r
+În Lucrări, o lucrare eșuată afișează **Eșuate**, iar detaliile ei explică faptul că dovezile de recuperare sunt păstrate. **Reîncearcă** cere workerului să recupereze lucrarea; nu ocolește validarea sau aprobarea cerută. În vizualizarea Tichete, Reia înlocuiește Pornește. Eliminarea \`agent-failed\` nu reîncearcă. **Anulează** apare pentru lucrările neterminate și cere workerului să se oprească și să curețe. Lucrările încheiate nu pot fi anulate. Administratorii și dezvoltatorii atribuiți le pot folosi pe ambele. O comandă din coadă își arată progresul, de exemplu Comandă în coadă sau Comandă terminată. O comandă eșuată sau incertă spune și motivul, când motorul îl numește, și arată ultimele linii ale motorului.\r
+\r
+Pentru lucrările locale, **Reia** verifică executorul instalat și acceptă actualizarea executabilului sau a mediului moștenit pe același calculator și cont. Păstrează sarcina, worktree-ul, ramura, istoricul și limitele cumulative. Monitorizarea automată nu face această revalidare. Setările de execuție schimbate sau dovezile de recuperare corupte trebuie corectate. Dacă repornirea eșuează, comanda apare eșuată cu motivul salvat: executabil lipsă, versiune invalidă, comandă eșuată sau expirarea timpului. Verificarea versiunii nu trimite cereri modelului; folosește **Testează conexiunea IA** pentru aceasta.\r
+\r
+Când o comandă în container depășește limita de timp, ADORE oprește containerul înaintea altei comenzi. Următoarea încercare permisă reia același container, cu dependențele și fișierele instalate; accesul la rețea rămâne neschimbat. Dacă oprirea sau repornirea sigură nu poate fi confirmată, lucrarea eșuează și păstrează dovezile pentru verificare înainte de **Reia**. Pregătirea eșuată păstrează procedura sa explicită de recuperare.\r
+\r
+Joburile în container păstrează imaginea și resursa alese la pornire, chiar fără pregătire. Dacă resursa este înlocuită, pornește un job nou. Pregătirea rămâne opțională.\r
+\r
+## Renunță și pornește din nou {#restart}\r
+\r
+Pentru un job eșuat, **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** șterge starea salvată, worktree-ul cu lucrul nepublicat și branchul remote propriu nemodificat. Citește avertismentul și confirmă. ADORE verifică proprietatea înainte de curățare și pornește același tichet deschis cu setările curente doar după curățarea completă. Monitorizarea rămâne în pauză dacă era oprită. Administratorii și dezvoltatorii alocați pot folosi acțiunea.\r
+\r
+Reîncercarea nu poate corecta mediul de execuție sau setările stabile schimbate; detaliile jobului explică situația și oferă acțiunea confirmată. Restabilește setările salvate pentru a păstra lucrul existent. Reîncercarea poate revalida schimbările volatile ale mediului nativ, inclusiv variabilele procesorului după redimensionarea unui VM.\r
+\r
+Resursele străine, alt calculator sau cont, dovezile de proprietate corupte ori un branch remote modificat blochează recuperarea. Curățarea parțială păstrează dovezile rămase fără un job nou. Dacă jobul se schimbă după confirmare, reîncarcă detaliile și verifică din nou. Lockul CLI poate aparține workerului web: pune monitorizarea în pauză din Rezumatul proiectului și așteaptă încheierea jobului limitat. Nu șterge un lock activ.\r
+\r
+Dacă un job șters anterior a lăsat un branch fără checkpoint înregistrat, ADORE îl păstrează și folosește o generație nouă. Un checkpoint cunoscut modificat blochează în continuare recuperarea. Sunt încercate cel mult trei nume alternative, iar regulile depozitului trebuie să permită un nume liber; altfel recuperarea se oprește înainte de curățare. Rezultatul explică păstrarea unui branch vechi.\r
+\r
+## Urmărirea lucrărilor {#following-jobs}\r
+\r
+Citirile automate păstrează rândurile, consumul, comenzile tabelului și detaliile lucrării deschise. **Reîmprospătează** folosește aceeași citire în fundal; **Ultima actualizare reușită** arată când s-a încheiat. O eroare temporară de conexiune a listei sau a consumului poate păstra instantaneul anterior cu un avertisment de învechire și **Reîncearcă**. Dovezile invalide sau un instantaneu expirat al paginării cer în continuare recuperare ori reîncărcarea primei pagini; informațiile învechite nu autorizează acțiuni asupra lucrării.\r
+\r
+Folosește **Lucrări** din meniul lateral sau fila separată **Lucrări** a proiectului. Tabelul are următoarele coloane:\r
+\r
+| Coloană | Conținut |\r
+|---|---|\r
+| Tichet | Numărul și titlul; deschide detaliile lucrării. |\r
+| Proiect | Proiectul căruia îi aparține. |\r
+| Stare | Starea, Flux de lucru înregistrat, Etapa curentă și un link către tichet sau MR/PR când o persoană trebuie să acționeze. |\r
+| Ultima activitate | Momentul ultimului eveniment salvat. |\r
+| Consum | Tokenurile folosite de lucrare. |\r
+\r
+Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potrivește titluri, numere, proiecte, ID-uri de lucrare, stare, etapă sau rezultat. Filtrul **Stare** oferă Lucrări active, În așteptare, Revizie umană și Joburi încheiate. Pagina se reîmprospătează singură cât timp este vizibilă.\r
+\r
+Detaliile înlocuiesc lista din care au fost deschise. Deasupra titlului sunt **Activitate**, **Sesiunile agentului** și **Detalii job**, cu **Arată tichetul** și **Închide** în dreapta. Statusul, etapa și workflow-ul sunt sub titlu. Bugetele și consumul ocupă coloana din dreapta. Acțiunile necesare pentru întrebare, aprobare și review rămân vizibile. **Închide** restaurează pagina, selecția proiectului, căutarea, filtrele și paginarea.\r
+\r
+**Activitate** este un tabel paginat cu ora, activitatea, etapa și sesiunea. Alege 10, 25, 50 sau Toate și folosește Anterior/Următor. **Deschide conversația** deschide sesiunea exactă atunci când etapa și încercarea identifică o singură lansare înregistrată; evenimentele fără o asociere sigură nu au legătură. Revenirea păstrează pagina. Bugetele și consumul sunt în coloana din dreapta, sub conținut pe ecrane înguste.\r
+\r
+## Istoricul sesiunilor agentului {#agent-sessions}\r
+\r
+**Sesiunile agentului** deschide sesiunea curentă sau ultima sesiune încheiată. Conversația arată promptul inițial, răspunsurile agentului, mesajele utilizatorului și apelurile/rezultatele instrumentelor care pot fi extinse. Răspunsurile folosesc Markdown lizibil. Mesajele apar direct, cu un singur autor; raționamentul și instrumentele pot fi extinse. Consumul rămâne în panoul din dreapta.\r
+\r
+Pi păstrează o conversație de implementare pentru job între etape, continuări și corecții. Procesele pot reporni la checkpointuri; conversația se reia cu contextul și compactarea automată Pi. Selectorul arată în continuare încercările înregistrate, fiecare cu activitatea și consumul propriu. Revizuirile independente folosesc contexte separate când politica repository-ului le cere.\r
+\r
+Sesiune, selectorul și activitatea în direct sunt pe același rând, deasupra conversației, aliniate cu lățimea acesteia. Conversația folosește înălțimea disponibilă și se derulează în interior când apar mesaje noi. Butoanele de trimitere sunt în dreapta câmpului pe ecrane late și sub el pe ecrane înguste.\r
+\r
+Istoricul se încarcă progresiv fără scurtarea textului păstrat. Mesajele noi sunt urmărite automat doar când ești la final; **Mesaje noi** te aduce înapoi. Selectorul păstrează celelalte încercări, iar **Sesiunea curentă** revine la lucrul în direct.\r
+\r
+Lansările noi păstrează explicit prompturile trimise și ora mesajelor. Sesiunile vechi arată doar ce a fost înregistrat. Drepturile administratorilor și dezvoltatorilor alocați rămân aceleași; costurile structurate rămân doar pentru administratori.\r
+\r
+**Maximizează** folosește toată pagina pentru sesiune. **Restabilește** sau Escape revine la afișarea normală. Sesiunea selectată, mesajele și mesajul netrimis se păstrează.\r
+\r
+### Trimiterea instrucțiunilor {#instructions}\r
+\r
+Introdu un **Mesaj pentru agent** la baza conversației curente. **Trimite acum** îl transmite la următorul punct sigur al agentului; **Pune mesajul în așteptare** așteaptă încheierea lucrului curent. Între sesiuni, punerea în așteptare rămâne disponibilă cât timp jobul lucrează. Conversațiile istorice sunt doar pentru citire.\r
+\r
+Mesajul apare în conversație cu **În așteptare**, **Primit de agent** sau eroare. Primit confirmă recepția, nu finalizarea lucrului. Erorile de introducere sunt explicate la trimitere: 1–4000 de caractere fără NUL și cel mult 256 de instrucțiuni păstrate pe job.\r
+\r
+Instrucțiunile neconfirmate rămân în așteptare pentru o sesiune ulterioară. Primirea confirmată este salvată în job și publicată pe tichet; erorile temporare ale comentariului sunt reîncercate separat.\r
+\r
+## Bugetele jobului {#budgets}\r
+\r
+Detaliile afișează **Lansări executor** (de exemplu 9 / 20) și **Lucru activ (secunde)** lângă limitele actuale ale proiectului, independent de statisticile de tokenuri. La 90% apare avertizarea de apropiere; la limită se cere majorarea înainte de reluare. Limita implicită este 20 în înrolare și \`adore init\`.\r
+\r
+Administratorii pot urma **Ajustează bugetele în Setările proiectului**, deschide **Implementare**, modifica doar bugete, alege **Salvează** și confirma valorile exacte. Salvarea revizuită numai a bugetelor este permisă când joburile așteaptă clarificări, fără conductor activ sau operații neterminate. Celelalte setări păstrează verificările obișnuite de repaus și pauză; dezvoltatorii au acces doar la citire.\r
+\r
+Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.\r
+\r
+Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.\r
+\r
+## Detalii job și diagnostic {#operational-evidence}\r
+\r
+**Detalii job** arată o singură dată rezultatul salvat, **Branch**, **Ultimul commit publicat** când există, legătura MR/PR și rundele de review separat. Un branch absent apare ca **Neînregistrat**. Commitul publicat este ultimul checkpoint trimis și verificat, nu amprenta unui candidat.\r
+\r
+Când este necesară clarificarea, **Citește întrebarea** deschide această filă. Întrebarea folosește Markdown lizibil, legăturile nesigure sunt inactive și imaginile nu sunt încărcate automat. Acțiunile de răspuns, aprobare și review rămân vizibile lângă status când sunt necesare. Întrebarea originală este în **Diagnostic**.\r
+\r
+**Diagnostic** este inițial restrâns. Deschide-l pentru identificatorii interni ai proiectului și jobului, **Încercări eșuate în etapa curentă**, dovezi ale încercării directe sau pregătirii și ultima ieșire a executorului. Rundele de review sunt separate de erorile etapei curente.\r
+\r
+**Date indisponibile** numește tichetul, istoricul, titlul sau ora activității doar când aceste surse lipsesc. Acestea descriu dovezile disponibile, nu consumul de tokenuri. Consumul rămâne în dreapta.\r
+\r
+Ultima ieșire a executorului prezintă stdout/stderr operaționale normalizate, cu ora, încercarea, etapa și codul de ieșire. Conținutul privat este ascuns; sunt păstrate cel mult 500 de înregistrări în 64 KiB pe flux. Dovezile lipsă sau corupte sunt semnalate, iar datele modificate oferă Reîncearcă.\r
+\r
+**Activitate** este singurul tabel de evenimente. Codul publicat este accesibil prin legătura MR/PR. Detaliile folosesc dovezile salvate fără să creeze fișiere sau să pornească executorul.\r
+\r
+## Capacitatea proiectului {#project-capacity}\r
+\r
+**Rezumat** arată limita lucrărilor paralele, locurile libere și lucrările în așteptare alături de informațiile operaționale. Lucrări și Tichete sunt file separate în proiect, fără subfilă Capacitate. Pagina globală Lucrări păstrează tabelul Capacitate cu limite, locuri libere, coadă, monitorizare și paginarea existentă.\r
+\r
+Coada numără cererile trimise și joburile admise care așteaptă lansarea, nu tichetele necerute. Un proiect ocupat nu blochează alte proiecte. Setările păstrează **Ultimele tale operații** și rezultatele salvate; În coadă și În desfășurare nu înseamnă Confirmat.\r
+\r
+O limită redusă pregătită oprește deja pornirile și reluările noi până când ocuparea scade sub ea; joburile deja pornite continuă; rezervările în coadă așteaptă un loc de execuție. Nu mărește niciodată limita activă. Aplicarea sigură așteaptă în continuare lucrul neterminat; valoarea salvată și candidatul rămân vizibile până la Salvează sau Renunță la modificări.\r
+\r
+## Alegerea fluxului de lucru {#workflow-choice}\r
+\r
+În **Acțiuni job**, alegeți **Renunță și repornește cu AEGIS** sau **Renunță și repornește fără AEGIS** pentru un job nou, apoi acceptați confirmarea scurtă a browserului privind ștergerea lucrului existent. Lipsa AEGIS dezactivează acea acțiune. Tichetele păstrează selectorul **Flux de lucru** înainte de **Pornește**. Reîncercarea, continuarea și corecțiile de review păstrează fluxul salvat și aceeași conversație Pi.\r
+\r
+## Repornirea joburilor anulate {#restart-cancelled}\r
+\r
+Pentru cel mai recent job anulat, alege **Repornește jobul** în Tichete, selectează fluxul și confirmă, sau alege **Repornește jobul cu AEGIS** / **Repornește jobul fără AEGIS** din acțiunile jobului. ADORE aplică setările curente și verificările normale de admitere; monitorizarea pauzată rămâne pauzată.\r
+\r
+Execuția nouă are identitate, resurse de lucru, conversație și bugete distincte. Jobul anulat, activitatea, sesiunile salvate și rezultatul rămân accesibile. **Jobul anterior** și **Jobul nou** leagă execuțiile; un job vechi deja repornit nu poate crea un duplicat. Confirmarea deschide jobul nou după admiterea durabilă.\r
+\r
+În cazul unei reporniri neconfirmate, reîncarcă Joburi sau Tichete și caută jobul nou înainte de a reîncerca. Lipsa confirmării nu înseamnă că a eșuat curățarea sau că nu s-a creat un job. O repornire refuzată este raportată separat.\r
+\r
+Istoricul nu expiră automat. Operatorul poate șterge o execuție veche selectată prin \`adore delete RUN_ID --force\`. Retenția auditului nu șterge istoricul joburilor.\r
+\r
+Retry, clarificările și revizuirea păstrează setările de execuție salvate și conversația Pi a jobului. Schimbările imaginii, modelului sau rețelei proiectului se aplică joburilor noi. Verificările identității resurselor, regulile curente de aprobare și limitele jobului rămân active. După timeout, implementarea păstrată contează chiar dacă următoarea încercare doar verifică rezultatul și scrie un sumar.\r
 `,cz=`# Ce face ADORE
 
 Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.

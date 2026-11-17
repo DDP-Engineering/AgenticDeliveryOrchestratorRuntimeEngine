@@ -43,6 +43,8 @@ Direkte **Implementierung** nutzt `build` aus `workflow.stage_timeout_overrides`
 
 Wenn der Executor Informationen benötigt, veröffentlicht ADORE einen Klärungskommentar mit den Fragen und setzt `agent-clarify`. Der Job wartet auf Klärung. **Frage lesen** öffnet die Frage in **Jobdetails**; die Antwortaktion führt zum gespeicherten Ort im Ticket.
 
+Direkte Jobs sichern vor einer Rückfrage einen Prüfpunkt und veröffentlichen ihn bei aktivierter Fortschrittsveröffentlichung. Austauschdateien sind ausgeschlossen; der Job wird dadurch weder abgeschlossen noch genehmigt.
+
 Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann `agent-answered`. Beides ist nötig; Kommentare von ADORE selbst zählen nicht. ADORE entfernt beide Labels und setzt die Arbeit fort. Fragen zählen nicht als Fehlversuche. **Maximale Rückfragerunden** (standardmäßig 3) begrenzt, wie oft ein Auftrag fragen darf, und **Wartezeit auf eine menschliche Antwort** (standardmäßig 72 Stunden) lässt den Auftrag bei Ablauf fehlschlagen.
 
 ## Freigabe {#approval}

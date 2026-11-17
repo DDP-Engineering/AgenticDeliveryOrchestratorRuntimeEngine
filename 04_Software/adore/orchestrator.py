@@ -1671,6 +1671,7 @@ class Orchestrator:
                     questions_path = Path(run.worktree) / self.questions_file
                     if result.has_questions or questions_path.exists():
                         questions = result.questions or self._read_questions(run)
+                        self._checkpoint(run, "ADORE direct clarification")
                         self._park(run, questions)
                         return
                     if not result.ok or result.timed_out:

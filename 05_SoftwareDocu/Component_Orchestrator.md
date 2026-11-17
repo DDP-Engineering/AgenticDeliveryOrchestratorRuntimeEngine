@@ -121,7 +121,11 @@ to Pi. See [Prompts](Component_Prompts.md).
 The conductor launches one bounded attempt in the same conversation, records normalized operational
 diagnostics, session archives and telemetry availability, then interprets questions,
 exit/authoritative timeout, stage progress and integrity checks. Questions park the
-job without consuming stage failures. A stage checkpoint uses the configured agent
+job without consuming stage failures. Direct checkpoints retained work before posting
+the question, publishing it when progress publication is enabled. A local checkpoint failure
+retains the work and stops the job; publication failures follow the existing bounded
+retry and notification policy.
+A stage checkpoint uses the configured agent
 Git identity even when the host clone has no global identity. Its failure stops
 execution at the observed stage and preserves the worktree.
 

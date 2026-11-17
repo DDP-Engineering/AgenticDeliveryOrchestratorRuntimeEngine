@@ -18,7 +18,7 @@ date = "2026-11-18"
 [[release.entry]]
 category = "fixed"
 topic = { en = "Recovery", fr = "Reprise", de = "Wiederaufnahme", ro = "Recuperare" }
-text = { en = "Recovery keeps job settings and retained work; automatic repairs wait for a free place.", fr = "La reprise garde réglages et travail ; les réparations automatiques attendent une place libre.", de = "Jobs behalten Einstellungen und Arbeit; automatische Reparaturen warten auf einen freien Platz.", ro = "Recuperarea păstrează setările și munca; reparările automate așteaptă un loc liber." }
+text = { en = "Recovery keeps settings and work; Direct jobs checkpoint before clarification.", fr = "La reprise garde réglages et travail ; les travaux directs sauvegardent avant clarification.", de = "Die Wiederaufnahme bewahrt Einstellungen und Arbeit; direkte Jobs sichern vor Rückfragen.", ro = "Recuperarea păstrează setările și munca; joburile Direct salvează înainte de clarificări." }
 
 [[release.entry]]
 category = "improved"

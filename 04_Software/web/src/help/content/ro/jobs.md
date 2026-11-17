@@ -43,6 +43,8 @@ Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, con
 
 Când executorul cere informații, ADORE publică pe tichet un comentariu de clarificare cu întrebările și adaugă `agent-clarify`. Jobul arată așteptarea clarificării. **Citește întrebarea** deschide întrebarea în **Detalii job**, iar **Răspunde pe tichet** folosește locația salvată.
 
+Joburile Direct salvează un checkpoint înainte de a cere clarificări și îl publică dacă publicarea progresului este activată. Fișierele de schimb sunt excluse; salvarea progresului nu finalizează și nu aprobă jobul.
+
 Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați `agent-answered`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.
 
 ## Aprobare {#approval}

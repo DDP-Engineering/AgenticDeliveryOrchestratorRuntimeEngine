@@ -27,6 +27,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Direct jobs checkpoint retained changes before asking for clarification, including
+  progress publication when enabled, so external reviewers can inspect the current work.
+
 - Existing jobs restore saved execution settings for Retry, clarification and review;
   new project image/model/network defaults no longer fail their continuation.
   Direct recovery accepts retained candidate changes after a timed-out attempt,
