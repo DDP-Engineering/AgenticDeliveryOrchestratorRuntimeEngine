@@ -1,6 +1,6 @@
 # Using ADORE
 
-Applies to **ADORE 0.19.0**.
+Applies to **ADORE 0.20.0**.
 
 ADORE takes eligible repository tickets through implementation, checks and human
 review, then publishes a PR/MR. Merging remains a human decision.

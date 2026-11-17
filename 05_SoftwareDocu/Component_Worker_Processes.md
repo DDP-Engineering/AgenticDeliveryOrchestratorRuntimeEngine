@@ -6,6 +6,13 @@
 and its project/run/configuration children. It owns OS containment and ancestry
 transport; WebStore owns durable generations and the conductor owns run state.
 
+`adore/web/worker_context.py` binds an engine CLI process to the worker that
+started it. `attached_context` parses the `ADORE_WORKER_CONTEXT` claim, attaches
+to the owner recorded in `web.db` and keeps a heartbeat every two seconds.
+`WorkerContext.authorize` runs immediately before every external command, so a
+process that lost its ownership stops at its next effect. A standalone CLI run
+has no context and needs no web dependency.
+
 ## 2. Responsibilities
 
 Establish a Job/session before releasing the child, inspect completion without

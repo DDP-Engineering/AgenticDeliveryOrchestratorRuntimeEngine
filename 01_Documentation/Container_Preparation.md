@@ -11,7 +11,10 @@ Commit a recipe to the configured clone and review its complete commands. Set
 64-character Git commit ID. The commit must equal the selected target branch's
 current `origin/<target>` revision. The conductor fetches before checking a new
 run and pins its worktree to that exact commit. A changed target requires a new
-selection/review; resume uses the original immutable plan.
+selection/review; resume uses the original immutable plan. Because the job is
+pinned, later commits on the target branch are not merged into it and do not
+cancel its validation or its approval; a conflict with them shows on the forge
+when a person merges the draft.
 
 ```toml
 [execution]

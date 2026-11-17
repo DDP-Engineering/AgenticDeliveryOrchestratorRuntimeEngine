@@ -60,15 +60,21 @@ _NOT_STARTED = re.compile(
 _COMMAND_ACTIONS = ("start", "retry", "restart", "cancel", "pause", "resume", "delete")
 
 
-def _run(argv: list[str], env: dict[str, str], *, timeout: float = 21600) -> CommandOutcome:
+def _run(argv: list[str], env: dict[str, str], *, timeout: float = 21600,
+         keep_output: bool = True) -> CommandOutcome:
     """
     Run a fixed CLI argument vector with a finite timeout, keeping its output.
     stderr joins stdout so the kept lines stay in the order they were printed.
+    keep_output: False for a caller that reads the exit code only. The output of
+                a job that runs for hours is then not held in memory; the engine
+                writes its own log beside the job.
     """
     try:
         result = subprocess.run(
             argv, env=automatic_environment(env), stdin=subprocess.DEVNULL,
-            **background_process_options(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            **background_process_options(),
+            stdout=subprocess.PIPE if keep_output else subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
             text=True, encoding="utf-8", errors="replace", check=False, timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:

@@ -5,6 +5,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-18
+
 ### Changed
 
 - Opted-in container environment administration permits dependency installation and tool
@@ -146,6 +148,19 @@ This project follows Keep a Changelog and Semantic Versioning.
 - At most two branch name previews run at once on a server; a further one is
   refused at once with `branch_preview_busy`. Each preview may start a
   rule-check process of up to one second.
+- The process that supervises a running job no longer holds the engine's
+  output in memory until the job ends. It reads the exit code only; the engine
+  writes its own log beside the job.
+- The statistics help says, in the four languages, that cost per job counts
+  what a job spent in the selected period only, so a job that began earlier
+  shows a part of its cost.
+- An egress proxy that is not running is no longer started again on its
+  existing allowlist file, which the run container can write. It is removed and
+  created from a list written at that moment, and the list is never written
+  through a link or a second name of another file.
+- The environment report of `adore init` no longer says that the Azure sign-in
+  is missing. It runs before the organization and project are known, so it
+  now says that Azure access is verified with them later.
 - In French, German and Romanian every setting has a short name of its own.
   For 52 settings the interface showed the first sentence of the help text as
   the name.

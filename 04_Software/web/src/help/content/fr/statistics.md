@@ -51,7 +51,7 @@ Les administrateurs enregistrent les tarifs dans **Paramètres → Agent et mod�
 
 > Un tarif saisi avec une date d’effet antérieure peut modifier les estimations passées. Exportez un CSV si vous avez besoin d’un chiffre à un instant donné.
 
-Dans l’onglet Qualité, les administrateurs voient aussi **Coût par tâche documentée**, par tâche terminée et par tâche fusionnée par un humain, chacun avec le nombre de tâches concernées.
+Dans l’onglet Qualité, les administrateurs voient aussi **Coût par tâche documentée**, par tâche terminée et par tâche fusionnée par un humain, chacun avec le nombre de tâches concernées. Une tâche terminée dans la période choisie ne compte qu’avec ce qu’elle a dépensé pendant cette période. Une tâche commencée plus tôt n’affiche donc qu’une partie de son coût ; choisissez une période qui contient toute la tâche pour le voir en entier.
 
 ## Qui voit les valeurs monétaires {#visibility}
 

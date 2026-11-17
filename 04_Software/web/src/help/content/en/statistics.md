@@ -51,7 +51,7 @@ Administrators record prices in a project's **Settings → Agent and model** und
 
 > A price entered with an earlier effective date can change past estimates. Export a CSV if you need a point-in-time figure.
 
-On the Quality tab, administrators also see **Cost per job with evidence**, per completed and per human-merged job, each with the number of jobs behind it.
+On the Quality tab, administrators also see **Cost per job with evidence**, per completed and per human-merged job, each with the number of jobs behind it. A job that finished in the selected period counts with what it spent in that period only. A job that began earlier therefore shows a part of its cost; choose a period that holds the whole job to see all of it.
 
 ## Who sees monetary values {#visibility}
 

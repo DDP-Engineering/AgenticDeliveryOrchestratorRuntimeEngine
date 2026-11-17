@@ -8,6 +8,22 @@ assets, authenticates users, authorizes project reads and queues bounded worker
 operations. It calls the existing configuration, profile, forge and conductor
 services rather than implementing a second orchestration engine.
 
+Three small modules beside it belong to this component:
+
+- `adore/web/server.py` is the `adore-web` entry point. It takes `--home`,
+  `--host` and `--port`, refuses any host but loopback and runs Uvicorn with
+  forwarded headers trusted from loopback only, so remote access goes through a
+  TLS reverse proxy on the same host.
+- `adore/web/tickets.py` holds the helpers of the ticket routes: `ticket_view`
+  lists a project's open tickets with their pickup eligibility and job state,
+  `comment_view` reads one ticket's comments, and `existing_job` and
+  `read_ticket` serve the start and stop routes. Forge calls go through a
+  bounded runner.
+- `adore/web/settings_batch.py` defines the wire form of one settings Save:
+  `parse_batch` decodes the `settings.batch` value, a JSON array of at most 100
+  key/value edits with no duplicate or overlapping key, and returns them sorted
+  by key.
+
 The application's generated OpenAPI contract is the route/parameter reference.
 This document records ownership and trust boundaries; specialized contracts live
 in the linked component documents.

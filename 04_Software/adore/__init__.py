@@ -1,4 +1,4 @@
 """Package marker and version for the Agentic Delivery Orchestrator & Runtime Engine (ADORE)."""
 
 
-__version__ = "0.19.0"
+__version__ = "0.20.0"

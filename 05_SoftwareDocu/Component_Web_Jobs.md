@@ -6,6 +6,11 @@
 the HTTP API from retained local run sources. It supplies job evidence for
 administrator and project-assigned developer clients.
 
+`adore/web/executor_evidence.py` reads the executor diagnostics shown in a job's
+detail. `read_executor_output` returns the latest host-normalized stdout/stderr
+snapshot that the journal references, or an explicit missing answer. It never
+reads raw executor IO, scripts, prompts, transcripts or configuration.
+
 ## 2. Responsibilities
 
 The API owns principal and project-grant resolution. The projection owns strict

@@ -649,6 +649,82 @@ def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
     assert "NO_PROXY=localhost,127.0.0.1,::1" in env_values
 
 
+def _proxy_manager(runner: FakeRunner) -> ContainerManager:
+    """A manager in allowlist-proxy mode with one allowed host."""
+    return ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["api.openai.com"]),
+    )
+
+
+def test_stopped_proxy_is_created_anew_from_a_freshly_written_allowlist(tmp_path: Path) -> None:
+    """
+    A proxy that starts again would read the allowlist from a file the run
+             container can write. It is removed and created from a list the
+             host writes at that moment; a running proxy is left alone.
+    """
+    io_dir = tmp_path / "io"
+    config = io_dir / "egress-proxy" / "squid.conf"
+    config.parent.mkdir(parents=True)
+    config.write_bytes(b"http_port 3128\nhttp_access allow all\n")
+    runner = FakeRunner(_ok("network"), _ok("exited"), _ok(), _ok("proxy"), _ok())
+
+    _proxy_manager(runner)._ensure_proxy_context("adore-run-x", io_dir)
+
+    assert runner.calls[2] == ["docker", "rm", "--force", "adore-run-x-egress-proxy"]
+    assert runner.calls[3][:5] == ["docker", "run", "--detach", "--name",
+                                   "adore-run-x-egress-proxy"]
+    assert runner.calls[4][:3] == ["docker", "network", "connect"]
+    assert not any(call[:2] == ["docker", "start"] for call in runner.calls)
+    text = config.read_text(encoding="utf-8")
+    assert "http_access allow all" not in text.splitlines()
+    assert "acl allowed_domains dstdomain api.openai.com" in text
+    assert text.rstrip().splitlines()[-4] == "http_access deny all"
+    assert b"\r" not in config.read_bytes()
+
+    running = FakeRunner(_ok("network"), _ok("running"), _ok())
+    config.write_bytes(b"left as it is\n")
+    _proxy_manager(running)._ensure_proxy_context("adore-run-x", io_dir)
+    assert [call[1] for call in running.calls] == ["network", "inspect", "network"]
+    assert config.read_bytes() == b"left as it is\n"
+
+
+def test_proxy_config_refuses_a_second_name_of_another_file(tmp_path: Path) -> None:
+    """The host never writes the allowlist through a name that is also another file."""
+    io_dir = tmp_path / "io"
+    (io_dir / "egress-proxy").mkdir(parents=True)
+    other = tmp_path / "host-file.txt"
+    other.write_bytes(b"host content\n")
+    os.link(other, io_dir / "egress-proxy" / "squid.conf")
+
+    with pytest.raises(IsolationError, match="not a plain file"):
+        _proxy_manager(FakeRunner())._write_proxy_config(io_dir)
+
+    assert other.read_bytes() == b"host content\n"
+
+
+def test_proxy_config_refuses_links_in_place_of_file_or_directory(
+        tmp_path: Path, symlink_support) -> None:
+    """A link planted in the run IO directory does not redirect the host's write."""
+    other = tmp_path / "host-file.txt"
+    other.write_bytes(b"host content\n")
+    io_dir = tmp_path / "io"
+    (io_dir / "egress-proxy").mkdir(parents=True)
+    (io_dir / "egress-proxy" / "squid.conf").symlink_to(other)
+    with pytest.raises(IsolationError, match="not a plain file"):
+        _proxy_manager(FakeRunner())._write_proxy_config(io_dir)
+    assert other.read_bytes() == b"host content\n"
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    linked = tmp_path / "io-linked"
+    linked.mkdir()
+    (linked / "egress-proxy").symlink_to(elsewhere, target_is_directory=True)
+    with pytest.raises(IsolationError, match="not a plain directory"):
+        _proxy_manager(FakeRunner())._write_proxy_config(linked)
+    assert list(elsewhere.iterdir()) == []
+
+
 def test_proxy_config_admits_names_by_domain_and_addresses_by_dst(tmp_path: Path) -> None:
     """
     Host names become a dstdomain rule, IP literals a dst rule, and

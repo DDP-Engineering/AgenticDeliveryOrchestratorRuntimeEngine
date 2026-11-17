@@ -85,17 +85,30 @@ Suggested order of work is in section 15.
 
 ### 2.1 Remediation status
 
-Updated 2026-11-17. The first changes were committed on `master` as `f77db636` (on top of
+Updated 2026-11-18. The first changes were committed on `master` as `f77db636` (on top of
 `3ec545f3`, ADORE 0.19.0). Rows marked "second commit" are in `738db488`, rows marked
-"third commit" in `20850cd1` and rows marked "fourth commit" in the commit that follows it,
-all of the same day. No real container, forge, packaging run or service installer was
-exercised.
+"third commit" in `20850cd1` and rows marked "fourth commit" in `8494669d`. Rows marked
+"fifth commit" are in the commit `Release ADORE 0.20.0`, which also cuts that version. It
+sits on top of `9488298c`, a change from outside this remediation that was merged from
+`origin/master`. No real container, forge or service installer was exercised.
 
-The full Python suite ran on top of the third commit, on a tree that held the FE-5 change:
-3929 passed, 30 skipped, none failed. The changes made after it (FE-6, WEB-15, WEB-16) were
-checked with the test modules they touch only. The built web bundle in
-`04_Software/adore/web/static/` holds FE-5 and FE-6 but not the two error messages added
-with WEB-15 and WEB-16; it is rebuilt with the final checks.
+Final checks, on the tree of the fifth commit before the version cut:
+
+- Full Python suite: 3942 passed, 31 skipped, none failed. A first run had three failures,
+  all in tests that `9488298c` left behind: two cases of
+  `tests/test_preparation_lifecycle.py` expected a changed project setting to stop a
+  prepared job, which that commit changes on purpose, and one test of
+  `tests/test_run_concurrency.py` hooked the backend instance the engine was created with,
+  while a job now runs on a backend built from its saved settings. The three tests pass on
+  `8494669d` and fail on `9488298c` without any change of this remediation. They were
+  brought in line with the new behaviour; resource and evidence drift is still refused.
+- Frontend: 193 unit tests passed; both type checks clean; the web bundle was rebuilt and
+  holds every message added in this remediation.
+- `ruff` clean on `adore` and `tests`. `02_Tools/package/tests/test_delivery_package.py`,
+  which covers the portable launcher and the packager: 9 passed, 2 skipped.
+- After the version cut: `set_version.py --check` and the release notes check pass; the
+  modules that read the version or the notes, with the packaging tests: 121 passed,
+  2 skipped. The full suite was not run again after the cut.
 
 The full Python suite ran once, on the tree of the second commit: 3927 passed, 30 skipped,
 1 failed. The failure was the replay of captured AEGIS commands, which pins the old form of
@@ -210,6 +223,29 @@ unit tests gave 189 passed and the type check is clean.
 | WEB-18 | No change by decision | Confirmed in code: `GET /api/v1/chatgpt-sign-in` ends a finished sign-in attempt and writes an audit row, and the statistics reads bring the usage projection up to date. The session cookie is set with `SameSite=Strict`, so a request started from another site arrives without it and is refused. The first route does what the administrator's own page does every few seconds; the second is repeatable upkeep. Left as it is on 2026-11-17 | Read only |
 | WEB-19 | No change by decision | Not reachable through the shipped entry point: `adore-web` refuses any bind address but loopback (`adore/web/server.py`), so a proxy on another host cannot connect, and forwarded headers are trusted from loopback, so a proxy or tunnel on the same host yields the HTTPS scheme and the `Secure` flag. A launcher of the operator's own that binds elsewhere is outside this guarantee | Read only |
 | WEB-20 | No change by decision | True for the supervising process only. The engine child keeps a heartbeat of its own and checks its ownership before every external command (`adore/web/worker_context.py`), so a child that lost its place stops at its next effect. The supervising heartbeat gives up after one failed write, so stopping the child on that signal would end a running job on a momentary store error. Left as it is on 2026-11-17 | Read only |
+| WEB-21 | Remediated, fifth commit | The supervising process of a run or of a poll reads the exit code only, so the engine's output goes nowhere instead of into memory; the engine writes its own log beside the job (`adore/cli.py`). Start and retry commands keep their output, because their result is read from it | `test_engine_runner_can_drop_the_output_of_a_long_job`; the runner tests of `tests/test_web_commands.py`: 11 passed. The call in `adore/web/supervisor.py` itself has no test |
+| WEB-23 | Reclassified, help clarified, fifth commit | Not a defect: `.agentic/specs/scoped-metrics.md`, under active requirement REQ-FUNC-930e3ae0, specifies that cost efficiency uses period usage for jobs whose done event is in scope, and `05_SoftwareDocu/Component_Metrics.md` says the same. A change to the whole cost of the job was made and taken back on 2026-11-17 when the specification was found. What the reader lacked was the definition: the statistics help now states it in four languages, and a test fixes the rule for a job that crosses the start of the period | `test_cost_per_completed_job_counts_period_usage_across_the_period_start`; `tests/test_web_metrics.py`: 37 passed; `tests/help.test.mjs`: 12 passed |
+| WEB-24 | No change by decision | Measured: 3000 additions with a total of 312.30 USD leave an error of about 5e-12 USD. The screen formats money to two decimals, so nothing shows there; a CSV export can carry a value such as `312.29999999999546`. No specification fixes a precision. Left as it is on 2026-11-17 | Measurement only |
+| WEB-11 | Documented by decision, fifth commit | Confirmed in code: SQLite creates `web.db` under the process umask and nothing sets a mode, while the token file is written for its owner only. No specification fixes a mode. Kept as it is on 2026-11-17. `01_Documentation/Security_And_Credentials.md` now has a section that says what the file holds and how to close and check the ADORE home on Linux | Read only |
+| ORC-18 | Reclassified, documented, fifth commit | Not a defect: `01_Documentation/Container_Preparation.md` says that a job with a preparation recipe is pinned to the recipe's commit and that a changed target needs a new selection and review. True as reported that the target-moved checks then compare the commit with itself. The guide now states the consequence: later target commits are not merged into the job and do not cancel its validation or approval | Read only |
+| FRG-10 | Reclassified, docstring corrected, fifth commit | Not a defect: `01_Documentation/Azure_DevOps_Services.md` says that a deleted Work Item cannot be told from a denied one through `az` and is an explicit forge failure. The contract in `adore/forge/base.py` now names that exception | Read only |
+| FRG-16 | Remediated in part, fifth commit | Azure: the environment report of `adore init` ran the access check before the organization and project were known, so it always printed `[CHECK] az auth`; it now prints that Azure access is verified with them later. Gitea: no change needed, because the only caller without a configured login is the same report, before any login is configured, and `detect_all` has no caller | Assertions added to `test_wizard_azure_scope_answers_do_not_replace_the_host_os`; `tests/test_wizard.py`: 30 passed |
+| DOC-9 | Remediated in part, fifth commit | The license comment is removed from `00_Planning/README.md` and from the two plans of 2026-11-15. `04_Software/.env.example` keeps its comment: it is a configuration template, not a document. Banners inside file examples in the guides are part of the example | Read only |
+| DOC-13 | Remediated, fifth commit | A comment above each of the three values says that it is an example, what to put there and what happens when the value stays. The values are unchanged, because the tests read this file | Seven test modules that edit the example's text: 272 passed |
+| CMP-13 | Remediated, fifth commit | Each of the nine modules is named in the document of the component it belongs to, with what it does as read in its code: three in `Component_Web_API.md`, one each in `Component_Web_Jobs.md`, `Component_Executor_Launcher.md`, `Component_Worker_Processes.md`, `Component_CLI.md`, `Component_Orchestrator.md` and `Component_Configuration_Worker.md` | Every module name now matches a component document |
+| DOC-6 | No change by decision | Half of the finding does not hold: "0.14.0" in the text is the AEGIS release, and ADORE skips version numbers (0.9 to 0.13, 0.13 to 0.15). The repeated headings in the 0.15.0 section are real (6, 5 and 5), but the section is close to a thousand lines of a published release; merging them would rearrange history for appearance only | Counted with a script |
+| DOC-17 | Open by decision | Writing Markdown sources for the five presentations is content work and a process decision, not a correction | - |
+| CMP-12 | No change by decision | Rearranging 48 documents into the template's headings would not change what a reader learns | - |
+| H2 | Remediated in part, fifth commit | A proxy that exists but is not running is removed and created again from an allowlist written at that moment; it is never started on the file as found. The file is written through `write_agent_file`, and a link or a second name of another file in place of the file or its directory is refused. The file still lies in the run IO directory: the move to a host-only directory of the isolation plan (WP3) was not made, because it changes what a reused proxy is checked for. Not exercised on a real container | Three new tests in `tests/test_isolation.py`; the six modules that reach the proxy: 397 passed, 8 skipped. The link test is skipped on this Windows account; the hard-link test runs |
+| H3, ISO-9 | Documented by decision, fifth commit | Not changed: default hardening flags could stop the agent from working, the risk declined for C1 route A. `01_Documentation/Security_And_Credentials.md` now shows the options an operator can set in `[container] run_args`, and says that package mode accepts resource limits only. `--init` among them answers ISO-9 | Read only; the options were not tried on a container |
+| ISO-2 | No change, by requirement | REQ-SEC-19b768d6 admits IP entries by destination address and its verification lists `::1`; a rule that denies loopback targets would contradict it. Port limits would break allowlisted private endpoints on custom ports, a supported case | Read only |
+| ISO-5 | No change, documented | `01_Documentation/Security_And_Credentials.md` says that agent-produced text may hold sensitive values and that the recorded session keeps the literal text with restricted visibility | Read only |
+| ISO-6 | No change, by design | A job keeps the execution policy saved at admission, which holds the container and executor settings with the network mode (`execution_policy` in `adore/preparation.py`, restored by `adore/job_configuration.py`). A reused container belongs to a job whose network mode has not changed | Read only |
+| ISO-8 | No change by decision | The cache volume names stand in the operator's file and the web cannot edit them; the same trust decision as WEB-6 | Read only |
+| ISO-13 | No change, by design | A model endpoint over plain HTTP is a supported case for a model on the local network | Read only |
+| ISO-10, ISO-11 | No change | ISO-10: tampering is detected and the job fails closed, so the effect is refusal only; it would move with the WP3 change. ISO-11: values passed as environment are part of how the container runtime works | Read only |
+| ISO-3 | Open by decision | Image digests and the way `uv` is installed are supply-chain choices for the owner | - |
+| ISO-4, ISO-12 | Open, assessed in part | ISO-4: package mode gives the agent wide rights inside the container on purpose and now has its own security profile; not read in full after the merge of `9488298c`. ISO-12: not read far enough to propose a change; it needs a real container | - |
 | WEB-1 | Reclassified | Not a defect: active requirement REQ-UX-178abcf8 specifies a reminder, not a forced change. It stays a product decision to revisit | - |
 
 Consequences to know:
@@ -276,11 +312,15 @@ URLs such as `https://user:password@forge.example`.
   the earlier rewrite that replaced the employer's domain in text:
   - the employer's GitLab project path and a reviewer login, in commits `50626975`,
     `9850ac31`, `f7c9822c`, `3b33d733` and `059ed91b` (files `04_Software/config.toml`,
-    `config.example.toml`, `ador/wizard.py` and three documents; see line 20 of
-    `04_Software/config.toml` in `9850ac31`);
-  - the employer's name in the slides of five old presentations,
-    `01_Documentation/Operator_Cheat_Sheets/Presentations/ADOR_0[1-5]_*.pptx`;
-  - the employer's domain inside `07_Delivery/ador-runtime-0.3.0.zip` and `.tar.gz`.
+    `config.example.toml`, the wizard module under the earlier package name and three
+    documents; see line 20 of `04_Software/config.toml` in `9850ac31`);
+  - the employer's name in the slides of five old presentations, the `.pptx` files under
+    `01_Documentation/Operator_Cheat_Sheets/Presentations/` whose names carry the earlier
+    product acronym;
+  - the employer's domain inside the two runtime archives of release 0.3.0 under
+    `07_Delivery/` (`.zip` and `.tar.gz`), named with the earlier product name.
+  The earlier names are not spelled here: the release check refuses them in any tracked
+  text file.
   A text replacement cannot reach compressed blobs. *Direction:* decide whether the history
   will ever leave the private forge; if so, remove these paths and strings with a history
   rewrite, force-push, then expire the reflog.
@@ -341,10 +381,12 @@ and runs repository code.
   The Squid allowlist is written inside the run IO directory, which the agent has mounted
   read-write. The file is written only when the proxy is absent; a stopped proxy is
   restarted on the file as it is. After a daemon or host restart the agent's edit applies.
+  *Status 2026-11-17:* remediated in part, fifth commit (section 2.1).
 - **H3** (high, V) `adore/isolation.py:1860-1896`, `:2412-2419` - Neither the run container
   nor the proxy is started with `--cap-drop`, `--security-opt no-new-privileges`,
   `--pids-limit`, a memory limit or `--init`. `run_args` defaults to empty and the image
   installs `sudo` (`Dockerfile.executor-base:33`).
+  *Status 2026-11-17:* documented by decision, code unchanged, fifth commit (section 2.1).
 - **ISO-1** (medium, V) `adore/executor/launcher.py:268`, `:292`, `:384`, `:446`;
   `adore/aegis.py:473`; `adore/executor/pi_rpc.py:261` - The host creates, truncates or
   copies fixed file names in the agent-writable IO directory with plain `open`. A planted
@@ -354,21 +396,25 @@ and runs repository code.
   no `Safe_ports` or `CONNECT` port limit and no deny for loopback or link-local targets.
   An allowed name works on any port; a wildcard name that an attacker can resolve to an
   internal address becomes a pivot.
+  *Status 2026-11-17:* no change, by requirement (section 2.1).
 - **ISO-3** (medium, V for the base image and the installer line; A for the rest)
   `04_Software/docker/Dockerfile.executor-base:12`, `:51-52`, `:55-59`, `:63-66`, `:76-77`;
   `02_Tools/build/executor_images/adore/Dockerfile:58-59`, `:173-181`;
   `adore/pi_installation.py:255-261` - Base images have no digest; `uv` is installed by a
   piped script; the `glab` package, the `gh` keyring, Chromium and ffmpeg have no checksum;
   Pi's transitive npm dependencies float. Node, `fd` and `rg` are checksum-verified.
+  *Status 2026-11-17:* open by decision (section 2.1).
 - **ISO-4** (medium, A, plausible) `adore/isolation.py:1970-1972` - With
   `system_packages = true` the agent gets root-equivalent package commands in a container
   that has default capabilities and no user namespace.
 - **ISO-5** (medium, A, plausible) `adore/executor/pi_rpc.py:391` - Only the in-memory tail of
   the session recording is cleaned. `output.jsonl` and its archive receive the raw text, so
   a `printenv` asked for by a ticket stores the model key in clear.
+  *Status 2026-11-17:* no change, documented (section 2.1).
 - **ISO-6** (medium, A, plausible) `adore/isolation.py:1846-1849` - A reused container is
   checked for mounts and the Git label only. After an egress mode change it keeps its old,
   looser network.
+  *Status 2026-11-17:* no change, by design (section 2.1).
 - **ISO-7** (medium, A, by design) `adore/local_execution.py:134-150`;
   `adore/executor/adore-guard.ts:24-25` - Local execution has no sandbox and the only guard
   is a `git push` pattern that a shell wrapper bypasses. It is documented, but there is no
@@ -376,18 +422,23 @@ and runs repository code.
 - **ISO-8** (medium, A) `adore/config.py:401-402`; `adore/isolation.py:1867` - The cache
   volume names are not validated. A value containing a host path becomes a bind mount; a
   value that starts with `-` becomes an option.
+  *Status 2026-11-17:* no change by decision (section 2.1).
 - **ISO-9** (low, V) `adore/isolation.py:1896`; `Dockerfile.executor-base:150` - PID 1 is
   `sleep`, which reaps nothing. Leftover processes of one stage survive into the next.
+  *Status 2026-11-17:* documented by decision with H3, fifth commit (section 2.1).
 - **ISO-10** (low, V) `adore/isolation.py:1834` - The Git pointer `container.git` is mounted
   read-only at `/adore/work/.git` but is writable through `/adore/io`. Tampering is detected
   and fails closed, so the effect is denial only.
+  *Status 2026-11-17:* no change (section 2.1).
 - **ISO-11** (low, A, plausible) `adore/isolation.py:1894-1904` - Secrets passed at `run`
   are stored in the container configuration and are readable with `inspect`; they also go
   stale in a warm container.
+  *Status 2026-11-17:* no change (section 2.1).
 - **ISO-12** (low, A, plausible) `adore/executor/pi_rpc.py:492-498` - On a protocol-error exit
   only the `exec` client is killed; the process tree inside the container may keep writing.
 - **ISO-13** (low, A) `adore/pi_providers.py:202` - A plain-HTTP endpoint is accepted for a
   request that carries the API key.
+  *Status 2026-11-17:* no change, by design (section 2.1).
 
 ### 4.2 Verified as sound
 
@@ -461,6 +512,7 @@ without the check that its siblings have was found.
   (section 2.1).
 - **WEB-11** (low, V; impact plausible) `adore/web/store.py:623`, `:354` - `web.db` and its
   marker file are created under the process umask. No code sets a mode.
+  *Status 2026-11-17:* documented by decision, code unchanged, fifth commit (section 2.1).
 - **WEB-12** (low, A) `adore/web/store.py:813-814` - An unknown or disabled user returns
   before any hash is computed, so response time reveals which names exist.
   *Status 2026-11-17:* remediated, second commit (section 2.1).
@@ -491,12 +543,16 @@ without the check that its siblings have was found.
   *Status 2026-11-17:* no change by decision (section 2.1).
 - **WEB-21** (low, A) `adore/web/commands.py:69-72` - All engine output is captured in memory
   for up to six hours and then discarded.
+  *Status 2026-11-17:* remediated, fifth commit (section 2.1).
 - **WEB-22** (low, A, plausible) `adore/web/analytics.py:63-65` - A time-zone key that names a
   directory may raise an uncaught `OSError` and return 500.
   *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **WEB-23** (low, A, plausible) `adore/web/analytics.py:817-822` - Cost per completed job uses
   in-period cost for a job that started before the period.
+  *Status 2026-11-17:* not a defect, specified behaviour; help clarified, fifth commit
+  (section 2.1).
 - **WEB-24** (low, A) `adore/web/analytics.py:323`, `:356` - Money totals are summed as floats.
+  *Status 2026-11-17:* no change by decision (section 2.1).
 - **WEB-25** (low, A) `adore/web/jobs.py:508-510`; `adore/web/tickets.py:120-121` - The job
   list reads every journal twice per request; the ticket list loads state per ticket.
 - **WEB-26** (low, A, by design) `adore/web/host_folders.py:34-54`;
@@ -595,6 +651,8 @@ without the check that its siblings have was found.
   *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **ORC-18** (low, A, plausible) `adore/orchestrator.py:3676-3677` - With a preparation recipe
   the base reference becomes a fixed commit, so the target-moved checks cannot fire.
+  *Status 2026-11-17:* not a defect, documented behaviour; consequence documented, fifth commit
+  (section 2.1).
 
 ### 6.2 Verified as sound
 
@@ -657,6 +715,8 @@ without the check that its siblings have was found.
   `adore/forge/base.py:165-170` - The base contract says `get_ticket` returns `None` for a
   deleted ticket. The Azure adapter documents that it raises instead, so
   `on_ticket_deleted` can never fire on Azure.
+  *Status 2026-11-17:* not a defect, documented behaviour; docstring corrected, fifth commit
+  (section 2.1).
 - **FRG-11** (low, A) `adore/config.py:397-400` - `keep_parked` and the three `parked_ttl_*`
   settings are read nowhere at run time, yet the class docstring calls `keep_parked` "the
   field parking actually reads" and the example file presents all four as active.
@@ -676,6 +736,8 @@ without the check that its siblings have was found.
   *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **FRG-16** (low, A) `adore/wizard.py:816`; `adore/doctor.py:465-479` - The Azure
   authentication probe always fails at that point; the Gitea probe ignores the configured login.
+  *Status 2026-11-17:* Azure half remediated, Gitea half needs no change, fifth commit
+  (section 2.1).
 - **FRG-17** (low, A, plausible) `adore/forge/github.py:220-223`; `adore/forge/gitea.py:198` -
   A branch lookup on GitHub may return a closed pull request; on Gitea a branch named with
   digits is read as a pull-request number.
@@ -814,6 +876,7 @@ No cross-site scripting path was found.
 - **DOC-6** (low, V) `CHANGELOG.md:183-1154` - The 0.15.0 section repeats `### Added` six
   times and `### Changed` and `### Fixed` five times each. There is no 0.14.0 heading,
   although the text refers to a 0.14.0 delivery.
+  *Status 2026-11-17:* no change by decision (section 2.1).
 - **DOC-7** (low, V) `AGENTS.md:3` - "`claude.md` and `QWEN.md` only link here." Both also
   carry the full managed AEGIS block.
   *Status 2026-11-17:* remediated (section 2.1).
@@ -822,6 +885,7 @@ No cross-site scripting path was found.
   *Status 2026-11-17:* remediated (section 2.1).
 - **DOC-9** (low, V) `AGENTS.md:81-82` forbids license banners in documentation.
   `00_Planning/README.md`, both existing plans and `04_Software/.env.example` have one.
+  *Status 2026-11-17:* remediated in part, fifth commit (section 2.1).
 - **DOC-10** (low, A) `01_Documentation/Security_And_Credentials.md:125-127`;
   `Configuration_Reference.md:179-181` - The list of refused `env_keys` omits the three
   Azure names that `config.py:72-76` refuses.
@@ -835,6 +899,7 @@ No cross-site scripting path was found.
 - **DOC-13** (low, A) `04_Software/config.example.toml:105`, `:116`, `:164` - The example
   sets a project image, four tool checks and a reviewer that do not exist by default.
   Copied as it is, it fails on the base image.
+  *Status 2026-11-17:* remediated, fifth commit (section 2.1).
 - **DOC-14** (low, A) `04_Software/config.azure-devops.example.toml:31` - `env_keys` repeats
   the provider key, which is always added.
   *Status 2026-11-17:* remediated, second commit (section 2.1).
@@ -846,6 +911,7 @@ No cross-site scripting path was found.
   file name that is not a link, and "POSIX0600" without a space.
   *Status 2026-11-17:* remediated, second commit (section 2.1).
 - **DOC-17** (low, A) The five `.pptx` presentations have no Markdown source in the repository.
+  *Status 2026-11-17:* open by decision (section 2.1).
 
 ### 9.2 Verified as correct
 
@@ -909,9 +975,11 @@ exception found by the lead reviewer (CMP-1).
   *Status 2026-11-17:* remediated (section 2.1).
 - **CMP-12** (low, A) Only three documents use the headings of
   `component_documentation_template.md`; 48 use an older ten-section layout.
+  *Status 2026-11-17:* no change by decision (section 2.1).
 - **CMP-13** (low, A) Modules named in no component document: `web/settings_batch.py`,
   `web/tickets.py`, `web/executor_evidence.py`, `executor/diagnostics.py`, `web/server.py`,
   `selection.py`, `deletion_audit.py`, `web/environment.py`, `web/worker_context.py`.
+  *Status 2026-11-17:* remediated, fifth commit (section 2.1).
 
 ### 10.2 Verified as correct
 

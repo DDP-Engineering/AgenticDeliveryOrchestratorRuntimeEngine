@@ -34,10 +34,12 @@ from adore.util import (
     DEFAULT_COMMAND_TIMEOUT,
     CommandResult,
     CommandRunner,
+    UnsafeFileError,
     automatic_environment,
     background_process_options,
     run_command,
     strict_json_loads,
+    write_agent_file,
 )
 
 _ABSENT_MARKERS = ("no such container", "no such object", "not found")
@@ -2408,9 +2410,21 @@ class ContainerManager:
                     denied.
         io_path: Run IO directory.
         Returns: Host path to the generated Squid config.
+        Raises IsolationError: When the directory or the file is a link or
+                    another kind of entry. The run container can write this
+                    directory, and a link there would send the host's write
+                    somewhere else.
         """
         proxy_dir = Path(io_path) / "egress-proxy"
-        proxy_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            entry = proxy_dir.lstat()
+        except FileNotFoundError:
+            proxy_dir.mkdir(parents=True)
+        else:
+            if (not stat.S_ISDIR(entry.st_mode)
+                    or getattr(entry, "st_file_attributes", 0) & 0x400):
+                raise IsolationError(
+                    "egress proxy configuration directory is not a plain directory")
         addresses, names = [], []
         for host in self.egress.allowlist:
             try:
@@ -2427,19 +2441,20 @@ class ContainerManager:
             rules += [f"acl allowed_addresses dst {' '.join(addresses)}",
                       "http_access allow allowed_addresses"]
         config_path = proxy_dir / "squid.conf"
-        config_path.write_text(
-            "\n".join([
-                f"http_port {self.egress.proxy_port}",
-                *[rule for rule in rules if rule.startswith("acl")],
-                *[rule for rule in rules if rule.startswith("http_access")],
-                "http_access deny all",
-                "access_log stdio:/var/log/squid/access.log",
-                "cache_log /var/log/squid/cache.log",
-                "coredump_dir /var/spool/squid",
-                "",
-            ]),
-            encoding="utf-8",
-        )
+        text = "\n".join([
+            f"http_port {self.egress.proxy_port}",
+            *[rule for rule in rules if rule.startswith("acl")],
+            *[rule for rule in rules if rule.startswith("http_access")],
+            "http_access deny all",
+            "access_log stdio:/var/log/squid/access.log",
+            "cache_log /var/log/squid/cache.log",
+            "coredump_dir /var/spool/squid",
+            "",
+        ])
+        try:
+            write_agent_file(config_path, text.encode("utf-8"))
+        except UnsafeFileError as exc:
+            raise IsolationError("egress proxy configuration is not a plain file") from exc
         return config_path
 
     def _ensure_proxy_context(self, name: str, io_path: str | Path) -> None:
@@ -2459,6 +2474,11 @@ class ContainerManager:
                 )
         proxy_name = self._proxy_name(name)
         proxy_state = self.status(proxy_name)
+        if proxy_state not in ("absent", "running"):
+            # A proxy that starts again reads its allowlist from a file the run
+            # container can write. It is created anew, from a list written now.
+            self._remove_container(proxy_name)
+            proxy_state = "absent"
         if proxy_state == "absent":
             config_path = self._write_proxy_config(io_path)
             self._run([
@@ -2469,8 +2489,6 @@ class ContainerManager:
                 "--volume", self._bind_mount(config_path, "/etc/squid/squid.conf", "ro"),
                 self.egress.proxy_image,
             ])
-        elif proxy_state != "running":
-            self.start(proxy_name)
         connect = self.runner([
             *self.runtime_argv, "network", "connect",
             "--alias", PROXY_ALIAS, network, proxy_name,

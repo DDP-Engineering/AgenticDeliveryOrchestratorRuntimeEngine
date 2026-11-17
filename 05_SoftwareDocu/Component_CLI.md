@@ -10,6 +10,11 @@ The single user-facing entry point: the `adore` command. CLI-first over a
 library core - the command surface is thin argparse wiring that delegates to
 the `adore` package. An optional web API also exposes selected controls.
 
+`adore/deletion_audit.py` (`DeletionAudit`) keeps the durable record of CLI
+deletion attempts outside the job directory, so a receipt outlives the job it
+describes. The store is built beside its final name and published in one step;
+a symbolic link in its place is refused.
+
 ## 2. Responsibilities
 
 - Define the full command surface (lifecycle, operations, statistics, config)

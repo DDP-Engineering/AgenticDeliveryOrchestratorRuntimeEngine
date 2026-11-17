@@ -314,7 +314,9 @@ def test_cleanup_keeps_execution_slot_until_backend_stop_finishes(tmp_path, monk
     def stop(*args, **kwargs):
         entered.set()
         assert release.wait(10)
-    monkeypatch.setattr(first.backend, 'stop', stop)
+    # On the class: a job runs on a backend built from its own saved settings,
+    # not on the instance the engine was created with.
+    monkeypatch.setattr(type(first.backend), 'stop', stop)
     def run():
         try:
             first.poll_once(ticket_iid=7)

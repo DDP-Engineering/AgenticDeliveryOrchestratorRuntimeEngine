@@ -297,8 +297,9 @@ def main(argv: list[str] | None = None) -> int:
         shutil.copy2(REPO / "02_Tools/setup/install_container_sandbox_policy.sh",
                      security / "install-container-sandbox-policy.sh")
         (security / "install-container-sandbox-policy.sh").chmod(0o755)
-        for name in ("executor-apparmor", "executor-apparmor.license"):
-            shutil.copy2(software / "adore/container_assets" / name, security / name)
+        # Not `name`: that holds the archive's top folder, used when the TAR is written.
+        for asset in ("executor-apparmor", "executor-apparmor.license"):
+            shutil.copy2(software / "adore/container_assets" / asset, security / asset)
         azure_guide = (REPO / "01_Documentation/Azure_DevOps_Services.md").read_text(
             encoding="utf-8"
         )

@@ -8,6 +8,12 @@ The conductor owns ticket selection, lifecycle, budgets, checkpoints, approval,
 publication and cleanup. The executor owns code reasoning and repository checks.
 ADORE never merges. Host Git/forge credentials stay outside executor environments.
 
+`adore/selection.py` holds the pickup eligibility rules that the conductor, the
+start result and the web ticket views share. `ineligibility` names the first
+unmet rule in a fixed order (`INELIGIBILITY_REASONS`); `start_blocker` and
+`start_preparation` say whether an explicit Start may proceed and which labels
+it has to add first.
+
 `requested_workflow` resolves the project auto/direct default and optional manual
 aegis/direct override before admission probes. Direct skips payload inspection and
 AEGIS entirely; explicit AEGIS refuses absence, while auto detects presence and

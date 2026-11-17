@@ -167,6 +167,10 @@ class Forge(ABC):
         Fetch one ticket by id, for reconciliation and resume.
         iid: Ticket id.
         Returns: The ticket, or None when it no longer exists (deleted).
+        Raises ForgeError: Also from an adapter that cannot tell a deleted ticket
+                    from one it may not read. Azure DevOps does this on purpose and
+                    never returns None, so a deleted Work Item is a forge failure
+                    there, not a deletion.
         """
 
     @abstractmethod

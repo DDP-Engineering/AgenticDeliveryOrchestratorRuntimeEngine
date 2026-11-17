@@ -102,6 +102,8 @@ preparation_max_attempts = 2
 # system_packages grants package-manager sudo; networking is configured separately.
 [container]
 runtime = "docker"                  # docker | podman | WSL-wrapped command
+# Example name. Use the image you built for this project, or remove the line to
+# use the standard image adore-executor-base:1.0.0.
 image = "adore-executor-project:latest"
 system_packages = false
 keep_parked = true
@@ -113,6 +115,9 @@ npm_cache_volume = "adore-npm-cache"
 runtime_env = { UV_LINK_MODE = "copy" }
 run_args = []                       # Rootless Podman: ["--userns=keep-id"]
 selinux_relabel = "off"             # SELinux hosts can require "shared"
+# Example checks. Each command must succeed in the image above: a job stops
+# before its first stage when one fails. Remove the line when your image has
+# no such tools.
 required_tool_checks = ["make --version", "shellcheck --version", "terraform --version", "tflint --version"]
 # build_definition = "path/to/build.json@FULL_COMMIT"
 
@@ -161,6 +166,7 @@ max_files_touched = 120
 [delivery]
 target_branch = "develop"
 draft = true
+# Example login. Name real accounts of your forge; an empty list requests no review.
 reviewers = ["reviewer.one"]
 remove_source_branch = true
 approval_label = "agent-approved"

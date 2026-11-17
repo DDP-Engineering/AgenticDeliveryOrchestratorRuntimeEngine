@@ -180,11 +180,17 @@ def test_wizard_azure_scope_answers_do_not_replace_the_host_os(tmp_path: Path) -
         area_path="Payments\\Backend",
         reviewers="11111111-2222-3333-4444-555555555555",
     ))
-    profile = run_wizard(store, asker=asker, out=lambda _line: None,
+    printed: list[str] = []
+    profile = run_wizard(store, asker=asker, out=printed.append,
                          runner=_runner(), os_key="linux", name="azure")
 
     assert profile.host_os == "linux"
     assert validate_config(load_config(store.config_path("azure"))) == []
+    # The environment report runs before the Azure scope is known, so it does
+    # not claim that the sign-in is missing.
+    report = "\n".join(printed)
+    assert "[--] az auth: not checked here" in report
+    assert "[CHECK] az auth" not in report and "AZURE_DEVOPS_EXT_PAT" not in report
 
 
 def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:

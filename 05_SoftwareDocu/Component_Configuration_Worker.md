@@ -17,6 +17,12 @@ work and dispatches bounded lanes; `execute` invokes the same handler under curr
 actor, project, configuration and protected-credential fencing. `configuration_loop`
 owns these lanes in the separate supervised configuration process.
 
+`adore/web/environment.py` (`EnvironmentPreparation`) prepares the ADORE-owned
+shared images as bounded background work inside configuration tasks.
+Simultaneous imports on one server share the same work, and a finished job is
+probed again on the next import, so a removed image is not taken for a cached
+success.
+
 ## 3. Implementation Overview
 
 HTTP validates authentication, CSRF and the Pydantic body, resolves both profile

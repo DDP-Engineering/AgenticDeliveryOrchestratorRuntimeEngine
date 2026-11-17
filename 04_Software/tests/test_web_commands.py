@@ -848,6 +848,26 @@ def test_engine_runner_keeps_stdout_and_stderr_in_one_output():
     assert "to stdout" in outcome.output and "to stderr" in outcome.output
 
 
+def test_engine_runner_can_drop_the_output_of_a_long_job(monkeypatch):
+    """A caller that reads the exit code only does not hold hours of output in memory."""
+    script = ("import sys; print('x' * 200000, flush=True); "
+              "print('to stderr', file=sys.stderr); sys.exit(3)")
+
+    assert _run([sys.executable, "-c", script], dict(os.environ),
+                keep_output=False) == CommandOutcome(3, "")
+
+    sinks = []
+
+    def record(argv, **kwargs):
+        sinks.append((kwargs["stdout"], kwargs["stderr"]))
+        return subprocess.CompletedProcess(argv, 0, stdout=None)
+
+    monkeypatch.setattr("adore.web.commands.subprocess.run", record)
+    _run(["adore"], {}, keep_output=False)
+    _run(["adore"], {})
+    assert sinks == [(subprocess.DEVNULL, subprocess.STDOUT), (subprocess.PIPE, subprocess.STDOUT)]
+
+
 def test_worker_environment_keeps_engine_output_ordered_and_utf8(tmp_path):
     """The CLI child writes unbuffered UTF-8, so the detail keeps print order and text."""
     profiles = ProfileStore(tmp_path / "home")

@@ -1,6 +1,6 @@
 # ADORE documentation
 
-Current documentation: **ADORE 0.19.0** (2026-11-17).
+Current documentation: **ADORE 0.20.0** (2026-11-18).
 
 These guides describe the current implementation. Source code and the CLI's
 `--help` define exact runtime contracts; component details live in

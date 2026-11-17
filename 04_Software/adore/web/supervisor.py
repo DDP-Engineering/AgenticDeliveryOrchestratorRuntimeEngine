@@ -421,7 +421,8 @@ def main() -> int:
                 limit = child_time_limit(load_config(profiles.config_path(profile.name)))
             except (OSError, ValueError, TypeError, AttributeError):
                 limit = _CHILD_SECONDS
-            outcome = _run(argv, env, timeout=limit)
+            # Only the exit code is read here; the engine logs beside the job.
+            outcome = _run(argv, env, timeout=limit, keep_output=False)
             return 1 if failed.is_set() else outcome.code
     finally:
         if args.role in ("run", "command"):

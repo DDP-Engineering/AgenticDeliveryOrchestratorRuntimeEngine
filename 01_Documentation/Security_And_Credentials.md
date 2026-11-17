@@ -248,6 +248,20 @@ or attributable commit identity.
   reaches whatever the server reaches.
 - Use `[container] required_tool_checks` to prove project tools are present
   before an executor starts a gate.
+- ADORE starts a run container with the privileges the runtime gives by
+  default. To start it with fewer, name the options in `[container] run_args`:
+
+  ```toml
+  run_args = ["--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=2048", "--init"]
+  ```
+
+  Try them on one project first: a project tool that needs a capability stops
+  working, and ADORE's own tests do not cover these options. With
+  `system_packages = true` only resource limits such as `--pids-limit` are
+  accepted, because that mode sets its own security profile and needs `sudo`.
+- With internet access Off, a proxy that is not running is never started again
+  as it is. ADORE removes it and creates it from an allowlist written at that
+  moment, because the earlier file lies in a folder the run container can write.
 
 ## Pre-Run Security Checklist
 
@@ -299,6 +313,22 @@ local Gitea/GitLab; tokens are unencrypted on that path. Origin subpaths are exc
 CLI mechanisms: [gh environment](https://cli.github.com/manual/gh_help_environment),
 [glab configuration](https://docs.gitlab.com/cli/config/) and
 [tea config schema](https://gitea.com/gitea/tea/src/branch/main/modules/config).
+
+## Linux: keep the ADORE home private
+
+ADORE writes its token and sign-in files for their owner only. The database of
+the web interface, `web.db`, is the exception: it is created with the default
+permissions of the service, and on most systems other accounts on the server can
+then read it. It holds the accounts with their password hashes, the audit log
+and the prices. Close the ADORE home itself to other accounts, and check it
+after moving or restoring it:
+
+```bash
+chmod 700 ~/.config/adore
+stat -c '%a %U' ~/.config/adore ~/.config/adore/web.db
+```
+
+Use your own path when `ADORE_HOME` names another folder.
 
 ## Windows: who can read the ADORE home
 

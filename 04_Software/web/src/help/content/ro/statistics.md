@@ -51,7 +51,7 @@ Administratorii înregistrează prețurile în **Setări → Agent și model** a
 
 > Un preț introdus cu o dată de intrare în vigoare anterioară poate schimba estimările din trecut. Exportați un CSV dacă aveți nevoie de o cifră la un anumit moment.
 
-În fila Calitate, administratorii văd și **Cost per lucrare cu dovezi**, per lucrare finalizată și per lucrare integrată de o persoană, fiecare cu numărul de lucrări din spatele lui.
+În fila Calitate, administratorii văd și **Cost per lucrare cu dovezi**, per lucrare finalizată și per lucrare integrată de o persoană, fiecare cu numărul de lucrări din spatele lui. O lucrare finalizată în perioada aleasă intră doar cu ce a consumat în acea perioadă. O lucrare începută mai devreme arată deci doar o parte din costul ei; alegeți o perioadă care cuprinde toată lucrarea ca să-l vedeți întreg.
 
 ## Cine vede valorile monetare {#visibility}
 

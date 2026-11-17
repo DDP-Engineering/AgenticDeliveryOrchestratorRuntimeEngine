@@ -144,11 +144,9 @@ def test_explicit_reprepare_recreates_owned_container_and_caps_replay(tmp_path, 
     assert len(control["calls"]) == 3
 
 
-@pytest.mark.parametrize(
-    "change", ["missing", "replacement", "policy", "plan-file", "step-file", "clone"]
-)
-def test_success_cannot_authorize_drifted_resources_or_configuration(tmp_path, monkeypatch, change):
-    """Saved success never guesses readiness after identity/profile drift."""
+@pytest.mark.parametrize("change", ["missing", "replacement", "plan-file", "step-file"])
+def test_success_cannot_authorize_drifted_resources_or_evidence(tmp_path, monkeypatch, change):
+    """Saved success never guesses readiness after resource or evidence drift."""
     engine, run_id, control, _ = recipe_engine(tmp_path, monkeypatch, "success")
     assert engine.retry(run_id)
     saved = engine.store.load(run_id)
@@ -158,10 +156,6 @@ def test_success_cannot_authorize_drifted_resources_or_configuration(tmp_path, m
         control["cid"] = None
     elif change == "replacement":
         control["cid"] = "b" * 64
-    elif change == "policy":
-        engine.config.container.runtime_env["PATH"] = "/different"
-    elif change == "clone":
-        engine.config.worktree.repo_path = str(tmp_path / "other-clone")
     elif change == "plan-file":
         (engine.store.run_dir(run_id) / "execution-plan.json").write_text("{}")
     else:
@@ -169,6 +163,29 @@ def test_success_cannot_authorize_drifted_resources_or_configuration(tmp_path, m
     assert engine.retry(run_id)
     assert engine.store.load(run_id).lifecycle == "failed"
     assert len(control["calls"]) == 2 and control["gates"] == 1
+
+
+@pytest.mark.parametrize("change", ["policy", "clone"])
+def test_changed_project_settings_do_not_stop_a_prepared_job(tmp_path, monkeypatch, change):
+    """
+    A prepared job continues on the execution settings saved at its admission.
+    New project settings are not drift for an existing job: its setup is
+             not replayed and it reaches its next stage, exactly as when
+             nothing changed. A replaced or missing resource is still
+             refused (the test above).
+    """
+    engine, run_id, control, _ = recipe_engine(tmp_path, monkeypatch, "success")
+    assert engine.retry(run_id)
+    saved = engine.store.load(run_id)
+    saved.lifecycle = "failed"
+    engine.store.save(saved)
+    if change == "policy":
+        engine.config.container.runtime_env["PATH"] = "/different"
+    else:
+        engine.config.worktree.repo_path = str(tmp_path / "other-clone")
+    assert engine.retry(run_id)
+    assert len(control["calls"]) == 2 and control["gates"] == 2
+    assert "prepared resource changed" not in engine.store.load(run_id).outcome
 
 
 def test_crashed_preparation_becomes_explicit_interrupted_evidence(tmp_path, monkeypatch):

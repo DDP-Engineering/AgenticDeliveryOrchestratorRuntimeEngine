@@ -140,6 +140,14 @@ environment to the executor. Host aliases needed by the proxy are passed where
 the proxy opens connections. The lower-level none policy remains available to
 callers but is not selected by current configuration.
 
+The allowlist file lies in the run IO directory, which the run container can
+write. Two rules keep the container from changing its own egress. The host
+writes the file through `write_agent_file` and refuses a link or a second name
+of another file in place of the file or of its directory. A proxy that exists
+but is not running is removed and created again from a file written at that
+moment; it is never started on the file as found. A running proxy has read its
+file already and is left alone.
+
 Companion names use bounded run-derived hashes. Release verifies actual mounts,
 internal network membership and immutable IDs, then confirms absence. Foreign
 members, replacements, unproven orphan networks and companions shared with retained

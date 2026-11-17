@@ -76,7 +76,7 @@ Container images are separate compressed archives. On a host with Docker/Podman
 already installed, import the generic executor archive:
 
 ```sh
-docker load --input adore-0.19.0-executor-base-linux-x64.tar.gz
+docker load --input adore-0.20.0-executor-base-linux-x64.tar.gz
 ```
 
 Use `podman load --input` with Podman. The command reports the imported image tag;

@@ -51,7 +51,7 @@ Administratoren erfassen Preise im Projekt unter **Einstellungen → Agent und M
 
 > Ein Preis mit früherem Gültigkeitsdatum kann vergangene Schätzungen ändern. Exportieren Sie eine CSV-Datei, wenn Sie eine Zahl zu einem bestimmten Zeitpunkt benötigen.
 
-Auf dem Reiter Qualität sehen Administratoren außerdem **Kosten je belegtem Auftrag**, je abgeschlossenem und je von Menschen zusammengeführtem Auftrag, jeweils mit der Anzahl der zugrunde liegenden Aufträge.
+Auf dem Reiter Qualität sehen Administratoren außerdem **Kosten je belegtem Auftrag**, je abgeschlossenem und je von Menschen zusammengeführtem Auftrag, jeweils mit der Anzahl der zugrunde liegenden Aufträge. Ein Auftrag, der im gewählten Zeitraum abgeschlossen wurde, zählt nur mit dem, was in diesem Zeitraum anfiel. Ein früher begonnener Auftrag zeigt daher nur einen Teil seiner Kosten; wählen Sie einen Zeitraum, der den ganzen Auftrag enthält, um alle zu sehen.
 
 ## Wer Geldbeträge sieht {#visibility}
 

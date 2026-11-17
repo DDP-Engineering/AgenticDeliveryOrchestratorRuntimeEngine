@@ -1142,6 +1142,37 @@ def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_pa
         assert "usd" not in str(body).lower()
 
 
+def test_cost_per_completed_job_counts_period_usage_across_the_period_start(tmp_path):
+    """
+    Cost efficiency uses period usage for a job that finished in the period.
+    Specified in `.agentic/specs/scoped-metrics.md` (REQ-FUNC-930e3ae0): what the
+             job spent before the period began is not part of the figure.
+    """
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+    state = StateStore(profile.store_root)
+    state.save(RunState(run_id="long", ticket_iid=1, lifecycle="done",
+                        outcome="merged by human", execution=execution_record()))
+    state.journal("long", "usage", **versioned_usage(
+        "long", 1, ts="2026-01-31T12:00:00Z", tokens_in=1, tokens_out=1, cost_usd=9))
+    state.journal("long", "usage", **versioned_usage(
+        "long", 2, ts="2026-02-02T12:00:00Z", tokens_in=1, tokens_out=1, cost_usd=1))
+    state.journal("long", "mr-opened", ts="2026-02-02T13:00:00Z")
+    state.journal("long", "done", outcome="merged by human", ts="2026-02-02T14:00:00Z")
+    app = create_app(profiles.home)
+    with TestClient(app) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        body = client.get(
+            "/api/v1/projects/alpha/metrics?day_from=2026-02-01&day_to=2026-02-28").json()
+        assert body["period"]["cost_usd"] == 1
+        assert body["lifetime"]["reported_cost_usd"] == 10
+        efficiency = body["quality"]["cost_efficiency"]
+        assert efficiency["reported_per_completed"] == {
+            "jobs_with_evidence": 1, "usd_per_job": 1}
+        assert efficiency["reported_per_human_merged"] == {
+            "jobs_with_evidence": 1, "usd_per_job": 1}
+
+
 @pytest.mark.parametrize("validation_event", ["validation-accepted"])
 def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(
     tmp_path, validation_event,

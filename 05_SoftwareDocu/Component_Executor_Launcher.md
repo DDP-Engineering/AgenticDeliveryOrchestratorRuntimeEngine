@@ -7,6 +7,12 @@
 bounded RPC client; `conversation.py` checks exact private Pi session bindings. Pi is the only executor implementation. The conductor chooses
 the stage and handles its result; the backend owns resource/process lifetime.
 
+`diagnostics.py` normalizes operational diagnostics at the host capture
+boundary and bounds them (`LIMIT`, 64 KiB). `record_diagnostics` stores the
+snapshot in the run directory, outside the executor's writable IO folder, and
+returns the journal reference with its digest; `validate_diagnostics` accepts a
+snapshot only when it holds exactly the canonical bounded streams.
+
 ## Launch contract
 
 `run_gate` receives the bound target, host worktree and IO paths, prompt, timeout,

@@ -822,6 +822,14 @@ def _report_environment(
         out(f"  [{'OK' if status.present else 'MISSING'}] {status.name}")
         if not status.present:
             out("        " + doctor.guidance_for(status.name, os_key))
+    if kind == "azure_devops":
+        # Azure access is checked against an organization and project, which are
+        # asked for after this report. A probe here could only fail, whatever
+        # the sign-in, and would send the user to repair a working login.
+        out("  [--] az auth: not checked here; it needs the organization and project "
+            "and is verified by the project readiness check")
+        out("-----------------------------------------")
+        return
     auth = doctor.auth_status(kind, runner)
     out(f"  [{'OK' if auth.authenticated else 'CHECK'}] {auth.cli} auth")
     if not auth.authenticated:
