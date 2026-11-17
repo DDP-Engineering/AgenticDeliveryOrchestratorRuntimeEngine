@@ -120,7 +120,6 @@ class RunState:
     active_task_id: str | None = None
     task_ids: list[str] = field(default_factory=list)
     aegis_type: str = "feature"
-    aegis_path: str = "full"
     stage_failures: int = 0
     failure_history: list[dict[str, Any]] = field(default_factory=list)
     content_hash: str = ""
@@ -208,13 +207,15 @@ class RunState:
         if unknown:
             raise StateError(
                 f"run-state schema {STATE_SCHEMA_VERSION} has unknown "
-                f"keys: {unknown}"
+                f"keys: {unknown}; it was written by another ADORE build, "
+                "delete the affected runs/<run-id> directory to start fresh"
             )
         missing = sorted(known - set(data))
         if missing:
             raise StateError(
                 f"run-state schema {STATE_SCHEMA_VERSION} is missing keys {missing}; "
-                "it was written by another ADORE build"
+                "it was written by another ADORE build, delete the affected "
+                "runs/<run-id> directory to start fresh"
             )
         state = cls(**data)
         if not isinstance(state.workflow, str) or state.workflow not in {"aegis", "direct"}:
@@ -249,8 +250,6 @@ class RunState:
             raise StateError(f"run-state carries unknown lifecycle {state.lifecycle!r}")
         if state.aegis_type not in {"feature", "fix", "change"}:
             raise StateError(f"run-state carries unknown AEGIS type {state.aegis_type!r}")
-        if state.aegis_path not in {"full", "quick"}:
-            raise StateError(f"run-state carries unknown AEGIS path {state.aegis_path!r}")
         if not isinstance(state.task_ids, list) or not all(
             isinstance(item, str) and _TASK_ID_RE.fullmatch(item)
             for item in state.task_ids

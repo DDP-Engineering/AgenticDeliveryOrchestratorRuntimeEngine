@@ -63,7 +63,6 @@ def test_project_labels_come_from_the_settings():
         "P3",
         "agent-approved",
         "agent-revise",
-        "agent-quick",
     ):
         assert name in names, name
     assert len({name.casefold() for name in names}) == len(names)

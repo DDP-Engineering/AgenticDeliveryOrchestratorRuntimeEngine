@@ -9,7 +9,7 @@ unverified candidate. By default both require fresh human approval; `delivery.re
 can disable this gate while retaining candidate/target freshness. ADORE publishes
 a draft or ready MR/PR according to `delivery.draft` and never merges.
 
-Current release: **ADORE 0.18.0**.
+Current release: **ADORE 0.19.0**.
 
 ## How it works
 
@@ -27,8 +27,8 @@ eligible ticket
 ```
 
 An AEGIS task runs `frame -> specify -> design -> build -> validate -> done`;
-a small fix or change may take its quick path without `specify` and `design`.
-The executor decides and justifies that path in the AEGIS journal.
+`specify` and `design` may be recorded as skipped when existing requirements
+already cover the work.
 
 A direct run uses `build -> validate -> done`. Pi implements the whole ticket
 in one fresh bounded session per attempt, reads the project's own instructions
@@ -168,7 +168,7 @@ automatically. Setup/deployment scripts do not require automated tests.
 
 AEGIS is a separate project with its own repository. ADORE consumes its companion
 CLI; supported version and schema policy is declared once in
-`04_Software/adore/aegis.py`. The AEGIS 0.15 contract is covered by
+`04_Software/adore/aegis.py`. The AEGIS 0.16 contract is covered by
 captured offline regression evidence; see [AEGIS compatibility](01_Documentation/Operations_Guide.md#workflows).
 ADORE keeps its own Semantic Versioning and preserves saved job progress across
 compatible companion updates. Run state remains schema 1.

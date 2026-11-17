@@ -16,9 +16,9 @@ When detect_aegis probes a target repository containing .agentic/aegis.py, docto
 verification = "Offline fake-runner test: create a target wrapper, supply python3 and a supported version response, invoke detect_aegis, and assert the version command argv and cwd; repeat with python to prove the default workflow executable is honored without substitution."
 
 affected_paths = ["04_Software/adore/doctor.py"]
-linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_accepts_a_valid_015_schema_1_payload"]
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_accepts_a_valid_016_schema_1_payload"]
 spec = ""
 priority = "normal"
 
 created = 2026-11-10
-updated = 2026-11-10
+updated = 2026-11-16

@@ -582,7 +582,7 @@ test("all real lifecycle groups explain exact stage evidence and protected hando
   expect(errors).toEqual([]);
 });
 
-test("clarification candidate and draft actions open actual saved locations and quick path", async ({ page }) => {
+test("clarification candidate and draft actions open actual saved locations and the observed timeline", async ({ page }) => {
   await signIn(page);
   for (const [run, name, href] of [
     ["ux-clarification", "Answer on the ticket", "https://forge.example/offline/alpha/issues/42#note_7"],

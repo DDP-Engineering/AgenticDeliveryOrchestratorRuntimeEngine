@@ -139,7 +139,6 @@ branch_rule = ""
 mode = "auto"                      # auto detects AEGIS; direct skips it for new jobs
 default_kind = "feature"
 kind_labels = { bug = "fix", fix = "fix", change = "change" }
-quick_label = "agent-quick"          # Framing hint for the AEGIS agent
 aegis_python = "python"
 stage_timeout_overrides = {}        # e.g. { build = 2400, validate = 2400 }
 

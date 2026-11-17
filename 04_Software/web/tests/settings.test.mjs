@@ -78,7 +78,7 @@ test("Git flow owns settings by effect rather than technical section", () => {
  const cases = {
   repository: ["platform.repo", "platform.login", "agent.name", "agent.email", "delivery.target_branch", "worktree.branch_template", "worktree.branch_rule"],
   tickets: ["polling.mode", "polling.poll_interval_seconds", "labels.control.hold", "labels.control.exclude", "labels.lifecycle.answered", "labels.lifecycle.ready", "labels.lifecycle.working", "readiness.require_acceptance_criteria", "workflow.default_kind", "workflow.kind_labels.bug"],
-  implementation: ["polling.max_concurrent_runs", "budgets.max_cost_usd", "delivery.publish_checkpoints", "workflow.quick_label", "workflow.stage_timeout_overrides.build", "recovery.max_stage_failures", "clarification.max_rounds"],
+  implementation: ["polling.max_concurrent_runs", "budgets.max_cost_usd", "delivery.publish_checkpoints", "workflow.stage_timeout_overrides.build", "recovery.max_stage_failures", "clarification.max_rounds"],
   reviews: ["review.max_review_rounds", "review.revise_label", "review.on_pipeline_failure", "delivery.reviewers", "delivery.approval_label", "delivery.remove_source_branch"],
   statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
   technical: ["agent.slug", "state.store_root", "worktree.repo_path", "worktree.root", "workflow.aegis_python", "future.new_key"],

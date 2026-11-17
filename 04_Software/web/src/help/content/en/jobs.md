@@ -23,13 +23,13 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 
 | Stage | What happens |
 |---|---|
-| Frame | Scope is agreed and the executor records whether the job takes the full or the quick path. |
+| Frame | Scope is agreed and the executor records the existing requirements that cover the work. |
 | Specify | The requirement is written. |
 | Design | A short design note is written for non-trivial work. |
 | Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |
 | Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
 
-The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in the same job conversation within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
+Specify and Design may be recorded as skipped when existing requirements already cover the work. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage, including Design to Specify. ADORE saves the stage and continues in the same job conversation within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
 ## Direct jobs {#direct-evidence}
 

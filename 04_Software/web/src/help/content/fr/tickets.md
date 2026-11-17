@@ -49,7 +49,7 @@ Un ticket n’est pris en charge que si toutes les règles sont satisfaites. Ell
 6. Il porte une étiquette de priorité : `P1`, `P2` ou `P3`. **Exiger une étiquette de priorité sur le ticket** est activé par défaut.
 7. Si **Exiger des critères d’acceptation sur le ticket** est activé, la description contient les mots acceptance criteria (sans distinction de casse) ou un élément de tâche non coché, `- [ ]`. Cette vérification est désactivée par défaut.
 
-Des étiquettes facultatives orientent la tâche : `bug` ou `fix` donne une tâche de correction, `change` une tâche de modification, et tout autre ticket une tâche de fonctionnalité. `agent-quick` n’est qu’une indication ; l’exécuteur choisit entre le chemin complet et le chemin rapide et en consigne la raison.
+Des étiquettes facultatives orientent la tâche : `bug` ou `fix` donne une tâche de correction, `change` une tâche de modification, et tout autre ticket une tâche de fonctionnalité.
 
 ## Examiner et démarrer les tickets {#tickets-view}
 
@@ -88,7 +88,7 @@ Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens a
 1. Créez les neuf étiquettes dans le dépôt de la forge.
 2. Pour la prise en charge automatique, vérifiez la surveillance Active ; pour Démarrer manuellement, elle peut rester En pause.
 3. Rédigez un titre clair et une description avec des critères d’acceptation.
-4. Ajoutez une étiquette de priorité et, si vous le souhaitez, `bug`, `fix`, `change` ou `agent-quick`.
+4. Ajoutez une étiquette de priorité et, si vous le souhaitez, `bug`, `fix` ou `change`.
 5. Ajoutez `agent-ready` en dernier.
 6. Attendez la prochaine vérification, ou appuyez sur **Lire les tickets** puis **Démarrer**.
 7. Suivez la tâche dans [Cycle de vie d’une tâche](/help/jobs). Les termes sont dans le [Glossaire](/help/glossary).

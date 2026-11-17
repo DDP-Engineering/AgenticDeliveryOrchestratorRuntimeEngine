@@ -313,14 +313,14 @@ def _aegis_repo(tmp_path: Path) -> Path:
 
 
 @pytest.mark.parametrize("interpreter", ["python", "python3"])
-def test_aegis_probe_accepts_a_valid_015_schema_1_payload(
+def test_aegis_probe_accepts_a_valid_016_schema_1_payload(
     tmp_path: Path, interpreter: str,
 ) -> None:
-    """Version 0.15.x plus schema-1 status proves target readiness."""
+    """Version 0.16.x plus schema-1 status proves target readiness."""
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
         f"{interpreter} .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.15.2\n",
+            exit_code=0, stdout="aegis 0.16.2\n",
         ),
         f"{interpreter} .agentic/aegis.py status --all --json": CommandResult(
             exit_code=0,
@@ -342,7 +342,7 @@ def test_aegis_probe_accepts_a_valid_015_schema_1_payload(
 
     assert status.ok
     assert status.wrapper_present and status.config_valid
-    assert status.schema_version == 1 and status.version == "aegis 0.15.2"
+    assert status.schema_version == 1 and status.version == "aegis 0.16.2"
     assert runner.calls == [
         [interpreter, ".agentic/aegis.py", "--version"],
         [interpreter, ".agentic/aegis.py", "status", "--all", "--json"],
@@ -362,9 +362,9 @@ def test_aegis_probe_names_unavailable_interpreter(tmp_path: Path, interpreter: 
 
 
 @pytest.mark.parametrize(("version", "stderr", "detail"), [
-    ("aegis 0.14.9", "", "aegis 0.14.9"),
+    ("aegis 0.15.9", "", "aegis 0.15.9"),
     ("aegis 1.0.0", "", "aegis 1.0.0"),
-    ("aegis 0.14.9", " error ", "error"),
+    ("aegis 0.15.9", " error ", "error"),
     ("aegis 1.0.0", "x" * 401, "x" * 400),
     ("", "", "AEGIS returned no version"),
 ])
@@ -396,7 +396,7 @@ def test_aegis_probe_preserves_malformed_status_diagnostic(
     """Malformed exit-zero JSON remains not-ready with bounded evidence."""
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
-        "python3 .agentic/aegis.py --version": _ok("aegis 0.15.2"),
+        "python3 .agentic/aegis.py --version": _ok("aegis 0.16.2"),
         "python3 .agentic/aegis.py status --all --json": CommandResult(
             exit_code=0, stdout=stdout, stderr=stderr,
         ),
@@ -451,7 +451,7 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
     root = _aegis_repo(tmp_path)
     blocked = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.15.0",
+            exit_code=0, stdout="aegis 0.16.0",
         ),
         "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=1,
@@ -466,7 +466,7 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
 
     garbage = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.15.0",
+            exit_code=0, stdout="aegis 0.16.0",
         ),
         "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=2,
@@ -482,7 +482,7 @@ def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
     root = _aegis_repo(tmp_path)
     status = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.15.0",
+            exit_code=0, stdout="aegis 0.16.0",
         ),
         "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=0,
@@ -496,13 +496,13 @@ def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
     assert status.schema_version == 2
     assert "requires schema 1" in status.detail
 
-    # below the floor: AEGIS before 0.15.0 ends in a deliver stage
+    # below the floor: AEGIS before 0.16.0 records a quick path
     too_old = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.14.9",
+            exit_code=0, stdout="aegis 0.15.9",
         ),
     }))
-    assert not too_old.ok and "0.14.9" in too_old.detail
+    assert not too_old.ok and "0.15.9" in too_old.detail
 
     # a different major means the companion contract itself changed
     other_major = doctor.detect_aegis(root, FakeRunner({
@@ -520,9 +520,9 @@ def test_aegis_doctor_shares_one_gate_with_the_client() -> None:
              stale when the client's supported range moved. It now derives the
              answer from the client's constants, so this holds for any minor.
     """
-    assert doctor.aegis_version_supported("aegis 0.15.0")
+    assert doctor.aegis_version_supported("aegis 0.16.0")
     assert doctor.aegis_version_supported("aegis 0.99.7")
-    assert not doctor.aegis_version_supported("aegis 0.14.9")
+    assert not doctor.aegis_version_supported("aegis 0.15.9")
     assert not doctor.aegis_version_supported("aegis 0.5.0")
     assert not doctor.aegis_version_supported("aegis 1.0.0")
     assert not doctor.aegis_version_supported("nonsense")

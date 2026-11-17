@@ -34,7 +34,7 @@ The caller remains responsible for context sanitization and paragraph joins.
 | Directory | Ownership |
 |---|---|
 | direct | Agent implementation request, repository checks, questions and summary |
-| stage | AEGIS stage opening, task/ticket/context, quick hint, authority and closing rules |
+| stage | AEGIS stage opening, task/ticket/context, authority and closing rules |
 | recovery | Revalidation routing, integration conflicts, continuation and no-progress context |
 | review | Pipeline context and changed ticket text |
 | system | Internet-off container and native-server notices |

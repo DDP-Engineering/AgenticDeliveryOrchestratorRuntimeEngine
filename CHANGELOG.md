@@ -5,6 +5,27 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-17
+
+### Changed
+
+- **BREAKING: ADORE conducts AEGIS 0.16.0 and requires AEGIS 0.16.0 or newer.**
+  Tasks follow one stage order, frame to done, where specify and design may be
+  recorded as skipped; journals without a `path:` line are accepted and an
+  older AEGIS is refused at probe and by doctor.
+- **BREAKING: run state no longer records an AEGIS path.** Delete existing
+  `runs/<run-id>` directories under the state store before starting this build.
+
+### Removed
+
+- The `[workflow] quick_label` setting, its `agent-quick` forge label and the
+  frame quick-label prompt; a config that still names `quick_label` is refused.
+
+### Fixed
+
+- Change history waits for the project catalog before reading evidence, so a
+  slow catalog no longer blanks shown evidence or interrupts a manual Refresh.
+
 ## [0.18.0] - 2026-11-16
 
 ### Added

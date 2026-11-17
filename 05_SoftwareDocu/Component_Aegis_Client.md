@@ -16,12 +16,13 @@ only the Python companion CLI shipped by AEGIS and JSON schema 1.
   marker rule AEGIS applies to its delivery report;
 - expose advisory and strict check operations; the executor runs `anchor`,
   `test`, `evolution` and `report` itself during its stages;
-- validate bounded JSON, UTF-8, contained POSIX paths, headers, stage/path/type,
+- validate bounded JSON, UTF-8, contained POSIX paths, headers, stage/type,
   checklist/log data, finding counts and verification command results;
 - distinguish typed protocol, timeout and task failures;
-- accept same-stage work, adjacent forward progress and any backward route on
-  the selected full/quick path; a done task returns only to validate for governed
-  revalidation, and forward jumps require existing journal evidence.
+- accept same-stage work, adjacent forward progress and any backward route in
+  the one AEGIS stage order; a done task returns only to validate for governed
+  revalidation, and forward jumps require a Log entry for every crossed stage,
+  completed or skipped.
 
 It does not edit journals, transition stages, approve delivery, commit, push or
 call a forge.
@@ -61,7 +62,9 @@ and Python runtime.
   stages `survey`, `components`, and `close`; retired stage names are refused;
 - active ADORE task stages: exactly `frame`, `specify`, `design`, `build`,
   `validate`, or `done`, with the current conducted step-file mapping (none for `done`); a task at `deliver` fails closed;
-- paths: `full` or eligible `quick`;
+- header: `stage`, `type`, `requirements`, `branch`, `base` and `opened` are
+  required; a legacy `path:` line is kept as an ordinary value and never
+  selects a stage order;
 - strict exit 0 must agree with `strict.passed=true`;
 - non-skipped command runs require numeric duration and integer exit.
 - run-container exchange files: `aegis.sh`, `aegis.stdout`, and
@@ -105,12 +108,12 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 
 ## Captured companion protocol evidence
 
-`tests/fixtures/aegis_0_15_0.json` captures actual managed CLI version, task,
+`tests/fixtures/aegis_0_16_0.json` captures actual managed CLI version, task,
 status and strict-check serialization in a disposable repository. Its configured
 command runs only Python's version probe; this is schema evidence, not a product
 suite. `test_aegis_compatibility.py` replays these responses through injected
 execution and rejects corrupt schema, identity/path and contradictory checks.
-The historical 0.14 fixture verifies refusal before any status call. Unit tests
+The historical 0.15 fixture verifies refusal before any status call. Unit tests
 use no sibling checkout, external CLI or network. The executor owns evolution
 and report; the conductor consumes the task/check API.
 See [Workflow contract](../01_Documentation/Operations_Guide.md#workflows).

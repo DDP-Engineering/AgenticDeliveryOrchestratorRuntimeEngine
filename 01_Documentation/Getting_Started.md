@@ -110,8 +110,8 @@ python .agentic/aegis.py --version
 python .agentic/aegis.py status --all --json
 ```
 
-The version must satisfy the client-declared supported range and JSON schema
-must be `1`. A present malformed or incompatible payload is refused in those
+The version must be AEGIS 0.16.0 or newer within major 0, the range the client
+declares, and JSON schema must be `1`. A present malformed or incompatible payload is refused in those
 modes. Explicit Direct bypasses the payload and does not require this check.
 Without that file, `adore init` and doctor report the information:
 "No AEGIS found: tickets run in the direct workflow". No AEGIS probe is run
@@ -161,8 +161,7 @@ An eligible ticket normally needs:
 - one configured priority label such as `P1`, `P2`, or `P3`;
 - acceptance criteria in the body when `readiness.require_acceptance_criteria` is enabled
   (off by default; a clear goal and acceptance criteria remain recommended);
-- optionally `bug`, `fix`, or `change` for AEGIS task type;
-- optionally `agent-quick` as a framing hint only.
+- optionally `bug`, `fix`, or `change` for AEGIS task type.
 
 Run selection without mutation:
 

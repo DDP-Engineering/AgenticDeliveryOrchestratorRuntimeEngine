@@ -1446,7 +1446,9 @@ export default function App() {
             onClose={() => setAccountAction(null)} />}
         </>}
 
-        {page === "adminAudit" && isAdmin && <AuditHistory key={`${session.user.id}:${session.user.role}`} refresh={viewRefresh} locale={locale} projects={projects} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
+        {/* The project catalog is part of the evidence key: wait for it so its arrival cannot blank shown evidence. */}
+        {page === "adminAudit" && isAdmin && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
+        {page === "adminAudit" && isAdmin && projectsState === "ready" && <AuditHistory key={`${session.user.id}:${session.user.role}`} refresh={viewRefresh} locale={locale} projects={projects} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
 
         {page === "help" && <HelpCenter locale={locale} topic={helpTopic} onNavigate={navigateHref} />}
         {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword} onInput={() => setPasswordMismatch(false)}><FormLegend t={t} /><PasswordChangeFields t={t} mismatch={passwordMismatch} /><button className="primary">{t("save")}</button></form></section>

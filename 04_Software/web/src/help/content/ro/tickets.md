@@ -49,7 +49,7 @@ Un tichet este preluat doar când toate regulile sunt îndeplinite. Ele sunt ver
 6. Are o etichetă de prioritate: `P1`, `P2` sau `P3`. **Cere etichetă de prioritate pentru tichet** este activată implicit.
 7. Dacă **Cere criterii de acceptare pentru tichet** este activată, descrierea conține cuvintele acceptance criteria (indiferent de majuscule) sau un element de sarcină nebifat, `- [ ]`. Această verificare este dezactivată implicit.
 
-Etichetele opționale modelează lucrarea: `bug` sau `fix` produce o sarcină de corecție, `change` o sarcină de modificare, iar orice alt tichet o sarcină de funcționalitate. `agent-quick` este doar o sugestie; executorul alege între calea completă și cea rapidă și înregistrează motivul.
+Etichetele opționale modelează lucrarea: `bug` sau `fix` produce o sarcină de corecție, `change` o sarcină de modificare, iar orice alt tichet o sarcină de funcționalitate.
 
 ## Revizuirea și pornirea tichetelor {#tickets-view}
 
@@ -88,7 +88,7 @@ HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute 
 1. Creați toate cele nouă etichete în repository-ul de pe forge.
 2. Pentru preluare automată, verifică Monitorizarea Activă; pentru Pornește manual, poate rămâne În pauză.
 3. Scrieți un titlu clar și o descriere cu criterii de acceptare.
-4. Adăugați o etichetă de prioritate și, opțional, `bug`, `fix`, `change` sau `agent-quick`.
+4. Adăugați o etichetă de prioritate și, opțional, `bug`, `fix` sau `change`.
 5. Adăugați `agent-ready` ultima.
 6. Așteptați următoarea verificare sau apăsați **Citește tichetele** și **Pornește**.
 7. Urmăriți lucrarea în [Ciclul de viață al lucrării](/help/jobs). Termenii sunt în [Glosar](/help/glossary).

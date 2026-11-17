@@ -35,10 +35,10 @@ from tests.test_orchestrator import (
 
 
 class OfflineAegis(FakeAegis):
-    """Simulate agent-owned quick-stage journals, refusing independent checks."""
+    """Simulate agent-owned stage journals, refusing independent checks."""
 
     def __init__(self, *args, branch="offline-admission"):
-        stages = sequence("frame", "build", "validate", "done", path="quick")
+        stages = sequence("frame", "specify", "design", "build", "validate", "done")
         super().__init__([
             replace(task, header={**task.header, "branch": branch}) for task in stages])
 
@@ -108,7 +108,7 @@ def main() -> int:
     executor.attempts.append(blocked)
     governed = run.workflow == "aegis"
     if governed:
-        executor.attempts.extend([direct_edit(trees), direct_edit(trees)])
+        executor.attempts.extend(direct_edit(trees) for _ in range(4))
     client = (patch("adore.orchestrator.AegisClient",
                     lambda *args: OfflineAegis(*args, branch=run.branch))
               if governed else nullcontext())

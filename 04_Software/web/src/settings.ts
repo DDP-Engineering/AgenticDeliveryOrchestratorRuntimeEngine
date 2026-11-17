@@ -132,7 +132,7 @@ export const STATUS_LABEL_KEYS = new Set([
 /** Purpose ownership of catalog settings, including dynamic entries. */
 export function settingPurpose(key: string): string {
   if (["agent.name", "agent.email", "delivery.target_branch", "worktree.branch_template", "worktree.branch_rule"].includes(key) || key.startsWith("platform.")) return "repository";
-  if (["polling.max_concurrent_runs", "delivery.publish_checkpoints", "workflow.quick_label", "workflow.mode"].includes(key) || key.startsWith("workflow.stage_timeout_overrides") || ["budgets", "recovery", "clarification"].includes(key.split(".")[0])) return "implementation";
+  if (["polling.max_concurrent_runs", "delivery.publish_checkpoints", "workflow.mode"].includes(key) || key.startsWith("workflow.stage_timeout_overrides") || ["budgets", "recovery", "clarification"].includes(key.split(".")[0])) return "implementation";
   if (["labels", "polling", "readiness"].includes(key.split(".")[0]) || key === "workflow.default_kind" || key.startsWith("workflow.kind_labels")) return "tickets";
   if (key.startsWith("delivery.") || key.startsWith("review.")) return "reviews";
   if (key.startsWith("metrics.")) return "statistics";

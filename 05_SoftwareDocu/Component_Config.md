@@ -40,8 +40,8 @@ Focused public-contract proof: `04_Software/tests/test_branch_naming.py`, existi
 
 ## 2. Workflow Settings
 
-`WorkflowConfig` maps ticket labels to `feature`, `fix`, or `change`, carries a
-quick-path hint, selects the one-token Python executable, and permits timeout
+`WorkflowConfig` maps ticket labels to `feature`, `fix`, or `change`,
+selects the one-token Python executable, and permits timeout
 overrides only for the five AEGIS stages that launch an executor (`frame`,
 `specify`, `design`, `build`, `validate`); `deliver` is refused like any
 unknown stage. Mapping values accept only

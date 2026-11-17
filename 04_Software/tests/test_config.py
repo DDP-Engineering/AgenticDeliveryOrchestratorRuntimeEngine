@@ -550,8 +550,7 @@ HTTPS_PROXY = "http://example.invalid:3128"
 def test_workflow_defaults_are_valid_and_documented(tmp_path: Path) -> None:
     """
     An absent [workflow] section is valid and yields the documented
-             defaults: feature runs, the bug/fix/change label map, and the
-             quick label.
+             defaults: feature runs and the bug/fix/change label map.
     """
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert validate_config(config) == []
@@ -559,7 +558,6 @@ def test_workflow_defaults_are_valid_and_documented(tmp_path: Path) -> None:
     assert config.workflow.mode == "auto"
     assert config.workflow.kind_labels == {"bug": "fix", "fix": "fix",
                                            "change": "change"}
-    assert config.workflow.quick_label == "agent-quick"
     assert config.workflow.aegis_python == "python"
     assert config.workflow.stage_timeout_overrides == {}
     assert config.recovery.max_stage_failures == 3
@@ -593,37 +591,6 @@ kind_labels = { bug = "fix", legacy = "adoption", odd = "nonsense", dead = "bug"
 default_kind = "adoption"
 """)))
     assert any("default_kind must be one of" in issue for issue in adoption)
-
-
-def test_quick_label_is_only_a_frame_hint(
-    tmp_path: Path,
-) -> None:
-    """
-    The hint stays valid even when framing ultimately selects full;
-             ADORE never preselects the path from this label.
-    """
-    dead = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
-[workflow]
-default_kind = "feature"
-kind_labels = {}
-quick_label = "agent-quick"
-""")))
-    assert dead == []
-
-    reachable = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
-[workflow]
-default_kind = "feature"
-kind_labels = { bug = "fix" }
-quick_label = "agent-quick"
-""")))
-    assert reachable == []
-
-    disabled = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
-[workflow]
-kind_labels = {}
-quick_label = ""
-""")))
-    assert disabled == []
 
 
 def test_stage_timeout_overrides_must_name_stages_and_positive_seconds(

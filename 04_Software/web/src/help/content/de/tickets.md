@@ -49,7 +49,7 @@ Ein Ticket wird nur aufgenommen, wenn jede Regel erfüllt ist. Sie werden in die
 6. Es hat ein Prioritätslabel: `P1`, `P2` oder `P3`. **Prioritätslabel am Ticket verlangen** ist standardmäßig aktiv.
 7. Ist **Akzeptanzkriterien im Ticket verlangen** aktiv, enthält die Beschreibung die Wörter acceptance criteria (beliebige Schreibweise) oder einen nicht abgehakten Aufgabenpunkt, `- [ ]`. Diese Prüfung ist standardmäßig aus.
 
-Optionale Labels formen den Auftrag: `bug` oder `fix` ergibt eine Fehlerbehebung, `change` eine Änderung und jedes andere Ticket eine Funktion. `agent-quick` ist nur ein Hinweis; der Executor entscheidet zwischen vollem und schnellem Pfad und hält den Grund fest.
+Optionale Labels formen den Auftrag: `bug` oder `fix` ergibt eine Fehlerbehebung, `change` eine Änderung und jedes andere Ticket eine Funktion.
 
 ## Tickets prüfen und starten {#tickets-view}
 
@@ -88,7 +88,7 @@ HTML bleibt sichtbarer Text und wird nicht ausgeführt. Nur absolute http-, http
 1. Legen Sie alle neun Labels im Forge-Repository an.
 2. Für automatische Aufnahme muss die Überwachung Aktiv sein; für manuelles Starten darf sie Pausiert bleiben.
 3. Schreiben Sie einen klaren Titel und eine Beschreibung mit Akzeptanzkriterien.
-4. Setzen Sie ein Prioritätslabel und optional `bug`, `fix`, `change` oder `agent-quick`.
+4. Setzen Sie ein Prioritätslabel und optional `bug`, `fix` oder `change`.
 5. Setzen Sie `agent-ready` zuletzt.
 6. Warten Sie auf die nächste Prüfung oder drücken Sie **Tickets lesen** und **Starten**.
 7. Verfolgen Sie den Auftrag unter [Lebenszyklus eines Auftrags](/help/jobs). Begriffe stehen im [Glossar](/help/glossary).

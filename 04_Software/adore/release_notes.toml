@@ -9,6 +9,28 @@
 schema = 1
 
 [[release]]
+version = "Unreleased"
+
+[[release]]
+version = "0.19.0"
+date = "2026-11-17"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Jobs follow AEGIS 0.16, where Specify and Design can be skipped.", fr = "Les travaux suivent AEGIS 0.16, où Spécification et Conception peuvent être ignorées.", de = "Jobs folgen AEGIS 0.16, in dem Spezifikation und Entwurf entfallen können.", ro = "Joburile urmează AEGIS 0.16, unde Specificarea și Proiectarea pot fi omise." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "The quick-path label setting is removed.", fr = "Le paramètre d’étiquette du chemin rapide est supprimé.", de = "Die Einstellung für das Schnellpfad-Label entfällt.", ro = "Setarea etichetei pentru calea rapidă a fost eliminată." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Change history", fr = "Historique des changements", de = "Änderungsverlauf", ro = "Istoricul modificărilor" }
+text = { en = "Change history no longer blanks while the project list is still loading.", fr = "L’historique des changements ne se vide plus pendant le chargement des projets.", de = "Der Änderungsverlauf wird nicht mehr geleert, während die Projekte laden.", ro = "Istoricul modificărilor nu se mai golește cât timp lista de proiecte se încarcă." }
+
+[[release]]
 version = "0.18.0"
 date = "2026-11-16"
 

@@ -50,7 +50,7 @@ def resources(tmp_path, monkeypatch, prompts):
 
 
 @pytest.mark.parametrize("case", BASELINE["cases"], ids=lambda c: (
-    f"{c['stage']}-{c['quick']}-{c['packages']}-{c['mode']}-{c['extra']}"))
+    f"{c['stage']}-{c['packages']}-{c['mode']}-{c['extra']}"))
 @pytest.mark.parametrize("continuing", [False, True])
 def test_stage_bytes(tmp_path, case, continuing):
     """
@@ -63,7 +63,6 @@ def test_stage_bytes(tmp_path, case, continuing):
     values = BASELINE["values"]
     forge.ticket.title = values["title"]
     forge.ticket.description = " \n" + values["description"] + "\n "
-    forge.ticket.labels = ["agent-quick"] if case["quick"] else []
     run = make_run(engine)
     engine.config.execution.backend = "local" if case["mode"] == "native" else "container"
     engine.config.container.system_packages = case["packages"]
@@ -115,7 +114,6 @@ def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
     values = BASELINE["values"]
     forge.ticket.title = values["title"]
     forge.ticket.description = " \n" + values["description"] + "\n "
-    forge.ticket.labels = ["agent-quick"]
     run = make_run(engine)
     native = case["requested_mode"] == "native"
     engine.config.execution.backend = "local" if native else "container"

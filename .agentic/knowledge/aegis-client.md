@@ -14,7 +14,7 @@ ownership/auth to `local-execution.md` (proof in
 ## Purpose and boundaries
 
 `04_Software/adore/aegis.py` is ADORE's sole companion-governance boundary. It
-speaks the installed AEGIS Python CLI at 0.15.0 or later within major 0 and its
+speaks the installed AEGIS Python CLI at 0.16.0 or later within major 0 and its
 schema-1 JSON contract; an older release or a major bump is refused at probe.
 The executor advances the task journal through AEGIS itself, including the
 validate stage's final check, `report` and `advance` to done; the orchestrator
@@ -34,13 +34,14 @@ decision-safe data to the orchestrator.
 
 ## Invariants
 
-- The conducted paths are frame -> specify -> design -> build -> validate ->
-  done and, for fix and change, frame -> build -> validate -> done. A working
-  stage may return to an earlier stage on its selected path; done returns only
-  to validate. Other forward moves require journal evidence for every stage
-  crossed.
+- The conducted order is frame -> specify -> design -> build -> validate ->
+  done for every task type; there is no path header dimension, and a legacy
+  `path:` line is an ordinary header value. A working stage may return to an
+  earlier stage; done returns only to validate. Other forward moves require a
+  Log entry for every stage crossed, and `advance --skipped` writes one for a
+  skipped specify or design.
 - The pinned task decodes only at a conducted stage with the step file AEGIS
-  0.15.0 names (none for done); a task at `deliver` fails closed. Status
+  0.16.0 names (none for done); a task at `deliver` fails closed. Status
   listings and deviation markers accept AEGIS's own vocabulary, including the
   legacy `deliver` stage and the adoption phases, so a foreign journal never
   blocks a probe.
@@ -56,9 +57,9 @@ decision-safe data to the orchestrator.
 
 ## Key behaviors
 
-Captured managed CLI output in tests/fixtures/aegis_0_15_0.json proves supported
+Captured managed CLI output in tests/fixtures/aegis_0_16_0.json proves supported
 serialization through injected execution; the older fixture proves refusal.
-AEGIS owns backward routing to earlier stages on the selected path. A done
+AEGIS owns backward routing to earlier stages. A done
 task returns only to Validate for governed revalidation; forward jumps retain
 the journal-evidence rule.
 
@@ -70,8 +71,8 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 ## Files
 
 - `04_Software/tests/test_aegis_compatibility.py`: captured supported and refused companion replay.
-- `04_Software/tests/fixtures/aegis_0_14_0.json`: historical CLI evidence and release hashes.
-- `04_Software/tests/fixtures/aegis_0_15_0.json`: supported managed CLI serialization.
+- `04_Software/tests/fixtures/aegis_0_15_0.json`: historical CLI evidence refused at probe.
+- `04_Software/tests/fixtures/aegis_0_16_0.json`: supported managed CLI serialization.
 
 - `04_Software/adore/aegis.py` - implementation.
 - `04_Software/tests/test_aegis.py` - public boundary verification.

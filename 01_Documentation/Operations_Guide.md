@@ -56,8 +56,7 @@ before dispatch. ADORE leaves installed AEGIS files intact.
 
 | Workflow | Stages | Completion evidence |
 |---|---|---|
-| AEGIS full | Frame → Specify → Design → Build → Validate → Done | The agent's completed task journal and reported checks. |
-| AEGIS quick | Frame → Build → Validate → Done | The same journal contract; the executor justifies the quick path. |
+| AEGIS | Frame → Specify → Design → Build → Validate → Done; Specify and Design may be recorded as skipped | The agent's completed task journal and reported checks. |
 | Direct | Implementation (`build`) → Validation (`validate`) → Done | Product changes and the retained implementation summary. |
 
 One Pi implementation conversation belongs to each job. Each AEGIS stage runs
@@ -97,7 +96,7 @@ AEGIS projects maintain their own payload, task journals and configuration.
 
 Only eligible open tickets can start: configured readiness/priority requirements
 apply to automatic pickup and manual Start. Epic, hold and exclusion labels block
-admission. The configured quick label is a hint, not an approval or stage override.
+admission.
 Create the configured lifecycle, approval and revision labels before running.
 See [Getting started](Getting_Started.md) and [Configuration](Configuration_Reference.md).
 

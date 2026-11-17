@@ -533,7 +533,7 @@ def make_engine(
     return engine, fake_forge, worktrees, containers, fake_executor
 
 
-def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunState:
+def make_run(engine: Orchestrator, *, task_type="feature") -> RunState:
     """Persist one active task-bound run and its ticket snapshot."""
     run = RunState(
         run_id="github-owner-repo-7",
@@ -541,7 +541,6 @@ def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunSt
         active_task_id=TASK_ID,
         task_ids=[TASK_ID],
         aegis_type=task_type,
-        aegis_path=path,
         branch=engine._branch_name("github-owner-repo-7", 7),
         base_ref="origin/main",
         worktree=str(engine.worktrees.path_for("github-owner-repo-7")),
@@ -574,7 +573,7 @@ def make_run(engine: Orchestrator, *, task_type="feature", path="full") -> RunSt
     return run
 
 
-def task(stage: str, *, path="full", task_type="feature") -> AegisTask:
+def task(stage: str, *, task_type="feature", log: tuple[str, ...] = ()) -> AegisTask:
     """Return a validated task view for scripted conduction."""
     steps = {
         "frame": "1_frame.md", "specify": "2_specify.md", "design": "3_design.md",
@@ -588,7 +587,6 @@ def task(stage: str, *, path="full", task_type="feature") -> AegisTask:
         header={
             "stage": stage,
             "type": task_type,
-            "path": path,
             "requirements": "REQ-FUNC-1",
             "branch": "adore/github-owner-repo-7",
             "base": "abc",
@@ -598,7 +596,7 @@ def task(stage: str, *, path="full", task_type="feature") -> AegisTask:
         step_file=steps[stage],
         done=stage == "done",
         checklist=(),
-        log=(),
+        log=log,
     )
 
 
@@ -608,16 +606,18 @@ def executor_validation_evidence() -> dict:
             "deviations": [], "reported_checks": "Agent reported checks"}
 
 
-def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:
+def sequence(
+    *stages: str, task_type="feature", log: tuple[str, ...] = (),
+) -> list[AegisTask]:
     """Expand stage transitions into before/after status reads."""
     result: list[AegisTask] = []
     for current, following in zip(stages, stages[1:], strict=False):
         result.extend([
-            task(current, path=path, task_type=task_type),
-            task(following, path=path, task_type=task_type),
+            task(current, task_type=task_type, log=log),
+            task(following, task_type=task_type, log=log),
         ])
     # The next conduct loop reads the completed task before presenting it.
-    result.append(task(stages[-1], path=path, task_type=task_type))
+    result.append(task(stages[-1], task_type=task_type, log=log))
     return result
 
 
@@ -1738,7 +1738,7 @@ def test_retry_continues_design_return_and_exposes_stage_before_checkpoint(
     assert stages[:2] == [("design", "specify"), ("specify", "design")]
     assert len(executor.prompts) == 5 + int(prior_failure)
     specify_prompt = executor.prompts[1 + int(prior_failure)]
-    assert "current stage: specify; path: full" in specify_prompt
+    assert "current stage: specify." in specify_prompt
     assert "OLD_DESIGN_FAILURE" not in specify_prompt
     assert engine.store.is_paused()
     assert all(event["stage"] == event["current"] for event in events
@@ -1851,21 +1851,31 @@ def test_poll_still_detects_a_working_run_without_a_conductor(
     assert not executor.prompts
 
 
+_SKIPPED_SPECIFY_AND_DESIGN = (
+    "2026-11-16 frame: completed; next specify",
+    "2026-11-16 specify: skipped; next design - REQ-FUNC-1 covers it",
+    "2026-11-16 design: skipped; next build - one function",
+)
+
+
 @pytest.mark.parametrize(
-    ("stages", "path", "task_type"),
+    ("stages", "task_type", "log"),
     [
-        (("frame", "specify", "design", "build", "validate", "done"),
-         "full", "feature"),
-        (("frame", "build", "validate", "done"), "quick", "fix"),
+        (("frame", "specify", "design", "build", "validate", "done"), "feature", ()),
+        (("frame", "build", "validate", "done"), "fix", _SKIPPED_SPECIFY_AND_DESIGN),
     ],
 )
-def test_clean_full_and_quick_paths_stop_for_fresh_approval(
-    tmp_path: Path, stages, path: str, task_type: str,
+def test_clean_full_and_skipped_stage_journals_stop_for_fresh_approval(
+    tmp_path: Path, stages, task_type: str, log: tuple[str, ...],
 ) -> None:
-    """Both documented paths checkpoint locally and stop before push."""
+    """
+    Every stage walked, or specify and design skipped in one session.
+    AEGIS 0.16.0 has one stage order; a skipped stage carries its own
+             Log line, so both journals checkpoint locally and stop before push.
+    """
     engine, forge, worktrees, containers, executor = make_engine(tmp_path)
-    run = make_run(engine, task_type=task_type, path=path)
-    client = FakeAegis(sequence(*stages, path=path, task_type=task_type))
+    run = make_run(engine, task_type=task_type)
+    client = FakeAegis(sequence(*stages, task_type=task_type, log=log))
 
     engine._conduct_task(run, forge.ticket, client, "")
 
@@ -2041,8 +2051,8 @@ def test_cancel_before_publication_does_not_push_or_open_draft(tmp_path: Path) -
 def test_approval_presentation_lists_recorded_deviations(tmp_path: Path) -> None:
     """Journal deviations reach the approver as a count plus full text."""
     engine, forge, _, _, _ = make_engine(tmp_path)
-    run = make_run(engine, task_type="fix", path="quick")
-    stages = sequence("frame", "build", "validate", "done", path="quick", task_type="fix")
+    run = make_run(engine, task_type="fix")
+    stages = sequence("frame", "specify", "design", "build", "validate", "done", task_type="fix")
     reported = replace(stages[-1], log=(
         "2026-09-13 build: DEVIATION build - accepted one check warning",
         "2026-09-13 build: the DEVIATION policy is one line, said aloud",
@@ -2071,13 +2081,13 @@ def test_two_failures_then_success_resets_counter_and_questions_do_not_consume_i
         GateRun(exit_code=0, has_questions=True, questions="Which API?"),
     )
     engine, forge, _, _, _ = make_engine(tmp_path, executor=executor)
-    run = make_run(engine, task_type="fix", path="quick")
+    run = make_run(engine, task_type="fix")
     client = FakeAegis([
-        task("frame", path="quick", task_type="fix"),
-        task("frame", path="quick", task_type="fix"),
-        task("frame", path="quick", task_type="fix"),
-        task("build", path="quick", task_type="fix"),
-        task("build", path="quick", task_type="fix"),
+        task("frame", task_type="fix"),
+        task("frame", task_type="fix"),
+        task("frame", task_type="fix"),
+        task("specify", task_type="fix"),
+        task("specify", task_type="fix"),
     ])
 
     engine._conduct_task(run, forge.ticket, client, "")
@@ -2731,16 +2741,13 @@ def test_retry_drift_reconducts_only_once(
     assert "agent-approved" not in forge.ticket.labels
 
 
-def test_executor_prompt_forbids_remote_and_uses_quick_only_as_hint(tmp_path: Path) -> None:
+def test_executor_prompt_forbids_remote_and_publication(tmp_path: Path) -> None:
     """Frame autonomy never gives the executor publication authority."""
     engine, forge, _, _, _ = make_engine(tmp_path)
-    forge.ticket.labels.append("agent-quick")
-    run = make_run(engine, task_type="fix", path="quick")
-    prompt = engine._stage_prompt(
-        run, forge.ticket, task("frame", path="quick", task_type="fix"), "", ""
-    )
+    run = make_run(engine, task_type="fix")
+    prompt = engine._stage_prompt(run, forge.ticket, task("frame", task_type="fix"), "", "")
     assert engine.prompts.render("stage/autopilot.md") in prompt
-    assert engine.prompts.render("stage/quick-label.md", quick_label="agent-quick") in prompt
+    assert engine.prompts.render("stage/frame.md") in prompt
     assert "Never commit, push, open or merge" in prompt
     assert "python .agentic/aegis.py" in prompt
 
@@ -3297,7 +3304,7 @@ def test_target_drift_invalidates_approval_and_revalidates_from_done(
                               task("done"), task("done"), task("done")])
 
         def probe(self):
-            return SimpleNamespace(version="0.15.0", schema=1)
+            return SimpleNamespace(version="0.16.0", schema=1)
 
     monkeypatch.setattr(orchestrator_module, "AegisClient", ReopenedClient)
 

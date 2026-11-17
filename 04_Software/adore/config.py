@@ -432,9 +432,7 @@ class WorkflowConfig:
     `mode` selects auto detection or Direct; manual choices take precedence.
              `kind_labels` maps a ticket label to an AEGIS task type; fix/bug
              labels win over change, then configured feature labels, with
-             `default_kind` used when none match. The quick label is a framing
-             hint only; the executor must still apply
-             AEGIS's documented eligibility rules. `stage_timeout_overrides`
+             `default_kind` used when none match. `stage_timeout_overrides`
              raises or lowers the
              per-executor-launch bound for individual stages; anything absent
              uses [budgets] per_gate_timeout_seconds.
@@ -445,7 +443,6 @@ class WorkflowConfig:
     kind_labels: dict[str, str] = field(
         default_factory=lambda: {"bug": "fix", "fix": "fix", "change": "change"}
     )
-    quick_label: str = "agent-quick"
     aegis_python: str = "python"
     stage_timeout_overrides: dict[str, int] = field(default_factory=dict)
 
@@ -1120,7 +1117,7 @@ def validate_config(config: Config) -> list[str]:
             for name, value in vars(spec).items():
                 check(";" not in value, f"[labels] {name} cannot contain semicolons on Azure")
         for value in (config.delivery.approval_label, config.review.revise_label,
-                      config.workflow.quick_label, *config.workflow.kind_labels):
+                      *config.workflow.kind_labels):
             check(";" not in value, "[labels] Azure tag names cannot contain semicolons")
         for reviewer in config.delivery.reviewers:
             check(bool(re.fullmatch(
@@ -1432,10 +1429,6 @@ def validate_config(config: Config) -> list[str]:
                     f"kind ({', '.join(RUN_KINDS)}): {kind!r}"
                 )
                 continue
-    check(
-        isinstance(workflow.quick_label, str),
-        "[workflow] quick_label must be a label name or an empty string",
-    )
     check(
         isinstance(workflow.aegis_python, str)
         and bool(workflow.aegis_python.strip())

@@ -310,6 +310,22 @@ test("audit manual Refresh preserves expanded evidence, filters, pager and focus
   } finally { release(); }
 });
 
+test("change history waits for a slow project catalog instead of reading evidence twice", async ({ page }) => {
+  await signIn(page);
+  const events: string[] = [];
+  page.on("request", request => { if (request.url().includes("/api/v1/audit-page?")) events.push("audit"); });
+  page.on("response", response => { if (new URL(response.url()).pathname === "/api/v1/projects") events.push("projects"); });
+  await page.route("**/api/v1/projects", async route => {
+    await new Promise(resolve => setTimeout(resolve, 800)); await route.continue().catch(() => {});
+  });
+  await page.goto("/admin/audit");
+  await expect(page.locator(".audit-evidence tbody tr").first()).toBeVisible();
+  await page.unrouteAll({ behavior: "wait" });
+  // The catalog is part of the evidence key, so an earlier read would be discarded and blank the table.
+  expect(events.indexOf("projects")).toBeGreaterThanOrEqual(0);
+  expect(events.indexOf("audit")).toBeGreaterThan(events.indexOf("projects"));
+});
+
 test("Users manual Refresh preserves membership disclosure and unrelated form draft", async ({ page }) => {
   await signIn(page); await page.goto("/admin/users");
   const users = page.locator(".user-list"); await expect(users).toBeVisible();

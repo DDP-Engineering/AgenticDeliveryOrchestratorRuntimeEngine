@@ -8,25 +8,25 @@ schema = 1
 
 id = "REQ-FUNC-8472a560"
 
-title = "Refuse AEGIS releases older than 0.15.0"
+title = "Refuse AEGIS releases older than 0.16.0"
 
 status = "active"
 
 requirement = """
-If a target reports an AEGIS release outside major 0 or older than 0.15.0, then the client shall refuse it at probe with a protocol error that names 0.15.0 as the minimum.
+If a target reports an AEGIS release outside major 0 or older than 0.16.0, then the client shall refuse it at probe with a protocol error that names 0.16.0 as the minimum.
 """
 
-verification = "Offline AEGIS tests probe 0.15.0 and a later 0.x release successfully and refuse 0.14.9, 0.5.0 and 1.0.0 with an AegisProtocolError naming 0.15.0, before any status read."
+verification = "Offline AEGIS tests probe 0.16.0 and a later 0.x release successfully and refuse 0.15.9, 0.5.0 and 1.0.0 with an AegisProtocolError naming 0.16.0, before any status read."
 
 affected_paths = ["04_Software/adore/aegis.py"]
 
-linked_tests = ["04_Software/tests/test_aegis_compatibility.py", "04_Software/tests/test_aegis.py::test_probe_refuses_releases_older_than_0_15_0", "04_Software/tests/test_aegis.py::test_probe_accepts_the_whole_supported_major_from_the_floor_up", "04_Software/tests/test_aegis.py::test_probe_rejects_a_different_major"]
+linked_tests = ["04_Software/tests/test_aegis_compatibility.py", "04_Software/tests/test_aegis.py::test_probe_refuses_releases_older_than_0_16_0", "04_Software/tests/test_aegis.py::test_probe_accepts_the_whole_supported_major_from_the_floor_up", "04_Software/tests/test_aegis.py::test_probe_rejects_a_different_major"]
 
 
 spec = ""
 
 priority = "normal"   # low | normal | high
-rationale = "AEGIS before 0.15.0 ends in a deliver stage that asks the agent to wait for a human and to commit; ADORE no longer conducts that flow."
+rationale = "AEGIS before 0.16.0 records a quick path whose journals jump from frame to build; ADORE conducts only the single frame-to-done stage order."
 
 created = 2026-10-25
-updated = 2026-10-25
+updated = 2026-11-16
