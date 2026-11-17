@@ -233,13 +233,17 @@ def test_state_missing_a_current_key_is_refused() -> None:
     """State of another build is never filled in with defaults."""
     payload = RunState(run_id="run-1", ticket_iid=1, execution=execution_record()).to_dict()
     del payload["published_fingerprint"]
-    with pytest.raises(StateError, match="missing keys"):
+    with pytest.raises(StateError, match=r"missing keys.*delete the affected runs/<run-id>"):
         RunState.from_dict(payload)
 
 
 def test_from_dict_rejects_unknown_keys() -> None:
-    """Schema-4 state is closed so ambiguous future data fails loudly."""
-    with pytest.raises(StateError, match="unknown keys"):
+    """
+    Run state is closed so state of another build fails loudly.
+    The refusal tells the operator which directory to delete, because
+             no migration fills in or drops a field.
+    """
+    with pytest.raises(StateError, match=r"unknown keys.*delete the affected runs/<run-id>"):
         RunState.from_dict({
             "schema_version": STATE_SCHEMA_VERSION,
             "run_id": "r",

@@ -17,12 +17,12 @@ AEGIS_CLI = ".agentic/aegis.py"
 #: The AEGIS major line ADORE speaks. A major bump is the signal that the
 #: companion contract itself changed, so it is refused rather than guessed at.
 SUPPORTED_MAJOR = 0
-#: Oldest AEGIS release whose flow ADORE conducts. 0.15.0 removed the deliver
-#: stage: validate closes the task with its final strict check, `report` and
-#: `advance` to done, and commit, push and review creation belong to ADORE.
-#: An older payload ends in a deliver stage that asks the agent to wait for a
-#: human and to commit, so it is refused at probe instead of half-conducted.
-MINIMUM_SERIES = (0, 15)
+#: Oldest AEGIS release whose flow ADORE conducts. 0.16.0 has one stage order,
+#: frame to done, where specify and design are advanced one at a time, possibly
+#: as skipped; validate closes the task and commit, push and review creation
+#: belong to ADORE. An older payload records a quick path whose journals jump
+#: from frame to build, so it is refused at probe instead of half-conducted.
+MINIMUM_SERIES = (0, 16)
 #: The real compatibility contract. Version is metadata; this is the promise.
 JSON_SCHEMA = 1
 DEFAULT_TIMEOUT = 300
@@ -39,12 +39,9 @@ TASK_ID_RE = re.compile(r"^TASK-[0-9a-f]{8}$")
 VERSION_RE = re.compile(r"^aegis\s+(\d+)\.(\d+)\.(\d+)$")
 
 RUN_KINDS = ("feature", "fix", "change")
-QUICK_KINDS = ("fix", "change")
-#: The stages ADORE conducts, in AEGIS 0.15.0 path order. Validate closes the
-#: task by advancing to done; no stage follows it.
-FULL_STAGES = ("frame", "specify", "design", "build", "validate", "done")
-QUICK_STAGES = ("frame", "build", "validate", "done")
-ALL_STAGES = FULL_STAGES
+#: The stages ADORE conducts, in the one AEGIS 0.16.0 order. Validate closes
+#: the task by advancing to done; no stage follows it.
+ALL_STAGES = ("frame", "specify", "design", "build", "validate", "done")
 ADOPTION_STAGES = ("survey", "components", "close")
 #: Current task and adoption stages accepted by status listings and deviations.
 STATUS_STAGES = (*ALL_STAGES, *ADOPTION_STAGES)
@@ -60,7 +57,7 @@ STAGE_STEP_FILES = {
 #: bullet and date. Anchored so prose that merely mentions a stage name is
 #: never read as evidence that the stage ran.
 _STAGE_LOG_RE = re.compile(
-    rf"^\s*(?:[-*]\s+)?(?:\d{{4}}-\d{{2}}-\d{{2}}\s+)?({'|'.join(FULL_STAGES)})\s*:"
+    rf"^\s*(?:[-*]\s+)?(?:\d{{4}}-\d{{2}}-\d{{2}}\s+)?({'|'.join(ALL_STAGES)})\s*:"
 )
 #: A recorded deviation in the one shape AEGIS itself harvests for its
 #: delivery report: the standalone token, a stage it knows, then `:` or
@@ -125,11 +122,6 @@ class AegisTask:
     def task_type(self) -> str:
         """Return the journal's feature/fix/change type."""
         return self.header["type"]
-
-    @property
-    def path(self) -> str:
-        """Return the journal's full/quick workflow path."""
-        return self.header["path"]
 
     @property
     def branch(self) -> str:
@@ -226,24 +218,21 @@ def _repository_path(value: Any, field: str) -> str:
     return text
 
 
-def allowed_transition(previous: str, current: str, path: str) -> bool:
+def allowed_transition(previous: str, current: str) -> bool:
     """
     Decide whether an executor-authored stage transition is documented.
-    AEGIS owns backward routing within the selected full/quick path.
+    AEGIS 0.16.0 has one stage order and owns backward routing in it.
              A stage may remain current, advance once or return to an earlier
              stage. A done task may return only to validate for governed
-             revalidation. Unknown paths and stages fail closed.
+             revalidation. Unknown stages fail closed.
     """
-    if path not in {"full", "quick"}:
-        return False
-    sequence = QUICK_STAGES if path == "quick" else FULL_STAGES
-    if previous not in sequence or current not in sequence:
+    if previous not in ALL_STAGES or current not in ALL_STAGES:
         return False
     if current == previous:
         return True
     if previous == "done":
         return current == "validate"
-    return sequence.index(current) <= sequence.index(previous) + 1
+    return ALL_STAGES.index(current) <= ALL_STAGES.index(previous) + 1
 
 
 def logged_stages(log: Sequence[str]) -> frozenset[str]:
@@ -264,9 +253,7 @@ def logged_stages(log: Sequence[str]) -> frozenset[str]:
     return frozenset(found)
 
 
-def evidenced_transition(
-    previous: str, current: str, path: str, log: Sequence[str]
-) -> bool:
+def evidenced_transition(previous: str, current: str, log: Sequence[str]) -> bool:
     """
     Whether a multi-stage forward jump is backed by the journal.
     An executor is instructed to stop after one stage, but a model
@@ -279,17 +266,18 @@ def evidenced_transition(
                 another forge, so the behaviour is nondeterministic).
 
                 The durable journal answers which stages actually ran. Only a
-                FORWARD jump on the selected path is considered, and only when
+                FORWARD jump is considered, and only when
                 every stage from `previous` up to `current` carries its own Log
-                entry. A genuine skip leaves gaps and stays refused, so the
+                entry. `advance --skipped` logs a skipped specify or design
+                stage like a completed one, so a jump across them is evidenced
+                too. A genuine skip leaves gaps and stays refused, so the
                 trust boundary is unchanged.
     previous: The stage ADORE last recorded.
     current: The stage the journal now reports.
-    path: The selected full/quick workflow path.
     log: The task journal's Log entries.
     Returns: True when the jump is evidenced and may be accepted.
     """
-    sequence = QUICK_STAGES if path == "quick" else FULL_STAGES
+    sequence = ALL_STAGES
     if previous not in sequence or current not in sequence:
         return False
     start, end = sequence.index(previous), sequence.index(current)
@@ -599,7 +587,7 @@ class AegisClient:
         header_raw = raw.get("header")
         if not isinstance(header_raw, dict):
             raise AegisTaskError("AEGIS task header must be an object")
-        required = {"stage", "type", "path", "requirements", "branch", "base", "opened"}
+        required = {"stage", "type", "requirements", "branch", "base", "opened"}
         missing = sorted(required - set(header_raw))
         if missing:
             raise AegisTaskError(f"AEGIS task header is missing {missing}")
@@ -612,10 +600,6 @@ class AegisClient:
             raise AegisTaskError(f"AEGIS task carries an invalid/disagreeing stage {stage!r}")
         if header["type"] not in RUN_KINDS:
             raise AegisTaskError(f"AEGIS task has unsupported type {header['type']!r}")
-        if header["path"] not in {"full", "quick"}:
-            raise AegisTaskError(f"AEGIS task has unsupported path {header['path']!r}")
-        if header["path"] == "quick" and header["type"] not in QUICK_KINDS:
-            raise AegisTaskError("AEGIS quick path is only valid for fix/change tasks")
         if not header["branch"].strip() or any(ord(char) < 32 for char in header["branch"]):
             raise AegisTaskError("AEGIS task branch must be a non-empty safe string")
         step_file = raw.get("step_file")

@@ -341,7 +341,9 @@ test("About shows the logo and version with folded licenses and a What's new win
   const whatsNew = page.getByRole("dialog", { name: "What's new" });
   // Switching views moves focus to the counterpart button so the keyboard stays in the dialog.
   await expect(whatsNew.getByRole("button", { name: "Back", exact: true })).toBeFocused();
-  const releases = about.release_notes as Array<{ version: string; entries: Array<{ category: string; text: { en: string } }> }>;
+  // A release cut leaves an empty Unreleased group, which the window omits.
+  const releases = (about.release_notes as Array<{ version: string; entries: Array<{ category: string; text: { en: string } }> }>)
+    .filter(release => release.entries.length);
   await expect(whatsNew.locator(".release-notes > section > h3").first()).toContainText(releases[0].version === "Unreleased" ? "In development" : releases[0].version);
   await expect(whatsNew.getByRole("heading", { name: { new: "New", improved: "Improved", fixed: "Fixed" }[releases[0].entries[0].category] as string, exact: true }).first()).toBeVisible();
   await expect(whatsNew.getByText(releases[0].entries[0].text.en, { exact: true })).toBeVisible();

@@ -105,7 +105,6 @@
   "workflow.kind_labels",
   "workflow.kind_labels.*",
   "workflow.mode",
-  "workflow.quick_label",
   "workflow.stage_timeout_overrides",
   "workflow.stage_timeout_overrides.*",
   "worktree.branch_rule",

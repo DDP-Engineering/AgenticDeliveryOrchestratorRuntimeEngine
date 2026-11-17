@@ -595,12 +595,6 @@ def run_wizard(
         "maps the created AEGIS task type to change",
         "change", default="change", validate=_require,
     ), asker, out)
-    quick_label = ask(FieldSpec(
-        "quick_label", "Label hinting that frame should consider QUICK:",
-        "a hint only; the frame executor applies AEGIS eligibility and records "
-        "the full/quick justification. Empty disables the hint.",
-        "agent-quick", default="agent-quick",
-    ), asker, out)
 
     # -- Phase G (delivery) -------------------------------------------------------
     reviewers_raw = ask(FieldSpec(
@@ -685,7 +679,6 @@ def run_wizard(
         max_transient_retries=max_transient_retries,
         retry_backoff_seconds=retry_backoff_seconds,
         ready_label=ready_label, fix_label=fix_label, change_label=change_label,
-        quick_label=quick_label,
     )
     if azure:
         for section, values in sections:
@@ -898,8 +891,6 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     }
     if kind_labels != {"bug": "fix", "change": "change"}:
         workflow["kind_labels"] = kind_labels
-    if a["quick_label"] != "agent-quick":
-        workflow["quick_label"] = a["quick_label"]
     if workflow:
         sections.append(("workflow", workflow))
 

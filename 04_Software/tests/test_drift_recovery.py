@@ -495,7 +495,7 @@ def test_deleted_identity_gets_fresh_usage_and_terminal_metrics(tmp_path, monkey
     client = FakeAegis([stage])
     from types import SimpleNamespace
 
-    client.probe = lambda: SimpleNamespace(version="0.15.0", schema=1)
+    client.probe = lambda: SimpleNamespace(version="0.16.0", schema=1)
     client.create_task = lambda *args: task("build").task_id
     monkeypatch.setattr("adore.orchestrator.AegisClient", lambda *args: client)
     # Exercise actual manual admission with injected native resources and executor.

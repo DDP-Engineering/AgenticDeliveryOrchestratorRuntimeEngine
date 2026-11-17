@@ -11,13 +11,13 @@ title = "Validate AEGIS tasks and strict check evidence"
 
 status = "active"
 
-requirement = "The AEGIS client shall validate current task identity, stage/path transitions and internally consistent status/check evidence against its supported protocol contract. Unsupported stages or malformed external documents shall raise typed protocol errors. The conductor shall follow the observed executor-owned journal progression and candidate approval boundary."
+requirement = "The AEGIS client shall validate current task identity, stage transitions along the single frame-to-done stage order and internally consistent status/check evidence against its supported protocol contract. Unsupported stages or malformed external documents shall raise typed protocol errors. The conductor shall follow the observed executor-owned journal progression and candidate approval boundary."
 
-verification = "Exercise task creation/status, permitted forward/backward transitions and strict-check document parsing through injected commands. Refuse unknown stages, wrong task identity, malformed journals and contradictory check counts without treating them as successful execution."
+verification = "Exercise task creation/status for journals with and without a legacy path header line, permitted forward/backward transitions along the single stage order and strict-check document parsing through injected commands. Refuse unknown stages, wrong task identity, malformed journals and contradictory check counts without treating them as successful execution."
 
-affected_paths = ["04_Software/adore/aegis.py", "04_Software/adore/orchestrator.py"]
+affected_paths = ["04_Software/adore/aegis.py", "04_Software/adore/orchestrator.py", "04_Software/adore/state.py"]
 
-linked_tests = ["04_Software/tests/test_aegis_compatibility.py", "04_Software/tests/test_aegis.py::test_task_creation_and_status_are_pinned_and_validated", "04_Software/tests/test_aegis.py::test_task_journal_trust_boundary_fails_closed", "04_Software/tests/test_aegis.py::test_failed_strict_check_is_data_but_contradiction_is_protocol_error", "04_Software/tests/test_aegis.py::test_transition_allowlist", "04_Software/tests/test_orchestrator.py::test_retry_continues_design_return_and_exposes_stage_before_checkpoint", "04_Software/tests/test_orchestrator.py::test_retry_refuses_untrusted_design_return", "04_Software/tests/test_orchestrator.py::test_retry_backward_routes_remain_iteration_bounded", "04_Software/tests/test_aegis.py::test_task_status_accepts_the_0_15_0_stages_and_step_files", "04_Software/tests/test_aegis.py::test_task_status_refuses_an_unknown_stage", "04_Software/tests/test_aegis.py::test_probe_refuses_a_listed_retired_deliver_journal"]
+linked_tests = ["04_Software/tests/test_aegis_compatibility.py", "04_Software/tests/test_aegis.py::test_task_creation_and_status_are_pinned_and_validated", "04_Software/tests/test_aegis.py::test_task_journal_trust_boundary_fails_closed", "04_Software/tests/test_aegis.py::test_failed_strict_check_is_data_but_contradiction_is_protocol_error", "04_Software/tests/test_aegis.py::test_transition_allowlist", "04_Software/tests/test_orchestrator.py::test_retry_continues_design_return_and_exposes_stage_before_checkpoint", "04_Software/tests/test_orchestrator.py::test_retry_refuses_untrusted_design_return", "04_Software/tests/test_orchestrator.py::test_retry_backward_routes_remain_iteration_bounded", "04_Software/tests/test_aegis.py::test_task_status_accepts_the_0_16_0_stages_and_step_files", "04_Software/tests/test_aegis.py::test_task_status_decodes_journals_with_or_without_a_legacy_path_line", "04_Software/tests/test_aegis.py::test_evidenced_jump_accepts_stages_skipped_through_the_cli", "04_Software/tests/test_aegis.py::test_task_status_refuses_an_unknown_stage", "04_Software/tests/test_aegis.py::test_probe_refuses_a_listed_retired_deliver_journal"]
 
 spec = ""
 
@@ -27,4 +27,4 @@ rationale = "The conductor cannot safely act on another task or contradictory go
 
 created = 2026-08-15
 
-updated = 2026-11-15
+updated = 2026-11-16

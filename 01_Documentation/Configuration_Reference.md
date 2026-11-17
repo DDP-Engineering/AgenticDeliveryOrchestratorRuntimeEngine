@@ -244,7 +244,6 @@ precedence, and only the provider's key variable, the web search key (internet o
 mode = "auto"
 default_kind = "feature"
 kind_labels = { bug = "fix", fix = "fix", change = "change" }
-quick_label = "agent-quick"
 aegis_python = "python"
 stage_timeout_overrides = { build = 5400, validate = 3600 }
 ```
@@ -252,7 +251,6 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
 - `default_kind` and mapping values accept `feature`, `fix`, or `change`.
 - Bug/fix labels win over change, configured feature labels follow, and
   `default_kind` is used only when no configured label matches.
-- `quick_label` is only a framing hint. ADORE does not select the path.
 - `aegis_python` is the one-token executable used with `.agentic/aegis.py`.
 - timeout override keys are `frame`, `specify`, `design`, `build`, or
   `validate`; any other key, `deliver` included, fails validation as not an AEGIS stage. Each positive override bounds one executor attempt, replacing the general stage-attempt limit. In the GUI, all five stages offer General or Custom seconds; General removes that stage’s entry.

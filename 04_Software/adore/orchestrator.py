@@ -20,7 +20,7 @@ from uuid import uuid4
 
 from adore import chatgpt, metrics
 from adore.aegis import (
-    FULL_STAGES,
+    ALL_STAGES,
     AegisClient,
     AegisError,
     AegisProtocolError,
@@ -95,7 +95,7 @@ from adore.util import (
     utc_now_iso,
 )
 
-WORKING_STAGES = tuple(stage for stage in FULL_STAGES if stage != "done")
+WORKING_STAGES = tuple(stage for stage in ALL_STAGES if stage != "done")
 RESETTABLE_STAGES = (*WORKING_STAGES, "publishing")
 ACTIVE_LIFECYCLES = {
     "working", "parked-clarification", "awaiting-approval", "publishing", "in-review",
@@ -1637,7 +1637,6 @@ class Orchestrator:
                     return
                 failure_context = _sanitize(exc)
                 continue
-            run.aegis_path = task.path
             previous = run.stage
             if not self._transition_accepted(run, previous, task):
                 return
@@ -1798,7 +1797,6 @@ class Orchestrator:
                 return
             # A validated journal transition is authoritative before Git work:
             # reads and any checkpoint failure must show the stage actually reached.
-            run.aegis_path = updated.path
             self._successful_transition(run, task.stage, updated.stage)
             failure_context = ""
             try:
@@ -1835,15 +1833,14 @@ class Orchestrator:
         task: The task document the journal now reports.
         Returns: True when conduction may continue.
         """
-        if allowed_transition(previous, task.stage, task.path):
+        if allowed_transition(previous, task.stage):
             return True
-        if evidenced_transition(previous, task.stage, task.path, task.log):
+        if evidenced_transition(previous, task.stage, task.log):
             self.store.journal(
                 run.run_id,
                 "stages-run-ahead",
                 previous=previous,
                 current=task.stage,
-                path=task.path,
                 crossed=sorted(logged_stages(task.log)),
             )
             self.log(
@@ -1854,7 +1851,7 @@ class Orchestrator:
         self._fail_immediately(
             run,
             "FORBIDDEN_STAGE_TRANSITION",
-            f"AEGIS moved {previous} -> {task.stage} on {task.path} without a "
+            f"AEGIS moved {previous} -> {task.stage} without a "
             f"journal entry for every stage crossed. `adore retry` will repeat "
             f"this refusal; inspect the journal, then clear it with "
             f"`adore reset {run.run_id} --to <stage> --force`.",
@@ -2037,7 +2034,7 @@ class Orchestrator:
         parts = [
             self.prompts.render("stage/intro.md"),
             self.prompts.render("stage/active-task.md", task_id=task.task_id,
-                                stage=task.stage, path=task.path),
+                                stage=task.stage),
             self.prompts.render("stage/instructions.md"),
             self.prompts.render("stage/journal.md"),
             self.prompts.render("stage/autopilot.md"),
@@ -2050,10 +2047,6 @@ class Orchestrator:
                                          description=ticket.description.strip()))
         if task.stage == "frame":
             parts.append(self.prompts.render("stage/frame.md"))
-            if self.config.workflow.quick_label in ticket.labels:
-                parts.append(self.prompts.render(
-                    "stage/quick-label.md", quick_label=self.config.workflow.quick_label,
-                ))
         if failure_context:
             parts.append(self.prompts.render(
                 "stage/recovery-context.md", context=_sanitize(failure_context),
@@ -2323,7 +2316,6 @@ class Orchestrator:
         return (
             f"{self.identity.tag} Candidate ready for ticket #{ticket.iid}.\n\n"
             f"- AEGIS task: `{run.active_task_id}`\n"
-            f"- Path: `{run.aegis_path}`\n"
             "- AEGIS stage: done (reported by the agent)\n"
             f"- Changed files: {diff_files}\n"
             f"- Deviations recorded: {len(deviations)}\n"
@@ -3445,7 +3437,6 @@ class Orchestrator:
         if task_id is not None:
             run.task_ids.append(task_id)
             run.aegis_type = "change"
-            run.aegis_path = "full"
         run.stage = "build" if run.workflow == "direct" else "frame"
         run.stage_failures = 0
         run.validation_evidence = {}

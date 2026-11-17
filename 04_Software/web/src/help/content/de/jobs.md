@@ -23,13 +23,13 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 
 | Phase | Was geschieht |
 |---|---|
-| Rahmen | Der Umfang wird abgestimmt, und der Executor hält fest, ob der Auftrag den vollen oder den schnellen Pfad nimmt. |
+| Rahmen | Der Umfang wird abgestimmt, und der Executor hält die bestehenden Anforderungen fest, die die Arbeit abdecken. |
 | Spezifikation | Die Anforderung wird geschrieben. |
 | Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |
 | Umsetzung | Der Agent implementiert das Ticket und wählt passende Prüfungen gemäß den Repository-Anweisungen. |
 | Validierung | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |
 
-Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und setzt dasselbe Jobgespräch innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
+Spezifikation und Entwurf können als übersprungen festgehalten werden, wenn bestehende Anforderungen die Arbeit bereits abdecken. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und setzt dasselbe Jobgespräch innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
 ## Direkte Jobs {#direct-evidence}
 

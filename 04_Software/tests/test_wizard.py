@@ -442,26 +442,24 @@ def test_wizard_defaults_omit_the_workflow_section(tmp_path: Path) -> None:
 
 def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
     """
-    Custom ready / fix / change / quick labels land in the config as
+    Custom ready / fix / change labels land in the config as
              the label map ADORE resolves the AEGIS run kind and profile from,
              and the result validates.
     """
     clone = _clone(tmp_path)
     store = ProfileStore(tmp_path / "home")
     answers = _answers(clone, ready_label="ai-ready", fix_label="defect",
-                       change_label="tweak", quick_label="ai-quick")
+                       change_label="tweak")
     run_wizard(store, asker=ScriptedAsker(answers), out=lambda _: None,
                runner=_runner(), os_key="linux", name="p")
     text = store.config_path("p").read_text(encoding="utf-8")
     assert "ready = 'ai-ready'" in text
     assert "'defect' = 'fix'" in text and "'tweak' = 'change'" in text
-    assert "quick_label = 'ai-quick'" in text
 
     config = load_config(store.config_path("p"))
     assert validate_config(config) == []
     assert config.labels.lifecycle.ready == "ai-ready"
     assert config.workflow.kind_labels == {"defect": "fix", "tweak": "change"}
-    assert config.workflow.quick_label == "ai-quick"
 
 
 def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
@@ -523,7 +521,7 @@ def test_wizard_probes_with_effective_interpreter(
             if not available:
                 return CommandResult(exit_code=127, stderr="not found")
             if argv[-1] == "--version":
-                return CommandResult(exit_code=0, stdout="aegis 0.15.2")
+                return CommandResult(exit_code=0, stdout="aegis 0.16.2")
             return CommandResult(exit_code=0, stdout=json.dumps({
                 "schema": 1, "command": "status", "tasks": [], "unreadable": [],
             }))

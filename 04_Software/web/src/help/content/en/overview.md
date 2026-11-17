@@ -9,7 +9,7 @@ ADORE turns a prepared ticket on your code forge into a draft merge request or p
 ADORE watches the projects an administrator has enrolled. When a ticket on the forge (GitHub, GitLab, Gitea or Azure DevOps Services) is prepared for pickup, ADORE starts a **job** for it:
 
 - It runs a coding agent (the executor) in an isolated environment: a dedicated branch, working folder and container.
-- The agent follows the repository's AEGIS workflow one stage at a time: Frame, Specify, Design, Build and Validate. A small change may take a quick path without Specify and Design.
+- The agent follows the repository's AEGIS workflow one stage at a time: Frame, Specify, Design, Build and Validate. Specify and Design may be skipped when existing requirements already cover the change.
 - ADORE observes the result reported by the agent and asks a person to approve the candidate.
 - After approval, ADORE publishes a draft MR/PR for people to review. A project can be set to publish a ready MR/PR instead.
 

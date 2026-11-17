@@ -17,7 +17,7 @@ verification = "Exercise current AEGIS and Direct successful paths, failed attem
 
 affected_paths = ["04_Software/adore/orchestrator.py"]
 
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_approval_drift_requires_new_presentation", "04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_approval_drift_requires_new_presentation", "04_Software/tests/test_orchestrator.py::test_clean_full_and_skipped_stage_journals_stop_for_fresh_approval"]
 
 spec = ""
 
@@ -27,4 +27,4 @@ rationale = "Publication must be candidate-bound and merging remains a human dec
 
 created = 2026-08-15
 
-updated = 2026-11-15
+updated = 2026-11-16

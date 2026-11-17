@@ -137,7 +137,7 @@ commands + `--profile` resolution.
   no greater than 3000 s. Sign-in is owned by the server, not personal Pi auth.
 
 - **Workflow labels:** the wizard asks for the ready label,
-  task-type labels (fix/change), and the quick framing hint, and writes
+  and task-type labels (fix/change), and writes
   non-defaults into `[labels.lifecycle]` and `[workflow]`.
   Accepting every default writes neither table, keeping the emitted config
   minimal. After confirmation and candidate validation, before saving, it

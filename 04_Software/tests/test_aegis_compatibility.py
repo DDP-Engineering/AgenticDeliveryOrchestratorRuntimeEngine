@@ -10,13 +10,13 @@ import pytest
 
 from tests.test_aegis import FakeExec
 
-FIXTURE = Path(__file__).parent / "fixtures/aegis_0_15_0.json"
-LEGACY_FIXTURE = Path(__file__).parent / "fixtures/aegis_0_14_0.json"
+FIXTURE = Path(__file__).parent / "fixtures/aegis_0_16_0.json"
+LEGACY_FIXTURE = Path(__file__).parent / "fixtures/aegis_0_15_0.json"
 
 # PUBLIC CONTRACT TESTS
 
 
-def test_aegis_015_public_cli_is_compatible():
+def test_aegis_016_public_cli_is_compatible():
     """Consume actual new-release responses with the existing typed client."""
     data = json.loads(FIXTURE.read_text(encoding="utf-8"))
     task = data["task_id"]
@@ -33,7 +33,7 @@ def test_aegis_015_public_cli_is_compatible():
         )
     )
     client = AegisClient(runner)
-    assert client.probe().version == "0.15.0"
+    assert client.probe().version == "0.16.0"
     assert client.create_task("Compatibility fixture", "change") == task
     assert client.task_status(task).stage == "frame"
     assert client.task_status(task).stage == "validate"
@@ -45,7 +45,7 @@ def test_aegis_015_public_cli_is_compatible():
 
 
 @pytest.mark.parametrize("change", ["schema", "task", "path", "strict", "counts"])
-def test_aegis_015_corrupt_output_still_fails_closed(change):
+def test_aegis_016_corrupt_output_still_fails_closed(change):
     """Compatibility does not accept corrupt task/check evidence."""
     data = json.loads(FIXTURE.read_text(encoding="utf-8"))
     task = data["task_id"]
@@ -69,11 +69,11 @@ def test_aegis_015_corrupt_output_still_fails_closed(change):
             client.check(task, strict=True, run=True)
 
 
-def test_captured_aegis_014_is_refused_before_status():
+def test_captured_aegis_015_is_refused_before_status():
     """Historical serialization cannot authorize an unsupported stage flow."""
     data = json.loads(LEGACY_FIXTURE.read_text(encoding="utf-8"))
     record = data["records"]["version"]
     runner = FakeExec(CommandResult(exit_code=0, stdout=record["stdout"]))
-    with pytest.raises(AegisProtocolError, match="0.15.0"):
+    with pytest.raises(AegisProtocolError, match="0.16.0"):
         AegisClient(runner).probe()
     assert len(runner.calls) == 1

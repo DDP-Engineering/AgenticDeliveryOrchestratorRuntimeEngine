@@ -49,7 +49,7 @@ A ticket is picked up only when every rule holds. They are checked in this order
 6. It has a priority label: `P1`, `P2` or `P3`. **Require ticket priority label** is on by default.
 7. If **Require ticket acceptance criteria** is on, the description contains the words acceptance criteria (any case) or an unchecked task item, `- [ ]`. This check is off by default.
 
-Optional labels shape the job: `bug` or `fix` makes a fix task, `change` a change task, and any other ticket a feature task. `agent-quick` is only a hint; the executor decides between the full and quick path and records why.
+Optional labels shape the job: `bug` or `fix` makes a fix task, `change` a change task, and any other ticket a feature task.
 
 ## Reviewing and starting tickets {#tickets-view}
 
@@ -88,7 +88,7 @@ HTML stays visible as text, not executable content. Only absolute http, https an
 1. Create all nine labels in the forge repository.
 2. For automatic pickup, check that Monitoring is Active; for manual Start, it may stay Paused.
 3. Write a clear title and a description with acceptance criteria.
-4. Add a priority label, and optionally `bug`, `fix`, `change` or `agent-quick`.
+4. Add a priority label, and optionally `bug`, `fix` or `change`.
 5. Add `agent-ready` last.
 6. Wait for the next check, or press **Read tickets** and **Start**.
 7. Follow the job in [Job lifecycle](/help/jobs). Terms are in the [Glossary](/help/glossary).

@@ -4,4 +4,4 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
-Select and justify full or quick in the AEGIS journal.
+When existing requirements already cover the work, record their IDs on the journal's `requirements:` line.

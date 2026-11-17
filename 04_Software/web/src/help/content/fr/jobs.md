@@ -23,13 +23,13 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 
 | Étape | Ce qui se passe |
 |---|---|
-| Cadrage | Le périmètre est convenu et l’exécuteur consigne si la tâche suit le chemin complet ou le chemin rapide. |
+| Cadrage | Le périmètre est convenu et l’exécuteur consigne les exigences existantes qui couvrent le travail. |
 | Spécification | L’exigence est rédigée. |
 | Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |
 | Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |
 | Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
 
-Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans la même conversation du travail, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
+Spécification et Conception peuvent être consignées comme ignorées lorsque des exigences existantes couvrent déjà le travail. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans la même conversation du travail, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
 ## Travaux directs {#direct-evidence}
 

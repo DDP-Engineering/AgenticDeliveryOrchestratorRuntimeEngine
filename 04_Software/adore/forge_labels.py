@@ -47,7 +47,6 @@ def project_labels(config: Config) -> list[LabelSpec]:
         (labels.selection.type_bug, _TYPE, "Type: bug fix"),
         (config.delivery.approval_label, _REVIEW, "ADORE: a person approved publication"),
         (config.review.revise_label, _REVIEW, "ADORE: revise the merge request"),
-        (config.workflow.quick_label, _TYPE, "ADORE: suggest the quick path"),
         *(
             (name, _TYPE, f"ADORE task type: {kind}")
             for name, kind in sorted(config.workflow.kind_labels.items())

@@ -107,7 +107,7 @@ def test_blocked_executor_keeps_scoped_settings_and_peer_execution_independent(
         state = StateStore(alpha.store_root)
         run = state.load(picked_a["run_id"])
         assert run.lifecycle == "awaiting-approval" and run.workflow == workflow
-        assert run.iterations == (3 if workflow == "aegis" else 1)
+        assert run.iterations == (5 if workflow == "aegis" else 1)
         if workflow == "aegis":
             assert run.validation_evidence["source"] == "agent-aegis-journal"
         else:

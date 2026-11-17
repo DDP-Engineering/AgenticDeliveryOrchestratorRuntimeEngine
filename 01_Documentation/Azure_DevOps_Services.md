@@ -122,7 +122,7 @@ changes native state automatically.
 | Signal | Azure resource | Owner |
 | --- | --- | --- |
 | `agent-ready`, `agent-hold`, `no-agent` | Work Item tags | Human pickup/hold/exclusion. Hold/exclude always win. |
-| `P1`, `P2`, `P3`, `bug`, kind/quick labels | Work Item tags | Human priority/type/workflow hints. |
+| `P1`, `P2`, `P3`, `bug`, kind labels | Work Item tags | Human priority/type hints. |
 | `agent-working`, `agent-clarify`, `agent-mr`, `agent-failed`, `agent-done` | Work Item tags | ADORE status; do not use these as approval. |
 | `agent-answered` | Work Item tag, with discussion answer | Human clarification resume. |
 | `agent-approved` | Work Item tag | Fresh human approval of the exact presented candidate/target. |

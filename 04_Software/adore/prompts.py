@@ -29,7 +29,6 @@ FRAGMENTS = (
     "stage/completion.md",
     "stage/single-stage.md",
     "stage/frame.md",
-    "stage/quick-label.md",
     "stage/recovery-context.md",
     "stage/human-thread.md",
     "stage/packages-enabled.md",

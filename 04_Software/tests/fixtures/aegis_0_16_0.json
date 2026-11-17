@@ -1,0 +1,74 @@
+{
+  "provenance": {
+    "version": "0.16.0",
+    "payload_ref": "AEGIS repository master at 636c606 (template/.agentic, AEGIS 0.16.0)",
+    "cli_sha256": "fbff99e9ab3876f0fb8d3c747822a611f8f85795e26852e80ef8bfe5c573b9e0",
+    "capture": "Actual managed CLI in automatically cleaned temporary Git repository. Stage changed for serialization capture; verification runs only python -V, not a product suite."
+  },
+  "task_id": "TASK-b20ef0ab",
+  "journal": "# TASK-b20ef0ab - Compatibility fixture\n\nstage: frame\ntype: change\ninteraction: checkpoint\nrequirements:\nparent:\nbranch: master\nbase: a8d6a4e0bd2693ca6c76482fba2b37f4d5d4e35a\nopened: 2026-11-16\n\nEdit Frame, Requirement coverage and Design directly. Write State, Log and\nRulings with `python .agentic/aegis.py` (advance, pause, log, ruling, verdict);\nend each session with `advance` or `pause`.\n\n## Done checklist (current stage)\n\n- [ ] Frame states problem, outcome, actors, scenario, scope, examples,\n      constraints, success signals, evidence and unknowns\n- [ ] material claims labelled stated, observed, inferred or unknown\n- [ ] decision-blocking questions answered or asked\n- [ ] covering requirements named on the `requirements:` line, when they exist\n- [ ] the journal's `branch:` matches the current checkout\n- [ ] proposed behaviors serve the desired outcome and success signals\n- [ ] scope accepted by the user (checkpoint) or recorded (autopilot)\n\n## Frame\n\nProblem:\nDesired outcome:\nActors:\nPrimary scenario:\nExamples:\nCounterexamples:\nIn scope:\nOut of scope:\nConstraints:\nSuccess signals:\nEvidence:\nAssumptions:\nUnknowns:\nDecision-blocking questions:\nProposed behaviors:\n\n## Requirement coverage\n\n\n## Design\n\n\n## Log\n\n- 2026-11-16 frame: journal opened\n\n## Rulings\n\n\n## State\n\nstatus: working\nreported: frame - in_progress\nnext: complete the Frame card and choose the path\nmust_read: .agentic/tasks/TASK-b20ef0ab.md, .agentic/steps/1_frame.md\nchanged:\nevidence:\nissues:\nspec_compliance: disabled\nimplementation_quality: disabled\nreview_round:\n",
+  "records": {
+    "version": {
+      "argv": [
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "aegis 0.16.0\n",
+      "stderr": ""
+    },
+    "create": {
+      "argv": [
+        "task",
+        "Compatibility fixture",
+        "--type",
+        "change"
+      ],
+      "exit_code": 0,
+      "stdout": ".agentic/tasks/TASK-b20ef0ab.md\n",
+      "stderr": ""
+    },
+    "list": {
+      "argv": [
+        "status",
+        "--all",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"status\",\n  \"tasks\": [\n    {\n      \"id\": \"TASK-b20ef0ab\",\n      \"title\": \"Compatibility fixture\",\n      \"file\": \".agentic/tasks/TASK-b20ef0ab.md\",\n      \"stage\": \"frame\",\n      \"type\": \"change\",\n      \"branch\": \"master\"\n    }\n  ],\n  \"hidden_done\": 0,\n  \"unreadable\": []\n}\n",
+      "stderr": ""
+    },
+    "frame": {
+      "argv": [
+        "status",
+        "TASK-b20ef0ab",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"status\",\n  \"task\": {\n    \"id\": \"TASK-b20ef0ab\",\n    \"title\": \"Compatibility fixture\",\n    \"file\": \".agentic/tasks/TASK-b20ef0ab.md\",\n    \"header\": {\n      \"stage\": \"frame\",\n      \"type\": \"change\",\n      \"interaction\": \"checkpoint\",\n      \"requirements\": \"\",\n      \"parent\": \"\",\n      \"branch\": \"master\",\n      \"base\": \"a8d6a4e0bd2693ca6c76482fba2b37f4d5d4e35a\",\n      \"opened\": \"2026-11-16\"\n    },\n    \"stage\": \"frame\",\n    \"step_file\": \"1_frame.md\",\n    \"done\": false,\n    \"checklist\": [\n      {\n        \"done\": false,\n        \"item\": \"Frame states problem, outcome, actors, scenario, scope, examples, constraints, success signals, evidence and unknowns\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"material claims labelled stated, observed, inferred or unknown\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"decision-blocking questions answered or asked\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"covering requirements named on the `requirements:` line, when they exist\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"the journal's `branch:` matches the current checkout\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"proposed behaviors serve the desired outcome and success signals\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"scope accepted by the user (checkpoint) or recorded (autopilot)\"\n      }\n    ],\n    \"components\": [],\n    \"log\": [\n      \"2026-11-16 frame: journal opened\"\n    ]\n  }\n}\n",
+      "stderr": ""
+    },
+    "validate": {
+      "argv": [
+        "status",
+        "TASK-b20ef0ab",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"status\",\n  \"task\": {\n    \"id\": \"TASK-b20ef0ab\",\n    \"title\": \"Compatibility fixture\",\n    \"file\": \".agentic/tasks/TASK-b20ef0ab.md\",\n    \"header\": {\n      \"stage\": \"validate\",\n      \"type\": \"change\",\n      \"interaction\": \"checkpoint\",\n      \"requirements\": \"\",\n      \"parent\": \"\",\n      \"branch\": \"master\",\n      \"base\": \"a8d6a4e0bd2693ca6c76482fba2b37f4d5d4e35a\",\n      \"opened\": \"2026-11-16\"\n    },\n    \"stage\": \"validate\",\n    \"step_file\": \"5_validate.md\",\n    \"done\": false,\n    \"checklist\": [\n      {\n        \"done\": false,\n        \"item\": \"Frame states problem, outcome, actors, scenario, scope, examples, constraints, success signals, evidence and unknowns\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"material claims labelled stated, observed, inferred or unknown\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"decision-blocking questions answered or asked\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"covering requirements named on the `requirements:` line, when they exist\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"the journal's `branch:` matches the current checkout\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"proposed behaviors serve the desired outcome and success signals\"\n      },\n      {\n        \"done\": false,\n        \"item\": \"scope accepted by the user (checkpoint) or recorded (autopilot)\"\n      }\n    ],\n    \"components\": [],\n    \"log\": [\n      \"2026-11-16 frame: journal opened\"\n    ]\n  }\n}\n",
+      "stderr": ""
+    },
+    "check": {
+      "argv": [
+        "check",
+        "--task",
+        "TASK-b20ef0ab",
+        "--strict",
+        "--run",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"check\",\n  \"task\": \"TASK-b20ef0ab\",\n  \"findings\": [\n    {\n      \"level\": \"WARN\",\n      \"check\": \"journal-header\",\n      \"path\": \".agentic/tasks/TASK-b20ef0ab.md\",\n      \"message\": \"stale state: current stage changed; refresh it with aegis.py pause or advance\"\n    },\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"repo-evolution\",\n      \"path\": \".agentic/tasks/TASK-b20ef0ab.md\",\n      \"message\": \"no anchor recorded for task\"\n    },\n    {\n      \"level\": \"WARN\",\n      \"check\": \"scope-drift\",\n      \"path\": \".agentic/tasks/TASK-b20ef0ab.md\",\n      \"message\": \"validate diff touches no linked requirement\"\n    },\n    {\n      \"level\": \"WARN\",\n      \"check\": \"outside-layout\",\n      \"path\": \".gitignore\",\n      \"message\": \"outside source/tests/docs globs and .agentic/\"\n    }\n  ],\n  \"summary\": {\n    \"errors\": 0,\n    \"warnings\": 3,\n    \"notes\": 1\n  },\n  \"result\": \"WARN\",\n  \"run\": [\n    {\n      \"name\": \"test\",\n      \"status\": \"ok\",\n      \"exit\": 0,\n      \"seconds\": 0.1,\n      \"tail\": [\n        \"Python 3.12.10\"\n      ]\n    }\n  ],\n  \"dry_run\": false,\n  \"strict\": {\n    \"enabled\": true,\n    \"promoted_warnings\": 0,\n    \"passed\": true\n  }\n}\n",
+      "stderr": "run: test started\nrun: test ok (0.1s)\n"
+    }
+  }
+}
