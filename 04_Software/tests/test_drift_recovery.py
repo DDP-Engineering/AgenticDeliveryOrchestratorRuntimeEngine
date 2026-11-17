@@ -305,7 +305,7 @@ def test_owned_native_cleanup_does_not_require_current_tools_or_backend(
 @pytest.mark.parametrize("fault", ["none", "foreign-mount", "foreign-member", "appeared"])
 def test_container_release_uses_actual_owned_ids_independently_of_egress(tmp_path, runtime, fault):
     """Old proxy policy and resource-name races never authorize foreign destruction."""
-    from adore.branding import CONTAINER_IO_MOUNT, CONTAINER_REPO_MOUNT, CONTAINER_WORKTREE_MOUNT
+    from adore.branding import CONTAINER_GIT_MOUNT, CONTAINER_IO_MOUNT, CONTAINER_WORKTREE_MOUNT
     from adore.isolation import ContainerManager
     from adore.util import CommandResult
 
@@ -322,7 +322,7 @@ def test_container_release_uses_actual_owned_ids_independently_of_egress(tmp_pat
             "Name": "/" + name,
             "Image": "b" * 64,
             "Mounts": [
-                mount(repo, CONTAINER_REPO_MOUNT),
+                mount(repo / ".git", CONTAINER_GIT_MOUNT),
                 mount(work, CONTAINER_WORKTREE_MOUNT),
                 mount(io, CONTAINER_IO_MOUNT),
             ],
@@ -665,6 +665,25 @@ def test_restart_retains_only_an_unpublished_unproven_old_ref(tmp_path, monkeypa
     result = engine.restart(run.run_id, revision)
     assert result["unproven_branch_retained"] is True
     assert not removed and not engine.store.exists(run.run_id)
+
+
+def test_restart_workflow_refusal_precedes_destructive_cleanup(tmp_path, monkeypatch):
+    """A replacement that could not be admitted leaves the stopped job in place."""
+    from adore.aegis import AegisError
+
+    engine, run, *_ = prepare(tmp_path, monkeypatch)
+
+    def refuse(mode="auto"):
+        raise AegisError("AEGIS 0.1.0 is unsupported")
+
+    monkeypatch.setattr(engine, "_probe_repository_payload", refuse)
+    revision = sha256((engine.store.run_dir(run.run_id) / "state.json").read_bytes()).hexdigest()
+
+    result = engine.restart(run.run_id, revision)
+
+    assert result["picked"] is None and result["start_reason"] == "workflow_unavailable"
+    assert engine.store.exists(run.run_id)
+    assert engine.store.load(run.run_id).lifecycle == run.lifecycle
 
 
 def test_restart_naming_rule_failure_precedes_destructive_cleanup(tmp_path, monkeypatch):

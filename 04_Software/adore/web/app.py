@@ -104,7 +104,12 @@ from adore.util import (
     strict_json_loads,
 )
 from adore.web import analytics
-from adore.web.configuration import ConfigurationTasks, effect_guard, probe_timeout
+from adore.web.configuration import (
+    QUEUED_ACTOR,
+    ConfigurationTasks,
+    effect_guard,
+    probe_timeout,
+)
 from adore.web.environment import EnvironmentError, EnvironmentPreparation
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
@@ -197,6 +202,75 @@ _STORE_ERROR_CODES = {
 }
 _HTTP_ERROR_CODES = {404: "not_found", 405: "method_not_allowed"}
 _HTTP_FALLBACK_CODE = "request_failed"
+# The largest legitimate body is an executor recipe archive sent as base64 next to
+# a configuration text. Sign-in and password requests carry two short strings and
+# are reachable before authentication, so they get a much smaller bound.
+_MAX_BODY_BYTES = MAX_ARCHIVE_BYTES * 4 // 3 + 2 * MAX_SOURCE_BYTES + 1024 * 1024
+_MAX_ACCOUNT_BODY_BYTES = 64 * 1024
+_ACCOUNT_BODY_PATHS = frozenset({"/api/v1/session", "/api/v1/me/password"})
+
+
+class _BodyLimit:
+    """
+    Refuse a request body above its route's bound with 413 before it is buffered.
+    A declared Content-Length is refused at once. A body without one is counted as
+    it arrives; past the bound the handler sees a disconnect and the client gets 413.
+    """
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        limit = (_MAX_ACCOUNT_BODY_BYTES if scope["path"] in _ACCOUNT_BODY_PATHS
+                 else _MAX_BODY_BYTES)
+        declared = dict(scope["headers"]).get(b"content-length")
+        if declared is not None:
+            try:
+                oversized = int(declared) > limit
+            except ValueError:
+                oversized = True
+            if oversized:
+                await self._refuse(send)
+                return
+        received = 0
+        exceeded = refused = False
+
+        async def bounded_receive():
+            nonlocal received, exceeded
+            if exceeded:
+                return {"type": "http.disconnect"}
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    exceeded = True
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def guarded_send(message) -> None:
+            nonlocal refused
+            if not exceeded:
+                await send(message)
+            elif not refused:
+                refused = True
+                await self._refuse(send)
+
+        await self.app(scope, bounded_receive, guarded_send)
+        if exceeded and not refused:
+            await self._refuse(send)
+
+    @staticmethod
+    async def _refuse(send) -> None:
+        body = json.dumps({"detail": {"code": "request_too_large"}}).encode()
+        await send({"type": "http.response.start", "status": 413, "headers": [
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(body)).encode()),
+            (b"connection", b"close"),
+        ]})
+        await send({"type": "http.response.body", "body": body})
 _PROFILE_ERROR_CODES = {
     "invalid_project_name": "invalid_project_name",
     "reserved_project_name": "invalid_project_name",
@@ -294,8 +368,8 @@ class UserWithAccess(Credentials):
 class PasswordChange(BaseModel):
     """Authenticated own-password change input."""
 
-    current: str
-    replacement: str
+    current: str = Field(max_length=1024)
+    replacement: str = Field(max_length=1024)
 
 
 class PasswordReset(BaseModel):
@@ -2871,6 +2945,7 @@ def create_app(home: str | Path | None = None,
     chatgpt_lock = Lock()
     chatgpt_pending: dict[str, chatgpt.SignIn | None] = {"session": None}
     app = FastAPI(title="ADORE", version=__version__, docs_url=None, redoc_url=None)
+    app.add_middleware(_BodyLimit)
     app.state.web_store = web
     app.state.profiles = profiles
     app.state.configuration_tasks = configuration
@@ -3087,11 +3162,12 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/session")
     def login(body: Credentials, response: Response, request: Request) -> dict:
         client = request.client.host if request.client else "unknown"
-        if not web.allow_login(body.username, client):
+        # The attempt is counted before the slow password check, so parallel
+        # requests cannot all pass the limit first. Success clears the count.
+        if not web.reserve_login(body.username, client):
             raise _error(429, "login_rate_limited")
         user = web.authenticate(body.username, body.password)
         if user is None:
-            web.record_login(body.username, client, success=False)
             raise _error(401, "invalid_credentials")
         web.record_login(body.username, client, success=True)
         token, csrf = web.create_session(user["id"])
@@ -3533,7 +3609,15 @@ def create_app(home: str | Path | None = None,
         Returns: Allowlisted rules and exact source revision only.
         Raises HTTPException: Missing, changed, incompatible or corrupt source.
         """
-        user = admin_mutation(mutation(request, principal(account_principal(request))))
+        queued = request.scope.get(QUEUED_ACTOR)
+        if queued is not None:
+            # Run by the configuration worker: no session travels with a queued
+            # request, so the actor the worker rechecked is held to the same rules.
+            user = administrator(principal(queued))
+            if user.get("disabled"):
+                raise _error(401, "authentication_required")
+        else:
+            user = admin_mutation(mutation(request, principal(account_principal(request))))
         if ((body.method == "file" and (body.file_text is None or body.source_id is not None))
                 or (body.method == "project"
                     and (body.source_id is None or body.file_text is not None))):

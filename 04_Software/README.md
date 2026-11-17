@@ -9,7 +9,7 @@ Key components:
 - `adore/orchestrator.py` - task-journal conductor, bounded recovery, outbox,
   validation, approval, publication and review;
 - `adore/state.py` - closed schema-1 state plus append-only JSONL audit;
-- `adore/forge/` - GitHub/GitLab/Gitea tickets, comments, labels and draft
+- `adore/forge/` - GitHub, GitLab, Gitea and Azure DevOps Services tickets, comments, labels and draft
   MR/PR operations, deliberately without merge;
 - `adore/isolation.py` - worktrees, local checkpoints, fingerprints,
   Docker/Podman lifecycle and executor command seam;

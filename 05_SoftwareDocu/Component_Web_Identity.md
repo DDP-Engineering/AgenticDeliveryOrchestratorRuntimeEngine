@@ -165,7 +165,7 @@ account-scoped and survive reopening the store.
 ## 6. Data Contracts
 
 Roles are `admin` and `developer`. Operations are `start`, `retry`, `cancel`,
-`pause`, `resume` and `delete` with `pending`, `running`, `succeeded`, `failed`,
+`restart`, `pause`, `resume` and `delete` with `pending`, `running`, `succeeded`, `failed`,
 or `uncertain` status. Every operation carries an immutable project ID; one
 without it is corrupt.
 `(actor_id, idempotency_key)` is unique. Login failures are keyed by hashed

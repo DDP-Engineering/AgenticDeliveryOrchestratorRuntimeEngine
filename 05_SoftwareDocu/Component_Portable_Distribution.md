@@ -180,6 +180,6 @@ renamed README.md in the archive. `create_delivery_package.copy_user_documentati
 a fixed three-file allowlist and refuses missing/linked required sources before
 staging. Internal code style, implementation references and the operator quick
 reference remain repository material. The full four-locale interface
-help remains in the compiled app. `test_delivery_package` checks exact inventory and all
+help remains in the compiled app. `verify_delivery_package.py` checks exact inventory and all
 relative guide links in each actual archive; Tools unit tests cover extra and
 missing/linked inputs.

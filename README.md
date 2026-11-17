@@ -106,8 +106,8 @@ adore --profile my-project run --once
 `adore init` is a guided setup that probes the host tools and the target
 repository's AEGIS payload when present and writes a validated profile. Without
 it, setup reports: "No AEGIS found: tickets run in the direct workflow".
-Web enrollment still requires AEGIS in this build; enroll AEGIS-free projects
-through CLI/configuration. Label a small ticket
+Web enrollment and CLI setup both accept repositories with or without AEGIS.
+Label a small ticket
 `agent-ready` with a priority such as `P2`, run one supervised poll, review the
 presented evidence, add `agent-approved`, and poll again to see the draft MR/PR
 open. Unattended operation on Ubuntu (systemd) or Windows 11 (Task Scheduler)

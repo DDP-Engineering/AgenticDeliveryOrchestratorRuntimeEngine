@@ -14,7 +14,7 @@ Current plans:
   implemented persistent context (TASK-1d2c5b87), with existing ADORE stage controls and
   conditional independent AEGIS reviews, without a convergence controller.
 - [Explicit workflow selection for each job](2026-11-15_Explicit_Job_Workflow_Implementation_Plan.md):
-  planned project defaults and a per-job choice of AEGIS or Direct, including
+  implemented project defaults and a per-job choice of AEGIS or Direct, including
   Direct execution in repositories that contain AEGIS.
 
 Current user and technical documentation lives in

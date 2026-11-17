@@ -1,6 +1,6 @@
 # AGENTS.md - ADORE
 
-Shared repository instructions. `claude.md` and `QWEN.md` only link here.
+Shared repository instructions. `claude.md` and `QWEN.md` link here and repeat only the managed AEGIS block.
 A deeper AGENTS.md overrides this file for its subtree. User instructions take precedence.
 
 ## Scope and reading

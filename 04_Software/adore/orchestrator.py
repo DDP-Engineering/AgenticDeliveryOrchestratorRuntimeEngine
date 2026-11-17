@@ -86,10 +86,12 @@ from adore.state import (
 )
 from adore.util import (
     CommandResult,
+    UnsafeFileError,
     in_quiet_hours,
     iso_to_datetime,
     load_env_file,
     output_tail,
+    read_agent_file,
     run_command,
     strict_json_loads,
     utc_now_iso,
@@ -101,11 +103,16 @@ ACTIVE_LIFECYCLES = {
     "working", "parked-clarification", "awaiting-approval", "publishing", "in-review",
 }
 _REDACTIONS = (
-    re.compile(r"(?i)(authorization\s*[:=]\s*)(\S+)"),
+    # The value is usually "<scheme> <credential>": redacting one word would keep
+    # the credential. Quotes cover a header printed as JSON.
+    re.compile(r"(?i)(authorization[\"']?\s*[:=]\s*[\"']?)"
+               r"(?:(?:bearer|basic|token|digest)\s+)?\S+"),
+    re.compile(r"(?i)(\bbearer\s+)[A-Za-z0-9._~+/=-]{16,}"),
     re.compile(r"(?i)(token\s*[:=]\s*)(\S+)"),
     re.compile(r"(?i)(api[_-]?key\s*[:=]\s*)(\S+)"),
 )
 _MAX_EVIDENCE = 6000
+_MAX_QUESTIONS_BYTES = 1024 * 1024
 # Executor stderr shown with NO_STAGE_PROGRESS: the decisive line is usually the last.
 _STDERR_TAIL_LINES = 20
 _STDERR_TAIL_CHARS = 2000
@@ -741,6 +748,15 @@ class Orchestrator:
             selected = run.branch
         else:
             selected = self.worktrees.fresh_branch(base, validate=self._valid_admission_branch)
+        # The replacement's admission probes the repository workflow. Run that
+        # refusal now: after the deletion below the stopped job cannot be recovered.
+        try:
+            self._probe_repository_payload(
+                requested_workflow(self.config.workflow.mode, workflow))
+        except AegisError as exc:
+            self.log(f"restart {run_id} refused before cleanup: {_sanitize(exc)}")
+            return {"picked": None, "start_reason": "workflow_unavailable",
+                    "payload_error": _sanitize(exc)}
         cleanup = {"retain_history": True} if preserve else {}
         retained = self.delete(run_id, owned_resources=True, retain_unpublished=True, **cleanup)
         lifecycle = self.config.labels.lifecycle
@@ -1359,9 +1375,15 @@ class Orchestrator:
         comments = self.forge.list_comments(ticket.iid)
         run.last_seen_comment_id = max((item.id for item in comments), default=None)
         self._allocate_worktree(run)
-        run.workflow = self._resolve_workflow(run.worktree, mode)
-        run.stage = "frame" if run.workflow == "aegis" else "build"
-        self.store.save(run)
+        try:
+            run.workflow = self._resolve_workflow(run.worktree, mode)
+            run.stage = "frame" if run.workflow == "aegis" else "build"
+            self.store.save(run)
+        except Exception:
+            # No state names this worktree yet. Left behind, it would make every
+            # later admission of the ticket fail on an existing path.
+            self._discard_unadmitted_worktree(run)
+            raise
         self.store.save_ticket(run_id, self._ticket_snapshot(ticket))
         self.store.save_dispatch(run_id, self.configuration_revision())
         self.store.journal(run_id, "picked", ticket=ticket.iid, title=ticket.title)
@@ -1725,6 +1747,10 @@ class Orchestrator:
                     self._publish(run, ticket)
                 return
             if task.stage == "validate" and not self._integrate_target(run):
+                # False also means the integration already failed the run. Launching
+                # again would overwrite that failure with a second, unrelated one.
+                if run.lifecycle != "working":
+                    return
                 failure_context = self.prompts.render("recovery/integration-conflict.md")
             try:
                 progress_before = self.worktrees.worktree_progress_fingerprint(run.run_id)
@@ -2478,7 +2504,7 @@ class Orchestrator:
         Push the approved candidate and open or adopt its MR/PR.
         Direct adoption/revision refreshes the description before review;
                     a failed write retains publication retry authority, not success.
-                    AEGIS 0.15.0 closes the task in validate, so publication is
+                    AEGIS closes the task in validate, so publication is
                     Git and forge work only: no executor session and no AEGIS
                     command runs during publication. The approval or automatic
                     freshness check verifies target and candidate before the call.
@@ -3079,7 +3105,13 @@ class Orchestrator:
     # Poll reconciliation, clarification and review
 
     def _reconcile_runs(self, summary: dict[str, Any]) -> None:
-        """Give every nonterminal state one bounded next action."""
+        """
+        Give every nonterminal state one bounded next action.
+        A run whose own state or resources cannot be trusted is left exactly
+                    as it is: nothing about it is guessed, repaired or discarded.
+                    It is logged and named in summary["reconcile_failed"], and
+                    neither the runs after it nor new admissions wait for it.
+        """
         for candidate in self.store.list_runs():
             if self.store.owns_run_lock(candidate.run_id):
                 continue
@@ -3090,6 +3122,9 @@ class Orchestrator:
                     self._reconcile_one(self.store.load(candidate.run_id), summary)
             except LockHeldError:
                 continue
+            except (StateError, IsolationError) as exc:
+                self.log(f"reconcile error ({candidate.run_id}): {_sanitize(exc)}")
+                summary.setdefault("reconcile_failed", []).append(candidate.run_id)
 
     def _reconcile_one(self, run: RunState, summary: dict[str, Any]) -> None:
         """Advance one exclusively owned lifecycle and its notifications."""
@@ -3576,10 +3611,16 @@ class Orchestrator:
     def _read_questions(self, run: RunState) -> str:
         """Read and remove the executor question handoff file."""
         path = Path(run.worktree) / self.questions_file
-        if not path.is_file():
-            return ""
         try:
-            text = path.read_text(encoding="utf-8")
+            content = read_agent_file(path, _MAX_QUESTIONS_BYTES)
+            if content is None:
+                return ""
+            text = content.decode("utf-8")
+        except UnsafeFileError:
+            # The text is posted on the ticket. A link here could point at any file
+            # of the ADORE account, so its target is never read or named.
+            path.unlink(missing_ok=True)
+            return "Unable to read questions file: it is not a plain regular file."
         except (OSError, UnicodeError) as exc:
             return f"Unable to read questions file: {exc}"
         path.unlink(missing_ok=True)
@@ -3681,6 +3722,18 @@ class Orchestrator:
             }
         except (PreparationError, OSError, TypeError, ValueError) as exc:
             raise ExecutionRecoveryError(str(exc)) from exc
+
+    def _discard_unadmitted_worktree(self, run: RunState) -> None:
+        """
+        Remove the worktree and branch this admission just created.
+        Both are new and unpublished, so nothing else can own them. A failed
+                    removal is logged and left for `adore cleanup`; the admission
+                    error that led here is the one the caller reports.
+        """
+        try:
+            self.worktrees.remove(run.run_id, delete_branch=run.branch)
+        except IsolationError as exc:
+            self.log(f"unadmitted worktree of {run.run_id} was not removed: {_sanitize(exc)}")
 
     def _allocate_worktree(self, run: RunState) -> Path:
         """Allocate the exact pinned snapshot without saving a provisional workflow."""

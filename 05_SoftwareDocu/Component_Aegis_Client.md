@@ -55,7 +55,7 @@ and Python runtime.
 
 ## 5. Data Contracts
 
-- supported version: a supported `aegis` version;
+- supported version: `aegis` 0.x from 0.16.0;
 - supported JSON schema: integer `1`;
 - task ids: `TASK-<hex>` and exact `.agentic/tasks/<id>.md` path;
 - repository status-list stages: the six conducted stages and the adoption

@@ -107,8 +107,9 @@ Preparation remains optional. Replaced resources or stable policy drift require
 explicit recovery or a fresh job; a stored job never receives a guessed plan.
 
 Reusing a repository container requires its current
-`io.ddp.adore.git-binding=pointer-v1` label and intact saved Git pointer. A missing,
-empty or unknown label is refused with the exact container name. After confirming
+`io.ddp.adore.git-binding=pointer-v2` label and intact saved Git pointer. A missing,
+empty or unknown label is refused with the exact container name; that includes a
+container created by an earlier build, which still mounts the whole clone. After confirming
 that the container is no longer running active work, remove that named container
 manually and start a fresh job. ADORE does not relabel, convert or delete it
 automatically. Preserve worktrees and evidence while diagnosing the refusal.

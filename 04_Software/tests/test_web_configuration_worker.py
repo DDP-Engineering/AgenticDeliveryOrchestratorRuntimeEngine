@@ -258,7 +258,11 @@ def test_queued_actor_revocation_fails_without_credential_disclosure(tmp_path):
                 [tuple(row) for row in connection.execute("SELECT * FROM audit")]
             )
         protected = app.state.configuration_tasks.directory / (record["run_id"] + ".request.json")
-        assert secret in protected.read_text()
+        stored = protected.read_text()
+        assert secret in stored
+        # The session that proved the submission is never written to the queue.
+        assert headers["X-CSRF-Token"] not in stored
+        assert all(value not in stored for value in client.cookies.values())
         other = web.create_user("other_admin", "longer-password", "admin")
         web.disable_user(record["actor_id"], actor_id=other["id"])
         worker = ConfigurationWorker(app.state.configuration_tasks)

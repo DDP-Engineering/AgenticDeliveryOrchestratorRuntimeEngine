@@ -1,4 +1,4 @@
-"""Git-platform adapter subpackage (GitLab/GitHub/Gitea behind one interface)."""
+"""Forge adapters (GitLab, GitHub, Gitea, Azure DevOps Services) behind one interface."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def build_forge(
 ) -> Forge:
     """
     Construct the configured Git-platform adapter.
-    kind: Platform kind ("gitlab" | "github" | "gitea").
+    kind: Platform kind ("gitlab" | "github" | "gitea" | "azure_devops").
     repo: Repository path/slug for the platform CLI.
     runner: Command runner (injectable for tests).
     login: tea login name ([platform] login); gitea only.

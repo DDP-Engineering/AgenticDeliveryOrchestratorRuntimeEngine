@@ -16,6 +16,9 @@ PROCESS_LOG_FILE = "adore.log"
 CONTAINER_USER = "adore"
 CONTAINER_HOME = "/home/adore"
 CONTAINER_REPO_MOUNT = "/adore/repo"
+# Only the clone's Git metadata is mounted. Its checkout stays on the host, where
+# ADORE runs code from it, so no container may be able to write it.
+CONTAINER_GIT_MOUNT = f"{CONTAINER_REPO_MOUNT}/.git"
 CONTAINER_WORKTREE_MOUNT = "/adore/work"
 CONTAINER_IO_MOUNT = "/adore/io"
 CONTAINER_UV_CACHE_MOUNT = f"{CONTAINER_HOME}/.cache/uv"

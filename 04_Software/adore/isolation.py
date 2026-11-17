@@ -18,6 +18,7 @@ import time
 from uuid import uuid4
 
 from adore.branding import (
+    CONTAINER_GIT_MOUNT,
     CONTAINER_HOME,
     CONTAINER_IO_MOUNT,
     CONTAINER_NPM_CACHE_MOUNT,
@@ -60,7 +61,9 @@ _NETWORK_NAME_LIMIT = 48
 _NAME_DIGEST_LENGTH = 10
 _GIT_SELECTION_ENV = frozenset({"GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE"})
 _GIT_BINDING_LABEL = "io.ddp.adore.git-binding"
-_GIT_BINDING_VERSION = "pointer-v1"
+# Names the mount layout a container was created with. v2 mounts only the clone's
+# `.git`; a container that still carries the whole clone (v1) is refused, not reused.
+_GIT_BINDING_VERSION = "pointer-v2"
 _GIT_BINDING_ACK = "adore-git-binding-v1"
 _GIT_BINDING_CHECK = (
     'test -z "${GIT_DIR+x}${GIT_COMMON_DIR+x}${GIT_WORK_TREE+x}" && '
@@ -339,6 +342,25 @@ def _admit_git_pointer(path: Path, payload: bytes, *, create: bool = False) -> N
                 raise IsolationError("container Git pointer evidence is corrupt")
     except OSError as exc:
         raise IsolationError("container Git pointer evidence unavailable or corrupt") from exc
+
+
+def _require_plain_git_dir(path: Path) -> None:
+    """
+    Refuse clone metadata that is not a plain directory before mounting it.
+    A `.git` file marks a linked worktree or submodule and a link aliases
+                another location; neither is the clone's own metadata. A missing
+                entry is left to the runtime, which reports it.
+    path: The clone's `.git` entry on the host.
+    Raises IsolationError: For a file, link, reparse point or unreadable entry.
+    """
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise IsolationError("repository clone Git directory is unavailable") from exc
+    if not stat.S_ISDIR(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+        raise IsolationError("repository clone needs a plain .git directory")
 
 
 class SuspiciousCheckpointPathError(IsolationError):
@@ -1509,7 +1531,7 @@ class ContainerManager:
         proxy_name = self._proxy_name(name)
         proxy = inspect_container(proxy_name)
         if executor:
-            mounts_match(executor, [(CONTAINER_REPO_MOUNT, repo),
+            mounts_match(executor, [(CONTAINER_GIT_MOUNT, Path(repo) / ".git"),
                                    (CONTAINER_WORKTREE_MOUNT, worktree), (CONTAINER_IO_MOUNT, io)])
             if expected and (executor["Id"] != expected.get("container_id")
                              or executor.get("Image") != expected.get("image_id")):
@@ -1813,8 +1835,10 @@ class ContainerManager:
                     so Windows-side secret values cross into the WSL process
                     (wsl.exe does not forward arbitrary env vars otherwise).
         name: Container name ("<slug>-run-<run-id>").
-        repo_path: Host path of the local clone (mounted at
-                              /adore/repo; needed for the shared object store).
+        repo_path: Host path of the local clone. Only its `.git` directory
+                              is mounted (at /adore/repo/.git, for the shared
+                              object store). The checkout stays on the host: ADORE
+                              runs code from it, so a container must not write it.
         worktree_path: Host path of the run worktree (mounted at
                               /adore/work, the container working dir).
         io_path: Host path of the run's io exchange dir (mounted
@@ -1832,13 +1856,16 @@ class ContainerManager:
         state = self.status(name)
         git_payload = _git_binding_payload(env)
         git_pointer = Path(io_path) / "container.git"
+        git_dir = Path(repo_path) / ".git"
+        if state == "absent":
+            _require_plain_git_dir(git_dir)
         if git_payload is not None and state != "absent":
             self._require_git_binding_label(name)
             _admit_git_pointer(git_pointer, git_payload)
         owned_id = name
         if state != "absent":
             identity = self.resource_identity(name, bindings={
-                CONTAINER_REPO_MOUNT: Path(repo_path),
+                CONTAINER_GIT_MOUNT: git_dir,
                 CONTAINER_WORKTREE_MOUNT: Path(worktree_path),
                 CONTAINER_IO_MOUNT: Path(io_path),
             })
@@ -1861,7 +1888,7 @@ class ContainerManager:
             *self.runtime_argv, "run", "--detach", *self.run_args,
             *(["--pull=never"] if self.pull_never else []),
             "--name", name,
-            "--volume", self._bind_mount(repo_path, CONTAINER_REPO_MOUNT),
+            "--volume", self._bind_mount(git_dir, CONTAINER_GIT_MOUNT),
             "--volume", self._bind_mount(worktree_path, CONTAINER_WORKTREE_MOUNT),
             "--volume", self._bind_mount(io_path, CONTAINER_IO_MOUNT),
             "--volume", f"{self.uv_cache_volume}:{CONTAINER_UV_CACHE_MOUNT}",

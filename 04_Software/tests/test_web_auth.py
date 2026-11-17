@@ -226,6 +226,109 @@ def test_login_failure_window_is_bounded(tmp_path):
     assert store.allow_login("admin", "another-client")
 
 
+def test_sign_in_attempts_are_counted_before_the_password_check(tmp_path):
+    """Five attempts are admitted per identity and client; success clears the count."""
+    store = WebStore(tmp_path / "web.db")
+    assert [store.reserve_login("admin", "local") for _ in range(6)] == [True] * 5 + [False]
+    assert store.reserve_login("admin", "another-client")
+    store.record_login("admin", "local", success=True)
+    assert store.reserve_login("admin", "local")
+
+
+def test_one_client_cannot_try_many_user_names(tmp_path):
+    """A wider window counts one client across names; other clients are unaffected."""
+    store = WebStore(tmp_path / "web.db")
+    admitted = [store.reserve_login(f"guess-{index}", "local") for index in range(31)]
+    assert admitted == [True] * 30 + [False]
+    assert not store.reserve_login("admin", "local")
+    assert store.reserve_login("admin", "another-client")
+
+
+def test_successful_sign_ins_do_not_use_up_the_client_window(tmp_path):
+    """Many people behind one address can sign in without locking each other out."""
+    store = WebStore(tmp_path / "web.db")
+    for index in range(40):
+        assert store.reserve_login(f"user-{index}", "shared-address")
+        store.record_login(f"user-{index}", "shared-address", success=True)
+
+
+def test_sign_in_route_limits_wrong_passwords_and_recovers_after_success(tmp_path):
+    """The sixth wrong password from one client is refused with 429."""
+    with TestClient(create_app(tmp_path / "home")) as client:
+        wrong = {"username": "admin", "password": "not-the-password"}
+        assert [client.post("/api/v1/session", json=wrong).status_code
+                for _ in range(6)] == [401] * 5 + [429]
+        refused = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        assert refused.json()["detail"]["code"] == "login_rate_limited"
+    with TestClient(create_app(tmp_path / "other")) as client:
+        wrong = {"username": "admin", "password": "not-the-password"}
+        assert client.post("/api/v1/session", json=wrong).status_code == 401
+        assert client.post("/api/v1/session", json={
+            "username": "admin", "password": "admin"}).status_code == 200
+        assert [client.post("/api/v1/session", json=wrong).status_code
+                for _ in range(5)] == [401] * 5
+
+
+def test_ended_login_failure_windows_and_expired_sessions_are_removed(tmp_path):
+    """Guessed names and old sessions cannot grow the identity store without bound."""
+    store = WebStore(tmp_path / "web.db")
+    admin = store.authenticate("admin", "admin")
+    expired, _ = store.create_session(admin["id"])
+    for name in ("guess-one", "guess-two"):
+        store.record_login(name, "local", success=False)
+    with sqlite3.connect(store.path) as connection:
+        connection.execute("UPDATE login_failures SET window_started='2000-01-01T00:00:00+00:00'")
+        connection.execute("UPDATE sessions SET expires_at='2000-01-01T00:00:00+00:00'")
+    connection.close()
+
+    store.record_login("guess-three", "local", success=False)
+    current, _ = store.create_session(admin["id"])
+
+    with sqlite3.connect(store.path) as connection:
+        failures = connection.execute("SELECT COUNT(*) FROM login_failures").fetchone()[0]
+        sessions = connection.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+    connection.close()
+    assert (failures, sessions) == (1, 1)
+    assert store.session_user(expired) is None
+    assert store.session_user(current)["username"] == "admin"
+
+
+@pytest.mark.parametrize("path", ["/api/v1/session", "/api/v1/me/password"])
+def test_account_routes_refuse_an_oversized_body_before_reading_it(tmp_path, path):
+    """A sign-in or password request above its small bound gets 413, signed in or not."""
+    with TestClient(create_app(tmp_path / "home")) as client:
+        refused = client.post(path, content=b"x" * (64 * 1024 + 1),
+                              headers={"content-type": "application/json"})
+        assert refused.status_code == 413
+        assert refused.json() == {"detail": {"code": "request_too_large"}}
+        assert client.post("/api/v1/session", json={
+            "username": "admin", "password": "admin"}).status_code == 200
+
+
+def test_a_body_without_a_declared_length_is_bounded_while_it_arrives(tmp_path):
+    """Chunked uploads are counted, so omitting Content-Length is no way around the bound."""
+    def chunks():
+        for _ in range(9):
+            yield b"x" * 8192
+
+    with TestClient(create_app(tmp_path / "home")) as client:
+        refused = client.post("/api/v1/session", content=chunks(),
+                              headers={"content-type": "application/json"})
+        assert refused.status_code == 413
+        assert refused.json() == {"detail": {"code": "request_too_large"}}
+
+
+def test_own_password_change_bounds_both_passwords(tmp_path):
+    """A password above the accepted length is refused before it is hashed."""
+    with TestClient(create_app(tmp_path / "home")) as client:
+        csrf = client.post("/api/v1/session", json={
+            "username": "admin", "password": "admin"}).json()["csrf"]
+        refused = client.post("/api/v1/me/password", headers={"X-CSRF-Token": csrf},
+                              json={"current": "admin", "replacement": "p" * 1025})
+        assert refused.status_code == 422
+        assert refused.json()["detail"]["code"] == "invalid_request"
+
+
 def test_sessions_and_disabled_accounts(tmp_path):
     """Sessions can be revoked and disabled users cannot sign in."""
     store = WebStore(tmp_path / "web.db")

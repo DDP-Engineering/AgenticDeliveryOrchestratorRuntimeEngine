@@ -77,8 +77,11 @@ These operations run after the executor has settled.
 
 ## Container contract
 
-Fixed mounts are repository → /adore/repo, worktree → /adore/work, run IO →
-/adore/io, uv cache → /home/adore/.cache/uv and npm cache → /home/adore/.npm.
+Fixed mounts are the clone's `.git` directory → /adore/repo/.git, worktree →
+/adore/work, run IO → /adore/io, uv cache → /home/adore/.cache/uv and npm cache →
+/home/adore/.npm. The clone's checkout is never mounted: ADORE runs the AEGIS
+companion from it on the host, so no container may write it. A `.git` entry that
+is a file, link or reparse point is refused before anything is created.
 IO is outside the candidate worktree. Runtime-project images supply the reviewed
 toolchain. Shared named caches survive job cleanup.
 
@@ -101,9 +104,10 @@ image/runtime selector defaults are cleared. Native Git therefore honors cwd,
 selector absence and actual discovery.
 
 Repository container reuse requires the creation label
-io.ddp.adore.git-binding=pointer-v1, the exact saved pointer and runtime confirmation.
-Missing, empty, null or unknown labels are refused before starting or executing
-anything in the container. The error names the container to delete before a fresh
+io.ddp.adore.git-binding=pointer-v2, the exact saved pointer and runtime confirmation.
+The label names the mount layout: a container labelled pointer-v1 still mounts the
+whole clone. Missing, empty, null or unknown labels are refused before starting or
+executing anything in the container. The error names the container to delete before a fresh
 job. ADORE never relabels, converts, removes or replaces it automatically. Containers
 without repository Git metadata, such as isolated diagnostic helpers, have no
 repository pointer to validate.
@@ -161,8 +165,10 @@ Known transient WSL bind teardown failures get bounded retries; unrelated Git
 errors fail immediately. Busy/foreign/corrupt evidence is preserved. Active,
 failed and human-owned resources are protected by conductor lifecycle/run locks.
 
-The repository object store is writable inside a container because commits need
-it; a malicious executor could damage the local clone. The guard and absence of
+The clone's Git metadata is writable inside a container because Git in the worktree
+needs the shared object store. A malicious executor can therefore still alter the
+refs, objects, hooks and Git settings that the host's own Git commands read. The
+checkout of the clone is out of its reach. The guard and absence of
 injected forge credentials are not a general host-security sandbox. Native jobs
 have the server account's permissions. Runtime CPU/RAM restrictions use explicit
 run_args; this component does not infer them from observed resource use.

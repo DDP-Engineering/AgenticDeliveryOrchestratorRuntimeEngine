@@ -211,6 +211,11 @@ def _load(args: argparse.Namespace) -> Config | None:
     except tomllib.TOMLDecodeError as exc:
         print(f"error: {path} is not valid TOML: {exc}")
         return None
+    except (TypeError, AttributeError) as exc:
+        # Names are derived while loading; a value of the wrong TOML type fails there.
+        print(f"error: {path} has a setting of the wrong TOML type: {exc}")
+        print("hint: compare it with the Configuration Reference")
+        return None
     if profile:
         with contextlib.suppress(ProfileError):
             store.touch(profile)

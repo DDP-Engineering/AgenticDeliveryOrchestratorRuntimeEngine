@@ -159,7 +159,7 @@ def test_normal_provision_resumes_a_confirmed_timeout_resource(tmp_path):
     assert target(["work"]).timed_out
     runtime.bindings = [{"Type": "bind", "Destination": destination,
                          "Source": str(path).replace("\\", "/")}
-                        for destination, path in [("/adore/repo", tmp_path),
+                        for destination, path in [("/adore/repo/.git", tmp_path / ".git"),
                                                   ("/adore/work", tmp_path),
                                                   ("/adore/io", tmp_path / "io")]]
     assert backend.provision(NAME, tmp_path, tmp_path, tmp_path / "io", {}) == "started"

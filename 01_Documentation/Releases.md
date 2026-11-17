@@ -49,12 +49,12 @@ Keep unrelated local work. No command below commits, tags, pushes, deploys or ru
 
 ```text
 python 02_Tools/package/set_version.py --check
-python 02_Tools/package/set_version.py 0.19.0 --dry-run
-python 02_Tools/package/set_version.py 0.19.0
+python 02_Tools/package/set_version.py X.Y.Z --dry-run
+python 02_Tools/package/set_version.py X.Y.Z
 python 02_Tools/package/release_checks/check_release_notes.py
 ```
 
-Replace the example with the intended higher version; use `--date YYYY-MM-DD` for an explicit
+Replace `X.Y.Z` with the intended version, which must be higher than the current one; use `--date YYYY-MM-DD` for an explicit
 release date. The tool validates current metadata and all planned replacements before writing;
 each file is replaced atomically. An IO failure is reported and may leave an incomplete cut:
 inspect the listed source files and run `--check` after correcting it. There is no stored-data repair.

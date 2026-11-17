@@ -165,7 +165,7 @@ with session/browser fixture consumers. They do not depend on planning documents
 
 ## Limitations
 
-Retained evidence is bounded; truncation is explicit. Sessions are not resumed
-across stages, and raw conversations may contain sensitive agent output. RPC
+Retained evidence is bounded; truncation is explicit. A job's private Pi
+session is resumed across its stages; probes outside a job start without one. Raw conversations may contain sensitive agent output. RPC
 acknowledgement proves instruction receipt, not completed implementation. Lifecycle,
 publication authority and operator cleanup remain conductor responsibilities.

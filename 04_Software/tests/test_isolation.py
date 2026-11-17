@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 from adore.config import EgressPolicy
 from adore.isolation import (
+    CONTAINER_GIT_MOUNT,
     CONTAINER_IO_MOUNT,
     CONTAINER_REPO_MOUNT,
     CONTAINER_WORKTREE_MOUNT,
@@ -74,7 +75,7 @@ def owned_container_receipt(manager, name, repo, worktree, io):
                           "Mounts": [{"Type": "bind", "Destination": destination,
                                       "Source": manager._mount_source(path)}
                                      for destination, path in [
-                                         (CONTAINER_REPO_MOUNT, repo),
+                                         (CONTAINER_GIT_MOUNT, Path(repo) / ".git"),
                                          (CONTAINER_WORKTREE_MOUNT, worktree),
                                          (CONTAINER_IO_MOUNT, io)]]}]))
 
@@ -392,7 +393,7 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
     assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in env_values
     assert "UV_LINK_MODE=copy" in env_values
     assert "HOME" not in env_values  # bare key would take the WSL user's HOME
-    assert f"{(tmp_path / 'repo').as_posix()}:{CONTAINER_REPO_MOUNT}" in run_argv
+    assert f"{(tmp_path / 'repo' / '.git').as_posix()}:{CONTAINER_GIT_MOUNT}" in run_argv
     assert f"{io_dir.as_posix()}:{CONTAINER_IO_MOUNT}" in run_argv
     assert io_dir.is_dir()  # created on demand
     assert "uv-cache:/home/adore/.cache/uv" in run_argv
@@ -445,11 +446,58 @@ def test_container_provision_relabels_only_bind_mounts_for_selinux(
     run_argv = runner.calls[1]
     mounts = [run_argv[index + 1] for index, part in enumerate(run_argv[:-1])
               if part == "--volume"]
-    assert f"{(tmp_path / 'repo').as_posix()}:{CONTAINER_REPO_MOUNT}:z" in mounts
+    assert f"{(tmp_path / 'repo' / '.git').as_posix()}:{CONTAINER_GIT_MOUNT}:z" in mounts
     assert f"{(tmp_path / 'wt').as_posix()}:{CONTAINER_WORKTREE_MOUNT}:z" in mounts
     assert f"{io_dir.as_posix()}:{CONTAINER_IO_MOUNT}:z" in mounts
     assert "uv-cache:/home/adore/.cache/uv" in mounts
     assert "npm-cache:/home/adore/.npm" in mounts
+
+
+def test_container_provision_never_mounts_the_clone_checkout(tmp_path: Path) -> None:
+    """
+    Only the clone's Git metadata enters a container. The host runs code
+             from the clone's checkout, so no container may be able to write it.
+    """
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    runner = FakeRunner(_fail("No such container"), _ok("cid"))
+    _manager(runner).provision("c", repo, tmp_path / "wt", tmp_path / "io", {})
+    run_argv = runner.calls[1]
+    mounts = [run_argv[index + 1] for index, part in enumerate(run_argv[:-1])
+              if part == "--volume"]
+    assert f"{(repo / '.git').as_posix()}:{CONTAINER_GIT_MOUNT}" in mounts
+    assert not any(mount.startswith(f"{repo.as_posix()}:") for mount in mounts)
+    assert not any(mount.endswith(f":{CONTAINER_REPO_MOUNT}")
+                   or f":{CONTAINER_REPO_MOUNT}:" in mount for mount in mounts)
+
+
+def test_container_provision_refuses_a_clone_whose_git_entry_is_a_file(tmp_path: Path) -> None:
+    """
+    A `.git` file marks a linked worktree or submodule, not the clone's own
+             metadata; it is refused before the runtime creates anything.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+    runner = FakeRunner(_fail("No such container"))
+    with pytest.raises(IsolationError, match="plain .git directory"):
+        _manager(runner).provision("c", repo, tmp_path / "wt", tmp_path / "io", {})
+    assert len(runner.calls) == 1  # the status probe only
+    assert not (tmp_path / "io").exists()
+
+
+def test_container_provision_refuses_a_linked_git_directory(
+    tmp_path: Path, symlink_support: None
+) -> None:
+    """A linked `.git` aliases another location and is refused the same way."""
+    repo, elsewhere = tmp_path / "repo", tmp_path / "elsewhere"
+    repo.mkdir()
+    elsewhere.mkdir()
+    (repo / ".git").symlink_to(elsewhere, target_is_directory=True)
+    runner = FakeRunner(_fail("No such container"))
+    with pytest.raises(IsolationError, match="plain .git directory"):
+        _manager(runner).provision("c", repo, tmp_path / "wt", tmp_path / "io", {})
+    assert len(runner.calls) == 1  # the status probe only
 
 
 def test_container_proxy_config_mount_combines_ro_and_relabel(
@@ -1277,7 +1325,7 @@ def test_container_mount_sources_are_always_absolute(
     runner = FakeRunner(_fail("No such container"), _ok("cid"))
     _manager(runner).provision("c", "repo", "wt", ".adore/runs/x/io", {})
     run_argv = runner.calls[1]
-    assert f"{(tmp_path / 'repo').as_posix()}:{CONTAINER_REPO_MOUNT}" in run_argv
+    assert f"{(tmp_path / 'repo' / '.git').as_posix()}:{CONTAINER_GIT_MOUNT}" in run_argv
     assert f"{(tmp_path / '.adore/runs/x/io').as_posix()}:{CONTAINER_IO_MOUNT}" in run_argv
     assert not any(part.startswith(".adore") for part in run_argv)
 
@@ -1337,7 +1385,7 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
         {"GIT_DIR": "/adore/repo/.git/worktrees/x", "ANTHROPIC_API_KEY": "sk-secret"},
     )
     run_argv = runner.calls[1]
-    assert f"/mnt/d/repos/runtime-project:{CONTAINER_REPO_MOUNT}" in run_argv
+    assert f"/mnt/d/repos/runtime-project/.git:{CONTAINER_GIT_MOUNT}" in run_argv
     assert f"/mnt/d/adore/worktrees/x:{CONTAINER_WORKTREE_MOUNT}" in run_argv
     assert f"{wsl_mount_path(io_dir)}:{CONTAINER_IO_MOUNT}" in run_argv
     env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])

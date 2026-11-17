@@ -121,9 +121,12 @@ records, logs or Test AI connection results.
 
 `[executor] env_keys` lists additional secrets Pi receives besides the
 provider's key; most projects need none. Only those names and the provider's
-variable reach the executor container. ADORE rejects known forge credential
-names (`GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`, `GITEA_TOKEN`,
-and `TEA_TOKEN`) in `env_keys`. The executor prompt also forbids commit, push,
+variable reach the executor container. ADORE rejects every variable a forge CLI
+reads a credential from in `env_keys`, in any letter case: `GITHUB_TOKEN`,
+`GH_TOKEN`, `GH_ENTERPRISE_TOKEN`, `GITHUB_ENTERPRISE_TOKEN`, `GITLAB_TOKEN`,
+`GLAB_TOKEN`, `GITLAB_ACCESS_TOKEN`, `OAUTH_TOKEN`, `GITEA_TOKEN`, `TEA_TOKEN`,
+`AZURE_DEVOPS_EXT_PAT`, `AZURE_DEVOPS_EXT_PAT_VAR` and `AZURE_CONFIG_DIR`. The
+executor prompt also forbids commit, push,
 MR/PR creation, merge, and creating AEGIS child task journals (`task --parent`)
 outside the single pinned task. ADORE alone creates local checkpoint commits and
 performs remote publication after fingerprint-bound human approval when configured, or after automatic freshness checks when approval is disabled.
@@ -281,7 +284,7 @@ clone/push credentials remain separately configured on the host. GUI web login
 and forge account login are separate. Reconnect to rotate; revoke old tokens on
 the forge. OAuth applications and forge passwords are not supported by this form.
 
-repository-auth.json is a strict scope-bound secret beside config, with POSIX0600
+repository-auth.json is a strict scope-bound secret beside config, with POSIX 0600
 permissions; Windows installations require restricted profile-home ACLs. Backups
 contain the file and require equal protection. Tokens do not enter argv, API
 responses, browser storage, config/portable export, audit or executor environments.

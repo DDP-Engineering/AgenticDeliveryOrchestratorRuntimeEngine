@@ -28,7 +28,7 @@ Abandoning a failed generation pins admission to that generation even while olde
 cancelled executions remain; a retained predecessor link is restored after cleanup.
 
 Lifecycle is separate from stage: working, parked-clarification,
-awaiting-approval, publishing, in-review, failed, done, cancelled,
+awaiting-approval, publishing, in-review, failed, done, cancelled, stale,
 handoff-pending and handed-off. AEGIS follows its one stage order;
 Direct uses build, conductor-owned validate and done, with no AEGIS task IDs.
 The publishing reset pointer is not an executor stage.

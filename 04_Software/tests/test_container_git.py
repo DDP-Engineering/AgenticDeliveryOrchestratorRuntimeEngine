@@ -109,7 +109,7 @@ def test_fresh_git_container_mounts_native_pointer_and_clears_selection(
     assert pointer.read_bytes() == b"gitdir: /adore/repo/.git/worktrees/run-1\n"
     created = runner.calls[1]
     assert f"{pointer.as_posix()}:/adore/work/.git:ro" in created
-    assert "io.ddp.adore.git-binding=pointer-v1" in created
+    assert "io.ddp.adore.git-binding=pointer-v2" in created
     env_values = [created[i + 1] for i, part in enumerate(created[:-1]) if part == "--env"]
     for key in ("GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE"):
         assert key in env_values  # Docker bare-key removal overrides image defaults.
@@ -276,20 +276,22 @@ def test_git_binding_rejects_link_evidence_before_open(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("status", ["running", "exited"])
-@pytest.mark.parametrize("mode", ["missing", "pointer"])
+@pytest.mark.parametrize("mode", ["missing", "previous", "pointer"])
 def test_git_binding_warm_reuse_requires_current_binding(tmp_path, status, mode):
     """
     Warm recovery requires the current binding without changing resources.
     tmp_path: Isolated IO root.
     status: Observed owned resource state.
-    mode: Current or missing creation-time binding label.
+    mode: Current, missing or previous creation-time binding label. A previous
+          label marks a container that still mounts the whole clone.
     """
     io = tmp_path / "io"
     io.mkdir()
     if mode == "pointer":
         (io / "container.git").write_bytes(b"gitdir: /adore/repo/.git/worktrees/run-1\n")
     replies = [CommandResult(stdout=status), CommandResult(
-        stdout='"pointer-v1"' if mode == "pointer" else
+        stdout='"pointer-v2"' if mode == "pointer" else
+        '"pointer-v1"' if mode == "previous" else
         "null" if status == "running" else '""')]
     if status == "exited":
         replies.append(CommandResult())
@@ -300,7 +302,7 @@ def test_git_binding_warm_reuse_requires_current_binding(tmp_path, status, mode)
 
     runner.results.insert(2, owned_container_receipt(
         manager, "c", tmp_path / "repo", tmp_path / "work", io))
-    if mode == "missing":
+    if mode != "pointer":
         with pytest.raises(IsolationError, match="container 'c'.*delete that container"):
             manager.provision("c", tmp_path / "repo", tmp_path / "work", io,
                               build_container_env("run-1", "Bot", "bot@example.test"))
@@ -359,7 +361,7 @@ def test_git_binding_new_mode_requires_saved_pointer_before_start(tmp_path):
     Missing current pointer data refuses reuse before starting a container.
     tmp_path: Isolated IO root without saved pointer evidence.
     """
-    runner = FakeRunner(CommandResult(stdout="exited"), CommandResult(stdout='"pointer-v1"'),
+    runner = FakeRunner(CommandResult(stdout="exited"), CommandResult(stdout='"pointer-v2"'),
                         CommandResult())
     manager = ContainerManager("docker", "test-image", "uv", "npm", runner)
     with pytest.raises(IsolationError):

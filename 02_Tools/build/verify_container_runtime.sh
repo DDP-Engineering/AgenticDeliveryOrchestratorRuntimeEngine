@@ -210,7 +210,7 @@ export GIT_AUTHOR_NAME="ADORE" GIT_AUTHOR_EMAIL="adore-bot@local"
 export GIT_COMMITTER_NAME="ADORE" GIT_COMMITTER_EMAIL="adore-bot@local"
 "${RT[@]}" run --detach ${EXTRA_RUN_ARGS[@]+"${EXTRA_RUN_ARGS[@]}"} \
     --name "${NAME}" \
-    --volume "${SCRATCH}/repo:/adore/repo${BIND_SUFFIX}" \
+    --volume "${SCRATCH}/repo/.git:/adore/repo/.git${BIND_SUFFIX}" \
     --volume "${SCRATCH}/work:/adore/work${BIND_SUFFIX}" \
     --volume "${SCRATCH}/io:/adore/io${BIND_SUFFIX}" \
     --volume "${VOL_UV}:/home/adore/.cache/uv" \
@@ -228,6 +228,11 @@ export GIT_COMMITTER_NAME="ADORE" GIT_COMMITTER_EMAIL="adore-bot@local"
 # host-side git checks below do not inherit GIT_DIR=/adore/... themselves.
 unset GIT_DIR GIT_WORK_TREE GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL \
       GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
+
+# The host runs code from the clone's checkout, so a container must not see it.
+step "only the clone's .git is mounted, never its checkout"
+[ "$("${RT[@]}" exec "${NAME}" ls -A /adore/repo)" = ".git" ] \
+    && ok || bad "clone checkout is visible inside the container"
 
 # 6-8. identity + env contract (verify with printenv, never $VAR expansion -
 #      the HOME/tflint live lesson)

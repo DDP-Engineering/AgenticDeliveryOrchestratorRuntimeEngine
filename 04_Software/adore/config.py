@@ -69,10 +69,14 @@ _SHELL_CONTROL_CHARS = frozenset("|&;<>")
 #: Environment names of the coding agents ADORE no longer supports; Pi is the
 #: only one. A variable with one of these prefixes is refused, not ignored.
 REMOVED_AGENT_ENV_PREFIXES = ("OPENCODE_", "CODEX_", "QWEN_")
-_FORGE_CREDENTIAL_ENV = frozenset({
+#: Every variable a forge CLI reads a credential from. One list serves both the
+#: `env_keys` refusal here and the scrubbing of forge CLI environments, so a
+#: name known to one cannot be missing from the other.
+FORGE_CREDENTIAL_ENV = frozenset({
     "AZURE_DEVOPS_EXT_PAT", "AZURE_DEVOPS_EXT_PAT_VAR", "AZURE_CONFIG_DIR",
-    "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "GLAB_TOKEN", "GITEA_TOKEN",
-    "TEA_TOKEN",
+    "GITHUB_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
+    "GITLAB_TOKEN", "GLAB_TOKEN", "GITLAB_ACCESS_TOKEN", "OAUTH_TOKEN",
+    "GITEA_TOKEN", "TEA_TOKEN",
 })
 #: Accepted `[container] selinux_relabel` values, mapped to the per-mount
 #: option each one appends to ADORE's host bind mounts. "shared" appends `z`,
@@ -1055,6 +1059,28 @@ def validate_budgets(config: Config) -> list[str]:
 
 def validate_config(config: Config) -> list[str]:
     """
+    Validate a Config and always answer with issues, never with a traceback.
+    A section that is not a TOML table would be read as all defaults, so it
+                is reported first and nothing else is judged. A value of the
+                wrong TOML type makes a later comparison fail; that failure is
+                reported as an issue naming the cause.
+    config: The configuration to validate.
+    Returns: Empty list when valid; otherwise one message per issue.
+    """
+    not_tables = sorted(name for name, value in config.raw.items()
+                        if name in KNOWN_SECTIONS and not isinstance(value, dict))
+    if not_tables:
+        return [f"[{name}] must be a table of settings, not a single value"
+                for name in not_tables]
+    try:
+        return _config_issues(config)
+    except (TypeError, AttributeError) as exc:
+        return ["a setting has the wrong TOML type (text, number, true/false or list): "
+                f"{exc}; compare config.toml with the Configuration Reference"]
+
+
+def _config_issues(config: Config) -> list[str]:
+    """
     Validate a Config and return a list of human-readable issues.
     Structural and cross-field checks per Configuration_Reference:
                 enum values, positive bounds, parseable durations, and a
@@ -1140,10 +1166,11 @@ def validate_config(config: Config) -> list[str]:
             f'[polling] quiet_hours entries must look like "22:00-06:00": {window!r}',
         )
 
+    forge_keys = sorted(name for name in config.executor.env_keys
+                        if str(name).upper() in FORGE_CREDENTIAL_ENV)
     check(
-        not (_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys)),
-        "[executor] env_keys must not expose forge credentials to executors: "
-        f"{sorted(_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys))}",
+        not forge_keys,
+        f"[executor] env_keys must not expose forge credentials to executors: {forge_keys}",
     )
     issues.extend(_provider_issues(config))
     check(config.clarification.max_rounds >= 1, "[clarification] max_rounds must be >= 1")
@@ -1287,7 +1314,7 @@ def validate_config(config: Config) -> list[str]:
               "[local] [container] runtime_env is unsupported")
         check(all(not str(name).upper().startswith(("PI_", "NODE_", "NPM_", "PYTHON", "GIT_",
                                                    "LD_", "DYLD_"))
-                  and str(name).upper() not in _FORGE_CREDENTIAL_ENV | {
+                  and str(name).upper() not in FORGE_CREDENTIAL_ENV | {
                       "PATH", "HOME", "USERPROFILE", "COMSPEC", "SYSTEMROOT",
                       "BASH_ENV", "ENV", "SSH_AUTH_SOCK", "SSH_AGENT_PID",
                   }

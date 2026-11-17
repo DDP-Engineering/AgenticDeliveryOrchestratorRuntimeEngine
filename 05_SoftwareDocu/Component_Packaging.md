@@ -99,8 +99,9 @@ Windows uses Task Scheduler, with the default loop starting at logon and an
 optional periodic once mode. Preparation-only and explicit uninstall are supported.
 Uninstall retains run state, worktrees, containers and other operator data.
 
-Installers validate the source layout/configuration and provision the web Python
-extra. Forge preflight also accepts Azure CLI when the official `azure-devops`
+Installers validate the source layout/configuration and run `uv sync --frozen`,
+which provisions the base dependencies only; the web Python extra comes from
+`setup_development_environment.py`. Forge preflight also accepts Azure CLI when the official `azure-devops`
 extension is installed; otherwise it prints the installation command. Azure
 Services requires externally provisioned host authentication and explicit
 organization/project/repository/Area Path scope. No credentials are installed

@@ -130,6 +130,18 @@ def test_cli_config_validate_reports_issues(
     assert "[platform] kind" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize("setting", [
+    '[polling]\npoll_interval_seconds = "60"\n', "[agent]\nname = 5\n",
+])
+def test_cli_config_validate_reports_a_wrong_type_without_a_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], setting: str,
+) -> None:
+    """A value of the wrong TOML type ends in a message and exit 1."""
+    path = _config_file(tmp_path, VALID_CONFIG + "\n" + setting)
+    assert main(["-c", path, "config", "validate"]) == EXIT_ERROR
+    assert "wrong TOML type" in capsys.readouterr().out
+
+
 def test_cli_missing_config_is_a_clean_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

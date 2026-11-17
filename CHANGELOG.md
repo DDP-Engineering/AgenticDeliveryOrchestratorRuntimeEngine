@@ -5,6 +5,51 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: run containers receive only the project clone's `.git` directory.**
+  The clone's checkout is no longer mounted, so a job cannot change files that
+  ADORE runs on the host. A container created by an earlier build is refused:
+  finish or cancel active jobs and remove their containers before starting this build.
+
+### Fixed
+
+- A target integration that already failed a job no longer starts the agent once
+  more; the job keeps its integration failure code and one terminal comment.
+- An admission refused after its worktree was created removes that worktree and
+  branch, so the ticket can be admitted again without manual cleanup.
+- `adore init` for Azure DevOps Services records the real host operating system
+  and probes container runtimes for it.
+- `[executor] env_keys` refuses every forge CLI credential variable, in any letter
+  case, including `GH_ENTERPRISE_TOKEN`, `GITHUB_ENTERPRISE_TOKEN`,
+  `GITLAB_ACCESS_TOKEN` and `OAUTH_TOKEN`.
+- The web service refuses a request body above its bound with `request_too_large`
+  (413) before buffering it: 64 KiB for sign-in and own-password requests, about
+  26 MiB elsewhere. Own-password values are limited to 1024 characters.
+- Ended sign-in failure windows and expired sessions are removed from the identity
+  store, which no longer grows with every guessed user name.
+- The regeneration hint written by `adore init` names a command that exists.
+- A questions file or AEGIS exchange output that is a link, a second name of
+  another file or not a regular file is refused and never read; a ticket comment
+  can no longer carry the content of a file of the ADORE account.
+- Queued configuration requests no longer store the session cookie or CSRF token.
+  The worker acts as the recorded actor, whose rights it rechecks before any effect.
+- Sign-in attempts are counted before the password is checked, so parallel requests
+  cannot exceed five attempts per identity and client in ten minutes.
+- Files ADORE writes into a job's exchange directory refuse a planted link or a
+  second name of another file instead of overwriting what it points at.
+- Restart reports an unusable repository workflow before it removes the stopped
+  job, which stays in place.
+- One client is limited to 30 unsuccessful sign-in attempts in ten minutes across
+  all user names; successful sign-ins do not count.
+- `adore config validate` and every engine command report a setting of the wrong
+  TOML type, or a section given as a single value, as an issue instead of a traceback.
+- Evidence in ticket and MR/PR comments no longer keeps the credential of an
+  `Authorization: Bearer <credential>` line; only the scheme word was redacted.
+- A job whose state or resources cannot be trusted no longer stops the poll: the
+  jobs after it are reconciled and a free slot still admits a new ticket. The job
+  is left untouched, logged and still counts toward the active job limit.
+
 ## [0.19.0] - 2026-11-17
 
 ### Changed

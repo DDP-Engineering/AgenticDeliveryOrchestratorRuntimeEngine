@@ -115,7 +115,7 @@ commands + `--profile` resolution.
   has_push_rule, branch_rule, branch_template, execution_backend, runtime,
   image, provider, endpoint_base_url, endpoint_api, model, local_path,
   reviewers, budgets_choice, max_*, polling_mode,
-  state_location, confirm`. `kind` accepts gitlab/github/gitea. GitLab/GitHub
+  state_location, confirm`. `kind` accepts gitlab/github/gitea/azure_devops. GitLab/GitHub
   deliberately ask no hosting, host URL, or visibility questions because
   routing follows the platform CLI's active/default authenticated host; the
   wizard warns corporate users to verify it. Gitea retains `login` (written to

@@ -123,6 +123,9 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
                          runner=_runner(), os_key="linux", name="sample")
 
     assert store.exists("sample")
+    written = store.config_path("sample").read_text(encoding="utf-8")
+    # The regeneration hint must be a command the CLI accepts.
+    assert "`adore init sample --force`" in written and "--profile" not in written
     config = load_config(store.config_path("sample"))
     assert validate_config(config) == []                     # <-- the golden assertion
     assert config.platform.repo == "grp/sub/proj"
@@ -166,6 +169,22 @@ def test_wizard_writes_pi_without_agent_choice_or_host_sign_in(tmp_path: Path) -
         run_wizard(store, asker=asker, out=lambda _line: None,
                    runner=_runner(), os_key="linux", name="pi-host-auth")
     assert not store.exists("pi-host-auth")
+
+
+def test_wizard_azure_scope_answers_do_not_replace_the_host_os(tmp_path: Path) -> None:
+    """The Azure scope questions leave the host OS recorded for the profile intact."""
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(
+        _clone(tmp_path), kind="azure_devops", repo="payments-api",
+        organization="https://dev.azure.com/contoso", project="Payments",
+        area_path="Payments\\Backend",
+        reviewers="11111111-2222-3333-4444-555555555555",
+    ))
+    profile = run_wizard(store, asker=asker, out=lambda _line: None,
+                         runner=_runner(), os_key="linux", name="azure")
+
+    assert profile.host_os == "linux"
+    assert validate_config(load_config(store.config_path("azure"))) == []
 
 
 def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:

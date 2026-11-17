@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shlex
 
@@ -431,6 +432,25 @@ def test_container_transport_requires_readable_exchange_output(
 
     with pytest.raises(AegisProtocolError, match="stdout is missing or unreadable"):
         AegisClient(execute, io_dir=io_dir).task_status(TASK_ID)
+
+
+def test_container_transport_refuses_exchange_output_that_is_another_files_name(
+    tmp_path: Path,
+) -> None:
+    """The agent can write the exchange directory; its output must be a file of its own."""
+    io_dir = tmp_path / "io"
+    private = tmp_path / "host-private.json"
+    private.write_text('{"private": true}', encoding="utf-8")
+
+    def execute(argv, *, timeout=None):
+        """Leave stdout as a second name of a file outside the exchange directory."""
+        os.link(private, io_dir / AEGIS_STDOUT_FILE)
+        (io_dir / AEGIS_STDERR_FILE).write_text("", encoding="utf-8")
+        return CommandResult(exit_code=0)
+
+    with pytest.raises(AegisProtocolError, match="not a plain regular file") as caught:
+        AegisClient(execute, io_dir=io_dir).task_status(TASK_ID)
+    assert "private" not in str(caught.value)
 
 
 def test_container_transport_rejects_oversized_exchange_output(tmp_path: Path) -> None:

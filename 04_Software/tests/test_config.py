@@ -658,6 +658,21 @@ retry_backoff_seconds = []
     assert any("approval_label must be distinct" in item for item in issues)
 
 
+@pytest.mark.parametrize("section", ["polling", "labels", "container", "budgets"])
+def test_section_that_is_not_a_table_is_reported(tmp_path: Path, section: str) -> None:
+    """A single value in place of a section is an issue, not a silent set of defaults."""
+    text = f"{section} = 5\n" + MINIMAL_VALID
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert issues == [f"[{section}] must be a table of settings, not a single value"]
+
+
+def test_value_of_the_wrong_type_is_an_issue_not_a_crash(tmp_path: Path) -> None:
+    """Validation answers with an issue naming the cause, never with a traceback."""
+    text = MINIMAL_VALID + '[polling]\npoll_interval_seconds = "60"\n'
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert len(issues) == 1 and "wrong TOML type" in issues[0]
+
+
 def test_executor_cannot_receive_forge_credentials(tmp_path: Path) -> None:
     """Executor env allowlists reject host forge credential names."""
     text = MINIMAL_VALID.replace(
@@ -665,6 +680,17 @@ def test_executor_cannot_receive_forge_credentials(tmp_path: Path) -> None:
         '[executor]\nenv_keys = ["OPENAI_API_KEY", "GITHUB_TOKEN", "GITLAB_TOKEN"]\n')
     issues = validate_config(load_config(_write_config(tmp_path, text)))
     assert any("must not expose forge credentials" in item for item in issues)
+
+
+@pytest.mark.parametrize("name", [
+    "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN", "GITLAB_ACCESS_TOKEN", "OAUTH_TOKEN",
+    "gh_token",
+])
+def test_executor_cannot_receive_any_forge_cli_credential(tmp_path: Path, name: str) -> None:
+    """Every variable a forge CLI reads a credential from is refused, in any case."""
+    text = MINIMAL_VALID.replace("[executor]\n", f'[executor]\nenv_keys = ["{name}"]\n')
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert any("must not expose forge credentials" in item and name in item for item in issues)
 
 
 @pytest.mark.parametrize("cap", ["0", "0.0", "6.5", "-1", "nan", "inf", "true", '\"free\"'])

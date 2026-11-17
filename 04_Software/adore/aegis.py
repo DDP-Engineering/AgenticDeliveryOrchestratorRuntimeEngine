@@ -11,7 +11,7 @@ import shlex
 from typing import Any
 
 from adore.executor.base import ExecTarget
-from adore.util import CommandResult
+from adore.util import CommandResult, UnsafeFileError, read_agent_file, write_agent_file
 
 AEGIS_CLI = ".agentic/aegis.py"
 #: The AEGIS major line ADORE speaks. A major bump is the signal that the
@@ -470,8 +470,7 @@ class AegisClient:
             )
             if native is not None:
                 script = SHELL_HEADER + "# Native AEGIS argv launch; no shell is executed.\n"
-            with script_path.open("w", encoding="utf-8", newline="\n") as handle:
-                handle.write(script)
+            write_agent_file(script_path, script.encode("utf-8"))
         except OSError as exc:
             raise AegisProtocolError(f"AEGIS exchange setup failed: {exc}") from exc
 
@@ -510,14 +509,18 @@ class AegisClient:
                     or exceeds its bound.
         """
         try:
-            with path.open("rb") as handle:
-                content = handle.read(limit + 1)
+            content = read_agent_file(path, limit)
+        except UnsafeFileError as exc:
+            # The agent can write this directory; a link is never followed.
+            reason = ("exceeds its size bound" if "size bound" in str(exc)
+                      else "is missing or unreadable: not a plain regular file")
+            raise AegisProtocolError(f"AEGIS exchange {stream} {reason}") from exc
         except OSError as exc:
             raise AegisProtocolError(
                 f"AEGIS exchange {stream} is missing or unreadable: {exc}"
             ) from exc
-        if len(content) > limit:
-            raise AegisProtocolError(f"AEGIS exchange {stream} exceeds its size bound")
+        if content is None:
+            raise AegisProtocolError(f"AEGIS exchange {stream} is missing or unreadable")
         return content.decode("utf-8", "replace")
 
     def _json(

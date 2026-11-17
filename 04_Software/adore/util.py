@@ -14,7 +14,7 @@ import shutil
 import stat
 import subprocess
 import sys
-from typing import Protocol
+from typing import BinaryIO, Protocol
 
 _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd]?)\s*$", re.IGNORECASE)
 _DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
@@ -439,3 +439,90 @@ def strict_json_loads(source: str) -> object:
         return json.loads(source, object_pairs_hook=unique, parse_constant=invalid)
     except RecursionError as exc:
         raise ValueError("JSON nesting exceeds decoder bound") from exc
+
+
+class UnsafeFileError(OSError):
+    """A file the agent can write is not a plain bounded regular file."""
+
+
+def read_agent_file(path: Path, limit: int) -> bytes | None:
+    """
+    Read a file from a directory the agent can write, without following links.
+    The agent could replace such a file with a link to any file of the ADORE
+            account. Only a regular, singly linked file whose identity is the
+            same before and after opening is read, and never past the bound.
+    path: Handoff or exchange file inside a worktree or run IO directory.
+    limit: Largest accepted size in bytes.
+    Returns: The content, or None when the file is absent.
+    Raises UnsafeFileError: Link, reparse point, other file type, extra hard
+            link, replacement during the read or a size above the bound.
+    Raises OSError: Any other read failure.
+    """
+    try:
+        before = path.lstat()
+    except FileNotFoundError:
+        return None
+    if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+            or getattr(before, "st_file_attributes", 0) & 0x400):
+        raise UnsafeFileError(f"{path.name} is not a plain regular file")
+    flags = (os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+             | getattr(os, "O_BINARY", 0))
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise UnsafeFileError(f"{path.name} could not be opened as a plain file") from exc
+    with os.fdopen(descriptor, "rb") as stream:
+        opened = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(opened.st_mode)
+                or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino)):
+            raise UnsafeFileError(f"{path.name} changed while it was opened")
+        content = stream.read(limit + 1)
+    if len(content) > limit:
+        raise UnsafeFileError(f"{path.name} exceeds its size bound")
+    return content
+
+
+def open_agent_file_for_write(path: Path) -> BinaryIO:
+    """
+    Open a file in a directory the agent can write, empty and ready for writing.
+    The agent could plant a link under a name the host is about to write and
+            so make the host overwrite a file of its own account. An existing
+            entry must be a regular, singly linked file; the file is emptied
+            only after the opened handle proved to be that same file.
+    path: Host-authored file inside a run IO directory.
+    Returns: Binary handle positioned at the start of an empty file.
+    Raises UnsafeFileError: Link, reparse point, other file type, extra hard
+            link or replacement while opening.
+    Raises OSError: Any other failure.
+    """
+    try:
+        before = path.lstat()
+    except FileNotFoundError:
+        before = None
+    if before is not None and (
+            not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+            or getattr(before, "st_file_attributes", 0) & 0x400):
+        raise UnsafeFileError(f"{path.name} is not a plain regular file")
+    flags = (os.O_WRONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+             | getattr(os, "O_BINARY", 0))
+    try:
+        descriptor = os.open(path, flags, 0o644)
+    except OSError as exc:
+        raise UnsafeFileError(f"{path.name} could not be opened as a plain file") from exc
+    try:
+        opened = os.fstat(descriptor)
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1
+                or before is not None
+                and (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino)):
+            raise UnsafeFileError(f"{path.name} changed while it was opened")
+        os.ftruncate(descriptor, 0)
+        return os.fdopen(descriptor, "wb")
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def write_agent_file(path: Path, content: bytes) -> None:
+    """Replace the content of a host-authored file in an agent-writable directory."""
+    with open_agent_file_for_write(path) as stream:
+        stream.write(content)

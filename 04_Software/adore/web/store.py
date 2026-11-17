@@ -135,6 +135,14 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+_CLIENT_ATTEMPTS = 30
+
+
+def _client_window(client: str) -> str:
+    """Key of the sign-in window that counts one client across all user names."""
+    return _digest(f"\0client\0{client}")
+
+
 def _digest(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -593,6 +601,45 @@ class WebStore:
             ).fetchone()
         return row is None or row["window_started"] < cutoff or row["failures"] < 5
 
+    def reserve_login(self, username: str, client: str) -> bool:
+        """
+        Admit one sign-in attempt and count it before the password is checked.
+        Checking the limit and counting the failure used to be separate steps
+                around a slow password hash, so parallel requests all passed the
+                check first. Here both happen in one transaction: at most five
+                attempts per identity and client are admitted in ten minutes,
+                however they arrive. A successful sign-in clears the count.
+        Returns: False when the window already holds five attempts.
+        """
+        identity = _digest(f"{username.casefold()}\0{client}")
+        cutoff = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "DELETE FROM login_failures WHERE window_started<? AND identity_hash<>?",
+                (cutoff, identity),
+            )
+            # Two windows: one per user name and client, and a wider one per client
+            # alone, so one client cannot try a password against many user names.
+            windows = []
+            for key, cap in ((identity, 5), (_client_window(client), _CLIENT_ATTEMPTS)):
+                row = connection.execute(
+                    "SELECT failures,window_started FROM login_failures WHERE identity_hash=?",
+                    (key,),
+                ).fetchone()
+                current = row is not None and row["window_started"] >= cutoff
+                if current and row["failures"] >= cap:
+                    return False
+                windows.append((key, row["failures"] + 1 if current else 1,
+                                row["window_started"] if current else _now()))
+            connection.executemany(
+                "INSERT INTO login_failures(identity_hash,failures,window_started) "
+                "VALUES (?,?,?) ON CONFLICT(identity_hash) DO UPDATE SET "
+                "failures=excluded.failures,window_started=excluded.window_started",
+                windows,
+            )
+        return True
+
     def record_login(self, username: str, client: str, *, success: bool) -> None:
         """Clear the failure window after success or count a failed login."""
         identity = _digest(f"{username.casefold()}\0{client}")
@@ -602,8 +649,19 @@ class WebStore:
                 connection.execute(
                     "DELETE FROM login_failures WHERE identity_hash=?", (identity,)
                 )
+                # A sign-in that succeeded does not use up the client's window.
+                connection.execute(
+                    "UPDATE login_failures SET failures=failures-1 "
+                    "WHERE identity_hash=? AND failures>0", (_client_window(client),)
+                )
                 return
             connection.execute("BEGIN IMMEDIATE")
+            # A window that ended no longer limits anyone. Without this, every
+            # guessed user name would leave a row behind for good.
+            connection.execute(
+                "DELETE FROM login_failures WHERE window_started<? AND identity_hash<>?",
+                (cutoff, identity),
+            )
             row = connection.execute(
                 "SELECT failures,window_started FROM login_failures WHERE identity_hash=?",
                 (identity,),
@@ -1148,6 +1206,8 @@ class WebStore:
         csrf = secrets.token_urlsafe(24)
         expiry = (datetime.now(UTC) + timedelta(hours=12)).isoformat()
         with self._connect() as connection:
+            # Expired sessions are already refused; remove them so the table stays bounded.
+            connection.execute("DELETE FROM sessions WHERE expires_at<=?", (_now(),))
             connection.execute(
                 "INSERT INTO sessions(token_hash,user_id,csrf,expires_at) VALUES (?,?,?,?)",
                 (_digest(token), user_id, csrf, expiry),

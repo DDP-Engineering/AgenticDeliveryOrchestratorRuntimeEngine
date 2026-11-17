@@ -55,6 +55,15 @@ The template generates a name; the optional Python regular expression checks it.
 
 The server preview uses the effective agent slug, ticket number `1` and run identifier `sample-run-1`. It refreshes while editing and when reviewing a branch candidate, shows the generated name and rule result, and writes neither configuration nor Git branches. This is one example, not a guarantee for every future identifier. Missing/unsupported variables, invalid Git names or Python regex, mismatch and unavailable/slow checking block preparation; refresh after a stale revision. Allowed fields are `{slug}`, `{iid}` and `{run_id}` without format modifiers; include `{iid}` or `{run_id}`. Template and rule are bounded to 512 characters each; generated examples to 255 characters; regex matching to one second.
 
+The `[worktree]` keys behind these settings:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `repo_path` | none, required | Local clone that job worktrees are created from |
+| `root` | `worktrees` | Directory that holds one worktree per job |
+| `branch_template` | `{slug}/{run_id}` | Job branch name template |
+| `branch_rule` | empty | Optional Python regular expression the generated name must match |
+
 ## Polling and Readiness
 
 | Key | Meaning | Default |
@@ -177,8 +186,8 @@ is no configurable command template or execution mode. Unknown executor keys
 are refused with the field to remove from config.toml.
 
 `executor.env_keys` lists additional secret variables copied into a container; the provider's key variable is always added. Forge credential
-names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
-`GITEA_TOKEN`, and `TEA_TOKEN` are rejected.
+names are rejected in any letter case; the full list is in
+[Security and credentials](Security_And_Credentials.md).
 
 `container.runtime` is Docker/Podman or a WSL-wrapped equivalent. Standard WSL prefixes use direct argument execution internally; custom wrappers place `--` or `--exec` before the container command.
 `container.image`, cache volumes, `run_args`, `runtime_env`,
@@ -332,6 +341,11 @@ revise_label = "agent-revise"
 max_review_rounds = 5
 ```
 
+The example shows a project's choices, not the defaults. An omitted
+`delivery.target_branch` is `develop`. `delivery.publish_checkpoints` defaults to
+`true`: guarded progress commits are pushed to the ticket branch without opening an
+MR/PR; `false` keeps them local until final publication.
+
 `review.on_pipeline_failure` is `revise` (default), `notify`, or `ignore`, and
 decides what a newly `failed` forge pipeline on the published draft does.
 `revise` starts a governed repair round on the same bounded path the revise
@@ -392,7 +406,8 @@ for `recovery.max_transient_retries` polls fails it (`MR_DELETED`). Stale
 `working` runs become loud failures, pending notifications replay without
 consuming a slot, and terminal runs retain state evidence.
 
-`[metrics]` controls SQLite/JSONL/static HTML summaries. Metrics are
+`[metrics]` controls SQLite/JSONL/static HTML summaries; `metrics.enabled`
+(default `true`) turns the capture off when set to `false`. Metrics are
 best-effort and can never change governance outcomes. ADORE performs no CPU,
 memory or disk resource-usage probing.
 

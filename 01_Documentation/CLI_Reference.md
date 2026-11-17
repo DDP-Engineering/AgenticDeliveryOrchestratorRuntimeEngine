@@ -32,8 +32,8 @@ An archived named or active profile refuses `run` pickup until restored in
 the web Projects page. An explicit `-c FILE` is outside profile archive
 control and remains an operator override.
 
-For engine commands (`run`, `retry`, `cancel`, `delete`, `reset`, and
-`cleanup`), ADORE loads `.env` beside the resolved `config.toml` when it
+For every command that starts the engine (`run`, `conduct`, `retry`, `restart`,
+`cancel`, `delete`, `reset`, `handoff`, `logs` and `cleanup`), ADORE loads `.env` beside the resolved `config.toml` when it
 exists; otherwise it falls back to `./.env`. Values already present in the
 process environment take precedence. Only the configured provider's key
 variable and the names listed in `executor.env_keys` are passed into the

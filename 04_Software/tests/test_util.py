@@ -7,13 +7,16 @@ import re
 import sys
 
 from adore.util import (
+    UnsafeFileError,
     in_quiet_hours,
     iso_to_datetime,
     load_env_file,
     parse_duration,
     process_alive,
+    read_agent_file,
     run_command,
     utc_now_iso,
+    write_agent_file,
 )
 import pytest
 
@@ -167,3 +170,69 @@ def test_run_command_preserves_unicode_argument_through_child() -> None:
     result = run_command([sys.executable, "-c", child, text])
     assert result.exit_code == 0
     assert result.stdout == text
+
+
+def test_read_agent_file_reads_a_plain_file_and_reports_absence(tmp_path) -> None:
+    """A plain file is returned whole; a missing one is None, not an error."""
+    path = tmp_path / "handoff.md"
+    assert read_agent_file(path, 16) is None
+    path.write_bytes(b"question")
+    assert read_agent_file(path, 16) == b"question"
+
+
+@pytest.mark.parametrize("shape", ["hard-link", "directory", "oversized"])
+def test_read_agent_file_refuses_anything_but_a_bounded_plain_file(tmp_path, shape) -> None:
+    """Another file's name, a non-file and an oversized file are refused unread."""
+    private = tmp_path / "private.txt"
+    private.write_bytes(b"PRIVATE")
+    path = tmp_path / "handoff.md"
+    if shape == "hard-link":
+        os.link(private, path)
+    elif shape == "directory":
+        path.mkdir()
+    else:
+        path.write_bytes(b"x" * 17)
+    with pytest.raises(UnsafeFileError) as refused:
+        read_agent_file(path, 16)
+    assert "PRIVATE" not in str(refused.value) and "private" not in str(refused.value)
+
+
+def test_write_agent_file_creates_and_replaces_a_plain_file(tmp_path) -> None:
+    """A host-authored file is created, then replaced whole on the next write."""
+    path = tmp_path / "gate.sh"
+    write_agent_file(path, b"first version")
+    write_agent_file(path, b"second")
+    assert path.read_bytes() == b"second"
+
+
+def test_write_agent_file_never_overwrites_another_files_name(tmp_path) -> None:
+    """A planted second name of a host file is refused and the host file is intact."""
+    private = tmp_path / "private.txt"
+    private.write_bytes(b"PRIVATE")
+    path = tmp_path / "gate.sh"
+    os.link(private, path)
+    with pytest.raises(UnsafeFileError):
+        write_agent_file(path, b"host content")
+    assert private.read_bytes() == b"PRIVATE"
+
+
+def test_write_agent_file_never_follows_a_link(tmp_path, symlink_support) -> None:
+    """A planted link is refused and its target is intact."""
+    private = tmp_path / "private.txt"
+    private.write_bytes(b"PRIVATE")
+    path = tmp_path / "gate.sh"
+    path.symlink_to(private)
+    with pytest.raises(UnsafeFileError):
+        write_agent_file(path, b"host content")
+    assert private.read_bytes() == b"PRIVATE"
+
+
+def test_read_agent_file_never_follows_a_link(tmp_path, symlink_support) -> None:
+    """A link to a file of the ADORE account is refused, and the target is not named."""
+    private = tmp_path / "private.txt"
+    private.write_bytes(b"PRIVATE")
+    path = tmp_path / "handoff.md"
+    path.symlink_to(private)
+    with pytest.raises(UnsafeFileError) as refused:
+        read_agent_file(path, 16)
+    assert "private" not in str(refused.value)

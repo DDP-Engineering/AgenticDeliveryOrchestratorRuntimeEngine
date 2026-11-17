@@ -1,7 +1,7 @@
 # Local execution
 
-Choose **Runs in â†’ Installed on the server** during enrollment or in
-**Settings â†’ Agent and model** to run ADORE-managed Pi in a dedicated worktree
+Choose **Runs in → Installed on the server** during enrollment or in
+**Settings → Agent and model** to run ADORE-managed Pi in a dedicated worktree
 under the current ADORE service account. Container execution remains the default.
 Pi has no permission prompts. Use a dedicated, least-privilege OS account:
 a worktree and a process scope do not prevent access to files, credentials or
@@ -73,7 +73,7 @@ The launcher is fixed. Remove `[executor] command` and unsupported
 credential; ADORE never reads personal Pi sign-in. For an OpenAI-compatible
 endpoint, use the address as seen from the server and configure a key only
 when the endpoint needs one. For a ChatGPT subscription, select `provider = "chatgpt"` and sign in under
-Settings â†’ Agent and model. The native helper uses managed Node and Pi
+Settings → Agent and model. The native helper uses managed Node and Pi
 without Docker. Each stage gets only a temporary access token and has a
 maximum timeout of 3000 seconds. ADORE inside WSL2 uses the Linux setup,
 its own service account and tools, and a delegated cgroup.

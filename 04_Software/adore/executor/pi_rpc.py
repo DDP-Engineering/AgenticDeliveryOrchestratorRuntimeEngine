@@ -19,6 +19,7 @@ from typing import IO, Any
 from adore.executor.conversation import PiConversation
 from adore.executor.diagnostics import normalize_diagnostics, protocol_diagnostics
 from adore.instructions import InstructionDelivery
+from adore.util import open_agent_file_for_write
 
 ABORT_GRACE_SECONDS = 10.0
 EXIT_GRACE_SECONDS = 5.0
@@ -258,7 +259,9 @@ class _Evidence:
 
     def __init__(self, path: Path | None, limit: int, clean: Callable[[str], str], *,
                  tail_limit: int = TAIL_BYTES, record_limit: int = PERSIST_RECORD_BYTES) -> None:
-        self.handle = path.open("wb") if path is not None else None
+        # The recording lives in the agent-writable IO directory; a planted link
+        # there must not redirect it onto a file of the ADORE account.
+        self.handle = open_agent_file_for_write(path) if path is not None else None
         self.limit, self.written, self.clean = limit, 0, clean
         self.tail_limit, self.record_limit = tail_limit, record_limit
         self.diagnostics: deque[str] = deque()

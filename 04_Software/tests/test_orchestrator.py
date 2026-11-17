@@ -7,6 +7,7 @@ from dataclasses import replace
 import json
 import os
 from pathlib import Path
+import shutil
 from threading import Event
 
 from adore.aegis import (
@@ -22,7 +23,7 @@ from adore.metrics import aggregate, load_summaries, profile_stats
 import adore.orchestrator as orchestrator_module
 from adore.orchestrator import Orchestrator
 from adore.preparation import resolve_plan
-from adore.state import RunState, StateError, StateStore, content_hash
+from adore.state import RunState, StateStore, content_hash
 from adore.util import CommandResult, utc_now_iso
 import pytest
 
@@ -1517,6 +1518,9 @@ def test_claim_selects_worktree_workflow_before_first_save(
         result = engine.poll_once(ticket_iid=7, workflow=override)
         assert result["start_reason"] == "workflow_unavailable"
         assert not engine.store.list_runs()
+        # The refused admission takes its worktree with it; a leftover would make
+        # every later admission of this ticket fail on an existing path.
+        assert worktrees.removed == ["github-owner-repo-7"]
         return
     result = engine.poll_once(ticket_iid=7 if manual else None, workflow=override)
     run = engine.store.load("github-owner-repo-7")
@@ -2019,18 +2023,93 @@ def test_cancel_marker_survives_worker_crash_and_reconciles(tmp_path: Path) -> N
     assert not engine.store.cancel_requested(run.run_id)
 
 
-def test_corrupt_cancel_marker_stops_reconciliation(tmp_path: Path) -> None:
+def test_corrupt_cancel_marker_is_reported_and_left_untouched(tmp_path: Path) -> None:
     """A damaged cancellation request cannot be guessed or discarded."""
     engine, _, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
-    (engine.store.run_dir(run.run_id) / "cancel.request").write_text(
-        "junk", encoding="utf-8"
-    )
+    marker = engine.store.run_dir(run.run_id) / "cancel.request"
+    marker.write_text("junk", encoding="utf-8")
     engine.store.pause()
 
-    with pytest.raises(StateError):
-        engine.poll_once()
+    summary = engine.poll_once()
+
+    assert summary["reconcile_failed"] == [run.run_id]
     assert engine.store.load(run.run_id).lifecycle == "working"
+    assert marker.read_text(encoding="utf-8") == "junk"
+
+
+def test_one_unusable_run_does_not_keep_later_runs_from_reconciling(tmp_path: Path) -> None:
+    """Every other run still gets its next action in the same poll."""
+    engine, _, _, _, _ = make_engine(tmp_path)
+    damaged = make_run(engine)
+    later_id = "github-owner-repo-8"
+    later = replace(
+        damaged, run_id=later_id, ticket_iid=8,
+        branch=engine._branch_name(later_id, 8),
+        worktree=str(engine.worktrees.path_for(later_id)),
+        container=engine._container_name(later_id),
+    )
+    engine.store.save(later)
+    (engine.store.run_dir(damaged.run_id) / "cancel.request").write_text(
+        "junk", encoding="utf-8"
+    )
+    engine.store.request_cancel(later.run_id)
+    engine.store.pause()
+
+    summary = engine.poll_once()
+
+    assert summary["reconcile_failed"] == [damaged.run_id]
+    assert engine.store.load(damaged.run_id).lifecycle == "working"
+    assert engine.store.load(later.run_id).lifecycle == "cancelled"
+
+
+def test_failed_target_integration_does_not_launch_the_executor_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An integration that already failed the run keeps its own failure code."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "validate"
+    engine.store.save(run)
+
+    def merge(run_id, base_ref):
+        raise IsolationError("target merge could not run")
+
+    monkeypatch.setattr(worktrees, "merge", merge)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("validate")]), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert saved.outcome.startswith("GIT_INTEGRATION")
+    assert not executor.prompts
+    terminal = [body for body in forge.ticket_comments.values() if "Terminal error code" in body]
+    assert len(terminal) == 1 and "GIT_INTEGRATION" in terminal[0]
+
+
+def test_one_unusable_run_does_not_keep_a_new_ticket_from_being_admitted(
+    tmp_path: Path,
+) -> None:
+    """The damaged run keeps its slot; a free slot still admits the next ticket."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    engine.config.polling.max_concurrent_runs = 2
+    template = make_run(engine)
+    damaged_id = "github-owner-repo-8"
+    engine.store.save(replace(
+        template, run_id=damaged_id, ticket_iid=8,
+        branch=engine._branch_name(damaged_id, 8),
+        worktree=str(engine.worktrees.path_for(damaged_id)),
+        container=engine._container_name(damaged_id),
+    ))
+    shutil.rmtree(engine.store.run_dir(template.run_id))
+    (engine.store.run_dir(damaged_id) / "cancel.request").write_text("junk", encoding="utf-8")
+    forge.ticket.labels = ["P1", engine.config.labels.lifecycle.ready]
+
+    summary = engine.poll_once(ticket_iid=7, workflow="direct")
+
+    assert summary["reconcile_failed"] == [damaged_id]
+    assert summary["picked"] == 7
+    assert engine.store.load(damaged_id).lifecycle == "working"
 
 
 def test_cancel_before_publication_does_not_push_or_open_draft(tmp_path: Path) -> None:
@@ -2101,8 +2180,8 @@ def test_two_failures_then_success_resets_counter_and_questions_do_not_consume_i
 
 @pytest.mark.parametrize(
     "case",
-    ["ansi", "osc", "osc-open", "token", "token-cut", "token-line", "token-nul", "blank", "long",
-     "huge"],
+    ["ansi", "osc", "osc-open", "token", "token-cut", "token-line", "token-nul",
+     "bearer", "bearer-json", "bearer-bare", "blank", "long", "huge"],
 )
 def test_no_stage_progress_evidence_carries_the_stderr_tail(tmp_path: Path, case: str) -> None:
     """A zero-exit gate without AEGIS progress shows its last stderr lines."""
@@ -2117,6 +2196,10 @@ def test_no_stage_progress_evidence_carries_the_stderr_tail(tmp_path: Path, case
         "token-cut": "token=SECRETVALUE" + "w" * 1990,
         "token-line": "\n".join(["token:", "S3CRETLINE", *(f"after {i}" for i in range(19))]),
         "token-nul": "\n".join(["tok\x00en:", "NULSECRET", *(f"after {i}" for i in range(19))]),
+        # The credential follows the scheme word; redacting one word would keep it.
+        "bearer": "> Authorization: Bearer BEARERSECRET0123456789\nstill waiting\n",
+        "bearer-json": '{"Authorization": "Basic BEARERSECRET0123456789"}\n',
+        "bearer-bare": "sent header bearer BEARERSECRET0123456789\n",
         "blank": "   \n",
         "long": "\n".join(f"line {index}" for index in range(500)),
         "huge": "\n".join(f"{index:04d} " + "z" * 295 for index in range(30)),
@@ -2157,6 +2240,10 @@ def test_no_stage_progress_evidence_carries_the_stderr_tail(tmp_path: Path, case
         assert "S3CRETLINE" not in evidence and "S3CRETLINE" not in incident
     elif case == "token-nul":
         assert "NULSECRET" not in evidence and "NULSECRET" not in incident
+    elif case.startswith("bearer"):
+        assert "[REDACTED]" in evidence
+        for text in (evidence, saved.outcome, incident, terminal):
+            assert "BEARERSECRET" not in text
     elif case == "blank":
         assert evidence == sentence
     elif case == "long":
@@ -2366,6 +2453,54 @@ def test_post_gate_questions_are_read_once_and_park_with_text(tmp_path: Path) ->
     assert saved.lifecycle == "parked-clarification"
     assert any("Which API should be used?" in body for body in forge.ticket_comments.values())
     assert not questions.exists()
+
+
+def test_linked_questions_file_is_never_followed_or_posted(
+    tmp_path: Path, symlink_support: None,
+) -> None:
+    """The agent can write the worktree; a link there must not publish a host file."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    run.worktree = str(worktree)
+    engine.store.save(run)
+    private = tmp_path / "host-private.txt"
+    private.write_text("HOST-PRIVATE-CONTENT\n", encoding="utf-8")
+    questions = worktree / engine.questions_file
+    questions.symlink_to(private)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("frame"), task("frame")]), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "parked-clarification"
+    posted = "\n".join(forge.ticket_comments.values())
+    assert "HOST-PRIVATE-CONTENT" not in posted and "host-private" not in posted
+    assert "not a plain regular file" in posted
+    assert not questions.is_symlink()
+    assert private.read_text(encoding="utf-8") == "HOST-PRIVATE-CONTENT\n"
+
+
+def test_hard_linked_questions_file_is_never_posted(tmp_path: Path) -> None:
+    """A second name for another file is refused like a link, on every platform."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    run.worktree = str(worktree)
+    engine.store.save(run)
+    private = tmp_path / "host-private.txt"
+    private.write_text("HOST-PRIVATE-CONTENT\n", encoding="utf-8")
+    questions = worktree / engine.questions_file
+    os.link(private, questions)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("frame"), task("frame")]), "")
+
+    posted = "\n".join(forge.ticket_comments.values())
+    assert "HOST-PRIVATE-CONTENT" not in posted
+    assert "not a plain regular file" in posted
+    assert not questions.exists()
+    assert private.read_text(encoding="utf-8") == "HOST-PRIVATE-CONTENT\n"
 
 
 def test_park_removes_persisted_questions_handoff(tmp_path: Path) -> None:

@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import stat
 from uuid import uuid4
 
@@ -29,7 +28,9 @@ from adore.pi_installation import GUARD, ManagedPi
 from adore.pi_providers import pi_provider
 from adore.prompts import PromptCatalog
 from adore.state import StateStore
-from adore.util import CommandResult, utc_now_iso
+from adore.util import CommandResult, read_agent_file, utc_now_iso, write_agent_file
+
+_MAX_RESULT_BYTES = 1024 * 1024
 
 GATE_SCRIPT = "gate.sh"
 OUTPUT_FILE = "output.jsonl"
@@ -265,14 +266,15 @@ class PiExecutor(Executor):
             placed = self._place_file(execute, io_dir, source, target, document, reason)
             if placed is not None:
                 return placed
-        with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
-            handle.write(
-                SHELL_HEADER
-                + "# Pi RPC launch; no shell is executed.\n"
-                + "# The stage prompt is sent over stdin.\n"
-                + "# argv: " + json.dumps(argv, ensure_ascii=True) + "\n"
-                + ("# env: " + json.dumps(PI_RPC_ENV) + "\n" if native is None else "")
-            )
+        # The agent can write this directory: every host write here refuses a
+        # planted link instead of overwriting whatever it points at.
+        write_agent_file(io_dir / GATE_SCRIPT, (
+            SHELL_HEADER
+            + "# Pi RPC launch; no shell is executed.\n"
+            + "# The stage prompt is sent over stdin.\n"
+            + "# argv: " + json.dumps(argv, ensure_ascii=True) + "\n"
+            + ("# env: " + json.dumps(PI_RPC_ENV) + "\n" if native is None else "")
+        ).encode("utf-8"))
         target_redact = getattr(execute, "redact", lambda text: text)
         def redact(text: str) -> str:
             """Mask binding credentials and package-job secrets before persistence."""
@@ -289,7 +291,7 @@ class PiExecutor(Executor):
                 archive_id, suffix = base, 2
                 while (io_dir / ARCHIVE_DIR / archive_id).exists():
                     archive_id, suffix = f"{base}-{suffix}", suffix + 1
-                output_path.touch()
+                write_agent_file(output_path, b"")
                 marker = {"schema": 1, "id": "live-" + uuid4().hex,
                           "archive_id": archive_id, "start_at": utc_now_iso()}
                 temporary = io_dir / (marker["id"] + ".tmp")
@@ -381,7 +383,8 @@ class PiExecutor(Executor):
         Returns: None when placed; a failed GateRun otherwise.
         """
         paths = getattr(execute, "paths", ExecutionPaths())
-        (io_dir / source).write_bytes(
+        write_agent_file(
+            io_dir / source,
             (json.dumps(document, ensure_ascii=True, indent=1) + "\n").encode("utf-8"))
         result = execute(["cp", f"{paths.io}/{source}",
                           f"{CONTAINER_PI_AGENT_DIR}/{target}"], timeout=60)
@@ -443,7 +446,9 @@ class PiExecutor(Executor):
             suffix += 1
         archive_dir.mkdir()
         _archive_directories(archive_dir)
-        shutil.copy2(io_dir / GATE_SCRIPT, archive_dir / GATE_SCRIPT)
+        # Read as an agent-writable file: a planted link must not copy its target.
+        script = read_agent_file(io_dir / GATE_SCRIPT, _MAX_RESULT_BYTES)
+        (archive_dir / GATE_SCRIPT).write_bytes(script or b"")
         _archive_recording(output_file, archive_dir / OUTPUT_FILE)
         (archive_dir / STDERR_FILE).write_bytes(stderr.encode("utf-8"))
         meta = {
@@ -523,12 +528,15 @@ class PiExecutor(Executor):
         """
         Read a result file, tolerating its absence.
         path: File written by the gate script (or the executor).
-        Returns: The content, or "" when missing/unreadable.
+        Returns: The content, or "" when missing, unreadable or not a plain
+                    regular file. A link is never followed: the conductor reads
+                    the same file again and reports it as unusable.
         """
         try:
-            return path.read_text(encoding="utf-8", errors="replace")
+            content = read_agent_file(path, _MAX_RESULT_BYTES)
         except OSError:
             return ""
+        return "" if content is None else content.decode("utf-8", errors="replace")
 
 
 def web_search_json(search: str) -> dict:

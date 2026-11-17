@@ -8,6 +8,7 @@ import re
 import tempfile
 from urllib.parse import quote, urlsplit
 
+from adore.config import FORGE_CREDENTIAL_ENV
 from adore.forge.base import ForgeError
 from adore.gitea_auth import portable_tea_runner
 from adore.util import CommandRunner, run_command
@@ -15,17 +16,10 @@ from adore.util import CommandRunner, run_command
 AUTH_FILE = "repository-auth.json"
 _FIELDS = {"schema", "project_id", "provider", "repository", "login", "server", "token", "account"}
 _CLI = {"gitea": "tea", "github": "gh", "gitlab": "glab"}
-_AUTH_ENV = {
-    "GH_TOKEN",
-    "GITHUB_TOKEN",
-    "GH_ENTERPRISE_TOKEN",
-    "GITHUB_ENTERPRISE_TOKEN",
+_AUTH_ENV = FORGE_CREDENTIAL_ENV | {
     "GH_HOST",
     "GH_CONFIG_DIR",
     "GH_DEBUG",
-    "GITLAB_TOKEN",
-    "GITLAB_ACCESS_TOKEN",
-    "OAUTH_TOKEN",
     "GITLAB_HOST",
     "GITLAB_URI",
     "GL_HOST",

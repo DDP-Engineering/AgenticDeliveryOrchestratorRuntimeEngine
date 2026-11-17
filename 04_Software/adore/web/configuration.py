@@ -32,6 +32,9 @@ _OWNER_GUARD = ContextVar("configuration_owner_guard", default=None)
 _OPERATION = ContextVar("configuration_operation", default=0)
 MAX_RECORD = 32 * 1024 * 1024
 MAX_PENDING = 256
+# Scope key under which the worker hands a handler the actor it already rechecked.
+# An HTTP client cannot set an ASGI scope key, so only the worker can supply it.
+QUEUED_ACTOR = "adore.queued_actor"
 _DEADLINE = ContextVar("configuration_deadline", default=None)
 TASK_SECONDS = 3600
 
@@ -160,14 +163,11 @@ class ConfigurationTasks:
                     if isinstance(value, BaseModel):
                         payload[key] = value.model_dump(mode="json", exclude_unset=True)
                     elif isinstance(value, Request):
-                        payload[key] = {
-                            "method": value.method,
-                            "headers": {
-                                key: value.headers[key]
-                                for key in ("cookie", "x-csrf-token")
-                                if key in value.headers
-                            },
-                        }
+                        # Only the method is kept. The session cookie and CSRF token
+                        # proved this submission; on disk they would let a reader
+                        # of the queue take over the session. The worker acts as
+                        # the stored actor, whose rights it rechecks itself.
+                        payload[key] = {"method": value.method, "headers": {}}
                     elif value is None or isinstance(value, str | int | bool | float):
                         payload[key] = value
                     else:
@@ -660,14 +660,14 @@ class ConfigurationWorker:
                         or value["method"] not in ("POST", "PUT", "DELETE")
                     ):
                         raise WebStoreError("configuration request method is corrupt")
+                    # Stored headers are never replayed, also for a record written
+                    # by an earlier build. The actor rechecked above is the authority.
                     arguments[name] = Request(
                         {
                             "type": "http",
                             "method": value["method"],
-                            "headers": [
-                                (key.encode(), val.encode())
-                                for key, val in value["headers"].items()
-                            ],
+                            "headers": [],
+                            QUEUED_ACTOR: arguments[actor_parameter],
                         }
                     )
             signature.bind(**arguments)
