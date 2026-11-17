@@ -4,22 +4,13 @@ This recipe supports development of ADORE itself. It is outside standard
 delivery; the image-archive tool exports only executor-base.
 
 
-This recipe builds the ADORE project's executor image on Ubuntu 22.04.
-It includes the executor base tooling, Pi 1.5.2, Node 22.23.4,
-uv 0.13.7, CPython 3.11.18, and Playwright 1.63.0 with Chromium and its system
-dependencies. It does not require the original local executor image.
-The browser archives use the exact versions reported by Playwright 1.63.0:
-Chromium 153.0.8010.12 (revision 1243) and FFmpeg revision 1011. They are fetched
-over HTTPS with curl, bounded timeouts and retries; this avoids the Node HTTPS
-download timeout observed on DCP. When changing Playwright, update the browser
-versions and cache directory revisions together from `playwright install --dry-run
-chromium`.
+This optional development image extends the common `adore-executor-base:1.0.0` image and adds Playwright 1.63.0, Chromium 153.0.8010.12 (revision 1243), FFmpeg revision 1011 and browser system dependencies. Build the common base first, or pass `--build-arg BASE_IMAGE=<prepared-base-tag>`. Normal jobs can use the common base directly and let Pi install project dependencies with environment administration enabled. The specialized image is not required for Electron or browser jobs and is not included in standard delivery archives.
 
 This is a functional reconstruction, not a byte-identical image backup. Ubuntu
 packages and transitive npm dependencies are resolved when building. Packages
 installed later by an agent, project worktrees, Python environments, credentials,
 and job state are not copied. Build access to Ubuntu, Node, npm, uv/Python,
-GitLab, GitHub and Playwright package sources is required. Runtime network access
+Playwright package sources is required. Runtime network access
 remains an independent ADORE setting.
 
 The build context is the repository root. From that directory:

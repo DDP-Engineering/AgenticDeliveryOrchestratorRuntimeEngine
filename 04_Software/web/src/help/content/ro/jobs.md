@@ -172,3 +172,5 @@ Execuția nouă are identitate, resurse de lucru, conversație și bugete distin
 În cazul unei reporniri neconfirmate, reîncarcă Joburi sau Tichete și caută jobul nou înainte de a reîncerca. Lipsa confirmării nu înseamnă că a eșuat curățarea sau că nu s-a creat un job. O repornire refuzată este raportată separat.
 
 Istoricul nu expiră automat. Operatorul poate șterge o execuție veche selectată prin `adore delete RUN_ID --force`. Retenția auditului nu șterge istoricul joburilor.
+
+Retry, clarificările și revizuirea păstrează setările de execuție salvate și conversația Pi a jobului. Schimbările imaginii, modelului sau rețelei proiectului se aplică joburilor noi. Verificările identității resurselor, regulile curente de aprobare și limitele jobului rămân active. După timeout, implementarea păstrată contează chiar dacă următoarea încercare doar verifică rezultatul și scrie un sumar.

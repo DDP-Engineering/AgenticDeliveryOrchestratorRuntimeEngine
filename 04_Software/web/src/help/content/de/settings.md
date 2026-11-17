@@ -68,13 +68,11 @@ Definitionen werden je Image gespeichert und von Projekten mit diesem Image gete
 
 Bei beschädigten Rezeptdaten nennt der Dialog, was auf dem Server für einen Neuanfang zu löschen ist. Ein Zurücksetzen des Rezeptkatalogs entfernt gespeicherte Image-Definitionen aller Projekte; Konfigurationen, Zugangsdaten und Aufträge bleiben unverändert. ADORE löscht diese Daten niemals automatisch.
 
-## Systempakete des Agenten {#system-packages}
+## Verwaltung der Containerumgebung {#system-packages}
 
-**Systempaketinstallation durch den Agenten erlauben**
+Administratoren aktivieren **Umgebungsverwaltung durch den Agenten erlauben** unter **Settings → Agent and model**. Die Berechtigung ist standardmäßig aus und gilt nur für Container. Pi darf mit `sudo -n` Abhängigkeiten installieren und die Umgebung einschließlich Werkzeugrechten einrichten; Projektdateien bleiben Eigentum des normalen Benutzers. Netzwerkzugriff bleibt getrennt. Nach Änderungen einen neuen Auftrag starten. Abhängigkeiten bleiben im Container, nicht im Basisimage.
 
-Unter Einstellungen → Agent und Modell aktivieren Administratoren diese Berechtigung mit **Speichern** und bestätigen die Auswirkung. Sie ist standardmäßig aus und für Container-Projekte verfügbar. Zuerst ein kompatibles Image mit sudo erstellen oder wählen, danach einen neuen Auftrag starten. Der Agent führt Paketbefehle direkt aus, prüft Fehler und passt seine Schritte innerhalb der Auftragsgrenzen an.
-
-Netzwerkzugriff bleibt separat: open erlaubt erreichbare Quellen, allowlist-proxy erlaubte HTTP/HTTPS-Domains und none nur verfügbare lokale Quellen. Paketskripte haben administrative Rechte im Container; eingebundene Projektordner bleiben mit dem Server geteilt. Systempakete bleiben beim Fortsetzen desselben Containers erhalten; ein neuer Container erfordert erneute Prüfung und Installation.
+Neue freigegebene Container verwenden eine gemeinsame seccomp-Richtlinie für verschachtelte Anwendungssandboxen und ohne andere Vorgabe 512 MiB gemeinsamen Speicher. Auf AppArmor-Hosts muss ein Administrator die mitgelieferte Richtlinie adore-executor auf dem Laufzeithost installieren. Anwendungssandboxen bleiben aktiv. Native Windows-Prüfungen erfordern Windows. Administrativer Zugriff umfasst eingebundene Projektdateien, nicht die Hostverwaltung.
 
 ## Jobbudgets {#budgets}
 

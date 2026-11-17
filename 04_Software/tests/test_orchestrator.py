@@ -209,8 +209,10 @@ class FakeWorktrees:
     def candidate_fingerprint(self, run_id, base_ref):
         return self.fingerprint
 
-    def worktree_progress_fingerprint(self, run_id, *, exclude_paths=()):
+    def worktree_progress_fingerprint(self, run_id, *, exclude_paths=(), base_ref=None):
         self.progress_exclusions.append(tuple(exclude_paths))
+        if base_ref is not None and not getattr(self, "retained_product_changes", False):
+            return __import__("hashlib").sha256(b"").hexdigest()
         return self.progress_fingerprint
 
     def ref_head(self, ref):
@@ -860,7 +862,8 @@ def test_direct_gitea_description_acknowledgment_controls_publication(
 
 
 @pytest.mark.parametrize("summary", [None, "No product changes; inspected only."])
-def test_direct_no_changes_fails_once_with_summary(tmp_path, monkeypatch, summary):
+@pytest.mark.parametrize("retained", [False, True])
+def test_direct_no_changes_fails_once_with_summary(tmp_path, monkeypatch, summary, retained):
     """Summary-only work is not implementation and cannot obtain approval."""
     def attempt(root):
         if summary is not None:
@@ -868,8 +871,20 @@ def test_direct_no_changes_fails_once_with_summary(tmp_path, monkeypatch, summar
         return GateRun(exit_code=0)
 
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch, attempt)
+    if retained:
+        def timed_out(root):
+            (root / "feature.txt").write_text("retained implementation")
+            worktrees.retained_product_changes = True
+            return GateRun(exit_code=124, timed_out=True, stderr="stage timeout")
+        executor.attempts.appendleft(timed_out)
     engine.poll_once(ticket_iid=7)
     run = engine.store.load("github-owner-repo-7")
+    if retained:
+        assert run.lifecycle == "awaiting-approval", run.outcome
+        assert run.validation_evidence["implementation"] == "completed"
+        assert len(executor.prompts) == 2
+        assert run.failure_history[0]["code"] == "EXECUTOR_TIMEOUT"
+        return
     assert run.lifecycle == "failed" and run.outcome.startswith("NO_CHANGES:")
     assert run.validation_evidence == {"summary": summary or ""}
     assert "implementation" not in run.validation_evidence
@@ -1005,7 +1020,7 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
         return GateRun(exit_code=1, stderr="retry with refreshed budget")
 
     executor.attempts.append(attempt)
-    if change in {"raise", "capacity"}:
+    if change in {"raise", "capacity", "identity"}:
         executor.attempts.append(direct_edit(worktrees))
     run = make_run(engine)
     run.workflow, run.stage, run.lifecycle = "direct", "build", "failed"
@@ -1014,9 +1029,9 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
     assert engine.retry(run.run_id)
     saved = engine.store.load(run.run_id)
     assert saved.workflow == "direct" and saved.task_ids == []
-    expected_launches = 2 if change in {"raise", "capacity"} else 1
+    expected_launches = 2 if change in {"raise", "capacity", "identity"} else 1
     assert saved.iterations == len(executor.prompts) == expected_launches
-    if change in {"raise", "capacity"}:
+    if change in {"raise", "capacity", "identity"}:
         assert saved.lifecycle == "awaiting-approval"
         if change == "capacity":
             assert load_config(source).polling.max_concurrent_runs == 1
@@ -4942,7 +4957,9 @@ def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, chan
         elif change == "corrupt":
             source.write_text("[budgets\ninvalid")
         elif change == "identity":
-            source.write_text(text.replace('target_branch = "develop"', 'target_branch = "other"'))
+            changed = text.replace('target_branch = "develop"', 'target_branch = "other"')
+            source.write_text(changed.replace(
+                f"max_iterations = {initial_limit}", "max_iterations = 2"))
         elif change == "non-budget-type":
             source.write_text(text.replace("internet = false", "internet = 0"))
         elif change == "unknown-section":
@@ -4968,9 +4985,9 @@ def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, chan
     assert engine.retry(run.run_id)
     saved = engine.store.load(run.run_id)
     assert saved.active_task_id == run.active_task_id
-    assert len(executor.prompts) == (2 if change == "raise" else 1)
+    assert len(executor.prompts) == (2 if change in {"raise", "identity"} else 1)
     assert saved.iterations == len(executor.prompts)
-    assert saved.outcome.startswith("BUDGET_EXHAUSTED:" if change in {"raise", "lower"}
+    assert saved.outcome.startswith("BUDGET_EXHAUSTED:" if change in {"raise", "lower", "identity"}
                                     else "BUDGET_CONFIG_INVALID:")
 
 

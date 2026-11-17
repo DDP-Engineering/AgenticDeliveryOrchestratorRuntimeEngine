@@ -321,7 +321,7 @@ class ContainerBackend:
 
     def authorize_system_packages(self, name: str, *, expected: dict) -> None:
         """
-        Grant package-manager sudo only on the verified owned container.
+        Grant environment administration only on the verified owned container.
         name: Run container name.
         expected: Persisted container and image identities.
         """

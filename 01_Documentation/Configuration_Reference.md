@@ -442,9 +442,9 @@ execution.backend accepts container (default) or local. Closed local fields: `ac
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
 
-## Agent system packages
+## Agent container administration
 
-`container.system_packages` is a strict boolean, false by default, for direct agent installation with noninteractive sudo in a compatible container image. It is independent of `container.egress` and rejected for native execution. See [Agent dependency installation](Security_And_Credentials.md#agent-package-installation-authority) for image prerequisites, supported package managers, runtime argument restrictions and recovery.
+`container.system_packages` is a strict boolean, false by default, shown as **Allow agent environment administration**. It permits passwordless sudo for dependency installation and tool configuration in an owned container and is rejected for native execution. New enabled containers use the common sandbox-capable runtime policy; network policy remains independent. See [authority and host preparation](Security_And_Credentials.md#agent-package-installation-authority).
 
 
 ### Budget changes and observations

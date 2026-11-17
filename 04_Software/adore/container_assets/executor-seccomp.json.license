@@ -1,0 +1,5 @@
+SPDX-FileCopyrightText: The Moby Authors
+SPDX-License-Identifier: Apache-2.0
+
+Derived from https://github.com/moby/profiles/tree/f862455628f78f84c937e967e4a03902fb1dee11
+ADORE changes: allow nested application sandbox namespaces; fixed AppArmor name.

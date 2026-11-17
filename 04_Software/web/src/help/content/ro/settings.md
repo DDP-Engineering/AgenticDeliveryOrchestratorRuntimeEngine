@@ -68,13 +68,11 @@ Definițiile sunt păstrate pe imagine și sunt comune proiectelor care o folose
 
 Dacă o rețetă este coruptă, dialogul indică ce trebuie șters pe server pentru a începe din nou. Resetarea catalogului elimină definițiile de imagine salvate pentru toate proiectele; configurațiile, autentificările și joburile rămân neschimbate. ADORE nu șterge niciodată automat aceste date.
 
-## Pachetele de sistem ale agentului {#system-packages}
+## Administrarea mediului din container {#system-packages}
 
-**Permite agentului instalarea pachetelor de sistem**
+Administratorii activează **Permite agentului administrarea mediului** în **Settings → Agent and model**. Permisiunea este implicit oprită și disponibilă doar pentru containere. Pi poate folosi `sudo -n` pentru a instala dependențe și a configura mediul, inclusiv permisiunile uneltelor; fișierele proiectului rămân deținute de utilizatorul normal. Accesul la rețea rămâne separat. Porniți o lucrare nouă după schimbare. Dependențele rămân în acel container, nu în imaginea de bază.
 
-În Setări → Agent și model, administratorii activează permisiunea cu **Salvează** și confirmă efectul. Implicit este oprită și apare pentru proiecte în container. Reconstruiți sau alegeți întâi o imagine compatibilă cu sudo, apoi porniți o lucrare nouă. Agentul execută direct comenzile, citește erorile și adaptează pașii în limitele lucrării.
-
-Accesul la rețea rămâne separat: open permite sursele accesibile, allowlist-proxy domeniile HTTP/HTTPS permise, iar none numai sursele locale disponibile. Scripturile pachetelor au drepturi administrative în container; directoarele montate ale proiectului rămân partajate cu serverul. Pachetele de sistem se păstrează la reluarea aceluiași container; un container nou cere reevaluare și instalare.
+Containerele noi autorizate folosesc o politică seccomp comună care permite sandboxuri de aplicație și 512 MiB de memorie partajată dacă nu configurați altă valoare. Pe hosturile AppArmor, administratorul trebuie să instaleze întâi politica adore-executor inclusă pe hostul runtime-ului. Sandboxul aplicațiilor rămâne activ. Verificările native Windows necesită Windows. Administrarea include fișierele proiectului montate, nu administrarea hostului.
 
 ## Bugetele jobului {#budgets}
 

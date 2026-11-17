@@ -19,16 +19,17 @@ execution uses managed Pi and host tools; see
   `02_Tools/build/verify_container_runtime.sh` checks the pinned tools and loads
   the ChatGPT helper with an empty credential directory. Rebuild
   the image after pulling a change to these pins.
-- Each runtime project supplies a Dockerfile that extends the base with that
-  project's build and test tools. Tag the resulting image as
+- A runtime project may optionally supply a Dockerfile that extends the base with
+  its build and test tools. Tag the resulting image as
   `adore-executor-<project>:<tag>` and select it in the profile's
   `[container].image` setting.
 - `Dockerfile.egress-proxy` builds `adore-egress-proxy:1.0.0`, a generic Squid
   proxy. ADORE mounts a generated per-run allowlist into it; project hosts are
   not baked into the image.
 
-Use the base image for executor-only validation. Use a project image for any
-delivery run that needs project-specific tools.
+Use the common base for ordinary jobs. With **Allow agent environment administration** enabled (`container.system_packages=true`), Pi installs project dependencies and configures its container through sudo. Compilers, SDKs, browsers and desktop test dependencies are not required in the base. Existing gh/glab, uv and search tools remain; tea 0.16.0 and Azure CLI 2.93.0 with azure-devops 1.0.11 are also included without credentials. A project image remains optional, for preinstalled dependencies or offline work.
+
+Enabled new job containers use the bundled seccomp policy for nested application sandboxes, 512 MiB shm unless overridden, and the named adore-executor policy on AppArmor hosts. Install that policy once on the runtime host using `02_Tools/setup/install_container_sandbox_policy.sh`; see [security](../../01_Documentation/Security_And_Credentials.md#agent-package-installation-authority). No application sandbox is disabled and no active container is changed. Dependencies installed during a job remain in that container; a fresh one must install them again. Installing absent packages requires reachable package sources even when the ADORE package itself is offline.
 
 ## Build the base and proxy images
 

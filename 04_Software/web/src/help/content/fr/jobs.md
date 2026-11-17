@@ -172,3 +172,5 @@ La nouvelle exécution possède une identité, des ressources, une conversation 
 Si le redémarrage n’est pas confirmé, actualisez Travaux ou Tickets et cherchez le nouveau travail avant de réessayer. L’absence de confirmation ne signifie pas que le nettoyage a échoué ou qu’aucun travail n’a été créé. Un redémarrage refusé est signalé séparément.
 
 L’historique n’expire pas automatiquement. Un opérateur peut supprimer une ancienne exécution avec `adore delete RUN_ID --force`. La rétention d’audit ne supprime pas cet historique.
+
+Retry, les clarifications et la revue conservent les paramètres d’exécution et la conversation Pi du travail. Les changements d’image, de modèle ou de réseau du projet concernent les nouveaux travaux. Les contrôles d’identité des ressources, les règles d’approbation et les limites restent applicables. Après expiration, les modifications conservées comptent même si la tentative suivante vérifie seulement le résultat et rédige un résumé.

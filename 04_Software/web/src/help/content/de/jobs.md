@@ -172,3 +172,5 @@ Die neue Ausführung erhält eigene Identität, Arbeitsressourcen, Unterhaltung 
 Wenn der Neustart nicht bestätigt wird, aktualisieren Sie Jobs oder Tickets und suchen Sie vor einem erneuten Versuch nach dem neuen Job. Fehlende Bestätigung bedeutet weder fehlgeschlagene Bereinigung noch einen fehlenden neuen Job. Ein abgelehnter Neustart wird gesondert gemeldet.
 
 Der Verlauf läuft nicht automatisch ab. Betreiber können eine ausgewählte alte Ausführung mit `adore delete RUN_ID --force` löschen. Audit-Aufbewahrung entfernt keinen Jobverlauf.
+
+Retry, Rückfragen und Review behalten die gespeicherten Ausführungseinstellungen und die Pi-Unterhaltung des Jobs. Änderungen am Projektimage, Modell oder Netzwerk gelten für neue Jobs. Ressourcenprüfung, aktuelle Freigaberegeln und Joblimits bleiben gültig. Nach einem Timeout zählen erhaltene Änderungen auch dann, wenn der nächste Versuch nur das Ergebnis prüft und zusammenfasst.

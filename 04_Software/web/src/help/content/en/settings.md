@@ -68,13 +68,11 @@ Definitions are retained by image and shared by projects using that image. Savin
 
 If a recipe is corrupt, the dialog names what to delete on the server to start fresh. Resetting the recipe catalog removes saved image definitions for all projects; configurations, credentials and jobs stay unchanged. ADORE never deletes this data automatically.
 
-## Agent system packages {#system-packages}
+## Container environment administration {#system-packages}
 
-**Allow agent system package installation**
+Administrators enable **Allow agent environment administration** in **Settings → Agent and model**. It is off by default and container-only. Pi may use `sudo -n` to install dependencies and configure the environment, including tool permissions; ordinary project files remain owned by the normal user. Network access stays separate. Start a fresh job after changing this permission. Installed dependencies remain in that container, not in the base image.
 
-In Settings → Agent and model, administrators enable this permission with **Save** and confirm its effect. It is off by default and available for container projects. Rebuild or select a compatible image with sudo first, then start a fresh job. The agent runs package commands directly, reads failures and adapts within job limits.
-
-Network access remains separate: open permits reachable sources, allowlist-proxy permits allowed HTTP/HTTPS domains, and none permits only available local sources. Package scripts have administrative rights inside the container; mounted project folders remain shared with the server. Installed system packages remain when the same container resumes; a fresh container requires reassessment and installation.
+New enabled containers use a common seccomp policy that permits nested application sandboxes and 512 MiB of shared memory unless configured otherwise. On AppArmor hosts, the administrator must first install the bundled adore-executor policy on the runtime host. No application sandbox is disabled. Windows-native checks require Windows. Administrative access includes mounted project files; it does not grant host administration.
 
 ## Job budgets {#budgets}
 

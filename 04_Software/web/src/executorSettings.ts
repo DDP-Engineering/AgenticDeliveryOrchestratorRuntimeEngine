@@ -84,10 +84,10 @@ export const credentialEditorCopy = {
 };
 
 export const systemPackageCopy = {
- en:{label:"Allow agent system package installation",help:"The agent installs system packages directly in its container. Network access is configured separately. A compatible image with sudo is required; start a fresh job after changing this permission."},
- fr:{label:"Autoriser l’installation de paquets système par l’agent",help:"L’agent installe directement les paquets système dans son conteneur. L’accès réseau est distinct. Une image compatible avec sudo est requise ; lancez une nouvelle tâche après modification."},
- de:{label:"Systempaketinstallation durch den Agenten erlauben",help:"Der Agent installiert Systempakete direkt im Container. Netzwerkzugriff wird separat festgelegt. Ein kompatibles Image mit sudo ist nötig; nach Änderungen einen neuen Auftrag starten."},
- ro:{label:"Permite agentului instalarea pachetelor de sistem",help:"Agentul instalează direct pachetele de sistem în container. Accesul la rețea se configurează separat. Este necesară o imagine compatibilă cu sudo; porniți o lucrare nouă după schimbarea permisiunii."},
+ en:{label:"Allow agent environment administration",help:"The agent can use sudo to install dependencies and configure its container. Network access is separate. Start a fresh job after changing this permission."},
+ fr:{label:"Autoriser l’administration de l’environnement par l’agent",help:"L’agent peut utiliser sudo pour installer les dépendances et configurer son conteneur. L’accès réseau est distinct. Lancez une nouvelle tâche après modification."},
+ de:{label:"Umgebungsverwaltung durch den Agenten erlauben",help:"Der Agent darf mit sudo Abhängigkeiten installieren und seinen Container einrichten. Netzwerkzugriff bleibt getrennt. Nach Änderungen einen neuen Auftrag starten."},
+ ro:{label:"Permite agentului administrarea mediului",help:"Agentul poate folosi sudo pentru a instala dependențe și a configura containerul. Accesul la rețea este separat. Porniți o lucrare nouă după schimbarea permisiunii."},
 };
 
 /** Read a complete draft for an existing agent without inventing provider/model defaults. */

@@ -159,6 +159,13 @@ def test_retry_revalidation_refuses_real_failures_without_losing_work(
     assert engine.retry(run.run_id)
 
     saved = engine.store.load(run.run_id)
+    if change == "target":
+        assert saved.lifecycle == "parked-clarification", saved.outcome
+        assert len(executor.prompts) == 1
+        assert saved.execution["plan"]["policy"]["target_branch"] != "different-target"
+        assert engine.config.delivery.target_branch == "different-target"
+        assert (work / "progress.txt").is_file()
+        return
     assert saved.lifecycle == "failed"
     assert saved.stage == "design"
     assert saved.outcome.startswith(

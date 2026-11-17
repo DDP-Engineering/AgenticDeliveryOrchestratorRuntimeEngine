@@ -282,6 +282,8 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
     assert "independently configured as allowlist-proxy" in executor.prompts[-1]
     assert not forge.opened
     before = len(authorized)
+    executor.results.append(GateRun(exit_code=0, has_questions=True,
+                                    questions="Need project clarification"))
     saved.lifecycle = "failed"
     engine.store.save(saved)
     if drift == "permission":
@@ -297,8 +299,10 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
         containers.resource_identity = missing
     assert engine.retry(run.run_id)
     saved = engine.store.load(run.run_id)
-    if drift == "none":
+    if drift in {"none", "permission", "network"}:
+        assert saved.lifecycle == "parked-clarification", saved.outcome
         assert len(authorized) > before
+        assert "independently configured as allowlist-proxy" in executor.prompts[-1]
     else:
         assert saved.lifecycle == "failed"
         assert len(authorized) == before
@@ -342,14 +346,15 @@ def test_container_authorization_policy_with_offline_processes(tmp_path, monkeyp
         if argv[0].endswith("visudo"):
             with open(argv[-1], encoding="utf-8") as handle:
                 content = handle.read()
-            assert content.splitlines()[-1] == "#1000 ALL=(root) NOPASSWD: /usr/bin/apt-get"
+            assert content.splitlines()[-1] == "#1000 ALL=(root) NOPASSWD: ALL"
             assert "HTTP_PROXY HTTPS_PROXY NO_PROXY" in content
             assert "API_KEY" not in content
             if failure == "visudo":
                 raise subprocess.CalledProcessError(1, argv)
         else:
             assert argv == ["/usr/bin/sudo", "-u", "#1000", "--", "/usr/bin/sudo",
-                            "-n", "--", "/usr/bin/apt-get", "--version"]
+                            "-n", "--", "/usr/bin/id", "-u"]
+            return SimpleNamespace(stdout="0\n")
 
     monkeypatch.setattr(pathlib, "Path", lambda value: Directory())
     monkeypatch.setattr(os, "geteuid", lambda: 0, raising=False)

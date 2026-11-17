@@ -68,13 +68,11 @@ Les définitions sont conservées par image et partagées entre les projets qui 
 
 Si une recette est corrompue, la fenêtre indique quoi supprimer sur le serveur pour recommencer. Réinitialiser le catalogue supprime les définitions d’image enregistrées pour tous les projets ; configurations, identifiants et tâches restent inchangés. ADORE ne supprime jamais ces données automatiquement.
 
-## Paquets système de l’agent {#system-packages}
+## Administration de l’environnement du conteneur {#system-packages}
 
-**Autoriser l’installation de paquets système par l’agent**
+Les administrateurs activent **Autoriser l’administration de l’environnement par l’agent** dans **Settings → Agent and model**. Désactivée par défaut, cette permission concerne les conteneurs. Pi peut utiliser `sudo -n` pour installer les dépendances et configurer l’environnement, y compris les droits des outils ; les fichiers du projet restent détenus par l’utilisateur normal. L’accès réseau reste distinct. Lancez une nouvelle tâche après modification. Les dépendances restent dans ce conteneur, pas dans l’image de base.
 
-Dans Paramètres → Agent et modèle, les administrateurs activent cette permission avec **Enregistrer** et confirment son effet. Désactivée par défaut, elle concerne les projets en conteneur. Reconstruisez ou choisissez une image compatible avec sudo, puis lancez une nouvelle tâche. L’agent exécute directement les commandes, analyse les échecs et s’adapte dans les limites de la tâche.
-
-L’accès réseau reste distinct : open autorise les sources accessibles, allowlist-proxy les domaines HTTP/HTTPS permis, et none uniquement les sources locales disponibles. Les scripts de paquets ont des droits administratifs dans le conteneur ; les dossiers montés restent partagés avec le serveur. Les paquets système restent dans le même conteneur à la reprise ; un nouveau conteneur exige une nouvelle évaluation et installation.
+Les nouveaux conteneurs autorisés utilisent une politique seccomp commune permettant les sandbox applicatifs et 512 Mio de mémoire partagée sauf configuration contraire. Sur un hôte AppArmor, l’administrateur doit installer la politique adore-executor fournie sur l’hôte du runtime. Aucun sandbox applicatif n’est désactivé. Les vérifications Windows natives nécessitent Windows. L’accès administratif inclut les fichiers de projet montés, pas l’administration de l’hôte.
 
 ## Budgets du travail {#budgets}
 

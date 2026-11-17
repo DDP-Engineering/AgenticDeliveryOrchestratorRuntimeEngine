@@ -148,4 +148,4 @@ runtime environment, credentials or recipes.
 
 ## Adaptive agent dependency installation
 
-Optional `container.system_packages = true` lets the agent install system packages directly after reviewed recipes, or without a recipe. The agent observes failures and adapts commands; ADORE grants permission and preserves network policy. Package-enabled jobs persist their execution/resource identity even without recipes. A not-required recipe status does not assert installed dependencies. See [Agent dependency installation](Security_And_Credentials.md#agent-package-installation-authority).
+Optional `container.system_packages = true` lets the agent install dependencies and configure its container environment through sudo after reviewed recipes, or without a recipe. The agent observes failures and adapts commands; ADORE grants permission and preserves network policy. Environment-administration-enabled jobs persist their execution/resource identity even without recipes. A not-required recipe status does not assert installed dependencies. See [Agent dependency installation](Security_And_Credentials.md#agent-package-installation-authority).

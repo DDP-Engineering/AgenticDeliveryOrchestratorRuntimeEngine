@@ -105,6 +105,21 @@ def test_plan_pins_exact_source_image_and_policy_without_installing() -> None:
     assert plan["image"] == "project:1" and plan["image_source"] == "recipe"
     assert plan["source"] == runner.source
     assert validate_plan(plan) == plan
+    from adore.job_configuration import job_execution_config
+
+    current = recipe_config()
+    current.container.image = "future:2"
+    current.executor.internet = not current.executor.internet
+    current.delivery.target_branch = "future-target"
+    current.budgets.max_iterations = 47
+    current.delivery.require_human_approval = False
+    restored = job_execution_config(current, plan)
+    assert restored.container.image == "project:1"
+    assert restored.executor.internet == plan["policy"]["executor"]["internet"]
+    assert restored.delivery.target_branch == plan["policy"]["target_branch"]
+    assert restored.budgets.max_iterations == 47
+    assert restored.delivery.require_human_approval is False
+    assert current.container.image == "future:2"
     assert all(argv[0] == "git" for argv in runner.calls)
 
 

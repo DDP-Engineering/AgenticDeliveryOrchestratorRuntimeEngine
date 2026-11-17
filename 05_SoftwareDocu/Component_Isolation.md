@@ -182,3 +182,7 @@ coverage includes `04_Software/tests/test_isolation.py`, `test_container_git.py`
 and `test_shared_resources.py`. Actual runtime provisioning and host credentials
 remain separate operator acceptance work; dated local acceptance receipts are not
 part of the component contract.
+
+## Agent-managed container environments
+
+With `container.system_packages=true`, newly created agent containers use the common security arguments from `container_security.py`: bundled seccomp, named AppArmor policy when the runtime reports AppArmor, and 512 MiB shm unless explicitly overridden. Runtime inspection is bounded and invalid security metadata fails closed. Proxies, credential helpers and existing containers are unchanged. Host installation is explicit; no unconfined fallback or automatic policy replacement occurs. See [environment administration](Component_Package_Permissions.md).

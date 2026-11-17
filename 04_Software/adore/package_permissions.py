@@ -1,10 +1,11 @@
-"""Container-only authorization for agent-owned package installation."""
+"""Container-only authorization for agent-owned environment administration."""
 
 
 PACKAGE_AUTHORIZATION_ACK = "adore-system-packages-ready"
 
 # Use the image's root-owned OS Python, not the user-owned uv interpreter.
 # Neither script nor UID is read from the mounted worktree or IO directory.
+# After this explicit opt-in, container root can modify installed tooling.
 # REUSE-IgnoreStart
 PACKAGE_AUTHORIZATION_SCRIPT = r'''
 # Copyright (c) 2026 DDP Engineering
@@ -44,7 +45,7 @@ policy = (
     '# See LICENSE.txt. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n'
     'Defaults env_keep += "HTTP_PROXY HTTPS_PROXY NO_PROXY '
     'http_proxy https_proxy no_proxy DEBIAN_FRONTEND"\n'
-    '#' + str(uid) + ' ALL=(root) NOPASSWD: ' + ', '.join(managers) + '\n'
+    '#' + str(uid) + ' ALL=(root) NOPASSWD: ALL\n'
 )
 fd, temporary = tempfile.mkstemp(prefix='.adore-', dir=str(directory))
 try:
@@ -57,8 +58,11 @@ finally:
     if os.path.exists(temporary):
         os.unlink(temporary)
 # Exercise the actual non-root -> root transition without installing anything.
-subprocess.run([sudo, '-u', '#' + str(uid), '--', sudo, '-n', '--', managers[0],
-                '--version'], check=True, capture_output=True, timeout=5)
+confirmed = subprocess.run([sudo, '-u', '#' + str(uid), '--', sudo, '-n', '--',
+                           '/usr/bin/id', '-u'],
+                          check=True, capture_output=True, text=True, timeout=5)
+if confirmed.stdout.strip() != '0':
+    raise RuntimeError('container administrative authority was not confirmed')
 print('adore-system-packages-ready')
 '''
 # REUSE-IgnoreEnd

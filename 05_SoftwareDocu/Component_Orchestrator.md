@@ -49,6 +49,14 @@ Every job has a closed pinned execution plan, including containers with no
 preparation recipe. Provision records exact resource identity before binding
 commands. Preparation and optional system-package authority are explicit;
 ordinary Retry cannot silently change a plan or repeat partial setup.
+`job_configuration.py` projects the validated saved execution policy into a scoped
+configuration for Retry, conduct and reconciliation, restoring project defaults afterward.
+Production worktree, backend, Pi and credential selection use that job policy. Current
+approval/forge identity and budgets are not restored from execution snapshots.
+Budget rereads normalize saved execution fields, while rejecting other drift and invalid types.
+Direct success with no new edits checks cumulative candidate changes from the Git merge
+base, including retained commits and pending files. Empty candidates and bookkeeping-only
+work still fail NO_CHANGES; resumed completion needs no artificial product edit.
 See [Preparation](Component_Preparation.md) and
 [Execution](Component_Execution.md).
 

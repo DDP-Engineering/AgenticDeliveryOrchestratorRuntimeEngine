@@ -12,6 +12,16 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "fixed"
+topic = { en = "Recovery", fr = "Reprise", de = "Wiederaufnahme", ro = "Recuperare" }
+text = { en = "Recovery keeps job settings and retained work; automatic repairs wait for a free place.", fr = "La reprise garde réglages et travail ; les réparations automatiques attendent une place libre.", de = "Jobs behalten Einstellungen und Arbeit; automatische Reparaturen warten auf einen freien Platz.", ro = "Recuperarea păstrează setările și munca; reparările automate așteaptă un loc liber." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Containers", fr = "Conteneurs", de = "Container", ro = "Containere" }
+text = { en = "Allow agents to install dependencies and configure their container with sudo.", fr = "Autorisez les agents à installer les dépendances et configurer leur conteneur avec sudo.", de = "Agenten dürfen mit sudo Abhängigkeiten installieren und ihren Container einrichten.", ro = "Permiteți agenților să instaleze dependențe și să configureze containerul cu sudo." }
+
+[[release.entry]]
 category = "improved"
 topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
 text = { en = "Comments reach the agent quoted by author; an automatic repair no longer reads them.", fr = "Les commentaires arrivent à l’agent cités par auteur ; la réparation automatique les ignore.", de = "Kommentare erreichen den Agenten als Zitat je Autor; die automatische Reparatur liest sie nicht.", ro = "Comentariile ajung la agent citate pe autor; repararea automată nu le mai citește." }
@@ -41,10 +51,6 @@ category = "fixed"
 topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
 text = { en = "Long jobs are no longer stopped after six hours when the project budget allows more.", fr = "Les travaux longs ne sont plus arrêtés après six heures si le budget du projet le permet.", de = "Lange Jobs enden nicht mehr nach sechs Stunden, wenn das Projektbudget mehr erlaubt.", ro = "Lucrările lungi nu mai sunt oprite după șase ore dacă bugetul proiectului permite." }
 
-[[release.entry]]
-category = "fixed"
-topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
-text = { en = "An automatic repair after a failed pipeline waits for a free place instead of being dropped.", fr = "La réparation automatique après un pipeline en échec attend une place libre.", de = "Die automatische Reparatur nach fehlgeschlagener Pipeline wartet auf einen freien Platz.", ro = "Repararea automată după un pipeline eșuat așteaptă un loc liber în loc să fie pierdută." }
 
 [[release.entry]]
 category = "fixed"

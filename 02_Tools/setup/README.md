@@ -69,3 +69,7 @@ configuration work and bounded job pools. Do not register standalone CLI polling
 for profiles already managed by that supervisor. See
 [Web interface](../../01_Documentation/Web_Interface.md) and
 [source-service boundaries](../../05_SoftwareDocu/Component_Packaging.md#source-services).
+
+## Container application sandbox support
+
+`install_container_sandbox_policy.sh` installs the bundled `adore-executor` AppArmor policy once on the Linux Docker/Podman host. Run it with sudo only on AppArmor hosts, using a parser that supports `userns`. An optional argument points to `adore/container_assets/executor-apparmor` from an installed package. It leaves global sysctls, existing different policies and running containers unchanged. See [container environment authority](../../01_Documentation/Security_And_Credentials.md#agent-package-installation-authority). This is host preparation, not a selectable project environment profile.

@@ -172,3 +172,5 @@ The fresh execution has a new identity, working resources, conversation and budg
 If Restart cannot be confirmed, refresh Jobs or Tickets and check for the new job before trying again. An unconfirmed result does not mean cleanup failed or that no job was created. A refused restart is reported separately.
 
 History has no automatic expiry. An operator can delete a selected old execution with `adore delete RUN_ID --force`. Audit retention does not remove job history.
+
+Retry, clarification and review keep the job’s saved execution settings and Pi conversation. Changes to the project image, model or network apply to new jobs. Resource identity checks, current approval rules and job limits still apply. After a timeout, retained implementation changes count even when the next attempt only checks the result and writes a summary.

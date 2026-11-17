@@ -39,7 +39,9 @@ parents/files before evidence is retained. Unknown schema, corrupt JSON, identit
 mismatch or incomplete results raise typed errors rather than implying success.
 
 Provision, tool checks and auth staging precede setup; setup precedes agent stages.
-Resume requires the saved plan/resource IDs and intact immutable step evidence.
+Resume uses the saved execution settings, plan/resource IDs and intact immutable step evidence.
+New project defaults do not replace a job backend, model, image or network. Live approval
+and forge authority remain current; resource identity drift still fails closed.
 Ordinary Retry cannot replay partial setup. Explicit `retry --reprepare` authorizes
 bounded replay in a fresh owned container while retaining worktree effects.
 See [Container preparation](../01_Documentation/Container_Preparation.md).

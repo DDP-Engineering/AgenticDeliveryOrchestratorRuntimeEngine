@@ -1036,7 +1036,8 @@ class WorktreeManager:
         return paths
 
     def worktree_progress_fingerprint(self, run_id: str, *,
-                                      exclude_paths: Sequence[str] = ()) -> str:
+                                      exclude_paths: Sequence[str] = (),
+                                      base_ref: str | None = None) -> str:
         """
         Observe candidate changes independently of task bookkeeping.
         Hash exact tracked diff bytes against HEAD and untracked content, excluding
@@ -1045,6 +1046,8 @@ class WorktreeManager:
                     File content has no encoding or replacement-character restrictions.
         run_id: Stable run identifier.
         exclude_paths: Literal exchange file names excluded only for this observation.
+        base_ref: Observe cumulative candidate work from the merge base, including
+                   retained commits and dirty files, instead of only changes against HEAD.
         Returns: SHA-256 fingerprint, including dirty candidate changes.
         Raises IsolationError: When Git or a content observation fails.
         """
@@ -1067,7 +1070,13 @@ class WorktreeManager:
                 raise IsolationError("invalid Git progress evidence")
             return output
 
-        diff = observe("diff", "--binary", "HEAD", "--", *paths)
+        baseline = "HEAD"
+        if base_ref is not None:
+            base = observe("merge-base", "HEAD", base_ref).strip()
+            if re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", base) is None:
+                raise IsolationError("invalid candidate merge base")
+            baseline = base.decode("ascii")
+        diff = observe("diff", "--binary", baseline, "--", *paths)
         untracked = observe("ls-files", "-z", "--others", "--exclude-standard", "--", *paths)
         if len(untracked) > 4_000_000:
             raise IsolationError("oversized untracked progress path list")
@@ -1374,6 +1383,7 @@ class ContainerManager:
         egress: EgressPolicy | None = None,
         selinux_relabel: str = "off",
         pull_never: bool = False,
+        system_packages: bool = False,
     ) -> None:
         """
         Configure the manager from the [container] section.
@@ -1400,6 +1410,9 @@ class ContainerManager:
         pull_never: Require both executor and proxy images to be
                     present locally. The disposable web readiness probe uses
                     this without changing normal conductor image policy.
+        system_packages: New agent containers use the bundled sandbox-capable
+                    security policy when environment administration is enabled.
+                    Existing containers and credential helpers are unchanged.
         Raises ValueError: For an unknown relabel mode or ambiguous WSL prefix.
         """
         if selinux_relabel not in SELINUX_RELABEL_OPTIONS:
@@ -1416,6 +1429,7 @@ class ContainerManager:
         self.egress = egress or EgressPolicy()
         self.selinux_relabel = selinux_relabel
         self.pull_never = pull_never
+        self.system_packages = system_packages
 
     def status(self, name: str) -> str:
         """
@@ -1884,8 +1898,16 @@ class ContainerManager:
         Path(io_path).mkdir(parents=True, exist_ok=True)
         if git_payload is not None:
             _admit_git_pointer(git_pointer, git_payload, create=True)
+        security_args = []
+        if self.system_packages:
+            from adore.container_security import environment_security_args
+
+            security_args = environment_security_args(
+                self.runtime_argv, self._runtime_command, self.runner,
+                self._mount_source, self.run_args,
+            )
         argv = [
-            *self.runtime_argv, "run", "--detach", *self.run_args,
+            *self.runtime_argv, "run", "--detach", *self.run_args, *security_args,
             *(["--pull=never"] if self.pull_never else []),
             "--name", name,
             "--volume", self._bind_mount(git_dir, CONTAINER_GIT_MOUNT),
@@ -1930,7 +1952,10 @@ class ContainerManager:
             process_env["WSLENV"] = f"{existing}:{shared}" if existing else shared
         result = self.runner(argv, env=process_env)
         if not result.ok:
-            raise IsolationError(f"{self.runtime} run failed", result.argv, result.stderr)
+            guidance = ("; install the bundled adore-executor AppArmor policy on the "
+                        "runtime host if AppArmor rejects it; never disable sandboxing"
+                        if self.system_packages else "")
+            raise IsolationError(f"{self.runtime} run failed{guidance}", result.argv, result.stderr)
         if git_payload is not None:
             self._verify_git_binding(name, git_payload)
         return "created"
@@ -1977,7 +2002,7 @@ class ContainerManager:
 
     def authorize_system_packages(self, name: str) -> None:
         """
-        Authorize direct noninteractive package-manager sudo in a container.
+        Authorize noninteractive environment administration in a container.
         name: Exact owned container selected by the conductor.
         Raises IsolationError: For invalid UID, failed/timeout authorization,
                    incompatible images or missing authoritative confirmation.

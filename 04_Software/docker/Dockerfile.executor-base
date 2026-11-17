@@ -3,8 +3,8 @@
 #
 # ADORE-owned tooling only: Python 3.11 + uv, Node/npm, git, glab/gh, and Pi
 # (ADORE's only coding agent) with pi-web-access pinned under /opt/pi plus
-# ADORE's Pi guard extension. Runtime-project images must extend this image and
-# add project-specific build/test dependencies.
+# ADORE's Pi guard extension. The agent installs project-specific
+# build/test dependencies inside its opted-in job container.
 #
 # Build:   docker build -f Dockerfile.executor-base -t adore-executor-base:1.0.0 .
 # Secrets: never baked in; ADORE injects the executor's env subset at run time.
@@ -18,6 +18,11 @@ FROM ubuntu:22.04
 ARG NODE_VERSION=22.23.4
 ARG NODE_SHA256=1805bcd35e6815559bd2eb97db438d3fdb0eb3a5e6a977b7c1badca76337e9ce
 ARG GLAB_VERSION=1.55.0
+ARG TEA_VERSION=0.16.0
+ARG TEA_SHA256=9c142c8a0b31485eea2387031c1c404f12b7141075eb4ffbd7ced49441590636
+ARG AZURE_CLI_VERSION=2.93.0
+ARG AZURE_DEVOPS_VERSION=1.0.11
+ARG AZURE_DEVOPS_SHA256=9610253a7027af4b6d3fbceaceddcaa0a97ae5ab90294399312a0ec97503715b
 # Pi, ADORE's only coding agent, runs as `pi --mode rpc`; pi-web-access is its
 # web search and page reading extension, installed in the same prefix.
 ARG PI_PACKAGE=@earendil-works/pi-coding-agent@1.5.2
@@ -68,6 +73,29 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Forge clients carry no credentials; authentication remains on the host.
+RUN curl -fsSL --retry 3 --connect-timeout 20 --max-time 300 \
+        -o /usr/local/bin/tea \
+        "https://dl.gitea.com/tea/${TEA_VERSION}/tea-${TEA_VERSION}-linux-amd64" \
+    && echo "${TEA_SHA256}  /usr/local/bin/tea" | sha256sum -c - \
+    && chmod 0755 /usr/local/bin/tea
+RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+        | gpg --dearmor -o /usr/share/keyrings/microsoft-azure-cli.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-azure-cli.gpg] https://packages.microsoft.com/repos/azure-cli/ jammy main" \
+        > /etc/apt/sources.list.d/azure-cli.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends "azure-cli=${AZURE_CLI_VERSION}-1~jammy" \
+    && rm -rf /var/lib/apt/lists/*
+ENV AZURE_EXTENSION_DIR=/opt/azure-cli-extensions
+RUN curl -fsSL --retry 3 --connect-timeout 20 --max-time 300 \
+        -o /tmp/azure_devops-${AZURE_DEVOPS_VERSION}-py2.py3-none-any.whl \
+        "https://github.com/Azure/azure-devops-cli-extension/releases/download/20261109.1/azure_devops-${AZURE_DEVOPS_VERSION}-py2.py3-none-any.whl" \
+    && echo "${AZURE_DEVOPS_SHA256}  /tmp/azure_devops-${AZURE_DEVOPS_VERSION}-py2.py3-none-any.whl" | sha256sum -c - \
+    && AZURE_CONFIG_DIR=/tmp/adore-az az extension add --yes \
+        --source /tmp/azure_devops-${AZURE_DEVOPS_VERSION}-py2.py3-none-any.whl \
+    && chmod -R a+rX /opt/azure-cli-extensions \
+    && rm -rf /tmp/azure_devops-*.whl /tmp/adore-az
+
 # --- Coding agent (via npm) --------------------------------------------------
 # Pi and pi-web-access at exact versions in their own prefix (pi-web-access
 # resolves Pi's packages from it). Install scripts are skipped: neither needs
@@ -90,8 +118,8 @@ RUN curl -fsSL -o /tmp/fd.tar.gz https://github.com/sharkdp/fd/releases/download
     && cp /tmp/adore-fd/LICENSE* /opt/adore/licenses/fd/ \
     && cp /tmp/adore-rg/LICENSE* /opt/adore/licenses/rg/ \
     && rm -rf /tmp/fd.tar.gz /tmp/rg.tar.gz /tmp/adore-fd /tmp/adore-rg
-# ADORE's guard extension, loaded with `-e` by every Pi run; root-owned, so the
-# agent cannot change it.
+# ADORE's guard extension, loaded with `-e` by every Pi run. Root ownership
+# protects it only from agents without environment administration permission.
 COPY pi/adore-guard.ts /opt/adore/pi/adore-guard.ts
 COPY pi/adore-chatgpt.mjs /opt/adore/pi/adore-chatgpt.mjs
 RUN chmod 0644 /opt/adore/pi/adore-guard.ts /opt/adore/pi/adore-chatgpt.mjs
@@ -142,7 +170,11 @@ USER root
 RUN target="$(ls -d /home/adore/.local/share/uv/python/cpython-3.11*/bin/python3.11 2>/dev/null | head -n1)" \
     && test -x "$target" \
     && ln -sf "$target" /usr/local/bin/python3 \
-    && ln -sf "$target" /usr/local/bin/python
+    && ln -sf "$target" /usr/local/bin/python \
+    && mkdir -p /opt/adore/licenses/tea \
+    && curl -fsSL --retry 3 --connect-timeout 20 --max-time 60 \
+        -o /opt/adore/licenses/tea/LICENSE \
+        "https://gitea.com/gitea/tea/raw/tag/v${TEA_VERSION}/LICENSE"
 USER adore
 
 # The container idles; ADORE execs the executor into it one AEGIS stage at a

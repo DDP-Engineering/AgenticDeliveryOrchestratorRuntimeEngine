@@ -1,21 +1,25 @@
-# Package permissions
+# Container environment administration
 
 ## 1. Purpose
 
-Authorize adaptive system-package installation by the job agent inside an opted-in container. Package choice, execution and interpretation stay with the coding executor.
+Let Pi install dependencies and configure its owned Linux container, with no project-specific environment profiles or conductor dependency broker.
 
 ## 2. Responsibilities
 
-`adore/package_permissions.py` contains fixed authorization code and its exact success acknowledgement. `ContainerManager.authorize_system_packages` measures a non-root numeric UID and issues a bounded root exec using the image’s OS Python. `ContainerBackend` first checks the pinned identity and addresses the immutable container ID. The code configures root-owned sudoers and tests noninteractive elevation with a version-only package-manager invocation; it performs no installation.
+`container.system_packages` remains a strict opt-in boolean. The web label is **Allow agent environment administration**. `package_permissions.py` installs a root-owned, visudo-checked `NOPASSWD: ALL` rule for the measured non-root UID. An explicit `sudo id -u` confirmation must return root. The fixed bootstrap runs via the image OS Python with a cleared environment, never worktree code. Package-manager availability remains an image prerequisite; normal project files stay non-root owned.
+
+`container_security.py` supplies a bundled Moby-derived seccomp allowlist with nested namespace operations enabled. Newly provisioned enabled agent containers get 512 MiB shm unless overridden and, when runtime security metadata says AppArmor is enabled, the named `adore-executor` policy. Invalid metadata, absent seccomp or missing assets fail with IsolationError. The runtime rejects missing AppArmor policy; there is no unconfined fallback. Windows/WSL translates the client-side policy path through the existing path mapper.
 
 ## 3. Dependencies and contracts
 
-Trusted Linux image with root-owned `/usr/bin/python3` and `/usr/bin/id`, sudo, visudo, safe `/etc/sudoers.d` and an installed supported package manager. Supported paths are documented in Security_And_Credentials.md. Package scripts have effective container-root authority; sudo is not an isolation boundary. Current normal user ownership is retained for ordinary code/library writes. The root bootstrap clears its subprocess environment and accepts only a measured numeric UID. Administrative process errors, timeouts, unsafe directories or missing exact acknowledgement raise IsolationError.
+Image: root-owned OS Python/id, sudo/visudo, a supported package manager and a safe sudoers directory. Host: working user namespaces and, where enabled, the installed AppArmor policy with userns support. See [security and host preparation](../01_Documentation/Security_And_Credentials.md#agent-package-installation-authority).
+
+Opted-in sudo has container-root authority, including mounted project data and injected tooling. It is not a fine-grained security boundary. Host mounts/socket/capabilities are not added. Network policy stays independent. No host policy installation, syscall disabling, migration or reset happens automatically.
 
 ## 4. Workflow integration
 
-Strict boolean `container.system_packages` defaults false. Enabled jobs bind policy/container/image in the existing execution plan and resource record before granting authority. Egress is independent; proxy variables survive agent sudo. Host-oriented runtime overrides and native backend elevation are rejected. Stopped same-container jobs preserve the filesystem; drift/resource loss fails closed. Model/host checks never install packages or grant this permission.
+Execution plans pin the permission and owned resource before granting authority. Same-container resume retains dependencies. Runtime security arguments apply only when creating an enabled agent container, never to existing containers, proxies or credential helpers. Project permission changes require idle reviewed settings and a fresh job. Read-only connection checks do not grant sudo.
 
 ## 5. Evidence and verification
 
-Gate output is available to the agent. Enabled RPC launches retain sanitized operational tails, stderr and questions at 64 KiB. Session stdout uses the standard literal bounded RPC recording and is archived unchanged, including any known API-key or ephemeral stage-token values the agent printed. The authenticated session reader applies the project grant/no-store/system-exclusion policy. Non-RPC streams retain the sanitized 64 KiB policy. Complete original Pi usage remains authoritative. This is a retention bound, not a live filesystem quota. Offline public tests in test_system_packages.py cover config, root authorization transport, negative process output, independent modes, same-resource retry/drift, reviewed web settings and gate retention. Live Docker/Podman package installation is separate acceptance.
+Existing targeted package-permission, isolation and prompt tests use injected runners. Live image and sandbox acceptance is separate; no setup-script tests or full suite are required for a focused change. Operational/session retention and redaction remain governed by the executor/session contracts.

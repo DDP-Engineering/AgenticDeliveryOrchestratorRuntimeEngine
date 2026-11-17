@@ -362,15 +362,26 @@ def test_scrub_container_worktree_config_only_removes_adore_mount(tmp_path: Path
 # PUBLIC API / TESTS - containers
 
 
-def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
+@pytest.mark.parametrize("security", [None, '["name=seccomp,profile=builtin"]',
+                                     '["name=seccomp", "name=apparmor"]', 'invalid'])
+def test_container_provision_creates_when_absent(tmp_path: Path, security) -> None:
     """
     An absent container is created with all four mounts, workdir,
              safe runtime env inline, secret keys without values, and sleep
              infinity; the io dir is created on demand.
     """
-    runner = FakeRunner(_fail("Error: No such object: adore-run-x"), _ok("cid"),
-                        _ok("adore-git-binding-v1\n"))
+    results = [_fail("Error: No such object: adore-run-x")]
+    if security is not None:
+        results.append(_ok(security))
+    runner = FakeRunner(*results, _ok("cid"), _ok("adore-git-binding-v1\n"))
     manager = _manager(runner)
+    manager.system_packages = security is not None
+    if security == "invalid":
+        with pytest.raises(IsolationError, match="security unavailable"):
+            manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
+                              tmp_path / "io", {})
+        assert not any("run" in argv for argv in runner.calls)
+        return
     io_dir = tmp_path / "state" / "runs" / "x" / "io"
     manager.provision(
         "adore-run-x",
@@ -381,8 +392,13 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
          "PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "UV_LINK_MODE": "copy",
          "ANTHROPIC_API_KEY": "sk-secret"},
     )
-    run_argv = runner.calls[1]
+    run_index = 2 if security is not None else 1
+    run_argv = runner.calls[run_index]
     assert run_argv[:3] == ["docker", "run", "--detach"]
+    if security is not None:
+        assert "--shm-size=512m" in run_argv
+        assert any(x.startswith("--security-opt=seccomp=") for x in run_argv)
+        assert ("--security-opt=apparmor=adore-executor" in run_argv) == ("apparmor" in security)
     # Safe runtime values travel inline; they are not secrets and must survive
     # wrapped runtimes consistently.
     env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])
@@ -402,26 +418,34 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
     # secrets: key present as bare --env KEY, value only in the process env
     assert "ANTHROPIC_API_KEY" in run_argv
     assert not any("sk-secret" in part for part in run_argv)
-    assert runner.envs[1] is not None
-    assert runner.envs[1]["ANTHROPIC_API_KEY"] == "sk-secret"
+    assert runner.envs[run_index] is not None
+    assert runner.envs[run_index]["ANTHROPIC_API_KEY"] == "sk-secret"
 
 
-def test_container_provision_inserts_run_args(tmp_path: Path) -> None:
+@pytest.mark.parametrize("administration", [False, True])
+def test_container_provision_inserts_run_args(tmp_path: Path, administration) -> None:
     """
     [container] run_args tokens land right after `run --detach`
              (e.g. --userns=keep-id for rootless podman - live finding
              2026-07-04). The default (no run_args) is proven clean by
              test_container_provision_creates_when_absent's argv prefix.
     """
-    runner = FakeRunner(_fail("Error: No such object: p-run-x"), _ok("cid"))
+    results = [_fail("Error: No such object: p-run-x")]
+    if administration:
+        results.append(_ok('{"apparmorEnabled":false,"seccompEnabled":true}'))
+    runner = FakeRunner(*results, _ok("cid"))
     manager = ContainerManager("podman", "adore-executor-base:1.0.0", "uv-cache",
                                "npm-cache", runner,
-                               run_args=["--userns=keep-id"])
+                               run_args=["--userns=keep-id"], system_packages=administration)
     manager.provision("p-run-x", tmp_path / "repo", tmp_path / "wt",
                       tmp_path / "io", {"HOME": "/home/adore"})
-    run_argv = runner.calls[1]
+    run_argv = runner.calls[2 if administration else 1]
     assert run_argv[:4] == ["podman", "run", "--detach", "--userns=keep-id"]
-    assert run_argv[4:6] == ["--name", "p-run-x"]
+    if administration:
+        assert run_argv[4].startswith("--security-opt=seccomp=")
+        assert "--shm-size=512m" in run_argv
+    else:
+        assert run_argv[4:6] == ["--name", "p-run-x"]
 
 
 def test_container_provision_relabels_only_bind_mounts_for_selinux(
@@ -1438,30 +1462,34 @@ def test_plain_docker_runtime_does_not_set_wslenv(tmp_path: Path) -> None:
     assert process_env.get("WSLENV", "") == os.environ.get("WSLENV", "")
 
 
-def test_worktree_progress_observes_content_and_excludes_bookkeeping(tmp_path):
+@pytest.mark.parametrize("base_ref", [None, "origin/master"])
+def test_worktree_progress_observes_content_and_excludes_bookkeeping(tmp_path, base_ref):
     """Arbitrary tracked/untracked bytes count, without text loss or a diff-size cutoff."""
     raw = b"diff-\xef\xbf\xbd\xff\x00\r\n" + b"x" * 4_000_000
     changed = raw.replace(b"\xff", b"\xfe")
     assert raw.decode("utf-8", "replace") == changed.decode("utf-8", "replace")
-    runner = FakeRunner(CommandResult(stdout=raw.decode("utf-8", "replace"), raw_stdout=raw),
-                        _ok("new file.py\0"),
-                        CommandResult(stdout=raw.decode("utf-8", "replace"), raw_stdout=raw),
-                        _ok("new file.py\0"),
-                        CommandResult(stdout=changed.decode("utf-8", "replace"),
-                                      raw_stdout=changed),
-                        _ok("new file.py\0"))
+    responses = []
+    for data in (raw, raw, changed):
+        if base_ref is not None:
+            responses.append(_ok("a" * 40 + "\n"))
+        responses.extend([CommandResult(stdout=data.decode("utf-8", "replace"), raw_stdout=data),
+                          _ok("new file.py\0")])
+    runner = FakeRunner(*responses)
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
     wt = manager.path_for("run-1")
     wt.mkdir(parents=True)
     source = wt / "new file.py"
     source.write_bytes(b"one\xff\x00")
-    first = manager.worktree_progress_fingerprint("run-1")
+    first = manager.worktree_progress_fingerprint("run-1", base_ref=base_ref)
     source.write_bytes(b"two\xfe\x00")
-    second = manager.worktree_progress_fingerprint("run-1")
-    third = manager.worktree_progress_fingerprint("run-1")
+    second = manager.worktree_progress_fingerprint("run-1", base_ref=base_ref)
+    third = manager.worktree_progress_fingerprint("run-1", base_ref=base_ref)
     assert first != second != third
-    assert all(":(exclude).agentic/tasks/**" in call for call in runner.calls)
-    assert all(":(exclude)**/__pycache__/**" in call for call in runner.calls)
+    observations = [call for call in runner.calls if "merge-base" not in call]
+    assert all(":(exclude).agentic/tasks/**" in call for call in observations)
+    assert all(":(exclude)**/__pycache__/**" in call for call in observations)
+    assert all(("a" * 40 if base_ref else "HEAD") in call
+               for call in observations if "diff" in call)
 
 
 @pytest.mark.parametrize("name", ["../secret", "/absolute", "C:/outside", "missing", "dir/file"])

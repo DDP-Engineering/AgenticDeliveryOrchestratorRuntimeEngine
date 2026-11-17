@@ -290,6 +290,15 @@ def main(argv: list[str] | None = None) -> int:
         shutil.copy2(REPO / "REUSE.toml", bundle / "REUSE.toml")
         shutil.copytree(REPO / "LICENSES", bundle / "LICENSES")
         copy_user_documentation(bundle / "Documentation")
+        # The policy is installed explicitly on the runtime host, including a
+        # remote Linux/WSL host used by the Windows application.
+        security = bundle / "ContainerSecurity"
+        security.mkdir()
+        shutil.copy2(REPO / "02_Tools/setup/install_container_sandbox_policy.sh",
+                     security / "install-container-sandbox-policy.sh")
+        (security / "install-container-sandbox-policy.sh").chmod(0o755)
+        for name in ("executor-apparmor", "executor-apparmor.license"):
+            shutil.copy2(software / "adore/container_assets" / name, security / name)
         azure_guide = (REPO / "01_Documentation/Azure_DevOps_Services.md").read_text(
             encoding="utf-8"
         )

@@ -68,6 +68,7 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
+from adore.job_configuration import job_execution_config
 from adore.local_process import LocalExecutionError, atomic_record, read_record
 from adore.pi_providers import CHATGPT, ENDPOINT_KEY_VARIABLE, models_json, secret_names
 from adore.polling import PollCadence
@@ -193,6 +194,19 @@ def _exclusive_run(method):
     return controlled
 
 
+def _saved_execution(method):
+    """Bind continuation operations to the exact job's saved execution plan."""
+    @wraps(method)
+    def configured(self, identity, *args, **kwargs):
+        try:
+            run = identity if isinstance(identity, RunState) else self.store.load(identity)
+        except (FileNotFoundError, StateError):
+            return method(self, identity, *args, **kwargs)
+        with self._job_execution(run):
+            return method(self, identity, *args, **kwargs)
+    return configured
+
+
 class Orchestrator:
     """
     Deterministic ADORE conductor.
@@ -229,6 +243,9 @@ class Orchestrator:
         """
         self.prompts = prompts if prompts is not None else PromptCatalog()
         self.config = config
+        self._job_run_id = ""
+        self._job_project_config = None
+        self._env_file = None
         self.forge = forge
         self.store = store
         self.worktrees = worktrees
@@ -288,7 +305,7 @@ class Orchestrator:
             from adore.local_execution import LocalBackend
 
             backend = LocalBackend.for_cleanup(config)
-        return cls(
+        engine = cls(
             config=config,
             forge=build_forge(
                 config.platform.kind, config.platform.repo,
@@ -311,6 +328,7 @@ class Orchestrator:
                 config.container.uv_cache_volume,
                 config.container.npm_cache_volume,
                 run_args=config.container.run_args,
+                system_packages=config.container.system_packages,
                 egress=egress_policy(config),
                 selinux_relabel=config.container.selinux_relabel,
             ),
@@ -328,6 +346,80 @@ class Orchestrator:
             backend=backend,
             prompts=prompts,
         )
+        engine._env_file = Path(env_file)
+        return engine
+
+    @contextlib.contextmanager
+    def _job_execution(self, run: RunState) -> Iterator[None]:
+        """Scope saved settings and collaborators to one exclusively owned job."""
+        if not run.execution or self._job_run_id == run.run_id:
+            yield
+            return
+        if self._job_run_id:
+            raise ExecutionRecoveryError("cannot bind two jobs to one conductor")
+        try:
+            config = job_execution_config(self.config, run.execution["plan"])
+        except (PreparationError, KeyError, TypeError, ValueError) as exc:
+            raise ExecutionRecoveryError("saved job execution configuration is invalid") from exc
+        names = ("config", "worktrees", "containers", "backend", "executor", "secrets",
+                 "questions_file")
+        previous = {name: getattr(self, name) for name in names}
+        self._job_project_config = self.config
+        self._job_run_id = run.run_id
+        try:
+            self.config = config
+            if config.executor.questions_file != previous["config"].executor.questions_file:
+                self.questions_file = config.executor.questions_file or DEFAULT_QUESTIONS_FILE
+            if self._env_file is not None:
+                env = {**load_env_file(self._env_file), **os.environ}
+                self.secrets = {key: env[key] for key in
+                                secret_names(config.executor, config.execution.backend)
+                                if env.get(key)}
+            if isinstance(self.worktrees, WorktreeManager):
+                self.worktrees = WorktreeManager(
+                    config.worktree.repo_path, config.worktree.root, runner=self.worktrees.runner,
+                    sleep=self.worktrees.sleep, git_name=config.agent.name,
+                    git_email=config.agent.email, namespace=self.resource_namespace,
+                )
+            if isinstance(self.containers, ContainerManager):
+                self.containers = ContainerManager(
+                    config.container.runtime, config.container.image,
+                    config.container.uv_cache_volume, config.container.npm_cache_volume,
+                    runner=self.containers.runner, run_args=config.container.run_args,
+                    system_packages=config.container.system_packages,
+                    egress=egress_policy(config), selinux_relabel=config.container.selinux_relabel,
+                )
+            if config.execution.backend == "local":
+                from adore.local_execution import LocalBackend
+
+                if isinstance(self.backend, LocalBackend):
+                    if any(getattr(config, section) != getattr(self.backend.config, section)
+                           for section in ("execution", "local", "executor", "worktree")):
+                        self.backend = LocalBackend(
+                            config, context=self.backend.context,
+                            controller=self.backend.controller, resolver=self.backend.resolver,
+                        )
+                elif isinstance(self.backend, ContainerBackend):
+                    self.backend = LocalBackend(config)
+            elif isinstance(self.backend, ContainerBackend):
+                self.backend = ContainerBackend(self.containers)
+            from adore.executor.launcher import PiExecutor
+
+            if isinstance(self.executor, PiExecutor):
+                self.executor = build_executor(
+                    config.executor.model, config.executor.questions_file,
+                    provider=config.executor.provider, thinking=config.executor.thinking,
+                    models=models_json(config.executor, ENDPOINT_KEY_VARIABLE in self.secrets),
+                    internet=config.executor.internet, web_search=config.executor.web.search,
+                    prompts=self.prompts,
+                )
+            yield
+        finally:
+            previous["config"].budgets = config.budgets
+            for name, value in previous.items():
+                setattr(self, name, value)
+            self._job_project_config = None
+            self._job_run_id = ""
 
     # Main entries
 
@@ -797,6 +889,7 @@ class Orchestrator:
             self._admission_run_ids.pop(run.ticket_iid, None)
 
     @_exclusive_run
+    @_saved_execution
     def retry(self, run_id: str, *, reprepare: bool = False) -> bool:
         """Explicitly re-arm a failed run without erasing history."""
         self.last_retry_reason = ""
@@ -1433,6 +1526,7 @@ class Orchestrator:
             self.conduct_run(run_id)
 
     @_exclusive_run
+    @_saved_execution
     def _conduct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
         """Provision and dispatch the recorded workflow to candidate approval."""
         if self.before_effect is not None:
@@ -1586,10 +1680,21 @@ class Orchestrator:
                             return
                         failure_context = _sanitize(evidence)
                         continue
+                    unchanged = False
                     if before == after:
+                        try:
+                            cumulative = self.worktrees.worktree_progress_fingerprint(
+                                run.run_id, exclude_paths=self._direct_exchanges(),
+                                base_ref=run.base_ref,
+                            )
+                            unchanged = cumulative == hashlib.sha256(b"").hexdigest()
+                        except IsolationError as exc:
+                            self._fail_immediately(run, "WORKTREE_PROGRESS", exc)
+                            return
+                    if unchanged:
                         self._fail_immediately(
                             run, "NO_CHANGES",
-                            "Session made no product changes.\n"
+                            "Job has no retained product changes.\n"
                             + run.validation_evidence["summary"],
                         )
                         return
@@ -3146,6 +3251,7 @@ class Orchestrator:
                 self.log(f"reconcile error ({candidate.run_id}): {_sanitize(exc)}")
                 summary.setdefault("reconcile_failed", []).append(candidate.run_id)
 
+    @_saved_execution
     def _reconcile_one(self, run: RunState, summary: dict[str, Any]) -> None:
         """Advance one exclusively owned lifecycle and its notifications."""
         self._record_instruction_deliveries(run)
@@ -4105,10 +4211,14 @@ class Orchestrator:
             current = load_config(self.config.source_path)
             if validate_budgets(current):
                 raise ValueError("invalid budgets")
-            before, after = self.config.to_dict(), current.to_dict()
+            previous = self._job_project_config or self.config
+            if self._job_run_id == run.run_id:
+                previous = job_execution_config(previous, run.execution["plan"])
+                current = job_execution_config(current, run.execution["plan"])
+            before, after = previous.to_dict(), current.to_dict()
             before.pop("budgets")
             after.pop("budgets")
-            raw_before, raw_after = dict(self.config.raw), dict(current.raw)
+            raw_before, raw_after = dict(previous.raw), dict(current.raw)
             raw_before.pop("budgets", None)
             raw_after.pop("budgets", None)
             for value in (before, after, raw_before, raw_after):

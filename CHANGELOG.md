@@ -7,6 +7,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Opted-in container environment administration permits dependency installation and tool
+  configuration through sudo, with a common sandbox-capable runtime policy and 512 MiB shm.
+  AppArmor hosts require the bundled executor policy installed before starting new enabled jobs.
+  The common base also includes Gitea tea and Azure CLI with Azure DevOps; project build/test
+  dependencies remain agent-installed. Existing containers are not reconfigured.
+
 - **BREAKING: run containers receive only the project clone's `.git` directory.**
   The clone's checkout is no longer mounted, so a job cannot change files that
   ADORE runs on the host. A container created by an earlier build is refused:
@@ -18,6 +24,11 @@ This project follows Keep a Changelog and Semantic Versioning.
   should act on review feedback.
 
 ### Fixed
+
+- Existing jobs restore saved execution settings for Retry, clarification and review;
+  new project image/model/network defaults no longer fail their continuation.
+  Direct recovery accepts retained candidate changes after a timed-out attempt,
+  while empty candidates and bookkeeping-only work still fail NO_CHANGES.
 
 - A target integration that already failed a job no longer starts the agent once
   more; the job keeps its integration failure code and one terminal comment.

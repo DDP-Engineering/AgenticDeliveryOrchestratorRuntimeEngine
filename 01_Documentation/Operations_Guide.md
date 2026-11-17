@@ -236,8 +236,11 @@ pointer; it does not edit the AEGIS journal. Use the CLI reference before resett
 
 ### Environment and preparation recovery
 
-Retry retains the pinned environment. A changed backend, stable execution policy,
-resource ownership or image can require a fresh job. The web action **Abandon and
+Retry, clarification and review restore execution settings from the saved job plan,
+including its image, model, network, worktree and target branch. Changing project
+defaults affects new jobs; it does not reconfigure existing jobs or their Pi conversation.
+Current approval/forge authority and live budget checks remain in force. Missing or
+changed resource/image identity still requires explicit recovery. The web action **Abandon and
 start again** shows the destructive effects and requires confirmation. It verifies
 owned resources and starts the still-open ticket with current settings only after
 cleanup succeeds. Monitoring remains paused when already paused.
