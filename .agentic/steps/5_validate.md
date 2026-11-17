@@ -51,7 +51,7 @@ Correct the candidate first, and run no full proof yet:
    current template: remove a retired `## Architecture` section and keep any
    still-true constraint from it in Purpose and boundaries or Invariants. A
    page made from the template leaves out its license comment and its
-   `AEGIS:TEMPLATE` notes.
+   guidance comment.
 4. Bring the affected sections of `.agentic/context/project.md` and
    `.agentic/context/environment.md` into line with the candidate. Replace
    stale claims and leave unrelated sections alone. On knowledge and context

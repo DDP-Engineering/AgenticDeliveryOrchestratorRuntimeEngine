@@ -178,8 +178,8 @@ unrelated findings are not deviations.
 | Configuration | `.agentic/aegis.toml`: commands, layout, interaction, review, diagrams |
 
 Source and tests stay where the repository keeps them. Frame, specify and
-design write only under `.agentic/`; `check` reports other edits as
-`stage-zone`. Do not edit the payload — `.agentic/AGENTS.md`, `CLI.md`,
+design write only under `.agentic/`; `check` reports a source or test edit
+made in those stages as `stage-zone`. Do not edit the payload — `.agentic/AGENTS.md`, `CLI.md`,
 `steps/`, `templates/`, `aegis.py` and `LICENSE.txt` are replaced on upgrade;
 tell the user what needs to change instead.
 

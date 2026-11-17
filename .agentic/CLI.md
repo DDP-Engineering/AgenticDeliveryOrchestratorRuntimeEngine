@@ -19,7 +19,8 @@ repository root.
 The CLI scaffolds artifacts, writes task-journal state, runs configured
 project commands, and reports advisory findings. It does not replace the
 workflow in `.agentic/AGENTS.md`: it never decides whether a stage's work is
-done, and it does not commit, push, merge, read tickets, or access the network.
+done, and it does not commit, push, merge or read tickets. The CLI itself makes
+no network requests; configured project commands may do so.
 
 ## Command summary
 
@@ -93,8 +94,8 @@ python .agentic/aegis.py init [--git]
 - adds or refreshes the managed AEGIS digest in root
   `AGENTS.md`, `CLAUDE.md`, and `QWEN.md`;
 - adds or removes the managed anchor/evolution block in the root `.gitignore`
-  according to `[records] commit_fingerprints`, and names sidecars that are
-  still tracked so a human can untrack them (it never runs `git rm`);
+  according to `[records] commit_fingerprints`, and reports how many sidecars
+  are still tracked so a human can untrack them (it never runs `git rm`);
 - reports whether Git is installed and whether the directory is a repository;
 - preserves project-owned data and an existing `.agentic/aegis.toml`.
 
@@ -475,7 +476,8 @@ fields contain the agent's recorded observations and decisions; blank values
 print `not recorded`.
 
 Output fields, in order: **Stage, Task, Current, Requirements, Changed,
-Evidence, Issues, Next, Needs user, Spec compliance, Implementation quality,
+Evidence, Issues, Next, Needs user, Specification compliance, Implementation
+quality,
 Review round, Details**. Stage combines the reported
 stage and result; Current and Requirements come from the journal header.
 Details points to the full journal. Each value is at most 240 characters,
@@ -602,8 +604,9 @@ max_fix_cycles = 2
 ```
 
 `enabled` must be a TOML Boolean. `max_fix_cycles` must be an integer from 0
-through 255, not a Boolean. Invalid values warn and fail safe to disabled review
-with the default bound. When enabled, `verdict` records `spec_compliance` and
+through 255, not a Boolean. Invalid values warn and fail safe: an invalid
+`enabled` disables review, and an invalid `max_fix_cycles` allows no fix cycle.
+When enabled, `verdict` records `spec_compliance` and
 `implementation_quality` independently as `approved` or `changes_required`,
 plus `review_round`, in the State. Both verdicts cover the same candidate; any
 candidate edit invalidates both. The maximum total rounds are
@@ -1038,7 +1041,8 @@ python .agentic/aegis.py explain C:\repo\src\export\m3u.py
 | Situation | Exit behavior |
 |---|---|
 | `init`, `task`, `advance`, `pause`, `log`, `ruling`, `verdict`, `req`, `anchor`, `evolution`, `status`, `summary`, `brief`, `components`, `report`, `diagram`, `trace`, or `explain` succeeds | Exit 0. |
-| Usage, missing task, invalid configuration, or another expected CLI error | One error line on stderr and exit 1. |
+| Missing task, invalid configuration, or another expected CLI error | One error line on stderr and exit 1. |
+| Unknown command, option or argument value | The usage text on stderr and exit 2. |
 | Plain `check` finds errors or warnings | Exit 0; it remains advisory. |
 | `check --strict` finds a strict failure | Exit 1. |
 | `test` runs a configured command | Return that command's exit code. |
