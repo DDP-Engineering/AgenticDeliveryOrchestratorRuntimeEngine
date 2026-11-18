@@ -176,6 +176,27 @@ class BoundTarget:
             raise ExecutionRecoveryError("no admitted RPC invocation to settle")
         self.backend._settle_timeout(self.name, observed)
 
+    def settle_failed_session(self) -> None:
+        """
+        Quiesce what an RPC session that ended in a protocol failure left running.
+        Ending the client does not end Pi inside the container. The container
+                    is stopped exactly as after a timeout and starts again with
+                    the next command. One that is no longer running, or is no
+                    longer the admitted one, is left to the next command's checks.
+        Raises ExecutionRecoveryError: When the interruption cannot be confirmed.
+        """
+        observed = getattr(self, "_stream_identity", None)
+        if observed is None:
+            return
+        try:
+            current = self.backend.resource_identity(self.name)
+        except IsolationError:
+            return
+        if current["status"] != "running" or any(
+                current[key] != observed[key] for key in ("container_id", "image_id")):
+            return
+        self.backend._settle_timeout(self.name, observed)
+
 
 class ContainerBackend:
     """Container implementation of shared execution and recovery contract."""

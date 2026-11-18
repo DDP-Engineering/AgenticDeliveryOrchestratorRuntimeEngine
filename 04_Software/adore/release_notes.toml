@@ -25,6 +25,16 @@ category = "improved"
 topic = { en = "Configuration", fr = "Configuration", de = "Konfiguration", ro = "Configurare" }
 text = { en = "Unused settings are removed; local execution uses the server account automatically.", fr = "Les options inutilisées disparaissent ; l’exécution locale utilise le compte du serveur.", de = "Ungenutzte Optionen entfallen; lokale Ausführung verwendet automatisch das Serverkonto.", ro = "Opțiunile fără efect sunt eliminate; execuția locală folosește automat contul serverului." }
 
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "Direct jobs save their changes before they ask for clarification.", fr = "Les travaux Direct enregistrent leurs modifications avant de demander une clarification.", de = "Direct-Jobs sichern ihre Änderungen, bevor sie eine Rückfrage stellen.", ro = "Lucrările Direct își salvează modificările înainte să ceară clarificări." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Travaux", de = "Jobs", ro = "Lucrări" }
+text = { en = "After a broken agent session the container restarts, so no leftover process keeps writing.", fr = "Après une session d’agent interrompue, le conteneur redémarre : aucun processus ne reste actif.", de = "Nach einer abgebrochenen Agentensitzung startet der Container neu; kein Prozess läuft weiter.", ro = "După o sesiune de agent întreruptă, containerul repornește; niciun proces rămas nu mai scrie." }
+
 [[release]]
 version = "0.20.0"
 date = "2026-11-18"
@@ -32,7 +42,7 @@ date = "2026-11-18"
 [[release.entry]]
 category = "fixed"
 topic = { en = "Recovery", fr = "Reprise", de = "Wiederaufnahme", ro = "Recuperare" }
-text = { en = "Recovery keeps settings and work; Direct jobs checkpoint before clarification.", fr = "La reprise garde réglages et travail ; les travaux directs sauvegardent avant clarification.", de = "Die Wiederaufnahme bewahrt Einstellungen und Arbeit; direkte Jobs sichern vor Rückfragen.", ro = "Recuperarea păstrează setările și munca; joburile Direct salvează înainte de clarificări." }
+text = { en = "Recovery keeps job settings and retained work; automatic repairs wait for a free place.", fr = "La reprise garde réglages et travail ; les réparations automatiques attendent une place libre.", de = "Jobs behalten Einstellungen und Arbeit; automatische Reparaturen warten auf einen freien Platz.", ro = "Recuperarea păstrează setările și munca; reparările automate așteaptă un loc liber." }
 
 [[release.entry]]
 category = "improved"

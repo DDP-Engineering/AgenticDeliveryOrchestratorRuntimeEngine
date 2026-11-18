@@ -21,6 +21,15 @@ This project follows Keep a Changelog and Semantic Versioning.
   continuation; preserve worktrees, conversations and consumed budgets.
   Unsupported data is refused; there is no migration or automatic reset.
 
+### Fixed
+
+- Direct jobs checkpoint retained changes before asking for clarification, including
+  progress publication when enabled, so external reviewers can inspect the current work.
+- After an agent session that ended in a protocol failure, the run container is
+  stopped and starts again with the next command, as after a timeout. Ending
+  ADORE's client did not end Pi inside the container, so it could keep writing
+  to the worktree beside the next attempt.
+
 ## [0.20.0] - 2026-11-18
 
 ### Changed
@@ -42,9 +51,6 @@ This project follows Keep a Changelog and Semantic Versioning.
   should act on review feedback.
 
 ### Fixed
-
-- Direct jobs checkpoint retained changes before asking for clarification, including
-  progress publication when enabled, so external reviewers can inspect the current work.
 
 - Existing jobs restore saved execution settings for Retry, clarification and review;
   new project image/model/network defaults no longer fail their continuation.

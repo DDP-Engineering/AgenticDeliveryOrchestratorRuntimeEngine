@@ -316,6 +316,12 @@ class PiExecutor(Executor):
                 settle = getattr(execute, "settle_timeout", None)
                 if settle is not None:
                     settle()
+            elif result.started and result.outcome == "protocol-error":
+                # ADORE ended its own client only. In a container, Pi and the
+                # commands it started may still be writing to the worktree.
+                settle = getattr(execute, "settle_failed_session", None)
+                if settle is not None:
+                    settle()
             # Session stdout is the bounded literal RPC recording. Package
             # retention continues to sanitize operational tails and stderr,
             # but must never rewrite the transcript that live readers consume.

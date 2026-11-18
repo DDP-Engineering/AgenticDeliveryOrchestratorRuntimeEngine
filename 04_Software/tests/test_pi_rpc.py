@@ -314,6 +314,7 @@ def test_crash_before_settling_fails_closed(tmp_path: Path) -> None:
     assert result.exit_code == 3 and not result.timed_out
     assert "exited before the run settled" in result.message
     assert fake.all_exited()
+    assert result.started is True
 
 
 def test_malformed_stdout_line_fails_closed(tmp_path: Path) -> None:
@@ -332,6 +333,8 @@ def test_start_failure_is_a_protocol_failure(tmp_path: Path) -> None:
     result = run_pi_rpc(spawn, ["node"], {}, PROMPT, timeout=5, **FAST)
     assert result.outcome == "protocol-error" and result.exit_code == 127
     assert "could not start" in result.message
+    # Nothing was started, so the caller has no process tree to stop.
+    assert result.started is False
 
 
 def test_large_output_stays_bounded(tmp_path: Path) -> None:

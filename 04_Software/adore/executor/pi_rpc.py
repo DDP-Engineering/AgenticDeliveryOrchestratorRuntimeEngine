@@ -125,6 +125,8 @@ class PiRpcResult:
     diagnostics: dict[str, str] = field(default_factory=lambda: {"stdout": "", "stderr": ""})
     process_exit: int | None = None
     notes: list[str] = field(default_factory=list)
+    # False when Pi could not be started: no process exists to stop afterwards.
+    started: bool = False
 
 
 Spawn = Callable[[list[str], dict[str, str]], subprocess.Popen]
@@ -599,7 +601,7 @@ def run_pi_rpc(
                 evidence.close()
         _end(process)
         raise
-    result = PiRpcResult(outcome="", exit_code=EXIT_FAILED)
+    result = PiRpcResult(outcome="", exit_code=EXIT_FAILED, started=True)
     usage = result.usage
     deadline = None if timeout is None else time.monotonic() + timeout
     stop = ""          # "", "timeout", "cancel" or "protocol"

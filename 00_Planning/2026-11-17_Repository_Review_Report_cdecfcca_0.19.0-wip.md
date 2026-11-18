@@ -90,7 +90,9 @@ Updated 2026-11-18. The first changes were committed on `master` as `f77db636` (
 "third commit" in `20850cd1` and rows marked "fourth commit" in `8494669d`. Rows marked
 "fifth commit" are in the commit `Release ADORE 0.20.0`, which also cuts that version. It
 sits on top of `9488298c`, a change from outside this remediation that was merged from
-`origin/master`. No real container, forge or service installer was exercised.
+`origin/master`. Rows marked "sixth commit" are in the commit that follows `271dfd6d`
+(ADORE 0.21.0, cut outside this remediation) and ships with that version. No real
+container, forge or service installer was exercised.
 
 Final checks, on the tree of the fifth commit before the version cut:
 
@@ -245,7 +247,8 @@ unit tests gave 189 passed and the type check is clean.
 | ISO-13 | No change, by design | A model endpoint over plain HTTP is a supported case for a model on the local network | Read only |
 | ISO-10, ISO-11 | No change | ISO-10: tampering is detected and the job fails closed, so the effect is refusal only; it would move with the WP3 change. ISO-11: values passed as environment are part of how the container runtime works | Read only |
 | ISO-3 | Open by decision | Image digests and the way `uv` is installed are supply-chain choices for the owner | - |
-| ISO-4, ISO-12 | Open, assessed in part | ISO-4: package mode gives the agent wide rights inside the container on purpose and now has its own security profile; not read in full after the merge of `9488298c`. ISO-12: not read far enough to propose a change; it needs a real container | - |
+| ISO-4 | Documented by decision, sixth commit | Not a defect: REQ-FUNC-c405688e and the security guide give the opted-in agent root inside its own container. Since `9488298c` that mode has a deny-by-default seccomp policy, an AppArmor profile that fails closed when absent, and a validation that accepts resource limits and `--userns=keep-id` only. Still true: default capabilities and, on a rootful runtime, no user namespace. The guide already said that root can modify all writable mounts; it now also names the two effects on the host (root-owned files that ADORE's account cannot remove, set-user-ID files) and that rootless Podman with `--userns=keep-id` avoids them. Mounting with `nosuid` was not done: it changes every container start and needs a real container | Read only; nothing was tried on a container |
+| ISO-12 | Remediated, sixth commit, not run on a container | Confirmed in code: after a timed-out session the launcher already stopped the container (`settle_timeout`), but not after a protocol failure. A session that started and ended in a protocol failure now goes the same way: the container is stopped and starts again with the next command. Nothing is stopped when Pi never started, when the container is no longer running or is no longer the admitted one. An interruption that cannot be confirmed is refused as after a timeout. Native local execution is unchanged | `test_pi_rpc_protocol_failure_settles_a_running_container` (five cases), `test_pi_rpc_protocol_failure_refuses_an_unconfirmed_interruption`; four modules: 140 passed |
 | WEB-1 | Reclassified | Not a defect: active requirement REQ-UX-178abcf8 specifies a reminder, not a forced change. It stays a product decision to revisit | - |
 
 Consequences to know:
@@ -407,6 +410,7 @@ and runs repository code.
 - **ISO-4** (medium, A, plausible) `adore/isolation.py:1970-1972` - With
   `system_packages = true` the agent gets root-equivalent package commands in a container
   that has default capabilities and no user namespace.
+  *Status 2026-11-18:* documented by decision, code unchanged, sixth commit (section 2.1).
 - **ISO-5** (medium, A, plausible) `adore/executor/pi_rpc.py:391` - Only the in-memory tail of
   the session recording is cleaned. `output.jsonl` and its archive receive the raw text, so
   a `printenv` asked for by a ticket stores the model key in clear.
@@ -436,6 +440,7 @@ and runs repository code.
   *Status 2026-11-17:* no change (section 2.1).
 - **ISO-12** (low, A, plausible) `adore/executor/pi_rpc.py:492-498` - On a protocol-error exit
   only the `exec` client is killed; the process tree inside the container may keep writing.
+  *Status 2026-11-18:* remediated, sixth commit, not run on a container (section 2.1).
 - **ISO-13** (low, A) `adore/pi_providers.py:202` - A plain-HTTP endpoint is accepted for a
   request that carries the API key.
   *Status 2026-11-17:* no change, by design (section 2.1).

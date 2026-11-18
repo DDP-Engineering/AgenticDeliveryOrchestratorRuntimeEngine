@@ -386,6 +386,68 @@ def test_pi_rpc_timeout_settles_container_before_next_gate(tmp_path, monkeypatch
         assert runtime.starts == 1 and observed == [CID]
 
 
+@pytest.mark.parametrize("case", ["protocol", "not-started", "completed", "stopped", "replaced"])
+def test_pi_rpc_protocol_failure_settles_a_running_container(tmp_path, monkeypatch, case):
+    """
+    A session that ended in a protocol failure leaves no writer in the container.
+    ADORE ends only its own client, so the container is stopped as after a
+             timeout and starts again with the next command. Nothing is stopped
+             when Pi never started, when the session completed, or when the
+             container is no longer running or no longer the admitted one.
+    """
+    from adore.executor import pi_rpc
+    from adore.executor.launcher import PiExecutor
+
+    runtime = Runtime()
+    backend, target, _ = bound(runtime, True)
+    backend.manager.spawn = lambda *a, **k: object()
+
+    def session(spawn, argv, env, *args, **kwargs):
+        spawn(argv, env)
+        if case == "stopped":
+            runtime.status = "exited"
+        elif case == "replaced":
+            runtime.resource_id = "c" * 64
+        if case == "completed":
+            return pi_rpc.PiRpcResult(outcome="completed", exit_code=0, started=True)
+        return pi_rpc.PiRpcResult(outcome="protocol-error", exit_code=1,
+                                  started=case != "not-started")
+
+    monkeypatch.setattr(pi_rpc, "run_pi_rpc", session)
+    result = PiExecutor("m").run_gate(target, tmp_path, tmp_path / "io", "prepare")
+
+    assert result.timed_out is False
+    if case != "protocol":
+        assert runtime.stops == 0 and runtime.starts == 0
+        return
+    assert result.exit_code == 1
+    assert runtime.stops == 1 and runtime.status == "exited"
+    observed = []
+    backend.manager.spawn = lambda name, argv, **kwargs: observed.append(name)
+    target.spawn(["pi"])
+    assert runtime.starts == 1 and observed == [CID]
+
+
+def test_pi_rpc_protocol_failure_refuses_an_unconfirmed_interruption(tmp_path, monkeypatch):
+    """A container that cannot be shown stopped is not used again without recovery."""
+    from adore.executor import pi_rpc
+    from adore.executor.launcher import PiExecutor
+
+    runtime = Runtime(fault="stop-noop")
+    backend, target, _ = bound(runtime, True)
+    backend.manager.spawn = lambda *a, **k: object()
+
+    def session(spawn, argv, env, *args, **kwargs):
+        spawn(argv, env)
+        return pi_rpc.PiRpcResult(outcome="protocol-error", exit_code=1, started=True)
+
+    monkeypatch.setattr(pi_rpc, "run_pi_rpc", session)
+    with pytest.raises(ExecutionRecoveryError, match="interruption unconfirmed"):
+        PiExecutor("m").run_gate(target, tmp_path, tmp_path / "io", "prepare")
+    with pytest.raises(ExecutionRecoveryError):
+        target.spawn(["pi"])
+
+
 def test_rpc_timeout_does_not_interrupt_a_replacement_after_unpinned_spawn():
     """The admitted streaming invocation remains the authority without durable pins."""
     runtime = Runtime()

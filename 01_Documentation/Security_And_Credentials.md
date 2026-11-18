@@ -406,6 +406,13 @@ The existing `container.system_packages` boolean is shown as **Allow agent envir
 
 With permission enabled, Pi uses passwordless `sudo -n` for any root command inside its owned container: installing packages, configuring tools and fixing environment permissions. The conductor validates the non-root UID, creates a root-owned sudoers rule and confirms the UID transition to root. It does not choose dependencies. Ordinary repository and cache writes stay under the normal account. Root authority can modify injected tooling and all writable mounts; root ownership is not a boundary against this opted-in agent. No Docker socket, host namespace or additional host path is granted.
 
+The writable mounts are host folders: the job's worktree, the clone's `.git` directory and the job's exchange folder. With a rootful runtime such as the default Docker Engine, root in the container is root for the files in them. Two effects reach the host:
+
+- a file or folder the agent leaves there as root cannot be changed or removed by the account that runs ADORE, so the job's Git operations or its cleanup can fail until an administrator removes it;
+- a set-user-ID program created there is set-user-ID on the host too. Do not run programs from these folders on the host.
+
+Rootless Podman with `run_args = ["--userns=keep-id"]` avoids both: root in the container is then the account that runs ADORE. On a rootful runtime, enable this permission only for projects whose tickets come from trusted authors.
+
 New enabled containers use the bundled deny-by-default seccomp policy with nested namespace operations allowed. AppArmor-enabled runtimes require the bundled `adore-executor` policy installed on the **runtime host**; absent/unsupported policies fail closed, never unconfined. Shared memory defaults to 512 MiB; `--shm-size` can override it. The policy does not change host user-namespace sysctls. A host which disables user namespaces still needs explicit operator preparation. Neither container privileges nor image dependencies can make Linux execute native Windows acceptance.
 
 On an AppArmor host with a current parser supporting `userns`, install the policy once:

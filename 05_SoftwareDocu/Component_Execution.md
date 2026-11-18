@@ -62,6 +62,10 @@ resource. Its filesystem, installed dependencies, configured user and egress
 remain; in-memory child processes do not. No replacement container or image pull
 is an automatic timeout repair. `BoundTarget.spawn` uses the same admission;
 `settle_timeout` quiesces RPC descendants before deferred reuse.
+`settle_failed_session` does the same after an RPC session that started and
+ended in a protocol failure, because ending ADORE's client does not end Pi
+inside the container. It does nothing when that container is no longer running
+or is no longer the admitted one; the next command's checks decide then.
 
 Unconfirmed stop/start or changed identity raises `ExecutionRecoveryError` and
 blocks further commands/spawns in that backend. The conductor records exhausted
