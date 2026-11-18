@@ -51,7 +51,7 @@ def project(profiles, name, limit=1):
                         'export_jsonl = ' + json.dumps(str(root / "metrics.jsonl")))
     text = text.replace('max_concurrent_runs = 1', f'max_concurrent_runs = {limit}')
     text = text.replace('publish_checkpoints = true', 'publish_checkpoints = false')
-    text = text.replace('poll_interval_seconds = 60', 'poll_interval_seconds = 1')
+    text = text.replace('poll_interval_seconds = 60', 'poll_interval_seconds = 10')
     text = text.replace('poll_jitter_seconds = 5', 'poll_jitter_seconds = 0')
     profiles.config_path(name).write_text(text, encoding="utf-8")
     # Tests own admission; automatic external polling must remain stopped.
@@ -449,18 +449,18 @@ def test_project_cadence_backoff_and_quiet_hours_keep_explicit_commands(tmp_path
     worker.children["poll"].code = 1
     clock[0] = 1
     worker.tick()
-    assert worker.next_poll == 3 and polls == [0]
+    assert worker.next_poll == 21 and polls == [0]
     quiet[0] = True
-    clock[0] = 3
+    clock[0] = 21
     admin = web.authenticate("admin", "admin")
     web.enqueue(admin["id"], "alpha", "start", "7", "quiet-start")
     worker.tick()
     assert "command" in worker.children and "poll" not in worker.children
-    assert worker.next_poll == 5
+    assert worker.next_poll == 41
     quiet[0] = False
-    clock[0] = 5
+    clock[0] = 41
     worker.tick()
-    assert polls == [0, 5]
+    assert polls == [0, 41]
     before = dict(worker.children)
     profiles.config_path("alpha").write_text("[polling", encoding="utf-8")
     with pytest.raises(ValueError):

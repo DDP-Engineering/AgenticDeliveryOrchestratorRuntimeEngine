@@ -830,8 +830,8 @@ def test_job_detail_shows_saved_launches_and_frozen_active_time(tmp_path):
         response = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
         assert response.status_code == 200, response.text
         budget = response.json()["job"]["budget"]
-        assert budget["launches"] == 9 and budget["max_launches"] == 20
-        assert budget["active_seconds"] == 90 and budget["max_active_seconds"] == 3600
+        assert budget["launches"] == 9 and budget["max_launches"] == 40
+        assert budget["active_seconds"] == 90 and budget["max_active_seconds"] == 28800
         assert budget["availability"] == "observed" and budget["reason"] is None
         assert set(budget) == {"launches", "max_launches", "active_seconds",
                                "max_active_seconds", "config_revision", "availability", "reason"}

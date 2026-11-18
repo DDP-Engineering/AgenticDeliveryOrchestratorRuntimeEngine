@@ -181,7 +181,7 @@ def test_config_prepare_apply_discard_truthful_values(tmp_path):
         assert staged.status_code == 200
         event = _domain_change(app.state.web_store)
         assert event["phase"] == "prepare" and event["result"] == "prepared"
-        assert event["before"] == {"value": 20} and event["after"] == {"value": 12}
+        assert event["before"] == {"value": 40} and event["after"] == {"value": 12}
         assert event["base_revision"] == current
         applied = client.post(
             "/api/v1/projects/alpha/config/apply",
@@ -191,7 +191,7 @@ def test_config_prepare_apply_discard_truthful_values(tmp_path):
         )
         assert applied.status_code == 200
         event = _domain_change(app.state.web_store)
-        assert event["result"] == "applied" and event["before"] == {"value": 20}
+        assert event["result"] == "applied" and event["before"] == {"value": 40}
         fresh = applied.json()["revision"]
         client.post(
             "/api/v1/projects/alpha/config/pending",
@@ -479,7 +479,7 @@ def test_filesystem_apply_crash_retry_preserves_original_before_once(tmp_path, m
         assert response.status_code == 503 and "private-sensitive-crash" not in response.text
         row = [row for row in web.recent_audit() if row["action"] == "config-applied"][0]
         assert row["result"] == "uncertain" and row["after"] is None
-        assert row["before"] == {"value": 20}
+        assert row["before"] == {"value": 40}
         assert (profiles.profile_dir("alpha") / "pending_config.json").is_file()
         monkeypatch.setattr(web, "confirm_change", original)
     # Reopen persistent storage and the HTTP service, retaining only durable evidence.
@@ -501,7 +501,7 @@ def test_filesystem_apply_crash_retry_preserves_original_before_once(tmp_path, m
             row for row in app.state.web_store.recent_audit() if row["action"] == "config-applied"
         ]
         assert len(rows) == 1
-        assert rows[0]["before"] == {"value": 20} and rows[0]["after"] == {"value": 12}
+        assert rows[0]["before"] == {"value": 40} and rows[0]["after"] == {"value": 12}
         assert rows[0]["result"] == "applied"
 
 

@@ -620,7 +620,7 @@ def test_project_polling_is_independent_and_quiet_hours_keep_queue_available(
     profiles = ProfileStore(tmp_path / "home")
     example = Path(__file__).resolve().parents[1] / "config.example.toml"
     source = example.read_text(encoding="utf-8").replace(
-        "poll_interval_seconds = 60", "poll_interval_seconds = 1",
+        "poll_interval_seconds = 60", "poll_interval_seconds = 10",
     ).replace("poll_jitter_seconds = 5", "poll_jitter_seconds = 0")
     for name in ("alpha", "beta"):
         profiles.create(name)
@@ -639,9 +639,9 @@ def test_project_polling_is_independent_and_quiet_hours_keep_queue_available(
     )
 
     def advance(seconds):
-        """Run a bounded ten-second logical scheduling window."""
+        """Run a bounded hundred-second logical scheduling window."""
         clock[0] += seconds
-        if clock[0] >= 10:
+        if clock[0] >= 100:
             stop.set()
         return stop.is_set()
 
@@ -655,13 +655,13 @@ def test_project_polling_is_independent_and_quiet_hours_keep_queue_available(
     CommandWorker(profiles, web, runner=runner).run_forever(interval=tick, stop=stop)
     alpha = [when for name, action, when in calls if name == "alpha" and action == "--once"]
     beta = [when for name, action, when in calls if name == "beta" and action == "--once"]
-    assert len(beta) >= 8  # interval1 remains below the old forced5-second minimum.
+    assert len(beta) >= 8  # the shortest allowed interval, 10 s, over a 100 s window
     if quiet:
         assert alpha == []
     else:
         assert len(alpha) == 3
-        assert alpha[1] - alpha[0] == pytest.approx(2, abs=0.11)
-        assert alpha[2] - alpha[1] == pytest.approx(4, abs=0.11)
+        assert alpha[1] - alpha[0] == pytest.approx(20, abs=0.11)
+        assert alpha[2] - alpha[1] == pytest.approx(40, abs=0.11)
     assert web.operation(queued["id"])["status"] == "succeeded"
     assert not web.worker_ready()
 
@@ -688,7 +688,7 @@ def test_worker_resumes_automatic_polling_after_quiet_window(tmp_path, monkeypat
     profiles.create("alpha")
     example = Path(__file__).resolve().parents[1] / "config.example.toml"
     source = example.read_text(encoding="utf-8").replace(
-        "poll_interval_seconds = 60", "poll_interval_seconds = 1",
+        "poll_interval_seconds = 60", "poll_interval_seconds = 10",
     ).replace("poll_jitter_seconds = 5", "poll_jitter_seconds = 0")
     profiles.config_path("alpha").write_text(source, encoding="utf-8")
     web = WebStore(profiles.home / "web.db")
@@ -696,12 +696,12 @@ def test_worker_resumes_automatic_polling_after_quiet_window(tmp_path, monkeypat
     stop = Event()
     starts = []
     monkeypatch.setattr("adore.web.commands.time.monotonic", lambda: clock[0])
-    monkeypatch.setattr("adore.web.commands.in_quiet_hours", lambda windows: clock[0] < 3)
+    monkeypatch.setattr("adore.web.commands.in_quiet_hours", lambda windows: clock[0] < 30)
 
     def advance(seconds):
         """Advance across a bounded quiet-to-active transition."""
         clock[0] += seconds
-        assert clock[0] < 10
+        assert clock[0] < 100
         return stop.is_set()
 
     monkeypatch.setattr(stop, "wait", advance)
@@ -713,7 +713,7 @@ def test_worker_resumes_automatic_polling_after_quiet_window(tmp_path, monkeypat
         return 0
 
     CommandWorker(profiles, web, runner=runner).run_forever(interval=1, stop=stop)
-    assert starts == [3]
+    assert starts == [30]
 
 
 @pytest.mark.parametrize("evidence,code,status,reason", [
