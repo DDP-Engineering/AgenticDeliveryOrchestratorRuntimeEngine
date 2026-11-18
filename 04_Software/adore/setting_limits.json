@@ -1,0 +1,114 @@
+{
+  "budgets.per_gate_timeout_seconds": {
+    "default": 3000,
+    "minimum": 60,
+    "maximum": 14400,
+    "unit": "seconds",
+    "provider_maximum": {
+      "chatgpt": 3000
+    }
+  },
+  "budgets.max_wall_clock_seconds": {
+    "default": 28800,
+    "minimum": 60,
+    "maximum": 604800,
+    "unit": "seconds"
+  },
+  "budgets.max_iterations": {
+    "default": 40,
+    "minimum": 1,
+    "maximum": 1000,
+    "unit": "count"
+  },
+  "budgets.max_files_touched": {
+    "default": 500,
+    "minimum": 1,
+    "maximum": 100000,
+    "unit": "count"
+  },
+  "budgets.max_cost_usd": {
+    "default": 0.0,
+    "minimum": 0,
+    "maximum": 1000000,
+    "unit": "USD"
+  },
+  "polling.max_concurrent_runs": {
+    "default": 1,
+    "minimum": 1,
+    "maximum": 32,
+    "unit": "count"
+  },
+  "polling.poll_interval_seconds": {
+    "default": 60,
+    "minimum": 10,
+    "maximum": 86400,
+    "unit": "seconds"
+  },
+  "polling.poll_jitter_seconds": {
+    "default": 5,
+    "minimum": 0,
+    "maximum": 300,
+    "unit": "seconds"
+  },
+  "clarification.max_rounds": {
+    "default": 10,
+    "minimum": 1,
+    "maximum": 100,
+    "unit": "count"
+  },
+  "clarification.answer_timeout": {
+    "default": "7d",
+    "minimum": 60,
+    "maximum": 7776000,
+    "unit": "seconds"
+  },
+  "recovery.max_stage_failures": {
+    "default": 3,
+    "minimum": 1,
+    "maximum": 10,
+    "unit": "count"
+  },
+  "recovery.max_transient_retries": {
+    "default": 3,
+    "minimum": 1,
+    "maximum": 10,
+    "unit": "count"
+  },
+  "review.max_review_rounds": {
+    "default": 5,
+    "minimum": 1,
+    "maximum": 20,
+    "unit": "count"
+  },
+  "execution.preparation_step_timeout_seconds": {
+    "default": 900,
+    "minimum": 1,
+    "maximum": 3600,
+    "unit": "seconds"
+  },
+  "execution.preparation_total_timeout_seconds": {
+    "default": 3600,
+    "minimum": 1,
+    "maximum": 14400,
+    "unit": "seconds"
+  },
+  "execution.preparation_max_attempts": {
+    "default": 2,
+    "minimum": 1,
+    "maximum": 3,
+    "unit": "count"
+  },
+  "container.egress.proxy_port": {
+    "default": 3128,
+    "minimum": 1,
+    "maximum": 65535,
+    "unit": "port"
+  },
+  "_constraints": {
+    "label_length": 120,
+    "endpoint_length": 2048,
+    "reviewers": 100,
+    "retry_delays": 10,
+    "retry_delay_seconds": 3600
+  }
+}

@@ -66,9 +66,9 @@ test("incomplete and forbidden drafts stay invalid instead of silently dropping 
 });
 
 test("equivalent duration and map ordering do not enable Save",()=>{
- const rows=[row("clarification.answer_timeout","24h","duration"),row("workflow.stage_timeout_overrides",{build:12,validate:20},"stage-timeouts")];
+ const rows=[row("clarification.answer_timeout","24h","duration"),row("workflow.stage_timeout_overrides",{build:120,validate:200},"stage-timeouts")];
  assert.deepEqual(prepareSettingDrafts({},rows,{
-  "clarification.answer_timeout":"1440m","workflow.stage_timeout_overrides":'{"validate":20,"build":12}',
+  "clarification.answer_timeout":"1440m","workflow.stage_timeout_overrides":'{"validate":200,"build":120}',
  }),{edits:[],invalid:[]});
 });
 

@@ -94,6 +94,12 @@ from adore.repository_auth import (
     verify_connection,
 )
 from adore.selection import start_blocker, start_preparation
+from adore.setting_rules import (
+    ENDPOINT_MAX_LENGTH,
+    LABEL_MAX_LENGTH,
+    numeric_default,
+    numeric_domain,
+)
 from adore.state import LockHeldError, StateError, StateStore
 from adore.util import (
     CommandResult,
@@ -174,7 +180,7 @@ _SETTING_KEY_RE = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 _EDITABLE_SECTIONS = frozenset({
     "agent", "platform", "polling", "readiness", "executor",
     "container", "execution", "local", "worktree", "workflow", "recovery", "budgets",
-    "delivery", "review", "reconcile", "metrics", "labels",
+    "delivery", "review", "metrics", "labels",
 })
 # Optional readiness checks that follow the internet switch.
 _INTERNET_CHECKS = frozenset({"egress_proxy", "web_search_key"})
@@ -471,12 +477,11 @@ class ProjectInput(BaseModel):
     repo_path: str
     reviewers: str = ""
     execution_backend: Literal["container", "local"] = "container"
-    local_account: Literal["current"] = "current"
     local_path: str = ""
     provider: str = ""
     model: str = ""
     thinking: str = ""
-    endpoint_base_url: str = Field(default="", max_length=512)
+    endpoint_base_url: str = Field(default="", max_length=ENDPOINT_MAX_LENGTH)
     endpoint_api: str = ""
     runtime: str = "docker"
     image: str = ""
@@ -488,12 +493,32 @@ class ProjectInput(BaseModel):
     project: str = ""
     area_path: str = ""
     env_keys: list[str] | None = None
-    ready_label: str = Field(default="agent-ready", min_length=1, max_length=120)
-    approval_label: str = Field(default="agent-approved", min_length=1, max_length=120)
-    max_iterations: int = Field(default=12, ge=1, le=10000, strict=True)
-    max_wall_clock_seconds: int = Field(default=5400, ge=1, le=31536000, strict=True)
-    max_cost_usd: float = Field(default=5.0, ge=0, le=1000000, allow_inf_nan=False)
-    max_files_touched: int = Field(default=120, ge=1, le=1000000, strict=True)
+    ready_label: str = Field(default="agent-ready", min_length=1, max_length=LABEL_MAX_LENGTH)
+    approval_label: str = Field(default="agent-approved", min_length=1, max_length=LABEL_MAX_LENGTH)
+    max_iterations: int = Field(
+        default=numeric_default("budgets.max_iterations"),
+        ge=numeric_domain("budgets.max_iterations")["minimum"],
+        le=numeric_domain("budgets.max_iterations")["maximum"],
+        strict=True,
+    )
+    max_wall_clock_seconds: int = Field(
+        default=numeric_default("budgets.max_wall_clock_seconds"),
+        ge=numeric_domain("budgets.max_wall_clock_seconds")["minimum"],
+        le=numeric_domain("budgets.max_wall_clock_seconds")["maximum"],
+        strict=True,
+    )
+    max_cost_usd: float = Field(
+        default=numeric_default("budgets.max_cost_usd"),
+        ge=numeric_domain("budgets.max_cost_usd")["minimum"],
+        le=numeric_domain("budgets.max_cost_usd")["maximum"],
+        allow_inf_nan=False,
+    )
+    max_files_touched: int = Field(
+        default=numeric_default("budgets.max_files_touched"),
+        ge=numeric_domain("budgets.max_files_touched")["minimum"],
+        le=numeric_domain("budgets.max_files_touched")["maximum"],
+        strict=True,
+    )
     clone_url: str = Field(default="", max_length=512)
 
 
@@ -1490,7 +1515,7 @@ def _prepare_transfer(profiles: ProfileStore, body: TransferInput,
     Returns: Canonical mapping/review and exact validated candidate or findings.
     Raises HTTPException: Invalid/ambiguous storage or ownership fails closed.
     """
-    # Guided limits need not constrain the already validated portable numeric domain.
+    # Project creation and portable settings use the same numeric domain.
     # Prepare target nonportable fields with defaults, then project all portable fields.
     answers = body.target.model_copy(update={
         "max_iterations": 12, "max_wall_clock_seconds": 5400,
@@ -1837,7 +1862,7 @@ def _removed_agent_environment(path: str) -> bool:
     path: Dotted configuration key.
     Returns: True for `container.runtime_env.*` / `local.environment.*` removed-agent names.
     """
-    for section in ("container.runtime_env.", "local.environment."):
+    for section in ("container.runtime_env."):
         if path.startswith(section):
             return path[len(section):].upper().startswith(REMOVED_AGENT_ENV_PREFIXES)
     return False
@@ -2339,7 +2364,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
     expected = declared
     if key.startswith("workflow.stage_timeout_overrides."):
         expected = 1
-    if key.startswith(("workflow.kind_labels.", "container.runtime_env.", "local.environment.")):
+    if key.startswith(("workflow.kind_labels.", "container.runtime_env.")):
         expected = ""
     if expected is not None:
         numeric = type(expected) is float and type(value) in (int, float) and math.isfinite(value)
@@ -2354,42 +2379,26 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "executor.endpoint.api": list(ENDPOINT_APIS),
         "executor.env_keys": sorted(
             PROVIDER_KEYS | set(config.get("executor", {}).get("env_keys", []))),
-        "clarification.timeout_state": ["failed", "stale"],
         "container.selinux_relabel": list(SELINUX_RELABEL_MODES),
-        "container.parked_ttl_mode": ["seconds", "polls"],
         "executor.web.search": list(WEB_SEARCH_CHOICES),
         "execution.backend": ["container", "local"],
         "delivery.draft": [True, False],
-        "review.trigger": ["label"],
         "review.on_pipeline_failure": ["revise", "notify", "ignore"],
         "workflow.default_kind": list(RUN_KINDS),
         "workflow.mode": ["auto", "direct"],
-        "reconcile.on_ticket_deleted": ["abort-cleanup", "ignore"],
-        "reconcile.on_ticket_closed": ["cancel", "ignore"],
-        "reconcile.on_trigger_removed": ["pause", "abort", "ignore"],
     }.get(key, [])
     if key.startswith("workflow.kind_labels."):
         choices = list(RUN_KINDS)
-    positive = {
-        "polling.poll_interval_seconds", "polling.max_concurrent_runs",
-        "clarification.max_rounds", "recovery.max_stage_failures",
-        "recovery.max_transient_retries", "budgets.max_iterations",
-        "budgets.max_wall_clock_seconds", "budgets.per_gate_timeout_seconds",
-        "budgets.max_files_touched", "review.max_review_rounds",
-        "container.egress.proxy_port", "execution.preparation_step_timeout_seconds",
-        "execution.preparation_total_timeout_seconds", "execution.preparation_max_attempts",
-    }
-    minimum = (1 if key in positive or key.startswith("workflow.stage_timeout_overrides.")
-               else 0 if key in {"polling.poll_jitter_seconds", "budgets.max_cost_usd"}
-               else None)
+    provider = config.get("executor", {}).get("provider", "")
+    bounds = numeric_domain(key, provider)
+    if key == "workflow.stage_timeout_overrides":
+        bounds = numeric_domain("workflow.stage_timeout_overrides.build", provider)
     kind = ("boolean" if type(model_value) is bool else "integer" if type(model_value) is int
             else "number" if type(model_value) is float else "list" if isinstance(model_value, list)
             else "map" if isinstance(model_value, dict) else "text")
-    return {"type": kind, "choices": choices, "minimum": minimum,
-            "maximum": {"container.egress.proxy_port": 65535,
-                        "execution.preparation_step_timeout_seconds": 1800,
-                        "execution.preparation_total_timeout_seconds": 3600,
-                        "execution.preparation_max_attempts": 3}.get(key)}
+    return {"type": kind, "choices": choices, "minimum": bounds.get("minimum"),
+            "maximum": bounds.get("maximum"), "unit": bounds.get("unit"), "scope": "project"}
+
 
 
 def _setting_metadata(config: dict, raw: bytes) -> list[dict]:

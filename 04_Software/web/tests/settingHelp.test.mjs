@@ -47,15 +47,12 @@ test("settings without a dedicated name source have a short name in French, Germ
     "labels.selection.priority_medium", "labels.selection.priority_low", "labels.selection.type_feature",
     "labels.selection.type_bug", "labels.control.hold", "executor.questions_file", "execution.preparation",
     "execution.preparation_step_timeout_seconds", "execution.preparation_total_timeout_seconds",
-    "execution.preparation_max_attempts", "local.account", "clarification.timeout_state", "container.keep_parked",
-    "container.parked_ttl_mode", "container.parked_ttl_seconds", "container.parked_ttl_polls",
-    "container.uv_cache_volume", "container.npm_cache_volume", "container.run_args", "container.runtime_env",
+    "execution.preparation_max_attempts", "container.uv_cache_volume", "container.npm_cache_volume", "container.run_args", "container.runtime_env",
     "container.runtime_env.UV_LINK_MODE", "container.required_tool_checks", "container.selinux_relabel",
     "container.egress.allowlist", "container.egress.no_proxy", "container.egress.proxy_image",
     "container.egress.proxy_port", "container.egress.network_prefix", "worktree.repo_path", "worktree.root",
     "workflow.default_kind", "workflow.kind_labels", "workflow.kind_labels.bug", "workflow.stage_timeout_overrides.build",
-    "workflow.aegis_python", "delivery.approval_label", "review.trigger", "review.revise_label",
-    "reconcile.on_ticket_deleted", "reconcile.on_ticket_closed", "reconcile.on_trigger_removed",
+    "workflow.aegis_python", "delivery.approval_label", "review.revise_label",
     "metrics.export_jsonl", "metrics.html_out"];
   for (const key of named) {
     assert.ok(key.includes(".") && (catalog.includes(key) || catalog.includes(key.replace(/\.[^.]+$/, ".*"))), key);

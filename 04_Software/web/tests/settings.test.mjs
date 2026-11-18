@@ -95,11 +95,9 @@ test("flow visibility omits inactive and external fields and keeps technical row
  assert.equal(settingVisible("metrics.db_path"), true);
  assert.equal(settingRows({}, [meta("metrics.db_path", "project", true)])[0].input, "none");
  for (const key of ["polling.poll_interval_seconds", "polling.poll_jitter_seconds", "polling.poll_backoff"]) assert.equal(settingVisible(key), true, key);
- for (const key of ["review.trigger", "clarification.timeout_state", "labels.selection.type_feature", "reconcile.on_ticket_closed", "container.uv_cache_volume", "execution.preparation", "worktree.future_field"]) assert.equal(settingVisible(key), false, key);
+ for (const key of ["labels.selection.type_feature", "container.uv_cache_volume", "execution.preparation", "worktree.future_field"]) assert.equal(settingVisible(key), false, key);
  // The chosen environment keys follow the backend: container rows or local-account rows.
  for (const key of ["execution.backend", "container.runtime", "container.image"]) assert.equal(settingVisible(key, true), true, key);
- assert.equal(settingVisible("local.account", true), false);
- assert.equal(settingVisible("local.account", true, "local"), false);
  assert.equal(settingVisible("local.path", true, "local"), true);
  assert.equal(settingVisible("container.image", true, "local"), false);
  for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "state.store_root", "agent.slug"]) assert.equal(settingVisible(key), true, key);

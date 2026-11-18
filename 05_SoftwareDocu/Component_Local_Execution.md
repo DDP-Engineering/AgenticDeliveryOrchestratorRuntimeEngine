@@ -102,3 +102,8 @@ component does not wrap missing process ownership with a weaker launch mode.
 
 LocalBackend is imported directly from adore.local_execution. The shared execution
 module owns only backend contracts; it provides no lazy adapter alias.
+
+Project setting ranges/defaults share `adore/setting_limits.json` and the current
+[configuration contract](Component_Config.md#shared-setting-domains). Native execution
+uses the current process account; `local.account` is not a selectable setting. No stored
+plan conversion or automatic reset is performed.

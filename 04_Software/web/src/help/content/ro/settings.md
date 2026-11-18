@@ -2,6 +2,8 @@
 
 Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică: ce tichete preia, limitele, cum publică și ce agent folosește. Administratorii modifică mai multe setări și le salvează împreună; dezvoltatorii le citesc.
 
+Aceste setări aparțin proiectului selectat. Crearea, Setările, importurile și CLI folosesc aceleași limite și valori implicite: 40 de lansări, 8 ore active, 500 de fișiere și 50 de minute per tentativă. Intervalul tentativei este 60–14400 secunde, plafonat la 3000 pentru ChatGPT. Plafonul costului raportat este implicit 0 (dezactivat); celelalte bugete nu se dezactivează cu 0. Limitele pe etape au prioritate. Tentativele pornite își păstrează timeoutul; bugetele curente se aplică înainte de următoarea fără resetarea consumului. Clarificările au implicit 10 runde și 7 zile. Execuția locală folosește contul real al serverului; nu există selector de cont sau TTL configurabil pentru containerele parcate.
+
 ## Repository Azure și scope tichete {#azure-settings}
 
 Azure DevOps Services adaugă **URL organizație**, **Proiect Azure**, **Area Path pentru Work Items**, **Tipuri Work Item permise** și **Stări terminale Work Item** în Repository. Folosește nume native exacte ale procesului, unul pe linie. Rezervă repository-ului o subarie exactă, distinctă. Prioritatea nativă nu înlocuiește tags de prioritate. Reviewerii sunt GUID-uri de identitate Azure. Revizia folosește labels pe PR; preluarea și aprobarea folosesc tags pe Work Items. Administratorii previzualizează și aplică folosind aceleași reguli de pauză și lipsă a joburilor active; dezvoltatorii nu editează. Executor Configuration rămâne separat. CI ilizibil rămâne necunoscut, niciodată succes.

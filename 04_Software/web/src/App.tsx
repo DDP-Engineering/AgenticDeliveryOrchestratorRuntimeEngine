@@ -1,3 +1,4 @@
+import { settingTextLimit } from "./settingLimits.ts";
 import { ProjectCapacity, WorkerStatus as WorkerRoles } from "./ProjectCapacity";
 import { CapacityTable } from "./CapacityTable";
 import { readDraft, writeDraft, clearDraft, clearPrivateDrafts } from "./settingsDrafts";
@@ -34,7 +35,7 @@ import { ExecutorEnvironment, type ExecutorEnvironmentInfo } from "./ExecutorEnv
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
-import { durationParts, executionStages, implementationEditorCopy } from "./implementationSettings";
+import { durationBounds, durationParts, executionStages, implementationEditorCopy } from "./implementationSettings";
 import { compactReviewCopy, settingsCopy, technicalSettingsHelp, publicationValue, pipelineFailureValue, lifecycleCopy, branchNamingCopy } from "./settingsCopy";
 import { RawImportDialog } from "./RawImportDialog";
 import { importCopy } from "./importCopy";
@@ -1790,7 +1791,7 @@ function SettingsList({ executorOnly=false, account=0, project, revision, csrf, 
             descriptionId={`help-${row.key}`} locale={locale} disabled={disabled} onChange={setDraft} />
           : row.input === "credential-names" ? <CredentialNamesEditor value={draft} choices={row.choices} locale={locale} disabled={disabled} onChange={setDraft}/>
           : row.input === "duration" ? <div className="duration-inputs">
-            <label>{editorCopy.amount}<input type="number" min={1} step={1} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={durationParts(draft).amount} onChange={event => setDraft(event.target.value + durationParts(draft).unit)} /></label>
+            <label>{editorCopy.amount}<input type="number" min={durationBounds(durationParts(draft).unit).minimum} max={durationBounds(durationParts(draft).unit).maximum} step={1} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={durationParts(draft).amount} onChange={event => setDraft(event.target.value + durationParts(draft).unit)} /></label>
             <label>{editorCopy.unit}<select aria-label={editorCopy.unit} disabled={disabled} value={durationParts(draft).unit} onChange={event => setDraft(durationParts(draft).amount + event.target.value)}>{Object.entries(editorCopy.units).map(([unit, name]) => <option key={unit} value={unit}>{name}</option>)}</select></label>
           </div> : row.input === "stage-timeouts" ? <div className="stage-timeout-inputs">{executionStages.map((stage, index) => {
             const values = stageValues;
@@ -1798,12 +1799,12 @@ function SettingsList({ executorOnly=false, account=0, project, revision, csrf, 
             const general = Number(settingValue(config, "budgets.per_gate_timeout_seconds"));
             return <div className="stage-timeout-row" key={stage}>
               <label>{editorCopy.stages[index]}<select aria-label={editorCopy.stages[index]} disabled={disabled} value={custom ? "custom" : "general"} onChange={event => { const next = {...values}; if (event.target.value === "general") delete next[stage]; else next[stage] = general; setDraft(JSON.stringify(next)); }}><option value="general">{editorCopy.general}</option><option value="custom">{editorCopy.custom}</option></select></label>
-              {custom ? <label>{editorCopy.seconds}<input type="number" min={1} step={1} aria-label={`${editorCopy.stages[index]} ${editorCopy.seconds}`} disabled={disabled} value={values[stage] || ""} onChange={event => setDraft(JSON.stringify({...values, [stage]: Number(event.target.value)}))} /></label> : <small>{general} {editorCopy.seconds.toLowerCase()}</small>}
+              {custom ? <label>{editorCopy.seconds}<input type="number" min={row.minimum ?? 60} max={row.maximum ?? 14400} step={1} aria-label={`${editorCopy.stages[index]} ${editorCopy.seconds}`} disabled={disabled} value={values[stage] || ""} onChange={event => setDraft(JSON.stringify({...values, [stage]: Number(event.target.value)}))} /></label> : <small>{general} {editorCopy.seconds.toLowerCase()}</small>}
             </div>;
           })}</div> : row.input === "retry-delays" ? <><textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required /><p className="muted">{editorCopy.schedule}</p></> : row.input === "boolean" || row.input === "choice"
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{agentValue(row.key, option, locale) ?? (row.key === "review.on_pipeline_failure" ? pipelineFailureValue(option, locale) ?? option : row.key === "delivery.draft" ? publicationValue(option, locale) : option)}</option>)}</select>
             : ["reviewers", "azure-names"].includes(row.input) ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} />
-            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"}
+            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : settingTextLimit(row.key)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"}
               list={row.key === "container.image" && serverImages?.images.length ? "setting-image-options" : undefined} />}
           {row.key === "container.image" && !!serverImages?.images.length && <datalist id="setting-image-options">{serverImages.images.map(name => <option value={name} key={name} />)}</datalist>}
           {row.key === "container.image" && serverImages && (!serverImages.available ? <p className="field-hint">{enrollmentCopy[locale].imagesUnavailable}</p>

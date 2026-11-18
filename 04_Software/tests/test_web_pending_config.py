@@ -460,7 +460,7 @@ def test_catalog_fails_closed_on_corrupt_declared_scalar_type(tmp_path):
     """Active scalar type corruption is a typed read error, not a guessed control."""
     profiles, path, _state = _project(tmp_path)
     text = path.read_text(encoding="utf-8")
-    changed = re.sub(r"(?m)^max_iterations\s*=\s*20\b", "max_iterations = true", text)
+    changed = re.sub(r"(?m)^max_iterations\s*=\s*40\b", "max_iterations = true", text)
     assert changed != text
     path.write_text(changed, encoding="utf-8")
     with TestClient(create_app(profiles.home)) as client:
@@ -656,7 +656,7 @@ def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
         assert response.status_code == 200, response.text
         pending = path.parent / "pending_config.json"
         record = json.loads(pending.read_text(encoding="utf-8"))
-        changed = re.sub(r"(?m)^max_iterations\s*=\s*20\b",
+        changed = re.sub(r"(?m)^max_iterations\s*=\s*40\b",
                          "max_iterations = 21", record["candidate_text"])
         assert changed != record["candidate_text"]
         record["candidate_text"] = changed

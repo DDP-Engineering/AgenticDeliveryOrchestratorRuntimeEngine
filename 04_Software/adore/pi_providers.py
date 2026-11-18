@@ -9,6 +9,8 @@ import re
 from typing import Any
 from urllib.parse import urlsplit
 
+from adore.setting_rules import ENDPOINT_MAX_LENGTH
+
 CATALOG_PATH = Path(__file__).with_name("pi_catalog.json")
 CHATGPT = "chatgpt"
 CUSTOM = "custom"
@@ -183,7 +185,7 @@ def valid_endpoint_url(value: object) -> bool:
     """
     The one rule for an OpenAI-compatible endpoint address.
     Shared by configuration validation, the web connection edit and
-                the CLI wizard: http or https, a host, a valid port, at most 512
+                the CLI wizard: http or https, a host, a valid port, at most 2048
                 characters, no user name, password, query or fragment (a key is
                 a credential, never part of the address), and no whitespace,
                 control characters, quotes or backslashes (the value is written
@@ -191,7 +193,7 @@ def valid_endpoint_url(value: object) -> bool:
     value: Candidate base URL.
     Returns: True when the address is acceptable.
     """
-    if (not isinstance(value, str) or not value or len(value) > 512
+    if (not isinstance(value, str) or not value or len(value) > ENDPOINT_MAX_LENGTH
             or any(ord(char) <= 32 or ord(char) == 127 or char in "\"\\?#" for char in value)):
         return False
     try:

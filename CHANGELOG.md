@@ -5,6 +5,22 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-18
+
+### Changed
+
+- Project creation, Settings, imports and CLI share validated setting ranges/defaults:
+  40 launches, 8 active hours, 50-minute attempts, 500 changed files and reported-cost
+  cap disabled by default. Effective provider limits are reflected in Settings.
+- Preparation allows 1-hour steps and 4-hour total limits; defaults are 15 minutes and
+  1 hour. Clarification defaults to 10 rounds and 7 days. Project concurrency is 1..32.
+- **BREAKING:** remove parked TTL keys, `[reconcile]`, `review.trigger`, `local.account`
+  and `clarification.timeout_state` from project configs and recreate affected pending
+  drafts. For retained native jobs, manually remove `account` from both saved plan copies
+  (`state.json` and `execution-plan.json`) and renew their integrity fingerprints before
+  continuation; preserve worktrees, conversations and consumed budgets.
+  Unsupported data is refused; there is no migration or automatic reset.
+
 ## [0.20.0] - 2026-11-18
 
 ### Changed

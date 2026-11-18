@@ -29,6 +29,7 @@ from adore.pi_providers import (
     valid_endpoint_url,
 )
 from adore.profiles import Profile, ProfileStore, is_plain_name
+from adore.setting_rules import numeric_default, valid_numeric
 from adore.util import CommandRunner, run_command
 
 # REUSE-IgnoreStart
@@ -43,11 +44,21 @@ _LICENSE_LINES = (
 _DEFAULT_PROVIDER = "openai"
 _DEFAULT_MODEL = "gpt-6.1-terra"
 _RECOMMENDED_BUDGETS = {
-    "max_iterations": 20,
-    "max_wall_clock_seconds": 5400,
-    "max_cost_usd": 5.0,
-    "max_files_touched": 120,
+    name: numeric_default("budgets." + name)
+    for name in ("max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched")
 }
+
+
+
+def _budget_answer(name: str, value: str) -> str | None:
+    """Apply the shared budget interval before accepting a custom wizard answer."""
+    try:
+        parsed = float(value) if name == "max_cost_usd" else int(value)
+    except ValueError:
+        return "Enter a valid number."
+    if valid_numeric("budgets." + name, parsed):
+        return None
+    return "Value is outside the supported budget interval."
 
 
 class WizardError(RuntimeError):
@@ -566,13 +577,12 @@ def run_wizard(
         validate=_model_ok,
     ), asker, out)
     if isinstance(asker, ScriptedAsker):
-        retired = {"executor_command", "local_home", "local_cgroup_root"} & asker.answers.keys()
+        retired = {"executor_command", "local_home", "local_cgroup_root", "local_account"}
+        retired &= asker.answers.keys()
         if retired:
             raise WizardError(f"remove unsupported setup answers: {', '.join(sorted(retired))}")
         if asker.answers.get("auth_mode", ["api-key"]) != ["api-key"]:
             raise WizardError("auth_mode: only api-key is supported; remove personal sign-in")
-        if asker.answers.get("local_account", ["current"]) != ["current"]:
-            raise WizardError("local_account must be current")
     local_settings = {}
     if execution_backend == "local":
         from adore.local_process import native_context
@@ -584,7 +594,7 @@ def run_wizard(
             "A worktree is not a host sandbox; use a dedicated account without forge credentials.")
         out("Install and verify managed Pi as this account with 'adore pi install' "
             "and 'adore pi verify'.")
-        local_settings = {"account": "current", "path": ask(FieldSpec(
+        local_settings = {"path": ask(FieldSpec(
             "local_path", "Project tools PATH:", "Leave empty to use the server PATH.",
             default=""), asker, out)}
 
@@ -621,26 +631,22 @@ def run_wizard(
     # -- Phase H (budgets & policy) -----------------------------------------------
     budgets_choice = ask(FieldSpec(
         "budgets_choice", "Budgets: recommended supervised, or customize?",
-        "recommended = 20 launches / 90 active min / $5 / 120 files",
+        "recommended = 40 launches / 8 active hours / no reported-cost cap / 500 files",
         "recommended", default="recommended", choices=("recommended", "custom"),
     ), asker, out)
     budgets = dict(_RECOMMENDED_BUDGETS)
     if budgets_choice == "custom":
-        budgets["max_iterations"] = int(ask(FieldSpec(
-            "max_iterations", "Max executor launches per run:",
-            "20 recommended; customize for the task", "20",
-            default="20", validate=_positive_int), asker, out))
-        budgets["max_wall_clock_seconds"] = int(ask(FieldSpec(
-            "max_wall_clock_seconds", "Max active wall-clock per run (seconds):",
-            "cumulative; excludes waiting and retains work on retry/resume", "5400", default="5400",
-            validate=_positive_int), asker, out))
-        budgets["max_cost_usd"] = float(ask(FieldSpec(
-            "max_cost_usd", "Max reported model cost per run (USD):",
-            "0 disables the dollar cap for subscription/local execution", "5.0",
-            default="5.0", validate=_nonnegative_number), asker, out))
-        budgets["max_files_touched"] = int(ask(FieldSpec(
-            "max_files_touched", "Max files a run may change:", "", "120",
-            default="120", validate=_positive_int), asker, out))
+        for budget_key, label in (
+            ("max_iterations", "Max executor launches per run:"),
+            ("max_wall_clock_seconds", "Max cumulative active work (seconds):"),
+            ("max_cost_usd", "Max reported model cost (USD; 0 disables):"),
+            ("max_files_touched", "Max files a run may change:"),
+        ):
+            default = str(_RECOMMENDED_BUDGETS[budget_key])
+            answer = ask(FieldSpec(
+                budget_key, label, "", default, default=default,
+                validate=lambda value, key=budget_key: _budget_answer(key, value)), asker, out)
+            budgets[budget_key] = float(answer) if budget_key == "max_cost_usd" else int(answer)
     max_stage_failures = int(ask(FieldSpec(
         "max_stage_failures", "Failed attempts allowed per AEGIS stage:",
         "the final attempt aborts; 3 means there is no fourth launch",

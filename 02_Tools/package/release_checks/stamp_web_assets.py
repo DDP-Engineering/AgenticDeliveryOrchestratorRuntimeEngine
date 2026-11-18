@@ -19,7 +19,8 @@ def fingerprint(repo: Path, static: Path) -> dict:
     Raises OSError: A required input or output cannot be read.
     """
     web = repo / "04_Software/web"
-    inputs = [repo / "LICENSE.txt", repo / "02_Tools/package/release_checks/stamp_web_assets.py"]
+    inputs = [repo / "LICENSE.txt", repo / "02_Tools/package/release_checks/stamp_web_assets.py",
+              repo / "04_Software/adore/setting_limits.json"]
     inputs += [web / name for name in ("index.html", "package.json", "package-lock.json", "tsconfig.json", "vite.config.ts", "THIRD_PARTY_NOTICES.md")]
     for folder in ("src", "public"):
         directory = web / folder

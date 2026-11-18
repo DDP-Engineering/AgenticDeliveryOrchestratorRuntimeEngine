@@ -1,3 +1,4 @@
+import { settingTextLimit } from "./settingLimits.ts";
 import {connectionOf, validConnection} from "./agentConnection.ts";
 import {validCredentialNames} from "./executorSettings.ts";
 import {durationParts, implementationDraft} from "./implementationSettings.ts";
@@ -43,7 +44,13 @@ export function normalizeSettingDraft(row: SettingRow, raw: string): string | nu
     const names=raw.split(/\r?\n/).map(value=>value.trim()).filter(Boolean);
     return validBatchValues({[row.key]:names}) ? JSON.stringify(names) : null;
   }
-  if (["duration","retry-delays","stage-timeouts"].includes(row.input)) return implementationDraft(row.input,raw);
+  if (["duration","retry-delays","stage-timeouts"].includes(row.input)) {
+    const value = implementationDraft(row.input,raw);
+    if (value === null) return null;
+    if (row.input === "stage-timeouts" && Object.values(JSON.parse(value) as Record<string, number>)
+      .some(seconds => row.minimum != null && seconds < row.minimum || row.maximum != null && seconds > row.maximum)) return null;
+    return value;
+  }
   if (row.input==="boolean") return ["true","false"].includes(raw) ? raw : null;
   if (row.input==="choice") return row.choices.includes(raw) ? raw : null;
   if (row.input==="number") {
@@ -53,6 +60,8 @@ export function normalizeSettingDraft(row: SettingRow, raw: string): string | nu
       && (row.minimum==null || value>=row.minimum) && (row.maximum==null || value<=row.maximum)
       ? String(value) : null;
   }
+  const maximumLength = settingTextLimit(row.key);
+  if (maximumLength != null && (!raw || raw.length > maximumLength || raw !== raw.trim() || /[\u0000-\u001f\u007f]/.test(raw))) return null;
   return raw;
 }
 

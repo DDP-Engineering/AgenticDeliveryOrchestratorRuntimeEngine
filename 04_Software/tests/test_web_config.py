@@ -267,7 +267,7 @@ model = "gpt-5.4-fast"
 reviewers = ["dan.pasare"]
 
 [budgets]
-max_iterations = 20
+max_iterations = 40
 
 [container]
 runtime_env = { UV_LINK_MODE = "copy", API_KEY = "private-value" }
@@ -384,7 +384,8 @@ def test_installation_settings_are_external_and_cannot_be_mutated(tmp_path):
                 assert client.get("/api/v1/projects/alpha/config/pending").json() is None
 
 
-def test_config_view_reports_each_settings_source_and_editability(tmp_path):
+@pytest.mark.parametrize("provider,maximum", [("openai", 14400), ("chatgpt", 3000)])
+def test_config_view_reports_each_settings_source_and_editability(tmp_path, provider, maximum):
     """
     Every effective setting says whether the project's file sets it,
              whether the browser can edit it (by the same rule the staging
@@ -392,7 +393,8 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
     """
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
-    profiles.config_path("alpha").write_bytes(_PARTIAL_CONFIG.encode("utf-8"))  # LF, as on the host
+    raw = _PARTIAL_CONFIG.replace('provider = "openai"', f'provider = "{provider}"')
+    profiles.config_path("alpha").write_bytes(raw.encode("utf-8"))
     app = create_app(profiles.home)
     web = app.state.web_store
     developer = web.create_user("dev", "longer-password", "developer")
@@ -408,24 +410,29 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["platform.repo"] == {
             "key": "platform.repo", "edit_key": "platform.repo",
             "source": "project", "editable": True, "restart": True, "default": "",
-            "type": "text", "choices": [], "minimum": None, "maximum": None}
+            "type": "text", "choices": [], "minimum": None, "maximum": None,
+            "unit": None, "scope": "project"}
         assert settings["budgets.max_iterations"]["source"] == "project"  # equals default
-        assert settings["budgets.max_iterations"]["default"] == 20
+        assert settings["budgets.max_iterations"]["default"] == 40
         assert settings["budgets.max_wall_clock_seconds"] == {
             "key": "budgets.max_wall_clock_seconds",
             "edit_key": "budgets.max_wall_clock_seconds",
-            "source": "default", "editable": True, "restart": False, "default": 3600,
-            "type": "integer", "choices": [], "minimum": 1, "maximum": None}
+            "source": "default", "editable": True, "restart": False, "default": 28800,
+            "type": "integer", "choices": [], "minimum": 60, "maximum": 604800,
+            "unit": "seconds", "scope": "project"}
         assert settings["delivery.draft"] == {
             "key": "delivery.draft", "edit_key": "delivery.draft",
             "source": "default", "editable": True, "restart": False,
             "default": True, "type": "boolean", "choices": [True, False],
-            "minimum": None, "maximum": None}  # boolean
+            "minimum": None, "maximum": None,
+            "unit": None, "scope": "project"}  # boolean
         assert body["config"]["delivery"]["publish_checkpoints"] is True
         assert settings["delivery.publish_checkpoints"]["default"] is True
         assert settings["delivery.publish_checkpoints"]["source"] == "default"
         assert settings["metrics.db_path"]["default"] == ".adore/metrics.db"  # derived
         assert settings["agent.slug"]["default"] == "adore"
+        assert settings["budgets.per_gate_timeout_seconds"]["minimum"] == 60
+        assert settings["budgets.per_gate_timeout_seconds"]["maximum"] == maximum
         model = settings["executor.model"]
         assert model["edit_key"] == "executor.connection"
         assert model["source"] == "project" and model["editable"] and model["restart"]
@@ -433,15 +440,14 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["delivery.reviewers"]["editable"] is True
         assert settings["delivery.reviewers"]["type"] == "list"
         not_editable = ["container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
-                        "state.store_root", "clarification.timeout_state"]
+                        "state.store_root"]
         for key in not_editable:
             assert settings[key]["editable"] is False, key
         assert "container.runtime_env.API_KEY" not in settings  # redacted, never listed
         assert settings["delivery.reviewers"]["source"] == "project"
         assert settings["container.egress.allowlist"]["source"] == "default"
         assert all(not item["editable"] for key, item in settings.items()
-                   if key.startswith("state.") or key in {
-                       "clarification.timeout_state"})
+                   if key.startswith("state."))
 
         revision = body["revision"]
         target = "/api/v1/projects/alpha/config/pending"

@@ -41,7 +41,7 @@ def test_portable_public_export_exists_and_roundtrips():
         "max_concurrent_runs",
     }
     assert b"OPENCODE" not in encoded and b"worktrees" not in encoded
-    changed = raw.replace(b"max_iterations = 20", b"max_iterations = 37")
+    changed = raw.replace(b"max_iterations = 40", b"max_iterations = 37")
     assert (
         portable.parse_settings(portable.export_settings(changed))["budgets"]["max_iterations"]
         == 37
@@ -215,17 +215,17 @@ def test_portable_rejects_duplicates_in_otherwise_valid_package():
 def test_portable_valid_zero_cap_and_false_rules_reproduce():
     """Working-rule boundary values remain explicit rather than defaulted."""
     portable = import_module("adore.portable_settings")
-    source = EXAMPLE.read_bytes().replace(b"max_cost_usd = 5.0", b"max_cost_usd = 0")
+    source = EXAMPLE.read_bytes().replace(b"max_cost_usd = 0.0", b"max_cost_usd = 0")
     source = source.replace(b"poll_backoff = true", b"poll_backoff = false")
     # Use TOML section append via existing declaration replacements, preserving other keys.
     import re
 
-    source = re.sub(rb"max_cost_usd\s*=\s*5\.0", b"max_cost_usd = 0", source)
+    source = re.sub(rb"max_cost_usd\s*=\s*0\.0", b"max_cost_usd = 0", source)
     source = re.sub(rb"poll_backoff\s*=\s*true", b"poll_backoff = false", source)
-    source = re.sub(rb"max_iterations\s*=\s*20", b"max_iterations = 1000000000", source)
+    source = re.sub(rb"max_iterations\s*=\s*40", b"max_iterations = 1000", source)
     values = portable.parse_settings(portable.export_settings(source))
     assert values["budgets"]["max_cost_usd"] == 0
-    assert values["budgets"]["max_iterations"] == 1_000_000_000
+    assert values["budgets"]["max_iterations"] == 1000
     assert values["polling"]["poll_backoff"] is False
 
 
@@ -236,7 +236,7 @@ def test_portable_valid_zero_cap_and_false_rules_reproduce():
             b'runtime_env = { UV_LINK_MODE = "copy" }',
             b'runtime_env = { TOKEN = { secret = "SECRET" } }',
         ),
-        (b"max_iterations = 20", b"max_iterations = false"),
+        (b"max_iterations = 40", b"max_iterations = false"),
         (b"poll_backoff = true", b'poll_backoff = "SECRET"'),
     ],
 )

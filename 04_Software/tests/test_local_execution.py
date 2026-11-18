@@ -116,7 +116,6 @@ def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
     assert config.execution.backend == "container"
     config.execution.backend = "local"
     assert validate_config(config) == []
-    assert config.local.account == "current"
     for field, value in [("preparation", "prepare.yml#setup@" + "a" * 40)]:
         setattr(config.execution, field, value)
         assert any("local" in issue for issue in validate_config(config))
@@ -151,9 +150,6 @@ def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path,
         "existing-subscription-secret" in p.read_text(encoding="utf-8")
         for p in io_dir.parent.rglob("*.json")
     )
-    config.local.account = "another-account"
-    with pytest.raises(LocalExecutionError):
-        local_environment(config, context)
 
 
 @pytest.mark.parametrize("system", ["Windows", "Linux"])
@@ -858,7 +854,7 @@ def test_local_portable_export_excludes_all_native_settings(tmp_path, monkeypatc
     # The annotated example leaves backend at its default; append an explicit declaration.
     if b'backend = "local"' not in raw:
         raw += b'\n[execution]\nbackend="local"\n'
-    raw += b'\n[local]\naccount="current"\npath="/native-tools"\n'
+    raw += b'\n[local]\npath="/native-tools"\n'
     raw = __import__("re").sub(
         rb"required_tool_checks = \[.*?\]",
         b"required_tool_checks = []",

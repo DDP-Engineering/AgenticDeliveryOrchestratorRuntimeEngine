@@ -18,19 +18,19 @@ settings before a poll starts.
 Every declared key must belong to the current configuration contract. Removed
 keys, including `workflow.verify_command`, are reported by validation with the
 exact field to remove. Loading preserves the original input for that validation;
-it never drops old fields or rewrites the operator's file. The example contains
-operational settings and omits reserved fields that do not affect execution.
+it never drops old fields or rewrites the operator's file. The example contains only current operational settings.
 
 
 `delivery.reviewers` is a list of forge account names for GitHub/GitLab/Gitea,
-each 1–255 characters without whitespace, controls or a leading option prefix.
+at most 100 names, each 1–255 characters without whitespace, controls or a leading option prefix.
 Azure DevOps uses identity GUIDs instead. An empty list requests no reviewer.
 Configuration validation rejects malformed lists before forge CLI invocation.
 Review requests are independent of publication approval and merge permissions.
 
 ReadinessConfig defaults acceptance checking to false and priority checking to true. ReviewConfig defaults maximum additional revision rounds to five; explicit valid overrides retain authority. The readiness model contains acceptance and priority checks.
 
-`ClarificationConfig.answer_timeout` accepts a positive duration; invalid or zero durations fail before execution. Reminder settings are not supported. Expiry and maximum question rounds retain their conductor behavior.
+`ClarificationConfig.answer_timeout` accepts 60 seconds..90 days, default 7 days.
+The round count is 1..100, default 10. Expiry fails the run; there is no outcome selector.
 
 ## Branch naming contract
 
@@ -49,7 +49,7 @@ those three task kinds. Bug/fix mappings win over change, configured feature
 labels follow, and an unmatched ticket uses `default_kind`.
 
 `PollingConfig.max_concurrent_runs` is the canonical positive per-project
-admission ceiling (default one), shared by automatic/manual starts, Retry,
+admission ceiling (default one, range 1..32), shared by automatic/manual starts, Retry,
 Restart and resumed work. The web supervisor dispatches independent run
 processes up to that limit. Standalone `poll_once` stays synchronous; stages
 within one run stay ordered. Current staged lower limits gate new starts while
@@ -80,7 +80,7 @@ can never be accepted without an option to apply. The modes are `off` and
 `shared`; the private SELinux `Z`
 label is refused because it would bind the shared repository clone to a single
 container.
-`[container] runtime_env` and `[local] environment` names starting with a
+`[container] runtime_env` names starting with a
 removed coding agent's prefix (`OPENCODE_`, `CODEX_`, `QWEN_`) are refused
 with a message to remove them from `config.toml`.
 
@@ -157,7 +157,7 @@ including the Qwen China variants that share credential variables. Display
 names distinguish regional choices; endpoint hosts and thinking levels come
 from that same installed Pi release.
 
-`_chatgpt_issues` refuses what a ChatGPT subscription (`provider = "chatgpt"`)
+Shared numeric rules refuse what a ChatGPT subscription (`provider = "chatgpt"`)
 cannot run, because ADORE mints a short-lived ChatGPT access token before every
 stage through the selected trusted helper and does not refresh it during a stage:
 
@@ -268,3 +268,25 @@ An empty execution.preparation disables preparation; it does not select an alter
 ## New-job workflow contract
 
 `WorkflowConfig.mode` defaults to auto and validates only auto/direct. `requested_workflow(default, override)` is the shared closed-domain policy: optional manual aegis/direct takes precedence; invalid defaults/overrides raise ValueError. This selects workflow independently of AEGIS task kinds. Budgets and pinned execution policy are unchanged.
+
+## Shared setting domains
+
+`adore/setting_limits.json` is the current numeric default/range/unit resource read
+by core configuration, enrollment models, CLI wizard, portable rules and browser editors.
+`setting_rules.py` applies strict types and conditional provider bounds; the backend
+projects effective bounds and project scope through setting metadata. The common attempt
+timeout is 3000 seconds, with a 3000 ChatGPT ceiling and 14400 ceiling otherwise.
+Stage overrides inherit the same domain and remain authoritative over the common timeout.
+Defaults are 40 launches, 28800 cumulative active seconds, 500 files and cost cap 0.
+The complete intervals live in the Configuration Reference, not a second component table.
+
+Collections use the same helper for direct config and reviewed edits: retry schedules
+have 1..10 delays of 0..3600 seconds; environment and Azure-name lists retain their
+closed domains. Label length, endpoint length and reviewer count are shared resource
+constraints. Web connection edits remain atomic and provider changes revalidate overrides.
+
+Retired configuration is not converted: remove parked TTL fields, the reconcile section,
+review.trigger, local.account and clarification.timeout_state explicitly. Native plan
+settings now contain only the project PATH; observed process account identity stays part
+of native resource verification. Existing unsupported operator data must be edited or
+removed explicitly as documented in the Configuration Reference. Web schema remains 1.

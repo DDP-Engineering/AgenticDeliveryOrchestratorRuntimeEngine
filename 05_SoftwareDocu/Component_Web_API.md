@@ -209,3 +209,8 @@ One project may have at most 256 Start, Retry and Restart operations pending or 
 ## Cancelled execution restart
 
 The existing project Restart operation accepts cancelled as well as failed state after CSRF, role/project-grant, idempotency and exact state-revision checks. The worker repeats these checks before effects. Cancelled restart acknowledgement binds retained previous state, picked ticket, selected workflow and new run ownership, exposing admitted_run_id for navigation. Job projections expose validated previous_run_id/restarted_run_id journal links. Tickets projects the latest validated generation and includes state_revision for cancelled-job confirmation.
+
+Project setting ranges/defaults share `adore/setting_limits.json` and the current
+[configuration contract](Component_Config.md#shared-setting-domains). Native execution
+uses the current process account; `local.account` is not a selectable setting. No stored
+plan conversion or automatic reset is performed.

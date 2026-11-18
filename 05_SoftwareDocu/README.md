@@ -1,6 +1,6 @@
 # Software component documentation
 
-Current implementation reference: **ADORE 0.20.0** (2026-11-18).
+Current implementation reference: **ADORE 0.21.0** (2026-11-18).
 
 This folder describes the implementation that exists in the checkout. It is the
 entry point for component ownership, data contracts, dependencies and recovery

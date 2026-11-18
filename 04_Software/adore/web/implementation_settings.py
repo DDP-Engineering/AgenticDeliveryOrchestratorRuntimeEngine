@@ -6,47 +6,13 @@ import re
 import tomllib
 
 from adore.cli import _newline
+from adore.setting_rules import STAGES, valid_collection
 from adore.util import strict_json_loads
 from adore.web.executor_settings import PROVIDER_KEYS
 
 COLLECTION_KEYS = frozenset({"platform.work_item_types", "platform.closed_states",
                              "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides",
                              "executor.env_keys"})
-#: The stages whose executor launch a timeout override bounds, matching
-#: `adore.config.AEGIS_STAGES`; AEGIS 0.15.0 has no deliver stage.
-STAGES = ("frame", "specify", "design", "build", "validate")
-MAX_SAFE_INTEGER = 9007199254740991
-
-
-def valid_collection(key: str, value: object) -> bool:
-    """
-    Check the exact supported collection type and its bounded domain.
-    key: Complete configuration key.
-    value: Parsed human or persisted input.
-    Returns: True for a nonempty retry list, closed timeout map or names-only provider list.
-    """
-    def integer(item: object, minimum: int) -> bool:
-        """Reject booleans, fractions and integers beyond browser precision."""
-        return type(item) is int and minimum <= item <= MAX_SAFE_INTEGER
-
-    if key in {"platform.work_item_types", "platform.closed_states"}:
-        return (isinstance(value, list) and 1 <= len(value) <= 32
-                and all(isinstance(v, str) and 0 < len(v) <= 128 and v == v.strip()
-                        and not any(ord(c) < 32 for c in v) for v in value)
-                and len(set(value)) == len(value))
-    if key == "recovery.retry_backoff_seconds":
-        return (isinstance(value, list) and 0 < len(value) <= 1000
-                and all(integer(item, 0) for item in value))
-    if key == "workflow.stage_timeout_overrides":
-        return (isinstance(value, dict) and set(value) <= set(STAGES)
-                and all(integer(item, 1) for item in value.values()))
-    if key == "executor.env_keys":
-        return (isinstance(value, list) and len(value) <= 32
-                and all(isinstance(item, str)
-                        and re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", item) for item in value)
-                and len(set(value)) == len(value))
-    return False
-
 
 def set_collection(text: str, key: str, wire_value: str) -> str:
     """

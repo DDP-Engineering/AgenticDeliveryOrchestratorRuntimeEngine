@@ -135,8 +135,8 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     assert config.delivery.approval_label == "agent-approved"
     assert config.recovery.max_stage_failures == 3
     assert config.recovery.retry_backoff_seconds == [5, 30, 120]
-    assert config.budgets.max_iterations == 20
-    assert config.budgets.max_files_touched == 120
+    assert config.budgets.max_iterations == 40
+    assert config.budgets.max_files_touched == 500
     assert config.state.store_root.endswith("state")         # profile-owned (D2)
     assert profile.platform == "gitlab" and profile.repo == "grp/sub/proj"
 

@@ -35,15 +35,15 @@ Settings has exactly these four sections and all listed fields:
 | recovery | max_stage_failures, max_transient_retries (positive integers); retry_backoff_seconds (nonempty list of nonnegative integers) |
 | budgets | max_iterations, max_wall_clock_seconds, per_gate_timeout_seconds, max_files_touched (positive integers); max_cost_usd (finite nonnegative JSON number; zero disables reported-cost enforcement) |
 
-All integers are at most 1,000,000,000. Cost is at most 1,000,000,000 USD.
-Retry lists have at most 100 entries. JSON input is UTF-8, at most 64 KiB.
+Numeric domains use the current core setting limits, shared with create/edit/CLI.
+Retry lists have 1..10 entries, each 0..3600 seconds. JSON input is UTF-8, at most 64 KiB.
 Types are strict: booleans are not numbers; floats are not integer limits.
 Source TOML is UTF-8, at most 512 KiB. Existing supported config validation
 also applies to exports. The parser returns only a fresh validated settings
 mapping and reproduces every included value; it never enrolls or writes a profile.
 Consumers use these values as defaults for a **new** project, with explicit
 target configuration, reviewed paused enrollment and human credential setup.
-This work exposes no import/clone/enrollment UI or write endpoint.
+Guarded creation/import consumers retain their current preview, revision and authorization checks.
 
 ## Exclusions and reconfirmation
 

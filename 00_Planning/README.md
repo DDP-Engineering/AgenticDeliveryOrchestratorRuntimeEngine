@@ -3,6 +3,8 @@
 This folder is reserved for explicitly requested planning and design work.
 Current plans:
 
+- [Settings scope, limits and uniformity review](2026-11-18_Settings_Scope_Limits_And_Uniformity_Review.md):
+  current configuration domains, entry-point differences and pending decisions before uniformization.
 - [One Pi conversation per job](2026-11-15_Pi_Job_Conversation_Implementation_Plan.md):
   implemented persistent context (TASK-1d2c5b87), with existing ADORE stage controls and
   conditional independent AEGIS reviews, without a convergence controller.

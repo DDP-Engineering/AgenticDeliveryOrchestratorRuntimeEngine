@@ -1013,7 +1013,7 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
     _, source, _ = _project(tmp_path / "profile")
     initial_limit = 1 if change == "raise" else 3
     text = source.read_text(encoding="utf-8").replace(
-        "max_iterations = 20", f"max_iterations = {initial_limit}",
+        "max_iterations = 40", f"max_iterations = {initial_limit}",
     ).replace("enabled = true", "enabled = false").replace(
         "publish_checkpoints = true", "publish_checkpoints = false")
     if change == "capacity":
@@ -4246,6 +4246,7 @@ def test_budget_check_reads_cost_once(
 ) -> None:
     """One budget decision reads and sums the durable journal once."""
     engine, _, _, _, _ = make_engine(tmp_path)
+    engine.config.budgets.max_cost_usd = 5.0
     run = make_run(engine)
     calls: list[str] = []
 
@@ -4514,7 +4515,8 @@ def test_disabled_cost_cap_preserves_other_bounds_and_usage(tmp_path, monkeypatc
     elif bound == "clock":
         run.active_started_at = "2020-01-01T00:00:00Z"
     elif bound == "files":
-        monkeypatch.setattr(worktrees, "changed_files", lambda *args: 121)
+        monkeypatch.setattr(worktrees, "changed_files",
+                            lambda *args: engine.config.budgets.max_files_touched + 1)
     before = engine.store.read_journal(run.run_id)
     def forbidden_cost_read(*args):
         pytest.fail("Disabled cap must not enforce dollar accounting")
@@ -4944,7 +4946,7 @@ def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, chan
     _, source, _ = _project(tmp_path)
     initial_limit = 1 if change == "raise" else 3
     text = source.read_text(encoding="utf-8").replace(
-        "max_iterations = 20", f"max_iterations = {initial_limit}").replace(
+        "max_iterations = 40", f"max_iterations = {initial_limit}").replace(
         "# internet = false", "internet = false")
     if change == "chatgpt-timeout":
         text = text.replace('provider = "openai"', 'provider = "chatgpt"')
@@ -4984,7 +4986,7 @@ def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, chan
         elif change == "unknown-section":
             source.write_text(text + "\n[unknown_section]\nvalue = true\n")
         elif change == "chatgpt-timeout":
-            source.write_text(text.replace("per_gate_timeout_seconds = 1800",
+            source.write_text(text.replace("per_gate_timeout_seconds = 3000",
                                            "per_gate_timeout_seconds = 3001"))
         elif change == "bad-table":
             source.write_text(text.replace("[budgets]", "[[budgets]]"))
@@ -5021,7 +5023,7 @@ def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path,
 
     profiles, source, store = _project(tmp_path)
     text = source.read_text(encoding="utf-8").replace(
-        "max_iterations = 20", "max_iterations = 1").replace(
+        "max_iterations = 40", "max_iterations = 1").replace(
         "enabled = true", "enabled = false").replace(
         "publish_checkpoints = true", "publish_checkpoints = false")
     source.write_text(text, encoding="utf-8")

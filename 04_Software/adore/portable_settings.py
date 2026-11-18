@@ -13,13 +13,13 @@ import tomllib
 
 from adore import __version__
 from adore.config import default_config, load_config, validate_config
+from adore.setting_rules import valid_collection, valid_numeric
 
 KIND = "adore-project-settings"
 SCHEMA_VERSION = 1
 CONTRACT = "portable-rules-v1"
 MAX_JSON_BYTES = 65536
 MAX_SOURCE_BYTES = 524288
-MAX_LIMIT = 1_000_000_000
 PORTABLE_FIELDS = {
     "polling": (
         "mode",
@@ -71,22 +71,6 @@ def _keys(value: object, expected) -> None:
         raise PortableSettingsError()
 
 
-def _number(value: object, minimum: int = 0, *, integer: bool = True) -> None:
-    """
-    Reject wrong numeric types and unbounded portable limits.
-    value: Untrusted numeric value.
-    minimum: Inclusive lower bound.
-    integer: Require an integer rather than a finite JSON number.
-    Raises PortableSettingsError: Value violates the closed numeric domain.
-    """
-    if (
-        type(value) not in ((int,) if integer else (int, float))
-        or not minimum <= value <= MAX_LIMIT
-        or not math.isfinite(value)
-    ):
-        raise PortableSettingsError()
-
-
 def _settings(value: object) -> dict:
     """
     Validate the complete closed portable shape without partial output.
@@ -106,16 +90,10 @@ def _settings(value: object) -> dict:
                 if type(item) is not bool:
                     raise PortableSettingsError()
             elif name == "retry_backoff_seconds":
-                if type(item) is not list or not 1 <= len(item) <= 100:
+                if not valid_collection("recovery.retry_backoff_seconds", item):
                     raise PortableSettingsError()
-                for seconds in item:
-                    _number(seconds)
-            else:
-                _number(
-                    item,
-                    0 if name in ("max_cost_usd", "poll_jitter_seconds") else 1,
-                    integer=name != "max_cost_usd",
-                )
+            elif not valid_numeric(f"{section}.{name}", item):
+                raise PortableSettingsError()
     return value
 
 

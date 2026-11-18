@@ -84,9 +84,8 @@ env_keys = []
 # search = "exa"
 
 [clarification]
-max_rounds = 3
-answer_timeout = "72h"
-timeout_state = "failed"
+max_rounds = 10
+answer_timeout = "7d"
 
 # One pinned execution environment per job. A changed image, backend or resource
 # identity requires a fresh job. Preparation is an optional reviewed selection;
@@ -94,8 +93,8 @@ timeout_state = "failed"
 [execution]
 backend = "container"               # container | local
 preparation = ""
-preparation_step_timeout_seconds = 300
-preparation_total_timeout_seconds = 900
+preparation_step_timeout_seconds = 900
+preparation_total_timeout_seconds = 3600
 preparation_max_attempts = 2
 
 # Container-only settings. Build and select a project image with its tools.
@@ -106,10 +105,6 @@ runtime = "docker"                  # docker | podman | WSL-wrapped command
 # use the standard image adore-executor-base:1.0.0.
 image = "adore-executor-project:latest"
 system_packages = false
-keep_parked = true
-parked_ttl_mode = "polls"
-parked_ttl_seconds = 7200
-parked_ttl_polls = 30
 uv_cache_volume = "adore-uv-cache"
 npm_cache_volume = "adore-npm-cache"
 runtime_env = { UV_LINK_MODE = "copy" }
@@ -155,11 +150,11 @@ retry_backoff_seconds = [5, 30, 120]
 # Cumulative consumed work is retained across Retry and resume. Waiting uses no
 # active-work time. Each executor attempt has its own timeout within the job limit.
 [budgets]
-max_iterations = 20
-max_wall_clock_seconds = 3600
-per_gate_timeout_seconds = 1800
-max_cost_usd = 5.0                   # Reported-cost cap; 0 disables it
-max_files_touched = 120
+max_iterations = 40
+max_wall_clock_seconds = 28800
+per_gate_timeout_seconds = 3000
+max_cost_usd = 0.0 # Reported-cost cap; 0 disables it
+max_files_touched = 500
 
 # ADORE opens a draft or ready MR/PR under the configured approval policy.
 # A human merges. Remote WIP checkpoints are a separate project policy.
@@ -176,7 +171,6 @@ publish_checkpoints = true
 # A new failed pipeline can start a bounded revision round. Publication follows
 # require_human_approval above. notify asks for intervention; ignore skips CI reads.
 [review]
-trigger = "label"
 revise_label = "agent-revise"
 max_review_rounds = 5
 on_pipeline_failure = "revise"

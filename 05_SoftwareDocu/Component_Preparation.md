@@ -65,3 +65,8 @@ The planner uses standard-library parsing/hashing, typed configuration and injec
 Git command execution. Existing `04_Software/tests/test_preparation.py`,
 `test_preparation_lifecycle.py` and `test_local_execution.py` cover the public
 planning and replay boundaries offline.
+
+Project setting ranges/defaults share `adore/setting_limits.json` and the current
+[configuration contract](Component_Config.md#shared-setting-domains). Native execution
+uses the current process account; `local.account` is not a selectable setting. No stored
+plan conversion or automatic reset is performed.

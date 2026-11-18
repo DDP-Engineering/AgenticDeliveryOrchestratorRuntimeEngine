@@ -2,7 +2,6 @@ export const localCopy = {
   "en": {
     "title": "Local execution",
     "account": "Current OS account",
-    "accountHelp": "Native Pi runs under the operating system account running the ADORE service. The only supported value is current.",
     "path": "Project tools PATH (optional)",
     "pathHelp": "Sets the PATH that native Pi uses to find project tools. Leave it empty to use the ADORE service account’s PATH.",
     "machine": "Execution machine",
@@ -17,7 +16,6 @@ export const localCopy = {
   "fr": {
     "title": "Exécution locale",
     "account": "Compte système actuel",
-    "accountHelp": "Pi s’exécute en mode natif sous le compte système du service ADORE. La seule valeur admise est current.",
     "path": "PATH des outils du projet (facultatif)",
     "pathHelp": "Définit le PATH utilisé par Pi en mode natif pour trouver les outils du projet. Laissez-le vide pour utiliser le PATH du compte du service ADORE.",
     "machine": "Machine d’exécution",
@@ -32,7 +30,6 @@ export const localCopy = {
   "de": {
     "title": "Lokale Ausführung",
     "account": "Aktuelles Systemkonto",
-    "accountHelp": "Das native Pi läuft unter dem Systemkonto des ADORE-Dienstes. Der einzige zulässige Wert ist current.",
     "path": "PATH für Projektwerkzeuge (optional)",
     "pathHelp": "Legt den PATH fest, unter dem das native Pi die Projektwerkzeuge findet. Leer verwendet den PATH des ADORE-Dienstkontos.",
     "machine": "Ausführungsrechner",
@@ -47,7 +44,6 @@ export const localCopy = {
   "ro": {
     "title": "Execuție locală",
     "account": "Contul curent al sistemului",
-    "accountHelp": "Pi rulează nativ sub contul de sistem al serviciului ADORE. Singura valoare acceptată este current.",
     "path": "PATH pentru uneltele proiectului (opțional)",
     "pathHelp": "Stabilește variabila PATH pe care Pi o folosește în modul nativ pentru a găsi uneltele proiectului. Un câmp gol folosește PATH-ul contului serviciului ADORE.",
     "machine": "Mașina de execuție",
@@ -62,6 +58,5 @@ export const localCopy = {
 };
 
 export const localSettingHelp = Object.fromEntries(Object.entries(localCopy).map(([locale, copy]) => [locale, {
-  "local.account": copy.accountHelp,
   "local.path": copy.pathHelp,
 }])) as unknown as Record<keyof typeof localCopy, Record<string, string>>;

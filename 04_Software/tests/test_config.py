@@ -72,9 +72,8 @@ def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     assert config.polling.poll_interval_seconds == 60
     assert config.labels.lifecycle.ready == "agent-ready"
     assert config.labels.selection.priority_order() == ["P1", "P2", "P3"]
-    assert config.budgets.max_cost_usd == 5.0
-    assert config.budgets.max_files_touched == 120
-    assert config.review.trigger == "label"
+    assert config.budgets.max_cost_usd == 0.0
+    assert config.budgets.max_files_touched == 500
 
 
 @pytest.mark.parametrize("value, valid", [
@@ -234,12 +233,12 @@ def test_delivery_draft_rejects_non_booleans(tmp_path: Path, draft: str) -> None
 
 def test_per_gate_timeout_defaults_and_is_validated(tmp_path: Path) -> None:
     """
-    per_gate_timeout_seconds defaults to 1800 and is an independent
+    per_gate_timeout_seconds defaults to 3000 and is an independent
              positive knob from max_wall_clock_seconds (the whole-run ceiling).
     """
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
-    assert config.budgets.per_gate_timeout_seconds == 1800
-    assert config.budgets.max_wall_clock_seconds == 3600
+    assert config.budgets.per_gate_timeout_seconds == 3000
+    assert config.budgets.max_wall_clock_seconds == 28800
     bad = MINIMAL_VALID + "\n[budgets]\nper_gate_timeout_seconds = 0\n"
     issues = validate_config(load_config(_write_config(tmp_path, bad)))
     assert any("per_gate_timeout_seconds" in issue for issue in issues)
@@ -280,9 +279,7 @@ def test_defaults_without_file_sections() -> None:
     assert config.executor.internet is False
     assert config.executor.web.search == "exa"
     assert config.container.required_tool_checks == []
-    assert config.container.parked_ttl_polls == 30
-    assert config.clarification.max_rounds == 3
-    assert config.reconcile.on_trigger_removed == "pause"
+    assert config.clarification.max_rounds == 10
 
 
 def test_validation_rejects_bad_polling_and_slug(tmp_path: Path) -> None:
@@ -608,9 +605,9 @@ design = "long"
 """)))
     assert any("stage_timeout_overrides.publication is not an AEGIS stage" in i
                for i in issues)
-    assert any("stage_timeout_overrides.validate must be a positive" in i
+    assert any("stage_timeout_overrides.validate must be an integer" in i
                for i in issues)
-    assert any("stage_timeout_overrides.design must be a positive" in i
+    assert any("stage_timeout_overrides.design must be an integer" in i
                for i in issues)
     assert not any("stage_timeout_overrides.build" in i for i in issues)
 
@@ -651,9 +648,9 @@ max_transient_retries = 0
 retry_backoff_seconds = []
 """
     issues = validate_config(load_config(_write_config(tmp_path, text)))
-    assert any("max_stage_failures must be >= 1" in item for item in issues)
-    assert any("max_transient_retries must be >= 1" in item for item in issues)
-    assert any("retry_backoff_seconds must be a non-empty" in item for item in issues)
+    assert any("max_stage_failures must be an integer in 1..10" in item for item in issues)
+    assert any("max_transient_retries must be an integer in 1..10" in item for item in issues)
+    assert any("retry_backoff_seconds has invalid collection" in item for item in issues)
     assert any("approval_label must be distinct" in item for item in issues)
 
 
@@ -669,7 +666,7 @@ def test_value_of_the_wrong_type_is_an_issue_not_a_crash(tmp_path: Path) -> None
     """Validation answers with an issue naming the cause, never with a traceback."""
     text = MINIMAL_VALID + '[polling]\npoll_interval_seconds = "60"\n'
     issues = validate_config(load_config(_write_config(tmp_path, text)))
-    assert len(issues) == 1 and "wrong TOML type" in issues[0]
+    assert len(issues) == 1 and "poll_interval_seconds must be an integer" in issues[0]
 
 
 def test_executor_cannot_receive_forge_credentials(tmp_path: Path) -> None:
@@ -726,3 +723,32 @@ def test_validation_checks_quiet_hours_are_real_times(tmp_path: Path) -> None:
 
     assert issues("99:99-99:99") and issues("22:60-06:00")
     assert issues("22:00-06:00") == [] and issues("22:00-24:00") == []
+
+
+@pytest.mark.parametrize("provider,seconds,accepted", [
+    ("openai", 59, False), ("openai", 60, True),
+    ("openai", 14400, True), ("openai", 14401, False),
+    ("chatgpt", 60, True), ("chatgpt", 3000, True), ("chatgpt", 3001, False),
+    ("openai", True, False), ("openai", 60.5, False),
+])
+def test_attempt_and_stage_override_share_provider_bounds(tmp_path, provider, seconds, accepted):
+    """Common and stage-specific limits accept exactly the same provider domain."""
+    text = MINIMAL_VALID.replace('provider = "openai"', f'provider = "{provider}"')
+    for section, key in (("budgets", "per_gate_timeout_seconds"),
+                         ("workflow.stage_timeout_overrides", "build")):
+        literal = str(seconds).lower()
+        config = load_config(_write_config(tmp_path, text + f"\n[{section}]\n{key} = {literal}\n"))
+        issues = validate_config(config)
+        relevant = [item for item in issues if key in item]
+        assert (not relevant) is accepted, issues
+
+
+@pytest.mark.parametrize("key,value", [
+    ("max_iterations", 1001), ("max_files_touched", 100001),
+    ("max_wall_clock_seconds", 604801), ("max_cost_usd", 1000001),
+    ("max_cost_usd", 10 ** 400),
+])
+def test_budget_maxima_apply_to_file_configuration(tmp_path, key, value):
+    """CLI/file input cannot bypass enrollment and Settings maxima."""
+    text = MINIMAL_VALID + f"\n[budgets]\n{key} = {value}\n"
+    assert any(key in item for item in validate_config(load_config(_write_config(tmp_path, text))))

@@ -1,3 +1,4 @@
+import { settingConstraints } from "./settingLimits.ts";
 import { useEffect, useId, useState } from "react";
 import type { Locale } from "./i18n";
 import {
@@ -57,7 +58,7 @@ export function AgentConnectionEditor({ value, locale, disabled, onChange }: {
     </label>
     {draft.provider === CUSTOM && <>
       <label>{copy.baseUrl}
-        <input aria-label={copy.baseUrl} aria-describedby={`${id}-url`} disabled={disabled} value={draft.base_url} maxLength={512}
+        <input aria-label={copy.baseUrl} aria-describedby={`${id}-url`} disabled={disabled} value={draft.base_url} maxLength={settingConstraints.endpoint_length}
           autoComplete="off" placeholder="http://192.168.1.20:1234/v1" onChange={event => update({ base_url: event.target.value.trim() })} />
       </label>
       <p className="field-hint" id={`${id}-url`}>{copy.baseUrlHelp}</p>

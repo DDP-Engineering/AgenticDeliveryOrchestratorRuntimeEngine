@@ -10,6 +10,7 @@ import re
 from typing import TYPE_CHECKING
 
 from adore.branding import EXECUTOR_BASE_IMAGE
+from adore.setting_rules import valid_numeric
 from adore.util import CommandRunner, run_command
 
 if TYPE_CHECKING:
@@ -344,14 +345,7 @@ def execution_policy(config: Config) -> dict:
         "container": {
             key: value
             for key, value in asdict(config.container).items()
-            if key
-            not in {
-                "image",
-                "keep_parked",
-                "parked_ttl_mode",
-                "parked_ttl_seconds",
-                "parked_ttl_polls",
-            }
+            if key != "image"
         },
         "executor": asdict(config.executor),
     }
@@ -441,12 +435,9 @@ def validate_plan(plan: object) -> dict:
     policy = plan["policy"]["execution"]
     if policy["backend"] != plan["backend"] or policy["preparation"] != plan["selection"]:
         raise PreparationError("plan.policy: selection/backend mismatch")
-    for key, maximum in (
-        ("preparation_step_timeout_seconds", 1800),
-        ("preparation_total_timeout_seconds", 3600),
-        ("preparation_max_attempts", 3),
-    ):
-        if not 1 <= policy[key] <= maximum:
+    for key in ("preparation_step_timeout_seconds", "preparation_total_timeout_seconds",
+                "preparation_max_attempts"):
+        if not valid_numeric("execution." + key, policy[key]):
             raise PreparationError("plan.policy: invalid preparation bound")
     if plan["selection"]:
         _, job, _ = parse_selection(plan["selection"])

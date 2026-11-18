@@ -1,3 +1,4 @@
+import { settingDefault, settingLimit, validSettingNumber, settingConstraints } from "./settingLimits.ts";
 import { azureCopy } from "./azureDevops";
 import { completedConfiguration } from "./configurationTasks";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -29,7 +30,7 @@ type Draft = {
   repo_path: string; target_branch: string; login: string; provider: string; model: string; thinking: string;
   endpoint_base_url: string; endpoint_api: string;
   runtime: string; image: string; auth_mode: string; env_keys: string; reviewers: string;
-  execution_backend: string; local_account: string; local_path: string;
+  execution_backend: string; local_path: string;
   ready_label: string; approval_label: string; max_iterations: string;
   max_wall_clock_seconds: string; max_cost_usd: string; max_files_touched: string;
 };
@@ -97,13 +98,13 @@ class SetupError extends ApiError {
   constructor(code: string, readonly findings: Finding[]) { super(code); }
 }
 const initial: Draft = { organization: "", project: "", area_path: "", clone_url: "", name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
-  execution_backend: "container", local_account: "current", local_path: "",
+  execution_backend: "container", local_path: "",
   target_branch: "main", login: "", provider: "openai", model: "gpt-6.1-terra", thinking: "", endpoint_base_url: "", endpoint_api: "",
   runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
-  max_iterations: "20", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
+  max_iterations: settingDefault("budgets.max_iterations"), max_wall_clock_seconds: settingDefault("budgets.max_wall_clock_seconds"), max_cost_usd: settingDefault("budgets.max_cost_usd"), max_files_touched: settingDefault("budgets.max_files_touched") };
 const fields: FieldName[][] = [[], ["clone_url", "display_name", "name", "description", "kind", "repo", "organization", "project", "area_path", "login", "repo_path", "target_branch"],
-  ["provider", "model", "thinking", "endpoint_base_url", "endpoint_api", "execution_backend", "runtime", "image", "local_account", "local_path", "auth_mode", "env_keys"],
+  ["provider", "model", "thinking", "endpoint_base_url", "endpoint_api", "execution_backend", "runtime", "image", "local_path", "auth_mode", "env_keys"],
   ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"], []];
 const numeric = ["max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"] as const;
 const digest = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
@@ -284,7 +285,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       if (key === "endpoint_api") valid = ENDPOINT_APIS.includes(value);
       if (numeric.includes(key as typeof numeric[number])) {
         const number = Number(value); valid = !!value.trim() && Number.isFinite(number) &&
-          (key === "max_cost_usd" ? number >= 0 : Number.isSafeInteger(number) && number > 0);
+          validSettingNumber(`budgets.${key}`, number, draft.provider);
       }
       if (!valid) errors.push({ code: "invalid_input", field: key, remediation: c.invalid });
     }
@@ -413,8 +414,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
   };
   const labels: Record<FieldName, string> = {
-    execution_backend: c.runsIn, local_account: localCopy[locale].account,
-    local_path: localCopy[locale].path,
+    execution_backend: c.runsIn, local_path: localCopy[locale].path,
     clone_url: c.url, name: c.id, display_name: c.display, description: t("description"), kind: t("forge"), repo: t("repository"),
     organization: azureCopy[locale].organization, project: azureCopy[locale].project, area_path: azureCopy[locale].area_path,
     login: "Gitea tea login", repo_path: t("clonePath"), target_branch: t("targetBranch"),
@@ -432,7 +432,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   const modelOptions = providerModels(draft.provider, catalog);
   const control = (key: FieldName) => {
     if (["organization", "project", "area_path"].includes(key) && draft.kind !== "azure_devops") return null;
-    if (key === "auth_mode" || key === "local_account" || key === "login" && draft.kind !== "gitea"
+    if (key === "auth_mode" || key === "login" && draft.kind !== "gitea"
         || key.startsWith("local_") && draft.execution_backend !== "local"
         || ["runtime", "image"].includes(key) && draft.execution_backend === "local"
         || key.startsWith("endpoint_") && draft.provider !== CUSTOM) return null;
@@ -469,10 +469,10 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         : value === "" ? (key === "thinking" ? thinkingCopy[locale].default : c.chooseForge)
         : key === "execution_backend" ? (value === "local" ? c.installed : c.container) : key === "provider" ? providerName(value, catalog, locale) : value}</option>)}</select> :
         <input {...common} type={numeric.includes(key as typeof numeric[number]) ? "number" : "text"}
-          step={key === "max_cost_usd" ? "any" : "1"} autoComplete="off"
+          step={key === "max_cost_usd" ? "any" : "1"} min={settingLimit(`budgets.${key}`, draft.provider)?.minimum} max={settingLimit(`budgets.${key}`, draft.provider)?.maximum} autoComplete="off"
           placeholder={(key === "display_name" ? c.exampleDisplay : key === "description" ? c.exampleDescription : examples[key]) ? t("examplePrefix") + " " +
             (key === "display_name" ? c.exampleDisplay : key === "description" ? c.exampleDescription : examples[key]) : undefined}
-          maxLength={key === "display_name" ? 120 : key === "name" ? 64 : 1024}
+          maxLength={key === "reviewers" ? settingConstraints.reviewers * 256 : key === "endpoint_base_url" ? settingConstraints.endpoint_length : ["ready_label", "approval_label", "display_name"].includes(key) ? settingConstraints.label_length : key === "name" ? 64 : 1024}
           list={key === "image" && images?.available ? "enroll-image-options" : key === "model" && modelOptions.length ? "enroll-model-options" : undefined} />}
       {key === "model" && modelOptions.length > 0 && <datalist id="enroll-model-options">{modelOptions.map(name => <option value={name} key={name} />)}</datalist>}
       {key === "image" && images?.available && <datalist id="enroll-image-options">{images.images.map(name => <option value={name} key={name} />)}</datalist>}

@@ -238,9 +238,7 @@ content per container, and the clone is shared by every run and by host git, so
 
 Each job uses one persistent Pi implementation conversation, resumed by bounded
 RPC processes at stage/attempt boundaries without an additional setting. Parked containers are stopped and retained for resume
-or explicit cleanup. The accepted `container.keep_parked`,
-`parked_ttl_mode`, `parked_ttl_seconds`, and `parked_ttl_polls` settings are
-reserved and do not currently change that behavior.
+or explicit cleanup. There is no configurable parked-container TTL.
 
 For CLI engine commands, `.env` beside the resolved `config.toml` is loaded
 first; if absent, cwd `.env` is used. The real process environment has highest
@@ -290,9 +288,8 @@ transport retries. Those attempts do not consume the stage counter. The first at
 
 | Key | Meaning | Default |
 | --- | --- | --- |
-| `max_rounds` | Human question/answer rounds. | `3` |
-| `answer_timeout` | Positive duration per question; expiry fails the run, independently of reserved reminder timing. | `72h` |
-| `timeout_state` | Reserved; its choice is validated, but expiry currently fails the run. | `failed` |
+| `max_rounds` | Human question/answer rounds, 1..100. | `10` |
+| `answer_timeout` | 60 seconds..90 days per question; expiry fails the run. | `7d` |
 
 Questions park the run, stop the container, release the slot, and do not count
 as stage failures. Resume requires a human comment plus `agent-answered`.
@@ -301,11 +298,42 @@ as stage failures. Resume requires a human comment plus `agent-answered`.
 
 | Key | Meaning | Default |
 | --- | --- | --- |
-| `max_iterations` | Total executor launches across stages, including failed attempts, retries and revisions throughout the job lifetime. | `20` |
-| `max_wall_clock_seconds` | Cumulative active-work time across retries, clarification resume and revisions; waiting is excluded. | `3600` |
-| `per_gate_timeout_seconds` | One agent stage attempt; recovery may retry a timed-out attempt. Stage overrides bound agent sessions. ADORE does not separately run repository tests. With `provider = "chatgpt"`, this value and each stage override must be at most 3000. | `1800` |
-| `max_cost_usd` | Recorded executor-reported model cost in US dollars over the job lifetime; `0` disables the cap. | `5.0` |
-| `max_files_touched` | Distinct product and AEGIS paths changed from the job base, including committed, pending and new files. | `120` |
+| `max_iterations` | Total executor launches across stages, including failed attempts, retries and revisions throughout the job lifetime. | `40` |
+| `max_wall_clock_seconds` | Cumulative active-work time across retries, clarification resume and revisions; waiting is excluded. | `28800` |
+| `per_gate_timeout_seconds` | One agent stage attempt; recovery may retry a timed-out attempt. Stage overrides bound agent sessions. ADORE does not separately run repository tests. With `provider = "chatgpt"`, this value and each stage override must be at most 3000. | `3000` |
+| `max_cost_usd` | Recorded executor-reported model cost in US dollars over the job lifetime; `0` disables the cap. | `0.0` |
+| `max_files_touched` | Distinct product and AEGIS paths changed from the job base, including committed, pending and new files. | `500` |
+
+Core validation and web metadata use `adore/setting_limits.json`. The browser reads
+that same resource. Creation, edits, portable settings and CLI use these bounds:
+
+| Setting | Inclusive range |
+|---|---|
+| Executor attempt and stage overrides | 60..14400 seconds; 60..3000 with ChatGPT |
+| Cumulative active work | 60..604800 seconds (7 days); default 28800 (8 hours) |
+| Executor launches | 1..1000; default 40 |
+| Changed files | 1..100000; default 500 |
+| Reported cost | 0..1000000 USD; default 0 disables only this cap |
+| Project concurrent jobs | 1..32; default 1; capacity still depends on the server |
+| Poll interval / jitter | 10..86400 / 0..300 seconds; defaults 60 / 5 |
+| Clarification rounds / answer wait | 1..100 / 60..7776000 seconds; defaults 10 / 7 days |
+| Stage failures / transient attempts | 1..10 each; default 3 each |
+| Retry schedule | 1..10 whole-second delays, each 0..3600; default 5, 30, 120 |
+| Additional review rounds | 1..20; default 5 |
+| Preparation step / total | 1..3600 / 1..14400 seconds; defaults 900 / 3600 |
+| Preparation attempts | 1..3; default 2 |
+| Egress proxy port | 1..65535; default 3128 |
+
+Durations accept whole seconds or s/m/h/d notation. Integer settings reject booleans
+and fractions. Zero does not disable time, launch or file limits. A provider change
+revalidates the whole candidate, including its stage overrides. Existing job usage
+is retained; a running attempt keeps its original timeout. Reported-cost enforcement
+depends on available reported cost, not reconstructed UI price estimates.
+
+Labels are trimmed names of 1..120 characters without controls; lifecycle/control
+roles remain distinct. A reviewer list has at most 100 names, with forge-specific
+name/GUID rules. Custom endpoint URLs have at most 2048 characters. Variable-name
+and Azure process-name collections retain their documented 32-entry bounds.
 
 The GUI names `max_iterations` **Maximum executor launches per job** and
 `max_wall_clock_seconds` **Active work time limit (seconds)**. The active clock
@@ -396,7 +424,7 @@ close, deletion, or source-ticket closure.
 
 ## Reconciliation and Metrics
 
-The `[reconcile]` values remain reserved. Current schema-1 behavior is fixed.
+Ticket reconciliation behavior is fixed; there is no `[reconcile]` configuration section.
 For a run waiting for approval, a clarification answer or review, a deleted
 source ticket fails the run visibly (`TICKET_DELETED`; the container stops and
 the worktree and evidence stay), and a closed source ticket cancels it with
@@ -437,7 +465,7 @@ The optional closed `[execution]` table selects a reviewed `path.yml#job@full-co
 
 ## Native local execution
 
-execution.backend accepts container (default) or local. Closed local fields: `account = "current"` and optional `path` for project tools. Configure Linux cgroup delegation on the service with `ADORE_LOCAL_CGROUP_ROOT`. Local selection rejects recipes, a non-empty `[container.egress] allowlist`, staging/container-only options; `executor.internet` does not restrict a local run; policy pins machine/account/environment/executable. Unknown execution/local fields reject.
+execution.backend accepts container (default) or local. The local project setting is optional `path` for project tools; the real process account is observed, not selected. Configure Linux cgroup delegation on the service with `ADORE_LOCAL_CGROUP_ROOT`. Local selection rejects recipes, a non-empty `[container.egress] allowlist`, staging/container-only options; `executor.internet` does not restrict a local run; policy pins machine/account/environment/executable. Unknown execution/local fields reject.
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
@@ -449,8 +477,9 @@ authentication, process ownership and acceptance coverage.
 
 ### Budget changes and observations
 
-The CLI and web enrollment default to 20 executor launches. The recommended wizard
-profile allows 5400 active seconds; the base configuration default is 3600.
+The CLI, web enrollment, Settings and imports share the same domains and defaults.
+New jobs default to 40 executor launches, 28800 active seconds, 3000 seconds per
+attempt, 500 changed files and no reported-cost cap.
 Job details shows launches and cumulative active seconds against current project
 limits, separately from token/cost statistics. A 90% warning covers either displayed
 limit; reaching it shows adjustment guidance.
@@ -493,3 +522,22 @@ New OpenAI projects default to gpt-6.1-terra; explicit project models are preser
 ## New-job workflow default
 
 `workflow.mode` accepts exactly `auto` (default) or `direct`. Automatic polling and manual requests without an override use this value. `auto` detects AEGIS, refuses a present unusable payload, and uses Direct when absent. `direct` skips AEGIS even when installed. Manual Start and Restart carry an explicit `aegis` or `direct` override. Existing jobs retain their saved workflow on Retry and continuation. `workflow.default_kind` selects an AEGIS task type, independently of this setting.
+
+## Removed configuration and operator cleanup
+
+The current configuration has no parked TTL fields, `[reconcile]` section,
+`review.trigger`, `local.account`, or `clarification.timeout_state`. Local execution
+uses the actual ADORE process account; its persisted resource identity remains checked.
+Question expiry fails the job and revision triggering uses labels.
+
+Before using this build, remove the retired fields from project configs and rebuild
+pending/imported configuration drafts containing them. Native saved execution plans
+whose `policy.local.settings` still contains `account` are unsupported. Preserve the
+worktree/conversation, then review both the plan in `state.json` and `execution-plan.json`
+under the stopped job directory. Manual correction must remove the obsolete field from
+both copies and renew their current integrity fingerprints; deleting the field alone
+is insufficient. Alternatively remove the unsupported stopped job records explicitly
+after exporting their retained evidence. This is an operator action, not an application
+upgrade path. No job data, consumption or database is reset automatically.
+There is no compatibility reader or migration. Validate changed project values against
+the published intervals; adjust unsupported values explicitly before resuming jobs.

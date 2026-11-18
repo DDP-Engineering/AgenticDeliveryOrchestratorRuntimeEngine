@@ -396,7 +396,7 @@ def test_workflow_is_read_only_file_information(
         start = text.index("required_tool_checks = [")
         end = text.index("]", start) + 1
         text = text[:start] + "required_tool_checks = []" + text[end:]
-        text += '\n[local]\naccount = "current"\n'
+        text += '\n[local]\n'
         monkeypatch.setattr(local_execution, "probe_local_executor", lambda *a, **kw:
                             {"ready": True, "reason": "ready", "exit_code": 0})
     text = text.replace('mode = "auto"', f'mode = "{mode}"')

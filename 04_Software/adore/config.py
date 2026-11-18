@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, fields
 import json
-import math
 from pathlib import Path
 import re
 import shlex
@@ -25,9 +24,7 @@ from adore.branding import (
     UV_CACHE_VOLUME,
 )
 from adore.build_bundle import BuildBundleError, definition_parts
-from adore.chatgpt import MAX_STAGE_SECONDS as CHATGPT_MAX_STAGE_SECONDS
 from adore.pi_providers import (
-    CHATGPT,
     CUSTOM,
     DEFAULT_ENDPOINT_API,
     ENDPOINT_APIS,
@@ -38,6 +35,15 @@ from adore.pi_providers import (
     provider_ids,
     thinking_levels,
     valid_endpoint_url,
+)
+from adore.setting_rules import (
+    MAX_REVIEWERS,
+    numeric_default,
+    numeric_domain,
+    numeric_issues,
+    valid_collection,
+    valid_label,
+    valid_numeric,
 )
 from adore.util import (
     automatic_environment,
@@ -122,7 +128,6 @@ KNOWN_SECTIONS = frozenset(
         "budgets",
         "delivery",
         "review",
-        "reconcile",
         "metrics",
     }
 )
@@ -179,10 +184,10 @@ class PollingConfig:
     """[polling] - poll loop cadence and concurrency."""
 
     mode: str = "loop"
-    poll_interval_seconds: int = 60
-    poll_jitter_seconds: int = 5
+    poll_interval_seconds: int = numeric_default("polling.poll_interval_seconds")
+    poll_jitter_seconds: int = numeric_default("polling.poll_jitter_seconds")
     poll_backoff: bool = True
-    max_concurrent_runs: int = 1
+    max_concurrent_runs: int = numeric_default("polling.max_concurrent_runs")
     quiet_hours: list[str] = field(default_factory=list)
 
 
@@ -278,8 +283,7 @@ class ExecutorConfig:
              `model` is the model id within that provider. `internet` is the
              project's "Internet access for the agent": false limits a
              container run to the model provider's hosts, true opens the
-             network and loads Pi's web tools ([executor.web]). `command` is the
-             retained container preset. Native runs omit it and use managed
+             network and loads Pi's web tools ([executor.web]). Native runs use managed
              Pi RPC. Container runs use the image's pinned Pi. The provider's key
              variable always reaches Pi; env_keys names additional secrets
              injected into the executor (from the environment / .env); only
@@ -310,7 +314,7 @@ class ContainerEgressConfig:
     allowlist: list[str] = field(default_factory=list)
     no_proxy: list[str] = field(default_factory=lambda: ["localhost", "127.0.0.1", "::1"])
     proxy_image: str = EGRESS_PROXY_IMAGE
-    proxy_port: int = 3128
+    proxy_port: int = numeric_default("container.egress.proxy_port")
     network_prefix: str = EGRESS_NETWORK_PREFIX
 
 
@@ -335,9 +339,8 @@ class EgressPolicy:
 class ClarificationConfig:
     """[clarification] - park/resume bounds and timeouts."""
 
-    max_rounds: int = 3
-    answer_timeout: str = "72h"
-    timeout_state: str = "failed"
+    max_rounds: int = numeric_default("clarification.max_rounds")
+    answer_timeout: str = numeric_default("clarification.answer_timeout")
 
     def answer_timeout_seconds(self) -> int:
         """
@@ -357,9 +360,13 @@ class ExecutionConfig:
 
     backend: str = "container"
     preparation: str = ""
-    preparation_step_timeout_seconds: int = 300
-    preparation_total_timeout_seconds: int = 900
-    preparation_max_attempts: int = 2
+    preparation_step_timeout_seconds: int = numeric_default(
+        "execution.preparation_step_timeout_seconds"
+    )
+    preparation_total_timeout_seconds: int = numeric_default(
+        "execution.preparation_total_timeout_seconds"
+    )
+    preparation_max_attempts: int = numeric_default("execution.preparation_max_attempts")
 
 
 @dataclass
@@ -370,14 +377,13 @@ class LocalConfig:
              configured by the server operator.
     """
 
-    account: str = "current"
     path: str = ""
 
 
 @dataclass
 class ContainerConfig:
     """
-    [container] - execution isolation and parked-container TTL.
+    [container] - execution isolation and retained parked containers.
     run_args are extra option tokens for `<runtime> run` (e.g.
              "--userns=keep-id" for rootless podman - live finding
              2026-07-04 - or resource limits like "--memory=2g").
@@ -390,20 +396,12 @@ class ContainerConfig:
              selinux_relabel adds the SELinux relabel suffix ADORE's host bind
              mounts need on an enforcing host; see SELINUX_RELABEL_MODES for
              why only the shared label is offered.
-    `keep_parked` and the three `parked_ttl_*` fields are reserved: they
-             are accepted and validated, and no run-time path reads them.
-             A parked container is stopped and retained until it resumes or
-             is cleaned up explicitly.
     """
 
     runtime: str = "docker"
     image: str = EXECUTOR_BASE_IMAGE
     build_definition: str = ""
     system_packages: bool = False
-    keep_parked: bool = True
-    parked_ttl_mode: str = "polls"
-    parked_ttl_seconds: int = 7200
-    parked_ttl_polls: int = 30
     uv_cache_volume: str = UV_CACHE_VOLUME
     npm_cache_volume: str = NPM_CACHE_VOLUME
     run_args: list[str] = field(default_factory=list)
@@ -418,8 +416,8 @@ class WorktreeConfig:
     """
     [worktree] - local clone of the target repo and worktree root.
     repo_path is the local clone that per-run worktrees are created
-             from; it is mounted (with the worktree) into the executor
-             container. Required for the isolation layer. branch_template
+             from; only its .git directory is mounted alongside the worktree
+             in the executor container. Required for the isolation layer. branch_template
              names the run branch ({slug}, {run_id}, {iid} placeholders) so
              repo conventions like a mandatory "feature/" prefix are a config
              change, not code.
@@ -457,8 +455,8 @@ class WorkflowConfig:
 class RecoveryConfig:
     """[recovery] - bounded stage and transient failure handling."""
 
-    max_stage_failures: int = 3
-    max_transient_retries: int = 3
+    max_stage_failures: int = numeric_default("recovery.max_stage_failures")
+    max_transient_retries: int = numeric_default("recovery.max_transient_retries")
     retry_backoff_seconds: list[int] = field(default_factory=lambda: [5, 30, 120])
 
 
@@ -474,14 +472,14 @@ class BudgetsConfig:
              every individual gate.
     """
 
-    max_iterations: int = 20
-    max_wall_clock_seconds: int = 3600
-    per_gate_timeout_seconds: int = 1800
-    max_cost_usd: float = 5.0  # Zero explicitly disables reported-cost enforcement.
+    max_iterations: int = numeric_default("budgets.max_iterations")
+    max_wall_clock_seconds: int = numeric_default("budgets.max_wall_clock_seconds")
+    per_gate_timeout_seconds: int = numeric_default("budgets.per_gate_timeout_seconds")
+    max_cost_usd: float = numeric_default("budgets.max_cost_usd")
     # AEGIS task journals, step files, anchors, evolution records and reports
     # count alongside product changes. Keep the run bounded while leaving
     # honest headroom for governance evidence and the product diff.
-    max_files_touched: int = 120
+    max_files_touched: int = numeric_default("budgets.max_files_touched")
 
 
 @dataclass
@@ -509,19 +507,9 @@ class ReviewConfig:
              the pipeline read entirely. Every mode obeys `max_review_rounds`.
     """
 
-    trigger: str = "label"
     revise_label: str = "agent-revise"
-    max_review_rounds: int = 5
+    max_review_rounds: int = numeric_default("review.max_review_rounds")
     on_pipeline_failure: str = "revise"
-
-
-@dataclass
-class ReconcileConfig:
-    """[reconcile] - reactions to external ticket changes."""
-
-    on_ticket_deleted: str = "abort-cleanup"
-    on_ticket_closed: str = "cancel"
-    on_trigger_removed: str = "pause"
 
 
 @dataclass
@@ -561,7 +549,6 @@ class Config:
     budgets: BudgetsConfig = field(default_factory=BudgetsConfig)
     delivery: DeliveryConfig = field(default_factory=DeliveryConfig)
     review: ReviewConfig = field(default_factory=ReviewConfig)
-    reconcile: ReconcileConfig = field(default_factory=ReconcileConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     raw: dict[str, Any] = field(default_factory=dict)
     source_path: Path | None = field(default=None, repr=False, compare=False)
@@ -591,8 +578,7 @@ class Config:
                 "budgets",
                 "delivery",
                 "review",
-                "reconcile",
-                "metrics",
+                        "metrics",
             )
         }
         return result
@@ -768,7 +754,6 @@ def load_config(path: str | Path) -> Config:
         budgets=_build_section(BudgetsConfig, raw.get("budgets")),
         delivery=_build_section(DeliveryConfig, raw.get("delivery")),
         review=_build_section(ReviewConfig, raw.get("review")),
-        reconcile=_build_section(ReconcileConfig, raw.get("reconcile")),
         metrics=_build_section(MetricsConfig, raw.get("metrics")),
         raw=raw,
         source_path=Path(path).resolve(),
@@ -783,7 +768,7 @@ def valid_reviewers(value: object) -> bool:
     value: Human-authored reviewer list.
     Returns: True for bounded names without whitespace, controls or option prefixes.
     """
-    return isinstance(value, list) and all(
+    return isinstance(value, list) and len(value) <= MAX_REVIEWERS and all(
         isinstance(name, str) and 1 <= len(name) <= 255 and not name.startswith("-")
         and not any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in name)
         for name in value
@@ -890,7 +875,7 @@ def _unknown_key_issues(raw: dict) -> list[str]:
         ("clarification", ClarificationConfig), ("worktree", WorktreeConfig),
         ("workflow", WorkflowConfig), ("recovery", RecoveryConfig),
         ("delivery", DeliveryConfig),
-        ("review", ReviewConfig), ("reconcile", ReconcileConfig),
+        ("review", ReviewConfig),
         ("metrics", MetricsConfig),
     ):
         check(name, raw.get(name), cls)
@@ -918,27 +903,6 @@ def _unknown_key_issues(raw: dict) -> list[str]:
                           "[executor] internet decides the agent's network access")
             egress = {key: value for key, value in egress.items() if key != "mode"}
         check("container.egress", egress, ContainerEgressConfig)
-    return issues
-
-
-def _chatgpt_issues(config: Config) -> list[str]:
-    """
-    Refuse what a ChatGPT subscription cannot run.
-    ADORE mints a ChatGPT access token before every stage through
-                the trusted helper and pinned Pi; the token
-                lasts about an hour and is not refreshed during a stage, so a
-                stage limit above MAX_STAGE_SECONDS is refused too.
-    config: Loaded configuration with `provider = "chatgpt"`.
-    Returns: One issue per problem, naming the key.
-    """
-    issues: list[str] = []
-    overrides = config.workflow.stage_timeout_overrides
-    for stage, seconds in (overrides.items() if isinstance(overrides, dict) else ()):
-        if isinstance(seconds, int) and not isinstance(seconds, bool) \
-                and seconds > CHATGPT_MAX_STAGE_SECONDS:
-            issues.append(f"[workflow] stage_timeout_overrides.{stage} must be at most "
-                          f"{CHATGPT_MAX_STAGE_SECONDS} with provider \"chatgpt\": a ChatGPT "
-                          "access token lasts about an hour")
     return issues
 
 
@@ -974,8 +938,6 @@ def _provider_issues(config: Config) -> list[str]:
     if not isinstance(executor.thinking, str) or (executor.thinking and
             executor.thinking not in thinking_levels(executor.provider, executor.model)):
         issues.append("[executor] thinking is unsupported for this provider and model")
-    if executor.provider == CHATGPT:
-        issues.extend(_chatgpt_issues(config))
     if type(executor.internet) is not bool:
         issues.append(f"[executor] internet must be true or false: {executor.internet!r}")
     raw_executor = config.raw.get("executor")
@@ -1041,21 +1003,7 @@ def validate_budgets(config: Config) -> list[str]:
     else:
         issues.extend(f"[budgets] unknown key {key!r}: remove it from config.toml"
                       for key in sorted(set(raw) - allowed))
-    for key in sorted(allowed - {"max_cost_usd"}):
-        value = getattr(config.budgets, key)
-        if type(value) is not int or value < 1:
-            issues.append(f"[budgets] {key} must be an integer >= 1")
-    cap = config.budgets.max_cost_usd
-    if (type(cap) not in {int, float} or cap < 0
-            or isinstance(cap, float) and not math.isfinite(cap)):
-        issues.append("[budgets] max_cost_usd must be a finite nonnegative number "
-                      "(0 disables the cap)")
-    limit = config.budgets.per_gate_timeout_seconds
-    if (config.executor.provider == CHATGPT and type(limit) is int
-            and limit > CHATGPT_MAX_STAGE_SECONDS):
-        issues.append(f"[budgets] per_gate_timeout_seconds must be at most "
-                      f"{CHATGPT_MAX_STAGE_SECONDS} with provider \"chatgpt\": "
-                      "a ChatGPT access token lasts about an hour")
+    issues.extend(numeric_issues(config, budgets=True))
     return issues
 
 
@@ -1100,6 +1048,15 @@ def _config_issues(config: Config) -> list[str]:
     for section in config.raw:
         check(section in KNOWN_SECTIONS, f"unknown section: [{section}]")
     issues.extend(_unknown_key_issues(config.raw))
+    numeric = numeric_issues(config, budgets=False)
+    issues.extend(numeric)
+    for key in ("executor.env_keys", "recovery.retry_backoff_seconds",
+                "platform.work_item_types", "platform.closed_states"):
+        section, name = key.split(".", 1)
+        value = getattr(getattr(config, section), name)
+        if not valid_collection(key, value, config.executor.provider):
+            issues.append(f"[{section}] {name} has invalid collection values or bounds")
+
     try:
         definition_parts(config.container.build_definition)
     except BuildBundleError:
@@ -1159,9 +1116,6 @@ def _config_issues(config: Config) -> list[str]:
         config.polling.mode in ("loop", "once"),
         f"[polling] mode must be loop/once: {config.polling.mode!r}",
     )
-    check(config.polling.poll_interval_seconds > 0, "[polling] poll_interval_seconds must be > 0")
-    check(config.polling.poll_jitter_seconds >= 0, "[polling] poll_jitter_seconds must be >= 0")
-    check(config.polling.max_concurrent_runs >= 1, "[polling] max_concurrent_runs must be >= 1")
     for window in config.polling.quiet_hours:
         check(
             bool(_QUIET_HOURS_RE.match(str(window))),
@@ -1175,26 +1129,6 @@ def _config_issues(config: Config) -> list[str]:
         f"[executor] env_keys must not expose forge credentials to executors: {forge_keys}",
     )
     issues.extend(_provider_issues(config))
-    check(config.clarification.max_rounds >= 1, "[clarification] max_rounds must be >= 1")
-    durations_ok = True
-    for key in ("answer_timeout",):
-        try:
-            parse_duration(getattr(config.clarification, key))
-        except ValueError:
-            durations_ok = False
-            issues.append(
-                f"[clarification] {key} is not a valid duration: "
-                f"{getattr(config.clarification, key)!r}"
-            )
-    if durations_ok:
-        check(config.clarification.answer_timeout_seconds() > 0,
-              "[clarification] answer_timeout must be positive")
-    check(
-        config.clarification.timeout_state in ("failed", "stale"),
-        f"[clarification] timeout_state must be failed/stale: "
-        f"{config.clarification.timeout_state!r}",
-    )
-
     runtime_tokens = config.container.runtime.split()
     check(
         bool(runtime_tokens) and runtime_tokens[-1] in ("docker", "podman"),
@@ -1287,11 +1221,6 @@ def _config_issues(config: Config) -> list[str]:
                     "[container] required_tool_checks command must start with a tool name: "
                     f"{check_cmd!r}"
                 )
-    check(
-        config.container.parked_ttl_mode in ("seconds", "polls"),
-        f"[container] parked_ttl_mode must be seconds/polls: "
-        f"{config.container.parked_ttl_mode!r}",
-    )
     check(config.execution.backend in ("container", "local"),
           "[execution] backend must be container/local")
     local = config.local
@@ -1301,7 +1230,6 @@ def _config_issues(config: Config) -> list[str]:
         if isinstance(declaration, dict):
             for key in set(declaration) - {item.name for item in fields(LocalConfig)}:
                 issues.append(f"[local] unknown field: {key}; remove it from config.toml")
-    check(local.account == "current", '[local] account must be "current"')
     check(isinstance(local.path, str) and not any(ord(c) < 32 for c in local.path),
           "[local] path must be plain text")
     if config.execution.backend == "local":
@@ -1337,12 +1265,6 @@ def _config_issues(config: Config) -> list[str]:
             parse_selection(config.execution.preparation)
         except PreparationError as exc:
             issues.append(f"[execution] preparation: {exc}")
-    for key, maximum in (("preparation_step_timeout_seconds", 1800),
-                         ("preparation_total_timeout_seconds", 3600),
-                         ("preparation_max_attempts", 3)):
-        value = getattr(config.execution, key)
-        check(type(value) is int and 1 <= value <= maximum,
-              f"[execution] {key} must be an integer in 1..{maximum}")
     check(config.execution.backend == "local" or bool(config.container.image.strip())
           or bool(config.execution.preparation),
           "[container] image is required without preparation")
@@ -1448,7 +1370,7 @@ def _config_issues(config: Config) -> list[str]:
     )
     if isinstance(workflow.kind_labels, dict):
         for label, kind in workflow.kind_labels.items():
-            if not isinstance(label, str) or not label.strip():
+            if not valid_label(label):
                 issues.append("[workflow] kind_labels keys must be non-empty "
                               "label names")
                 continue
@@ -1478,37 +1400,13 @@ def _config_issues(config: Config) -> list[str]:
                     f"AEGIS stage ({', '.join(AEGIS_STAGES)})"
                 )
                 continue
-            if not isinstance(seconds, int) or isinstance(seconds, bool) \
-                    or seconds < 1:
-                issues.append(
-                    f"[workflow] stage_timeout_overrides.{stage} must be a "
-                    f"positive whole number of seconds: {seconds!r}"
-                )
+            if not valid_numeric("workflow.stage_timeout_overrides." + stage,
+                                 seconds, config.executor.provider):
+                domain = numeric_domain("workflow.stage_timeout_overrides." + stage,
+                                        config.executor.provider)
+                issues.append(f"[workflow] stage_timeout_overrides.{stage} must be an integer "
+                              f"in {domain['minimum']}..{domain['maximum']} seconds")
 
-    recovery = config.recovery
-    check(
-        isinstance(recovery.max_stage_failures, int)
-        and not isinstance(recovery.max_stage_failures, bool)
-        and recovery.max_stage_failures >= 1,
-        "[recovery] max_stage_failures must be >= 1",
-    )
-    check(
-        isinstance(recovery.max_transient_retries, int)
-        and not isinstance(recovery.max_transient_retries, bool)
-        and recovery.max_transient_retries >= 1,
-        "[recovery] max_transient_retries must be >= 1",
-    )
-    check(
-        isinstance(recovery.retry_backoff_seconds, list)
-        and bool(recovery.retry_backoff_seconds),
-        "[recovery] retry_backoff_seconds must be a non-empty integer list",
-    )
-    if isinstance(recovery.retry_backoff_seconds, list):
-        for value in recovery.retry_backoff_seconds:
-            check(
-                isinstance(value, int) and not isinstance(value, bool) and value >= 0,
-                f"[recovery] retry_backoff_seconds entries must be >= 0: {value!r}",
-            )
     issues.extend(validate_budgets(config))
 
     check(bool(config.delivery.target_branch.strip()), "[delivery] target_branch is required")
@@ -1547,6 +1445,15 @@ def _config_issues(config: Config) -> list[str]:
     named = [value for _, value in role_labels if isinstance(value, str) and value.strip()]
     check(len(set(named)) == len(named),
           "[labels] lifecycle and control labels must be distinct from each other")
+    for section, labels in (("lifecycle", config.labels.lifecycle),
+                            ("control", config.labels.control),
+                            ("selection", config.labels.selection)):
+        for name, value in vars(labels).items():
+            check(valid_label(value),
+                  f"[labels.{section}] {name} must be a trimmed label of 1..120 characters")
+    for key, value in (("delivery.approval_label", config.delivery.approval_label),
+                       ("review.revise_label", config.review.revise_label)):
+        check(valid_label(value), f"{key} must be a trimmed label of 1..120 characters")
     lifecycle_labels = set(asdict(config.labels.lifecycle).values())
     control_labels = set(asdict(config.labels.control).values())
     check(
@@ -1555,30 +1462,9 @@ def _config_issues(config: Config) -> list[str]:
     )
 
     check(
-        config.review.trigger == "label",
-        f"[review] trigger must be label in ADORE: {config.review.trigger!r}",
-    )
-    check(config.review.max_review_rounds >= 1, "[review] max_review_rounds must be >= 1")
-    check(
         config.review.on_pipeline_failure in ("revise", "notify", "ignore"),
         "[review] on_pipeline_failure must be revise/notify/ignore: "
         f"{config.review.on_pipeline_failure!r}",
-    )
-
-    check(
-        config.reconcile.on_ticket_deleted in ("abort-cleanup", "ignore"),
-        f"[reconcile] on_ticket_deleted must be abort-cleanup/ignore: "
-        f"{config.reconcile.on_ticket_deleted!r}",
-    )
-    check(
-        config.reconcile.on_ticket_closed in ("cancel", "ignore"),
-        f"[reconcile] on_ticket_closed must be cancel/ignore: "
-        f"{config.reconcile.on_ticket_closed!r}",
-    )
-    check(
-        config.reconcile.on_trigger_removed in ("pause", "abort", "ignore"),
-        f"[reconcile] on_trigger_removed must be pause/abort/ignore: "
-        f"{config.reconcile.on_trigger_removed!r}",
     )
 
     check(

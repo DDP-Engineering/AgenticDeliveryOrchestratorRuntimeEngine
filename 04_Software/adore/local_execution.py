@@ -129,8 +129,6 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
     """
     if context["system"] not in {"Windows", "Linux"}:
         raise LocalExecutionError("unsupported local execution platform")
-    if config.local.account != "current":
-        raise LocalExecutionError("local account differs from the ADORE process account")
     home = str(Path(context["home"]).expanduser().resolve())
     if not Path(home).is_dir():
         raise LocalExecutionError("selected local account home is unavailable")
@@ -775,7 +773,6 @@ def local_probe_failure(error: Exception, fallback: str = "runtime-error") -> st
         "local shell and Windows-to-WSL wrappers are unsupported": "executable-missing",
         "selected local executable is not executable": "permission-denied",
         "local executor auth store is corrupt or unsafe": "credential-invalid",
-        "local account differs from the ADORE process account": "account-mismatch",
         "selected local account home is unavailable": "account-mismatch",
     }
     if text in causes:

@@ -101,8 +101,8 @@ the effective image and remain distinct from a successful prepared job.
 
 ## Bounds, evidence and recovery
 
-Per-step timeout is 1–1800 seconds; total attempt timeout is 1–3600 seconds;
-maximum explicit attempts is 1–3. Defaults are 300, 900 and 2. The remaining job
+Per-step timeout is 1–3600 seconds; total attempt timeout is 1–14400 seconds;
+maximum explicit attempts is 1–3. Defaults are 900, 3600 and 2. The remaining job
 wall budget also bounds setup. Project child commands share that step lifetime;
 timeout stops its process group and failure interrupts the owned container.
 Cancellation interrupts the owned container and retains the existing release

@@ -1,3 +1,4 @@
+import { validSettingNumber, settingLimit, settingConstraints } from "./settingLimits.ts";
 import type { Locale } from "./i18n";
 
 
@@ -5,10 +6,10 @@ export const executionStages = ["frame", "specify", "design", "build", "validate
 
 /** Exact collection domains shared by draft and persisted candidate validation. */
 export function validImplementationCollection(key: string, value: unknown): boolean {
- if (key === "recovery.retry_backoff_seconds") return Array.isArray(value) && value.length > 0 && value.length <= 1000
-  && value.every(item => Number.isSafeInteger(item) && item >= 0);
+ if (key === "recovery.retry_backoff_seconds") return Array.isArray(value) && value.length > 0 && value.length <= settingConstraints.retry_delays
+  && value.every(item => Number.isSafeInteger(item) && item >= 0 && item <= settingConstraints.retry_delay_seconds);
  if (key === "workflow.stage_timeout_overrides") return !!value && typeof value === "object" && !Array.isArray(value)
-  && Object.entries(value).every(([stage, seconds]) => executionStages.includes(stage as typeof executionStages[number]) && Number.isSafeInteger(seconds) && seconds > 0);
+  && Object.entries(value).every(([stage, seconds]) => executionStages.includes(stage as typeof executionStages[number]) && validSettingNumber(`workflow.stage_timeout_overrides.${stage}`, seconds as number));
  return false;
 }
 
@@ -22,7 +23,7 @@ export function implementationDraft(kind: string, draft: string): string | null 
  if (kind === "duration") {
   const { amount, unit } = durationParts(draft);
   const seconds = Number(amount) * ({s:1, m:60, h:3600, d:86400}[unit] || 0);
-  return amount && Number.isSafeInteger(seconds) && seconds > 0 ? `${Number(amount)}${unit}` : null;
+  return amount && Number.isSafeInteger(seconds) && seconds >= settingLimit("clarification.answer_timeout")!.minimum && seconds <= settingLimit("clarification.answer_timeout")!.maximum ? `${Number(amount)}${unit}` : null;
  }
  if (kind === "retry-delays") {
   const lines = draft.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -47,3 +48,9 @@ export const implementationEditorCopy = {
  fr: { amount: "Temps d’attente de la réponse", unit: "Unité de temps", units: {s:"Secondes",m:"Minutes",h:"Heures",d:"Jours"}, general:"Utiliser la limite générale", custom:"Limite personnalisée", seconds:"Secondes", schedule:"Un entier non négatif par ligne. Avec trois tentatives, seuls les deux premiers délais sont utilisés ; les relances suivantes répètent le dernier délai.", stages:["Cadrage", "Spécification", "Conception", "Implémentation", "Validation"], invalid:"Saisissez une durée positive, des délais entiers ou des limites positives par étape." },
  de: { amount: "Wartezeit auf Antwort", unit: "Zeiteinheit", units: {s:"Sekunden",m:"Minuten",h:"Stunden",d:"Tage"}, general:"Allgemeines Limit verwenden", custom:"Eigenes Limit", seconds:"Sekunden", schedule:"Eine nichtnegative ganze Zahl je Zeile. Bei drei Versuchen werden nur die ersten zwei Pausen verwendet; weitere Wiederholungen nutzen die letzte Pause.", stages:["Rahmen", "Spezifikation", "Entwurf", "Implementierung", "Validierung"], invalid:"Positive Dauer, ganze Wiederholungspausen oder positive Phasenlimits eingeben." },
 } satisfies Record<Locale, object>;
+
+export function durationBounds(unit: string): {minimum: number; maximum: number} {
+ const seconds = ({s:1,m:60,h:3600,d:86400}[unit] || 1);
+ const domain = settingLimit("clarification.answer_timeout")!;
+ return {minimum: Math.ceil(domain.minimum / seconds), maximum: Math.floor(domain.maximum / seconds)};
+}

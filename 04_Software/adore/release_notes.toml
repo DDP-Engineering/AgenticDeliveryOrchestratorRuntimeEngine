@@ -12,6 +12,20 @@ schema = 1
 version = "Unreleased"
 
 [[release]]
+version = "0.21.0"
+date = "2026-11-18"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Project setup and edits share limits, generous defaults and provider-aware timeouts.", fr = "Création et réglages partagent limites, valeurs par défaut et délais adaptés au fournisseur.", de = "Einrichtung und Änderungen teilen Grenzen, großzügige Vorgaben und Anbieterzeitlimits.", ro = "Crearea și editarea au limite comune, valori generoase și timeouturi adaptate providerului." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Configuration", fr = "Configuration", de = "Konfiguration", ro = "Configurare" }
+text = { en = "Unused settings are removed; local execution uses the server account automatically.", fr = "Les options inutilisées disparaissent ; l’exécution locale utilise le compte du serveur.", de = "Ungenutzte Optionen entfallen; lokale Ausführung verwendet automatisch das Serverkonto.", ro = "Opțiunile fără efect sunt eliminate; execuția locală folosește automat contul serverului." }
+
+[[release]]
 version = "0.20.0"
 date = "2026-11-18"
 

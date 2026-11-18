@@ -922,7 +922,7 @@ def test_preview_lists_the_settings_that_keep_their_defaults(tmp_path):
     defaults = {item["key"]: item["value"] for item in kept["defaults"]}
     assert defaults["polling.poll_interval_seconds"] == 60
     assert defaults["labels.lifecycle.working"] == "agent-working"
-    assert defaults["budgets.max_cost_usd"] == 5.0
+    assert defaults["budgets.max_cost_usd"] == 0.0
     assert all(set(item) == {"key", "value"} for item in kept["defaults"])
     # A value changed in the wizard is no longer a default.
     assert "budgets.max_cost_usd" not in {item["key"] for item in changed["defaults"]}

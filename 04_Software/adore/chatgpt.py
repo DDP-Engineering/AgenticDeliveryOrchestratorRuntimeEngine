@@ -23,6 +23,7 @@ from adore.branding import (
     CONTAINER_PI_CHATGPT_SCRIPT,
 )
 from adore.resource_lock import ResourceLockError, atomic_write, resource_lock
+from adore.setting_rules import numeric_domain
 from adore.util import background_process_options, run_command, strict_json_loads
 
 CONTAINER_SCRIPT = CONTAINER_PI_CHATGPT_SCRIPT
@@ -35,7 +36,7 @@ CALLBACK_URL = "http://127.0.0.1:1455/auth/callback"
 AUTHORIZE_PREFIX = "https://auth.openai.com/"
 #: Longest stage limit a ChatGPT project accepts: an access token lasts 60
 #: minutes minus Pi's 3-minute margin, and ADORE asks for 5 minutes more.
-MAX_STAGE_SECONDS = 3000
+MAX_STAGE_SECONDS = numeric_domain("budgets.per_gate_timeout_seconds", "chatgpt")["maximum"]
 TOKEN_MARGIN_SECONDS = 300
 #: The only variable a ChatGPT stage receives (Pi provider `openai`).
 TOKEN_VARIABLE = "OPENAI_API_KEY"

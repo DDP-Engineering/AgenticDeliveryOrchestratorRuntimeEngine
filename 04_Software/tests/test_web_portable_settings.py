@@ -42,7 +42,7 @@ def test_admin_preview_download_is_active_canonical_and_bound(tmp_path):
         assert parse_settings(downloaded.content) == result.json()["settings"]
         assert client.get(URL.replace("alpha", item.project_id)).content == result.content
         path.write_bytes(
-            raw.replace(b"max_iterations = 20", b"max_iterations = 37")
+            raw.replace(b"max_iterations = 40", b"max_iterations = 37")
         )
         stale = client.get(URL, params={"download": True, "checksum": checksum})
         assert stale.status_code == 409

@@ -1,3 +1,4 @@
+import { settingConstraints } from "./settingLimits.ts";
 import { validAzureNames } from "./azureDevops.ts";
 import { CONNECTION_KEY, CUSTOM, validConnection } from "./agentConnection.ts";
 import { validCredentialNames } from "./executorSettings.ts";
@@ -117,9 +118,7 @@ export function validBranchPreview(value: unknown): value is BranchPreview {
 
 /** CLI-only and technical keys retained by configuration but omitted from operator controls. */
 export const HIDDEN_SETTING_KEYS = new Set([
-  "labels.selection.type_feature", "review.trigger", "clarification.timeout_state",
-  "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
-  "polling.mode", "metrics.export_jsonl", "metrics.html_out",
+  "labels.selection.type_feature", "polling.mode", "metrics.export_jsonl", "metrics.html_out",
 ]);
 
 /** Ticket state names share one optional disclosure; ready is the pickup action. */
@@ -265,7 +264,7 @@ export function validBatchValues(value: unknown): value is BatchValues {
     if (key === CONNECTION_KEY) return validConnection(item);
     if (key === "executor.env_keys") return validCredentialNames(item);
     if (key === "recovery.retry_backoff_seconds" || key === "workflow.stage_timeout_overrides") return validImplementationCollection(key, item);
-    if (key === "delivery.reviewers") return Array.isArray(item) && item.every(name =>
+    if (key === "delivery.reviewers") return Array.isArray(item) && item.length <= settingConstraints.reviewers && item.every(name =>
       typeof name === "string" && name.length > 0 && name.length <= 255
       && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
     return typeof item === "string" || typeof item === "boolean"

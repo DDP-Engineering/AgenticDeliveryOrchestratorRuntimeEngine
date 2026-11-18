@@ -2,6 +2,8 @@
 
 A project's Settings tab lists the working rules ADORE applies to it: which tickets it picks up, its limits, how it publishes and which agent it uses. Administrators edit several settings and save them together; developers read them.
 
+All settings here belong to the selected project. Creation, Settings, imports and CLI share the same limits and defaults: 40 launches, 8 active hours, 500 changed files and 50 minutes per attempt. The attempt range is 60–14400 seconds, capped at 3000 for ChatGPT. The reported-cost cap defaults to 0 (disabled); other job budgets cannot be disabled with 0. Stage overrides take precedence. Running attempts keep their timeout; current project budgets apply before the next attempt without resetting consumption. Clarification defaults to 10 rounds and 7 days. Local execution uses the actual server account; there is no account selector or configurable parked-container TTL.
+
 ## Azure repository and ticket scope {#azure-settings}
 
 Azure DevOps Services adds **Organization URL**, **Azure project**, **Work Item Area Path**, **Allowed Work Item types** and **Terminal Work Item states** in Repository. Use exact native process names, one per line. Reserve a distinct exact child area for the repository. Native priority does not replace priority tags. Reviewers are Azure identity GUIDs. PR revision uses PR labels; pickup and approval use Work Item tags. Administrators preview and apply scoped changes using the same pause and idle-job rules; developers cannot edit. Executor Configuration stays separate. Unreadable CI remains unknown, never a successful pipeline.

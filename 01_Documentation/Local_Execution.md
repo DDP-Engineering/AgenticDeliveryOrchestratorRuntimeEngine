@@ -60,7 +60,6 @@ installation flow above.
 backend = "local"
 
 [local]
-account = "current"
 path = "" # Empty uses the service PATH; otherwise supply tool directories.
 
 [executor]

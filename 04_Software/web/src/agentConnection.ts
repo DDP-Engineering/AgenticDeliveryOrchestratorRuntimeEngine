@@ -1,3 +1,4 @@
+import { settingConstraints } from "./settingLimits.ts";
 import type { Locale } from "./i18n";
 
 /** The reviewed provider/model/endpoint selection (`executor.connection`). */
@@ -57,7 +58,7 @@ export const connectionCopy = {
 
 /** An http(s) address with a host and no credentials, query, fragment, quotes or spaces. */
 export function validEndpointUrl(value: string): boolean {
-  if (value.length > 512 || /[\s"\\?#]/.test(value) || /[\u0000-\u001f\u007f]/.test(value)) return false;
+  if (value.length > settingConstraints.endpoint_length || /[\s"\\?#]/.test(value) || /[\u0000-\u001f\u007f]/.test(value)) return false;
   try {
     const url = new URL(value);
     return ["http:", "https:"].includes(url.protocol) && !!url.hostname && !url.username && !url.password;

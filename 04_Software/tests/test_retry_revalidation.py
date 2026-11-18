@@ -341,7 +341,6 @@ def test_explicit_retry_can_repeat_interrupted_environment_refresh(tmp_path, mon
     "cause,reason",
     [
         ("selected local executable is unavailable", "executable_missing"),
-        ("local account differs from the ADORE process account", "account_mismatch"),
         ("permission", "permission_denied"),
     ],
 )
