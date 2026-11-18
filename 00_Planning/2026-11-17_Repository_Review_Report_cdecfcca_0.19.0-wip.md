@@ -94,7 +94,19 @@ sits on top of `9488298c`, a change from outside this remediation that was merge
 (ADORE 0.21.0, cut outside this remediation) and ships with that version. No real
 container, forge or service installer was exercised.
 
-Final checks, on the tree of the fifth commit before the version cut:
+Checks for ADORE 0.21.0, on the sixth commit and the test commit after it (`75bbc0ea`):
+
+- Full Python suite: 3974 passed, 31 skipped, none failed. A first run had 21 failures, all
+  in tests that the 0.21.0 setting limits left behind: a poll interval of 1 second (the
+  minimum is 10), 20 launches and one hour of active work as defaults (now 40 and 8 hours),
+  and the old wording for a numeric setting of the wrong type. The 21 tests fail the same
+  way on `271dfd6d` without this remediation. They were brought in line; no product code
+  changed.
+- Frontend: 193 unit tests passed; both type checks clean. `ruff` clean on `adore` and
+  `tests`. Packaging tests: 9 passed, 2 skipped. The version, release notes and release
+  consistency checks pass.
+
+Final checks for 0.20.0, on the tree of the fifth commit before the version cut:
 
 - Full Python suite: 3942 passed, 31 skipped, none failed. A first run had three failures,
   all in tests that `9488298c` left behind: two cases of
