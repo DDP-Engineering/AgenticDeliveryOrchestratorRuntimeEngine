@@ -45,7 +45,8 @@ decision-safe data to the orchestrator.
   listings and deviation markers accept AEGIS's own vocabulary, including the
   legacy `deliver` stage and the adoption phases, so a foreign journal never
   blocks a probe.
-- Host pre-pick probing uses direct argv. Calls from a run container write an
+- Admission reads literal version and schema from a bounded Git blob at the
+  fetched commit. Runtime compatibility is probed in the executor. Container calls write an
   LF-only, POSIX-quoted `aegis.sh` and invoke exactly the backend shell and
   native IO path (container default `sh /adore/io/aegis.sh`); bounded UTF-8
   exchange files replace wrapper output.

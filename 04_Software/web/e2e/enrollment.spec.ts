@@ -95,7 +95,7 @@ test("Azure cloud enrollment exposes explicit scope and refuses an unscoped proj
   await page.getByLabel(/^Work Item Area Path/).fill("Payments\\Backend");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Agent and model", exact: true })).toBeVisible();
-  await expect(page.getByLabel(/^Model \*/)).toHaveValue("gpt-6.1-terra");
+  await expect(page.getByLabel(/^Model \*/)).toHaveValue("gpt-6.2-sol");
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
 });
 
@@ -112,6 +112,8 @@ test("step 2 offers Pi providers and an OpenAI-compatible endpoint and names the
   await page.getByLabel("Reasoning effort").selectOption("medium");
   await expect(page.getByLabel(/^Endpoint base URL/)).toHaveCount(0);
   await provider.selectOption("chatgpt");
+  await expect(page.getByLabel(/^Model \*/)).toHaveValue("gpt-6.2-sol");
+  await expect(page.getByLabel("Reasoning effort")).toHaveValue("high");
   await provider.selectOption("custom");
   await page.getByLabel(/^Model \*/).fill("qwen/qwen3.5-9b");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -527,7 +529,7 @@ test("pending preview becomes stale on upstream edit; corrupt or stale readiness
   await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   await received;
   await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(page.getByLabel("Maximum executor launches", { exact: false })).toHaveValue("20");
+  await expect(page.getByLabel("Maximum executor launches", { exact: false })).toHaveValue("40");
   await page.getByLabel("Maximum executor launches", { exact: false }).fill("8");
   release();
   await page.getByRole("button", { name: "Continue", exact: true }).click();

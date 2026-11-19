@@ -1,9 +1,10 @@
 import { Children, cloneElement, isValidElement, useEffect, useState, type ReactElement, type ReactNode } from "react";
 import type { MessageKey } from "./i18n";
 
-export function PagedTable({ t, children, alwaysControls=false, onPageChange }: { t: (key: MessageKey) => string; children: ReactElement<{ children?: ReactNode }>; alwaysControls?:boolean; onPageChange?:(page:number)=>void }) {
+export function PagedTable({ t, children, alwaysControls=false, onPageChange, resetKey }: { t: (key: MessageKey) => string; children: ReactElement<{ children?: ReactNode }>; alwaysControls?:boolean; onPageChange?:(page:number)=>void; resetKey?:string }) {
   const [size, setSize] = useState<10 | 25 | 50 | "all">(10);
   const [requestedPage, setRequestedPage] = useState(0);
+  useEffect(() => setRequestedPage(0), [resetKey]);
   const sections = Children.toArray(children.props.children);
   const body = sections.find(section => isValidElement<{ children?: ReactNode }>(section) && section.type === "tbody") as ReactElement<{ children?: ReactNode }> | undefined;
   const rows = body ? Children.toArray(body.props.children) : [];

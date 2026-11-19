@@ -517,7 +517,7 @@ executor.mode, readiness.max_scope_hint, clarification.reminder_after,
 review.review_reminder_after and metrics.capture_resource from existing TOML
 before using this build. Internet access (executor.internet), web search,
 clarification.answer_timeout and clarification.max_rounds retain their behavior.
-New OpenAI projects default to gpt-6.1-terra; explicit project models are preserved.
+New OpenAI and ChatGPT project setup defaults to `gpt-6.2-sol` with `high` reasoning. Existing project selections are preserved.
 
 ## New-job workflow default
 

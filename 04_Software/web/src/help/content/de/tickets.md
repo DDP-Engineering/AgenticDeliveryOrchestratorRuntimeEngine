@@ -13,7 +13,7 @@ Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle u
 
 Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 
-Vor automatischer Aufnahme prüft `workflow.mode = "auto"` vorhandenes AEGIS und verweigert es bei Unbrauchbarkeit; ohne Payload gilt Direct. `workflow.mode = "direct"` überspringt AEGIS. Der manuelle Start wählt den Workflow ausdrücklich. Der Agent führt Repository-Prüfungen in beiden Workflows aus; ADORE behält Freigabe und Veröffentlichung bei. Siehe [Repository-Workflows](/help/projects#workflows).
+Sobald ein Ticket geeignet ist, ruft ADORE den Zielbranch ab und startet vom abgerufenen Commit. Im Modus auto prüft es dort die AEGIS-Kompatibilität oder wählt Direct, wenn AEGIS fehlt. Beim Neustart wird das Ziel vor der Bereinigung geprüft. `workflow.mode = "direct"` überspringt AEGIS. Der manuelle Start wählt den Workflow ausdrücklich. Der Agent führt Repository-Prüfungen in beiden Workflows aus; ADORE behält Freigabe und Veröffentlichung bei. Siehe [Repository-Workflows](/help/projects#workflows).
 
 ## Azure Work Items und PR-Labels {#azure-tags}
 

@@ -7,10 +7,10 @@ only the Python companion CLI shipped by AEGIS and JSON schema 1.
 
 ## 2. Responsibilities
 
-- invoke the host pre-pick probe with direct argv and every run-container
-  operation through a shell-quoted file exchange;
-- probe the version and schema before governed work, using only the supported
-  range declared in `04_Software/adore/aegis.py`;
+- validate literal `VERSION` and `SCHEMA` metadata from the fetched Git blob for
+  admission without invoking the fetched script on the host;
+- probe the runtime version and status schema inside the selected executor
+  before governed work, using the same supported version range;
 - create/list/read task journals and pin exact task identity;
 - expose the journal's recorded `DEVIATION <stage>` entries with the same
   marker rule AEGIS applies to its delivery report;
@@ -30,8 +30,7 @@ call a forge.
 ## 3. Implementation Overview
 
 `AegisClient` composes the logical AEGIS argv and accepts injected execution.
-Without an io directory it invokes that argv directly for the host-side
-repository probe. With a run io directory it writes LF-only `aegis.sh`, quotes
+Without an io directory it passes argv directly to the injected execution target. With a run io directory it writes LF-only `aegis.sh`, quotes
 every token with POSIX shell rules, redirects both streams to bounded exchange
 files, and gives the wrapped runtime only `sh /adore/io/aegis.sh`. The exchange
 files are read on the host and replace container-wrapper streams while keeping

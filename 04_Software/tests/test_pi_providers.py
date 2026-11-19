@@ -74,6 +74,10 @@ def test_chatgpt_models_come_from_pis_chatgpt_catalog() -> None:
     catalog = pi_providers.catalog()
     models = catalog["chatgpt_models"]
     assert "gpt-5.6-luna" in models
+    assert "gpt-6.2-sol" in models
+    assert pi_providers.thinking_levels("chatgpt", "gpt-6.2-sol") == [
+        "low", "medium", "high", "xhigh", "max",
+    ]
     assert not {"gpt-5.4", "gpt-5.4-mini", "gpt-5.5"} & set(models)
     assert set(models) <= set(pi_providers.api_key_providers()["openai"]["models"])
     assert pi_providers.public_catalog()["chatgpt"] == {"id": "chatgpt", "models": models}

@@ -17,7 +17,7 @@ import { settingDisplayLabel } from "./settingLabels";
 import { settingPurpose, settingVisible, PURPOSE_GROUPS } from "./settings";
 import { pipelineFailureValue, publicationValue, settingsCopy } from "./settingsCopy";
 import { HelpLink } from "./HelpCenter";
-import { CUSTOM, CHATGPT, ENDPOINT_APIS, connectionCopy, providerModels, providerThinking, thinkingCopy, providerName, readProviderCatalog, validEndpointUrl, type ProviderCatalog } from "./agentConnection";
+import { CUSTOM, CHATGPT, DEFAULT_OPENAI_MODEL, DEFAULT_OPENAI_THINKING, defaultThinking, ENDPOINT_APIS, connectionCopy, providerModels, providerThinking, thinkingCopy, providerName, readProviderCatalog, validEndpointUrl, type ProviderCatalog } from "./agentConnection";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
 import { readinessKeys, validReadinessMeasurement, validWorkflow, type RepositoryWorkflow } from "./readiness";
 import { readinessCheckLabel, WorkflowInformation } from "./ReadinessEvidence";
@@ -91,7 +91,7 @@ function DefaultSettings({ defaults, locale, backend }: {
 /** Locale-neutral example values shown in empty fields. */
 const examples: Partial<Record<string, string>> = { clone_url: "https://github.com/owner/repository",
   organization: "https://dev.azure.com/contoso", project: "Payments", area_path: "Payments\\Backend",
-  login: "gitea-main", repo_path: "/home/adore/repos/payments", target_branch: "main", model: "gpt-6.1-terra",
+  login: "gitea-main", repo_path: "/home/adore/repos/payments", target_branch: "main", model: DEFAULT_OPENAI_MODEL,
   endpoint_base_url: "http://192.168.1.20:1234/v1",
   reviewers: "alice, bob", env_keys: "OPENAI_API_KEY" };
 class SetupError extends ApiError {
@@ -99,7 +99,7 @@ class SetupError extends ApiError {
 }
 const initial: Draft = { organization: "", project: "", area_path: "", clone_url: "", name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
   execution_backend: "container", local_path: "",
-  target_branch: "main", login: "", provider: "openai", model: "gpt-6.1-terra", thinking: "", endpoint_base_url: "", endpoint_api: "",
+  target_branch: "main", login: "", provider: "openai", model: DEFAULT_OPENAI_MODEL, thinking: DEFAULT_OPENAI_THINKING, endpoint_base_url: "", endpoint_api: "",
   runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
   max_iterations: settingDefault("budgets.max_iterations"), max_wall_clock_seconds: settingDefault("budgets.max_wall_clock_seconds"), max_cost_usd: settingDefault("budgets.max_cost_usd"), max_files_touched: settingDefault("budgets.max_files_touched") };
@@ -252,7 +252,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       ...(prefilled !== null && current.display_name === prefilled ? { display_name: "" } : {}),
       // A new URL needs a new read and a new derived ID.
       ...(field === "clone_url" ? { name: "", repo: "", repo_path: "", target_branch: "" } : {}),
-      ...(["provider", "model"].includes(field) ? { thinking: "" } : {}),
+      ...(field === "model" ? { thinking: defaultThinking(current.provider, String(value)) } : {}),
+      ...(field === "provider" ? (value === CHATGPT || value === "openai"
+        ? { model: DEFAULT_OPENAI_MODEL, thinking: DEFAULT_OPENAI_THINKING } : { thinking: "" }) : {}),
       ...(field === "provider" ? (value === CUSTOM ? { endpoint_api: current.endpoint_api || ENDPOINT_APIS[0] }
         : { endpoint_base_url: "", endpoint_api: "" }) : {}) }));
   };

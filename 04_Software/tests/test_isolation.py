@@ -171,6 +171,45 @@ def _fake_worktree(tmp_path: Path, run_id: str, gitdir: str) -> WorktreeManager:
 # PUBLIC API / TESTS - worktrees
 
 
+def test_fetch_target_requires_live_branch_before_resolving_cached_ref(tmp_path):
+    """A deleted remote branch cannot fall back to an older tracking ref."""
+    refspec = "+refs/heads/release:refs/remotes/origin/release"
+    runner = FakeRunner(_fail("remote ref not found"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="remote ref not found"):
+        manager.fetch_target("release")
+    assert [call[3:] for call in runner.calls] == [["fetch", "--no-tags", "origin", refspec]]
+
+    revision = "c" * 40
+    runner = FakeRunner(_ok(), _ok(revision))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.fetch_target("release") == revision
+    assert [call[3:] for call in runner.calls] == [
+        ["fetch", "--no-tags", "origin", refspec],
+        ["rev-parse", "--verify", "refs/remotes/origin/release^{commit}"],
+    ]
+
+
+@pytest.mark.parametrize("output", ["", "HEAD", "a" * 40 + "\n" + "b" * 40])
+def test_fetch_target_rejects_noncommit_git_output(tmp_path, output):
+    runner = FakeRunner(_ok(), _ok(output))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="full commit ID"):
+        manager.fetch_target("release")
+
+
+@pytest.mark.parametrize("entry", ["120000 blob", "040000 tree"])
+def test_aegis_metadata_refuses_nonregular_git_entries(tmp_path, entry):
+    """Inspect only a regular blob and never follow a repository symlink."""
+    revision = "a" * 40
+    runner = FakeRunner(_ok(f"040000 tree {revision}\t.agentic"),
+                        _ok(f"{entry} {revision} 30\t.agentic/aegis.py"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="regular blob"):
+        manager.read_aegis_payload(revision)
+    assert all(call[3] == "ls-tree" for call in runner.calls)
+
+
 def test_worktree_create_new_branch(tmp_path: Path) -> None:
     """A fresh run gets `worktree add -b <branch> <path> <base_ref>`."""
     runner = FakeRunner(_fail("", exit_code=1), _ok())  # branch missing, add ok

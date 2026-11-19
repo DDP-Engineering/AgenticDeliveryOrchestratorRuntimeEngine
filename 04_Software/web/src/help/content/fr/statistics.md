@@ -26,6 +26,8 @@ Un tiret signifie que la valeur est inconnue. Sous une valeur, **Zéro mesuré**
 
 Des cartes pour **Jobs démarrés**, **Jobs terminés**, **Jobs échoués**, **Jetons en entrée**, **Jetons en sortie** et **Total connu des jetons**. Terminés compte toutes les tâches finies, quel que soit leur résultat. Le total exige que les deux sens de jetons soient connus. Les administrateurs voient aussi les cartes **Coût déclaré** et **Coût estimé**. Avec **Tous les projets**, un tableau **Comparaison des projets** liste, par projet, les tâches démarrées, terminées et échouées et la durée moyenne écoulée, avec le dépôt sous le nom de chaque projet.
 
+Dans **Comparaison des projets**, utilisez les champs sous les en-têtes pour combiner les filtres. Cliquez sur un en-tête pour trier et utilisez le sélecteur de lignes par page et les boutons de navigation pour parcourir les résultats.
+
 ### Utilisation {#tab-usage}
 
 **Utilisation par exécuteur et modèle** commence par des totaux compacts : événements d’utilisation, jetons en entrée et en sortie, cache lu et cache écrit, et durée écoulée des tâches (**Tâches mesurées**, **Durée moyenne**, **Durée médiane**). Le tableau en dessous liste l’utilisation par date, exécuteur et modèle ; cliquez sur un titre de colonne pour trier. Avec **Tous les projets**, un tableau par projet suit. Les administrateurs voient aussi des colonnes de coût.

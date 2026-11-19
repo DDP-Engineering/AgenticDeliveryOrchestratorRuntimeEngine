@@ -14,11 +14,15 @@ unmet rule in a fixed order (`INELIGIBILITY_REASONS`); `start_blocker` and
 `start_preparation` say whether an explicit Start may proceed and which labels
 it has to add first.
 
-`requested_workflow` resolves the project auto/direct default and optional manual
-aegis/direct override before admission probes. Direct skips payload inspection and
-AEGIS entirely; explicit AEGIS refuses absence, while auto detects presence and
-refuses an unusable installed payload. The actual workflow is pinned from the allocated worktree before
-the initial claim save and does not change on Retry, resume or review revision.
+Eligible pickup fetches the configured remote target and validates AEGIS version,
+schema and file type at the exact fetched commit. The new worktree starts from
+that same commit. Empty pickup cycles perform no admission fetch. Direct skips
+AEGIS inspection, explicit AEGIS requires a payload, and auto selects Direct
+when the payload is absent. The host reads Git objects without running the
+companion. A governed job performs the runtime protocol probe in its executor.
+Restart checks the candidate's target before cleanup. Retry and continuation
+preserve their saved workflow. The delivery base stays the named target ref
+for ordinary runs and the reviewed commit for recipe-based runs.
 
 ## Workflow and durable state
 

@@ -1140,3 +1140,4 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 }
 
 .session-timeline pre { max-height:none; overflow-x:auto; overflow-y:visible; }
+.comparison-filter { width: 100%; min-width: 6rem; padding: 6px 8px; }

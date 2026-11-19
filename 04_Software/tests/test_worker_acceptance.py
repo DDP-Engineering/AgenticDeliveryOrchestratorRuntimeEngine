@@ -11,7 +11,7 @@ from adore.web.processes import stop_trees
 from fastapi.testclient import TestClient
 import pytest
 
-from tests.supervisor_helper import OfflineAegis, offline_engine
+from tests.supervisor_helper import offline_engine
 from tests.test_web_configuration_worker import _settle
 from tests.test_web_pending_config import _headers
 from tests.test_web_supervisor import eventually, project, reserve, start_project
@@ -20,7 +20,7 @@ from tests.test_web_supervisor import eventually, project, reserve, start_projec
 # PUBLIC API / TESTS
 @pytest.mark.parametrize("workflow", ["direct", "aegis"])
 def test_blocked_executor_keeps_scoped_settings_and_peer_execution_independent(
-    tmp_path, monkeypatch, workflow,
+    tmp_path, workflow,
 ):
     """Real A/B executors overlap while B/global apply and A stages safely."""
     import json
@@ -33,8 +33,7 @@ def test_blocked_executor_keeps_scoped_settings_and_peer_execution_independent(
 
         payload = Path(clone) / ".agentic/aegis.py"
         payload.parent.mkdir()
-        payload.write_text("# offline governed fixture\n")
-        monkeypatch.setattr("adore.orchestrator.AegisClient", OfflineAegis)
+        payload.write_text('VERSION = "0.16.1"\nSCHEMA = 1\n', encoding="utf-8")
     app = create_app(profiles.home)
     web = app.state.web_store
     workers = [start_project(profiles, web, p) for p in (alpha, beta)]

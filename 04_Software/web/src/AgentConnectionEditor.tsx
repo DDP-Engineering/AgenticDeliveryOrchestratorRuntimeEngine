@@ -2,7 +2,7 @@ import { settingConstraints } from "./settingLimits.ts";
 import { useEffect, useId, useState } from "react";
 import type { Locale } from "./i18n";
 import {
-  CHATGPT, CUSTOM, ENDPOINT_APIS, connectionCopy, credentialNote, providerModels, providerThinking, thinkingCopy, readProviderCatalog,
+  CHATGPT, CUSTOM, DEFAULT_OPENAI_MODEL, defaultThinking, ENDPOINT_APIS, connectionCopy, credentialNote, providerModels, providerThinking, thinkingCopy, readProviderCatalog,
   type Connection, type ProviderCatalog,
 } from "./agentConnection";
 
@@ -23,7 +23,8 @@ export function AgentConnectionEditor({ value, locale, disabled, onChange }: {
   try { draft = { ...draft, ...JSON.parse(value) }; } catch { /* An unreadable draft starts empty. */ }
   const update = (change: Partial<Connection>) => {
     const next = { ...draft, ...change };
-    if (change.provider !== undefined || change.model !== undefined) next.thinking = "";
+    if (change.provider === CHATGPT || change.provider === "openai") next.model = DEFAULT_OPENAI_MODEL;
+    if (change.provider !== undefined || change.model !== undefined) next.thinking = defaultThinking(next.provider, next.model);
     if (next.provider !== CUSTOM) { next.base_url = ""; next.api = ""; }
     else if (!next.api) next.api = ENDPOINT_APIS[0];
     onChange(JSON.stringify(next));

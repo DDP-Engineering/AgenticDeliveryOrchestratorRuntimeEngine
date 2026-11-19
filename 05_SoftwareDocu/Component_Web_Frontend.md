@@ -172,6 +172,10 @@ Manual Refresh/Retry refuses to start another pair while either source is in
 flight, including after its counterpart has finished. Automatic source timers
 remain independent and keep their existing per-source single-flight guards.
 Project Statistics requests only that project's sources, including for admins.
+The Summary and Quality project comparisons combine column filters and sort
+the resulting rows before pagination. The shared rows-per-page and navigation
+controls stay visible. A filter or sort change returns to page one and keeps
+the selected page size.
 Context keys include principal/session, role, authorized project identity, scope,
 period, time zone and grouping. Context changes immediately hide old data/exports.
 

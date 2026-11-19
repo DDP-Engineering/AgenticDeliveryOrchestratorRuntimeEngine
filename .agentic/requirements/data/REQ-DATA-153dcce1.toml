@@ -5,14 +5,14 @@
 
 schema = 1
 id = "REQ-DATA-153dcce1"
-title = "Record the workflow selected from the claimed worktree"
+title = "Persist the workflow of the admitted remote snapshot"
 status = "active"
-requirement = "When claiming a ticket, the conductor shall persist the resolved explicit aegis/direct selection or auto-mode worktree detection as the actual aegis/direct workflow, with direct starting at build and carrying no active or historical AEGIS task id."
-verification = "Offline claim tests inspect saved state for present and absent worktree payloads, including clone/worktree presence disagreement, and observe worktree-selected workflow, direct build and empty task bindings; a present unsupported payload is refused in auto/AEGIS mode and bypassed by explicit Direct."
+requirement = "When claiming a ticket, the conductor shall persist the workflow resolved from the fetched commit and explicit mode, with Direct starting at Build and carrying no AEGIS task bindings."
+verification = "Offline admission checks that the first durable reservation contains the selected workflow for present and absent payloads. Direct execution tests confirm Build and the absence of governed task bindings."
 affected_paths = ["04_Software/adore/state.py", "04_Software/adore/orchestrator.py"]
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_claim_pins_preparation_revision_before_snapshot_allocation", "04_Software/tests/test_orchestrator.py::test_claim_selects_worktree_workflow_before_first_save", "04_Software/tests/test_orchestrator.py::test_preclaim_allocation_failure_keeps_ticket_eligible"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_claim_pins_preparation_revision_before_snapshot_allocation", "04_Software/tests/test_orchestrator.py::test_claim_selects_remote_workflow_before_first_save", "04_Software/tests/test_orchestrator.py::test_preclaim_allocation_failure_keeps_ticket_eligible"]
 spec = ""
 priority = "high"
 rationale = "The isolated ticket snapshot, not a later clone revision, owns workflow identity."
 created = 2026-11-12
-updated = 2026-11-15
+updated = 2026-11-19

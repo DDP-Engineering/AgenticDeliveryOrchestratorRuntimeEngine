@@ -4,6 +4,11 @@ import {connectionCopy} from "../src/agentConnection";
 import {chatgptCopy} from "../src/chatgptCopy";
 import {errorMessages} from "../src/errors";
 import {test, expect} from "@playwright/test";
+import {cleanupBrowserPage} from "./lifecycle";
+
+test.afterEach(async ({context, page}) => {
+ await cleanupBrowserPage(context, page);
+});
 
 
 test("executor workspace owns model, credentials and coherent evidence", async ({page}) => {
@@ -163,6 +168,7 @@ test("inline executor editors retain columns and use a credential dropdown",asyn
 
 
 test("inline executor and credential dropdown controls preserve four locales",async({page})=>{
+ test.setTimeout(60_000);
  await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();

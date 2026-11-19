@@ -26,6 +26,8 @@ A dash means the value is unknown. Under a value, **Measured zero** means ADORE 
 
 Cards for **Started jobs**, **Completed jobs**, **Failed jobs**, **Input tokens**, **Output tokens** and **Known total tokens**. Completed counts every finished job whatever its outcome. The total needs both token directions to be known. Administrators also see **Reported cost** and **Estimated cost** cards. With **All projects**, a **Project comparison** table lists started, completed and failed jobs and average elapsed time per project, with the repository under each project name.
 
+In **Project comparison**, use the fields under the column headings to combine filters. Click a heading to sort, and use **Rows per page** and the navigation buttons to browse the results.
+
 ### Usage {#tab-usage}
 
 **Usage by executor and model** starts with compact totals: usage events, input and output tokens, cache read and cache write, and job elapsed time (**Measured jobs**, **Average elapsed**, **Median elapsed**). The table below lists usage by date, executor and model; click a column heading to sort. With **All projects**, a per-project table follows. Administrators also see cost columns.

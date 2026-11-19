@@ -1,6 +1,6 @@
 # Operator quick reference
 
-Applies to **ADORE 0.21.0**. This is a task reminder; the linked manuals define
+Applies to **ADORE 0.22.0**. This is a task reminder; the linked manuals define
 the complete setup, configuration and recovery contracts.
 
 ## Setup and first pickup

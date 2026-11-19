@@ -55,14 +55,22 @@ def offline_engine(profiles: ProfileStore, name: str):
     forge, trees, executor = FakeForge(), FakeWorktrees(), DirectExecutor()
     forge.ticket.labels = [config.labels.lifecycle.ready, "P1"]
     trees.repo_path = Path(config.worktree.repo_path)
+    payload = trees.repo_path / ".agentic/aegis.py"
+
+    def read_aegis_payload(revision):
+        """Serve the fixture payload for the fake fetched commit."""
+        assert revision == trees.target
+        return payload.read_text(encoding="utf-8") if payload.is_file() else None
+
+    trees.read_aegis_payload = read_aegis_payload
 
     def path_for(run_id):
         """Give concurrent fake Git worktrees distinct real exchange directories."""
         path = Path(config.worktree.root) / run_id
         path.mkdir(parents=True, exist_ok=True)
-        if (trees.repo_path / ".agentic/aegis.py").is_file():
+        if payload.is_file():
             (path / ".agentic").mkdir(exist_ok=True)
-            (path / ".agentic/aegis.py").write_text("# offline governed fixture\n")
+            (path / ".agentic/aegis.py").write_bytes(payload.read_bytes())
         return path
 
     trees.path_for = path_for

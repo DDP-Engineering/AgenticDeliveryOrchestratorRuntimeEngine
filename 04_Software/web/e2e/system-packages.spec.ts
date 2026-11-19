@@ -16,12 +16,12 @@ test("agent package permission reviews separately from network access", async ({
   await page.goto(`/projects/${id}/configuration`);
   await page.getByText(/^Agent and model \(\d+\)$/).click();
   const row = page.locator('[id="setting-container.system_packages"]');
-  await expect(row).toContainText("Network access is configured separately");
-  await row.getByRole("button", { name: "Edit Allow agent system package installation" }).click();
+  await expect(row).toContainText("Network access is separate");
+  await row.getByRole("button", { name: "Edit Allow agent environment administration" }).click();
   await row.getByRole("combobox").selectOption("true");
   await settingsSave(page).click();
   await expect(settingsImpact(page)).toContainText(
-    "Allow agent system package installation");
+    "Allow agent environment administration");
   const pending = await (await page.request.get(`/api/v1/projects/${id}/config/pending`)).json();
   expect(pending).toBeNull();
   await expect(settingsImpact(page)).toContainText("true");

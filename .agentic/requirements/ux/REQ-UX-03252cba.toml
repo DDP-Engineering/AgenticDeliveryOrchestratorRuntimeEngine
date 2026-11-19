@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-UX-03252cba"
+
+title = "Filter and paginate Statistics project comparison"
+
+status = "active"
+
+requirement = "When an authorized user views an all-project Statistics comparison, ADORE shall combine column filters and sort the full result set before pagination, keep the rows-per-page control visible and return to the first page after a filter or sort change."
+
+verification = "Offline Chromium: project comparison filters and sorts before pagination. Use twelve projects, change page size, sort a numeric column, apply combined filters and verify first-page reset, retained page size and empty results."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/ProjectComparisonTable.tsx", "04_Software/web/src/PagedTable.tsx"]
+
+linked_tests = ["04_Software/web/e2e/statistics.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-19
+updated = 2026-11-19

@@ -669,14 +669,10 @@ def test_restart_retains_only_an_unpublished_unproven_old_ref(tmp_path, monkeypa
 
 def test_restart_workflow_refusal_precedes_destructive_cleanup(tmp_path, monkeypatch):
     """A replacement that could not be admitted leaves the stopped job in place."""
-    from adore.aegis import AegisError
-
     engine, run, *_ = prepare(tmp_path, monkeypatch)
-
-    def refuse(mode="auto"):
-        raise AegisError("AEGIS 0.1.0 is unsupported")
-
-    monkeypatch.setattr(engine, "_probe_repository_payload", refuse)
+    engine.config.workflow.mode = "auto"
+    monkeypatch.setattr(engine.worktrees, "read_aegis_payload",
+                        lambda revision: 'VERSION = "0.13.0"\nSCHEMA = 1')
     revision = sha256((engine.store.run_dir(run.run_id) / "state.json").read_bytes()).hexdigest()
 
     result = engine.restart(run.run_id, revision)
@@ -684,6 +680,45 @@ def test_restart_workflow_refusal_precedes_destructive_cleanup(tmp_path, monkeyp
     assert result["picked"] is None and result["start_reason"] == "workflow_unavailable"
     assert engine.store.exists(run.run_id)
     assert engine.store.load(run.run_id).lifecycle == run.lifecycle
+
+
+def test_restart_allocates_commit_checked_before_cleanup(tmp_path, monkeypatch):
+    """A changing remote ref does not invalidate which snapshot Restart admits."""
+    engine, old, _, _, _, work, _ = prepare(tmp_path, monkeypatch)
+    engine.config.workflow.mode = "auto"
+    revision = "c" * 40
+    events = []
+    remove = engine.delete
+
+    def fetch(branch):
+        events.append(("fetch", branch))
+        return revision
+
+    def payload(commit):
+        events.append(("probe", commit))
+        assert engine.store.exists(old.run_id)
+        return 'VERSION = "0.16.1"\nSCHEMA = 1'
+
+    def delete(*args, **kwargs):
+        events.append(("cleanup", old.run_id))
+        engine.worktrees.target = "d" * 40
+        return remove(*args, **kwargs)
+
+    def create(*args, **kwargs):
+        events.append(("create", args[2]))
+        return work
+
+    monkeypatch.setattr(engine.worktrees, "fetch_target", fetch)
+    monkeypatch.setattr(engine.worktrees, "read_aegis_payload", payload)
+    monkeypatch.setattr(engine, "delete", delete)
+    monkeypatch.setattr(engine.worktrees, "create", create)
+    raw = (engine.store.run_dir(old.run_id) / "state.json").read_bytes()
+    confirmation = sha256(raw).hexdigest()
+    result = engine.restart(old.run_id, confirmation, admit_only=True)
+    assert result["picked"] == old.ticket_iid
+    assert events == [("fetch", engine.config.delivery.target_branch), ("probe", revision),
+                      ("cleanup", old.run_id), ("create", revision)]
+    assert engine.store.load(result["run_id"]).workflow == "aegis"
 
 
 def test_restart_naming_rule_failure_precedes_destructive_cleanup(tmp_path, monkeypatch):

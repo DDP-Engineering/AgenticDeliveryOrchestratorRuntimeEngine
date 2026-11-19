@@ -26,6 +26,8 @@ Ein Strich bedeutet, dass der Wert unbekannt ist. Unter einem Wert bedeutet **Ge
 
 Karten für **Gestartete Jobs**, **Abgeschlossene Jobs**, **Fehlgeschlagene Jobs**, **Eingabe-Token**, **Ausgabe-Token** und **Bekannte Token insgesamt**. Abgeschlossen zählt jeden beendeten Auftrag unabhängig vom Ergebnis. Die Summe setzt voraus, dass beide Token-Richtungen bekannt sind. Administratoren sehen außerdem die Karten **Gemeldete Kosten** und **Geschätzte Kosten**. Bei **Alle Projekte** listet eine Tabelle **Projektvergleich** gestartete, abgeschlossene und fehlgeschlagene Aufträge sowie die durchschnittliche Dauer je Projekt, mit dem Repository unter dem Projektnamen.
 
+Im **Projektvergleich** lassen sich die Filter unter den Spaltenüberschriften kombinieren. Ein Klick auf eine Überschrift sortiert die Liste. Die Zeilenanzahl pro Seite und die Navigation steuern die Anzeige der Ergebnisse.
+
 ### Nutzung {#tab-usage}
 
 **Nutzung nach Executor und Modell** beginnt mit kompakten Summen: Nutzungsereignisse, Eingabe- und Ausgabe-Token, Cache gelesen und Cache geschrieben sowie die Auftragsdauer (**Gemessene Aufträge**, **Durchschnittliche Dauer**, **Median der Dauer**). Die Tabelle darunter listet die Nutzung nach Datum, Executor und Modell; klicken Sie auf eine Spaltenüberschrift, um zu sortieren. Bei **Alle Projekte** folgt eine Tabelle je Projekt. Administratoren sehen außerdem Kostenspalten.

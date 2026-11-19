@@ -172,7 +172,7 @@ Statistics displays **Statistics database file** as an informational row with
 four-locale guidance. Server `config.toml` owns `metrics.db_path`,
 `metrics.export_jsonl` and `metrics.html_out`; web candidate preparation rejects
 all three. JSONL and static HTML paths remain available through TOML/CLI and
-are omitted from Project Settings controls. Project/global statistics, usage
+are omitted from Project Settings controls. All-project Statistics comparisons filter and sort the authorized rows before shared pagination. See REQ-UX-03252cba and statistics.spec.ts. Project/global statistics, usage
 and their CSV exports read summaries from the configured database with the
 same relative-path semantics as CLI. Missing databases contribute no summaries
 and remain absent; malformed configuration or database evidence returns the

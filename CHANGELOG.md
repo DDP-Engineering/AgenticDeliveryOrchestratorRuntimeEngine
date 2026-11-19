@@ -5,6 +5,17 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-19
+
+### Added
+
+- Statistics project comparisons support column filters, sorting and rows per page.
+- The Pi catalog includes GPT-6.2 Sol. New OpenAI and ChatGPT setups default to high reasoning on that model.
+
+### Fixed
+
+- Ticket pickup verifies AEGIS from the fetched target commit used to start the job. Restart checks it before cleanup.
+
 ## [0.21.0] - 2026-11-18
 
 ### Changed

@@ -12,6 +12,10 @@ release. [Execution](Component_Execution.md) binds immutable runtime ownership;
 
 ## Worktrees, branches and checkpoints
 
+Admission fetches the exact target branch and resolves its SHA under the
+repository lock. A missing remote branch fails before a cached tracking ref can
+be used. The preflight reads AEGIS metadata from a bounded regular Git blob.
+
 Each admitted run gets an isolated worktree and derived ticket branch. Production
 resource names carry stable project identity so profiles targeting the same
 repository/ticket cannot share mutable resources accidentally. Git operations

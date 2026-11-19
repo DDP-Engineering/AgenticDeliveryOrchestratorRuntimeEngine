@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 import json
@@ -36,7 +37,7 @@ AEGIS_STDOUT_FILE = "aegis.stdout"
 AEGIS_STDERR_FILE = "aegis.stderr"
 
 TASK_ID_RE = re.compile(r"^TASK-[0-9a-f]{8}$")
-VERSION_RE = re.compile(r"^aegis\s+(\d+)\.(\d+)\.(\d+)$")
+VERSION_RE = re.compile(r"^aegis\s+([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$")
 
 RUN_KINDS = ("feature", "fix", "change")
 #: The stages ADORE conducts, in the one AEGIS 0.16.0 order. Validate closes
@@ -287,6 +288,49 @@ def evidenced_transition(previous: str, current: str, log: Sequence[str]) -> boo
     return all(stage in done for stage in sequence[start:end])
 
 
+def _supported_version(output: str) -> tuple[int, int, int]:
+    """Validate the version declared by static metadata or the runtime probe."""
+    match = VERSION_RE.fullmatch(output.strip())
+    if match is None:
+        raise AegisProtocolError(
+            f"AEGIS --version returned an unsupported value: {output.strip()!r}"
+        )
+    major, minor, patch = (int(item) for item in match.groups())
+    minimum = ".".join(str(part) for part in (*MINIMUM_SERIES, 0))
+    if major != SUPPORTED_MAJOR:
+        raise AegisProtocolError(
+            f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE speaks the "
+            f"AEGIS {SUPPORTED_MAJOR}.x line from {minimum}"
+        )
+    if (major, minor) < MINIMUM_SERIES:
+        raise AegisProtocolError(
+            f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE requires at "
+            f"least {minimum}, where validate closes the task; upgrade the "
+            "repository's .agentic payload"
+        )
+    return major, minor, patch
+
+
+def validate_payload_source(source: str) -> None:
+    """Read the committed companion metadata without executing it on the host."""
+    try:
+        module = ast.parse(source)
+    except (SyntaxError, ValueError, RecursionError) as exc:
+        raise AegisProtocolError("AEGIS target payload has invalid Python syntax") from exc
+    metadata: dict[str, list[object]] = {"VERSION": [], "SCHEMA": []}
+    for statement in module.body:
+        if isinstance(statement, ast.Assign):
+            for name in statement.targets:
+                if isinstance(name, ast.Name) and name.id in metadata:
+                    value = statement.value
+                    literal = value.value if isinstance(value, ast.Constant) else None
+                    metadata[name.id].append(literal)
+    versions, schemas = metadata["VERSION"], metadata["SCHEMA"]
+    if len(versions) != 1 or not isinstance(versions[0], str):
+        raise AegisProtocolError("AEGIS target payload must declare one literal VERSION")
+    _supported_version("aegis " + versions[0])
+    if len(schemas) != 1 or type(schemas[0]) is not int or schemas[0] != JSON_SCHEMA:
+        raise AegisProtocolError(f"AEGIS target payload must declare SCHEMA = {JSON_SCHEMA}")
 
 
 class AegisClient:
@@ -314,24 +358,7 @@ class AegisClient:
     def probe(self) -> AegisProbe:
         """Prove the payload is a supported AEGIS major with schema 1."""
         result = self._run(["--version"], timeout=DEFAULT_TIMEOUT)
-        match = VERSION_RE.fullmatch(result.stdout.strip())
-        if match is None:
-            raise AegisProtocolError(
-                f"AEGIS --version returned an unsupported value: {result.stdout.strip()!r}"
-            )
-        major, minor, patch = (int(item) for item in match.groups())
-        minimum = ".".join(str(part) for part in (*MINIMUM_SERIES, 0))
-        if major != SUPPORTED_MAJOR:
-            raise AegisProtocolError(
-                f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE speaks the "
-                f"AEGIS {SUPPORTED_MAJOR}.x line from {minimum}"
-            )
-        if (major, minor) < MINIMUM_SERIES:
-            raise AegisProtocolError(
-                f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE requires at "
-                f"least {minimum}, where validate closes the task; upgrade the "
-                "repository's .agentic payload"
-            )
+        major, minor, patch = _supported_version(result.stdout)
         payload, _ = self._json(["status", "--all", "--json"])
         self._status_list(payload)
         return AegisProbe(

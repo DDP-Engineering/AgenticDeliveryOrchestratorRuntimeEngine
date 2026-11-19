@@ -12,6 +12,25 @@ schema = 1
 version = "Unreleased"
 
 [[release]]
+version = "0.22.0"
+date = "2026-11-19"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Statistics", fr = "Statistiques", de = "Statistik", ro = "Statistici" }
+text = { en = "Filter and sort project comparisons by column and choose how many rows to show.", fr = "Filtrez et triez les projets par colonne et choisissez le nombre de lignes à afficher.", de = "Projektvergleiche nach Spalte filtern und sortieren und die Zeilenanzahl wählen.", ro = "Filtrează și sortează compararea proiectelor pe coloane și alege numărul de rânduri." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Models", fr = "Modèles", de = "Modelle", ro = "Modele" }
+text = { en = "OpenAI and ChatGPT setup defaults to GPT-6.2 Sol with high reasoning.", fr = "OpenAI et ChatGPT proposent GPT-6.2 Sol avec le niveau de raisonnement high.", de = "OpenAI und ChatGPT schlagen GPT-6.2 Sol mit der Denkstufe high vor.", ro = "Configurarea OpenAI și ChatGPT propune GPT-6.2 Sol cu raționament high." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Ticket pickup", fr = "Prise des tickets", de = "Ticketaufnahme", ro = "Preluarea tichetelor" }
+text = { en = "Jobs start from the same remote commit used to check AEGIS.", fr = "Les tâches démarrent au commit distant utilisé pour vérifier AEGIS.", de = "Jobs starten vom selben Remote-Commit, aus dem AEGIS geprüft wird.", ro = "Joburile pornesc din commitul remote folosit la verificarea AEGIS." }
+
+[[release]]
 version = "0.21.0"
 date = "2026-11-18"
 

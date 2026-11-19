@@ -46,6 +46,7 @@ import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
 import { statisticsCopy } from "./statisticsCopy";
 import { JobWorkspace, type Filters } from "./JobWorkspace";
 import { PagedTable } from "./PagedTable";
+import { ProjectComparisonTable } from "./ProjectComparisonTable";
 import { SortHeader } from "./SortHeader";
 import { jobCopy } from "./jobCopy";
 import { outcomeText } from "./operationReason";
@@ -421,6 +422,8 @@ export default function App() {
   const allMetrics = reporting.data?.metrics;
   const allUsage = reporting.data?.usage;
   const globalRows = Object.entries(allMetrics || {});
+  const repositories = new Map(projects.map(project => [project.name, project.repo]));
+  const comparisonRows = globalRows.map(([name, metrics]) => ({ name, metrics, repo: repositories.get(name) }));
   const scopedUsageRows = Object.entries(allUsage || {});
   const reportingDataState: DataState = reporting.data ? "ready" : reporting.failure ? "error" : "loading";
   const metrics = allMetrics ? allProjectScope ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : Object.values(allMetrics)[0] : null;
@@ -1258,7 +1261,12 @@ export default function App() {
         </>}
         {metricsTab === "summary" && metrics && <>
           <StatisticsEvidence metrics={metrics} locale={locale} admin={isAdmin} t={t} />
-          {allProjectScope && <section className="panel"><h2>{t("projectComparison")}</h2><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{statisticsText.started}</th><th>{statisticsText.completed}</th><th>{statisticsText.failed}</th><th>{t("averageSpan")}</th></tr></thead><tbody>{globalRows.map(([name, item]) => <tr key={name}>{projectCell(name)}<td>{item.period.started}</td><td>{item.period.completed}</td><td>{item.period.failed}</td><td>{elapsed(item.duration.avg_span_seconds)}</td></tr>)}</tbody></table></PagedTable></section>}
+          {allProjectScope && <ProjectComparisonTable rows={comparisonRows} locale={locale} t={t} measures={[
+            { label: statisticsText.started, value: row => row.metrics.period.started },
+            { label: statisticsText.completed, value: row => row.metrics.period.completed },
+            { label: statisticsText.failed, value: row => row.metrics.period.failed },
+            { label: t("averageSpan"), value: row => row.metrics.duration.avg_span_seconds, display: row => elapsed(row.metrics.duration.avg_span_seconds) },
+          ]} />}
         </>}
         {metricsTab === "quality" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "quality" && !metricsEmpty && <>
         <section className="panel"><h2>{t("deliveryQuality")}</h2><Chips items={qualityChips} /></section>
@@ -1268,11 +1276,14 @@ export default function App() {
             {revisionDays.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.mr_revisions)}</td><td>{formatNumber(day.pipeline_repairs)}</td></tr>)}
           </tbody></table></PagedTable>}
         </section>
-        {allProjectScope && <section className="panel"><h2>{t("projectComparison")}</h2>
-          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("reviewReworkRate")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th><th>{t("reviewRounds")}</th></tr></thead><tbody>
-            {globalRows.map(([name, item]) => <tr key={name}>{projectCell(name)}<td>{formatPercent(item.quality.review_rework_rate)} <small className="field-hint">{ratio(item.quality.reworked_jobs, item.quality.reviewed_jobs)}</small></td><td>{formatNumber(item.totals.mr_revisions || 0)}</td><td>{formatNumber(item.totals.pipeline_repairs || 0)}</td><td>{formatNumber(item.runs.reduce((sum, run) => sum + Number(run.review_rounds || 0), 0))}</td></tr>)}
-          </tbody></table></PagedTable>
-        </section>}
+        {allProjectScope && <ProjectComparisonTable rows={comparisonRows} locale={locale} t={t} measures={[
+          { label: t("reviewReworkRate"), value: row => row.metrics.quality.review_rework_rate,
+            display: row => formatPercent(row.metrics.quality.review_rework_rate),
+            detail: row => ratio(row.metrics.quality.reworked_jobs, row.metrics.quality.reviewed_jobs) },
+          { label: t("mrRevisions"), value: row => row.metrics.totals.mr_revisions || 0 },
+          { label: t("pipelineRepairs"), value: row => row.metrics.totals.pipeline_repairs || 0 },
+          { label: t("reviewRounds"), value: row => row.metrics.runs.reduce((sum, run) => sum + Number(run.review_rounds || 0), 0) },
+        ]} />}
         {isAdmin && !allProjectScope && selected && (metrics?.revisions?.length || 0) > 0 && <section className="panel"><div className="panel-heading"><h2>{t("revisionCosts")}</h2><span className="muted">{scopeLabel}</span></div>
           <PagedTable t={t}><table><thead><tr><th>{t("jobs")}</th><th>{t("revision")}</th><th>{t("date")}</th><th>{t("status")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
             {metrics?.revisions?.map(row => <tr key={`${row.run_id}-${row.revision}`}><td>{row.run_id}</td><td>{row.revision}</td><td>{row.date || "—"}</td><td>{row.trigger === "revise-label" ? t("mrRevisions") : row.trigger === "pipeline-failed" ? t("pipelineRepairs") : t("unclassifiedRevisions")}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{formatMoney(row.reported_cost_usd)}</td><td>{formatMoney(row.estimated_cost_usd)}</td></tr>)}

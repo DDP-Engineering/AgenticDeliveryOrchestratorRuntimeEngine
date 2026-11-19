@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 import contextlib
 from copy import deepcopy
+from dataclasses import replace
 from datetime import timedelta
 from functools import wraps
 import hashlib
@@ -30,6 +31,7 @@ from adore.aegis import (
     allowed_transition,
     evidenced_transition,
     logged_stages,
+    validate_payload_source,
 )
 from adore.branding import (
     DEFAULT_QUESTIONS_FILE,
@@ -274,6 +276,7 @@ class Orchestrator:
         self.run_scope: Callable[[str], Any] | None = None
         self.owned_run_id = ""
         self.run_available: Callable[[str], bool] = lambda run_id: True
+        self._admission_targets: dict[int, tuple[str, str]] = {}
         self._admission_branches: dict[int, str] = {}
         self._admission_run_ids: dict[int, tuple[str, str]] = {}
         self.questions_file = config.executor.questions_file or DEFAULT_QUESTIONS_FILE
@@ -479,15 +482,6 @@ class Orchestrator:
         if self.store.is_paused() and ticket_iid is None:
             summary["paused"] = True
             return summary
-        if not dry_run:
-            try:
-                self._probe_repository_payload(mode)
-            except AegisError as exc:
-                summary["payload_error"] = _sanitize(exc)
-                if ticket_iid is not None:
-                    summary["start_reason"] = "workflow_unavailable"
-                self.log(f"AEGIS pre-pick probe failed: {_sanitize(exc)}")
-                return summary
         ticket = (self.forge.get_ticket(ticket_iid) if ticket_iid is not None
                   else self._pick_ticket())
         if ticket is None or ticket_iid is not None and ticket.iid != ticket_iid:
@@ -527,7 +521,7 @@ class Orchestrator:
                 except AegisError as exc:
                     summary.update(picked=None, start_reason="workflow_unavailable",
                                    payload_error=_sanitize(exc))
-                    self.log(f"admitted worktree workflow refused: {_sanitize(exc)}")
+                    self.log(f"target workflow preflight refused: {_sanitize(exc)}")
                     return summary
                 if not admit_only:
                     self.conduct_run(run_id)
@@ -833,6 +827,11 @@ class Orchestrator:
         ticket = self.forge.get_ticket(run.ticket_iid)
         if ticket is None or ticket.state != "opened":
             raise IsolationError("restart requires an open ticket")
+        ready = self.config.labels.lifecycle.ready
+        candidate = replace(ticket, labels=[*ticket.labels, ready])
+        reason = ineligibility(candidate, self.config, has_run=False)
+        if reason is not None:
+            return {"picked": None, "start_reason": reason}
         preserve = run.lifecycle == "cancelled"
         if preserve and any(item.get("kind") != "instruction"
                             for item in run.notification_outbox):
@@ -861,11 +860,9 @@ class Orchestrator:
             selected = run.branch
         else:
             selected = self.worktrees.fresh_branch(base, validate=self._valid_admission_branch)
-        # The replacement's admission probes the repository workflow. Run that
-        # refusal now: after the deletion below the stopped job cannot be recovered.
+        # Nothing destructive happens until the replacement target is pinned and checked.
         try:
-            self._probe_repository_payload(
-                requested_workflow(self.config.workflow.mode, workflow))
+            target = self._admission_target(requested_workflow(self.config.workflow.mode, workflow))
         except AegisError as exc:
             self.log(f"restart {run_id} refused before cleanup: {_sanitize(exc)}")
             return {"picked": None, "start_reason": "workflow_unavailable",
@@ -875,6 +872,7 @@ class Orchestrator:
         lifecycle = self.config.labels.lifecycle
         self.forge.remove_labels(run.ticket_iid, [lifecycle.failed, lifecycle.working])
         self.forge.add_labels(run.ticket_iid, [lifecycle.ready])
+        self._admission_targets[run.ticket_iid] = target
         self._admission_branches[run.ticket_iid] = selected
         self._admission_run_ids[run.ticket_iid] = (replacement_run_id or run_id, previous_id)
         try:
@@ -885,6 +883,7 @@ class Orchestrator:
                 result["unproven_branch_retained"] = True
             return result
         finally:
+            self._admission_targets.pop(run.ticket_iid, None)
             self._admission_branches.pop(run.ticket_iid, None)
             self._admission_run_ids.pop(run.ticket_iid, None)
 
@@ -1360,43 +1359,25 @@ class Orchestrator:
 
     # Selection and startup
 
-    @staticmethod
-    def _has_payload(root: str | Path) -> bool:
-        """
-        Treat every present payload entry as governed, including broken links.
-        Raises AegisError: Payload presence cannot be observed reliably.
-        """
+    def _admission_target(self, mode: str) -> tuple[str, str]:
+        """Pin the remote commit and validate companion metadata before admission."""
+        branch = self.config.delivery.target_branch
         try:
-            (Path(root) / ".agentic/aegis.py").lstat()
-        except FileNotFoundError:
-            return False
-        except OSError as exc:
-            raise AegisError(f"cannot inspect AEGIS payload: {exc}") from exc
-        return True
-
-    def _resolve_workflow(self, root: str, mode: str) -> str:
-        """Select Direct without inspecting AEGIS; explicit AEGIS fails closed."""
+            revision = self.worktrees.fetch_target(branch)
+        except IsolationError as exc:
+            raise AegisError(f"cannot fetch target origin/{branch}: {exc}") from exc
         if mode == "direct":
-            return "direct"
-        if self._has_payload(root):
-            return "aegis"
-        if mode == "aegis":
-            raise AegisError("explicit AEGIS selection requires an installed usable payload")
-        return "direct"
-
-    def _probe_repository_payload(self, mode: str = "auto") -> None:
-        """Probe present governance only; absence enables the direct workflow."""
-        if self._resolve_workflow(self.config.worktree.repo_path, mode) == "direct":
-            return
-
-        def execute(argv, *, timeout=None):
-            return run_command(
-                argv,
-                cwd=self.config.worktree.repo_path,
-                timeout=timeout,
-            )
-
-        AegisClient(execute, self.config.workflow.aegis_python).probe()
+            return revision, "direct"
+        try:
+            payload = self.worktrees.read_aegis_payload(revision)
+        except IsolationError as exc:
+            raise AegisError(f"cannot read AEGIS target payload: {exc}") from exc
+        if payload is None:
+            if mode == "aegis":
+                raise AegisError("explicit AEGIS selection requires a payload at the remote target")
+            return revision, "direct"
+        validate_payload_source(payload)
+        return revision, "aegis"
 
     def _pick_ticket(self, *, ticket_iid: int | None = None) -> Ticket | None:
         """
@@ -1477,6 +1458,8 @@ class Orchestrator:
     def _reserve_ticket(self, ticket: Ticket, *, mode: str = "auto") -> RunState:
         """Initialize a reserved place outside admission, then durably acknowledge it."""
         run_id = self._run_id(ticket.iid)
+        target = self._admission_targets.get(ticket.iid)
+        revision, workflow = target if target is not None else self._admission_target(mode)
         branch = self._admission_branches.pop(ticket.iid, self._branch_name(run_id, ticket.iid))
         branch = self.worktrees.fresh_branch(branch, validate=self._valid_admission_branch)
         run = RunState(
@@ -1488,9 +1471,9 @@ class Orchestrator:
         )
         comments = self.forge.list_comments(ticket.iid)
         run.last_seen_comment_id = max((item.id for item in comments), default=None)
-        self._allocate_worktree(run)
+        self._allocate_worktree(run, admission_revision=revision)
         try:
-            run.workflow = self._resolve_workflow(run.worktree, mode)
+            run.workflow = workflow
             run.stage = "frame" if run.workflow == "aegis" else "build"
             self.store.save(run)
         except Exception:
@@ -3848,7 +3831,7 @@ class Orchestrator:
         """Return the host-side executor exchange directory."""
         return self.store.run_dir(run_id) / "io"
 
-    def _plan_execution(self, run: RunState) -> None:
+    def _plan_execution(self, run: RunState, *, admission_revision: str | None = None) -> None:
         """
         Resolve initial execution authority in memory before allocating a snapshot.
         The caller persists only after it can select the worktree's workflow.
@@ -3866,12 +3849,13 @@ class Orchestrator:
             if run.active_task_id:
                 raise PreparationError(
                     "existing run has no execution plan; delete its run directory and start fresh")
-            if recipe and not self.worktrees.exists(run.run_id):
+            if recipe and admission_revision is None and not self.worktrees.exists(run.run_id):
                 self.worktrees.fetch()
             plan = resolve_plan(
                 self.config,
                 runner=getattr(self.worktrees, "runner", run_command),
-                expected_revision=self.worktrees.ref_head(run.base_ref) if recipe else None,
+                expected_revision=(admission_revision or self.worktrees.ref_head(run.base_ref))
+                if recipe else None,
             )
             if recipe:
                 run.base_ref = plan["selection"].rsplit("@", 1)[1]
@@ -3894,13 +3878,14 @@ class Orchestrator:
         except IsolationError as exc:
             self.log(f"unadmitted worktree of {run.run_id} was not removed: {_sanitize(exc)}")
 
-    def _allocate_worktree(self, run: RunState) -> Path:
+    def _allocate_worktree(self, run: RunState, *, admission_revision: str | None = None) -> Path:
         """Allocate the exact pinned snapshot without saving a provisional workflow."""
-        self._plan_execution(run)
-        if not self.config.execution.preparation and not self.worktrees.exists(run.run_id):
+        self._plan_execution(run, admission_revision=admission_revision)
+        if (admission_revision is None and not self.config.execution.preparation
+                and not self.worktrees.exists(run.run_id)):
             self.worktrees.fetch()
         worktree = self.worktrees.create(
-            run.run_id, run.branch, run.base_ref or "HEAD",
+            run.run_id, run.branch, admission_revision or run.base_ref or "HEAD",
             **({"new_branch": True} if not run.worktree else {}),
         )
         run.worktree = str(worktree)

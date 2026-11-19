@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-2050da54"
+
+title = "Validate workflow from the same fetched commit used for admission"
+
+status = "active"
+
+requirement = "When scheduled pickup, Start or Restart has an eligible candidate, ADORE shall fetch the configured target once and use its exact commit for AEGIS metadata validation and worktree creation. Direct skips metadata validation. An unavailable target or incompatible payload prevents admission and leaves a stopped job intact on Restart."
+
+verification = "Offline Git and conductor tests assert no fetch for ineligible tickets, one pinned target despite ref movement, valid Git commit output, refusal of incompatible metadata and successful or refused Restart before cleanup."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/aegis.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_remote_admission_fetches_only_for_eligible_ticket", "04_Software/tests/test_orchestrator.py::test_claim_selects_remote_workflow_before_first_save", "04_Software/tests/test_orchestrator.py::test_incompatible_remote_payload_refuses_before_claim", "04_Software/tests/test_isolation.py::test_fetch_target_requires_live_branch_before_resolving_cached_ref", "04_Software/tests/test_isolation.py::test_fetch_target_rejects_noncommit_git_output", "04_Software/tests/test_isolation.py::test_aegis_metadata_refuses_nonregular_git_entries", "04_Software/tests/test_drift_recovery.py::test_restart_allocates_commit_checked_before_cleanup", "04_Software/tests/test_drift_recovery.py::test_restart_workflow_refusal_precedes_destructive_cleanup"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-19
+updated = 2026-11-19

@@ -176,6 +176,12 @@ class FakeWorktrees:
     def fetch(self):
         return None
 
+    def fetch_target(self, branch):
+        return self.target
+
+    def read_aegis_payload(self, revision):
+        return None
+
     def fresh_branch(self, base, *, validate):
         """Default fake has no occupied local/remote branch names."""
         if not validate(base):
@@ -1486,94 +1492,79 @@ def test_direct_publication_and_review_boundaries(tmp_path, monkeypatch, boundar
     assert len(executor.prompts) == 1
 
 
-@pytest.mark.parametrize("manual,mode", [(False, "auto"), (False, "direct"),
-                                         (True, "auto"), (True, "direct"), (True, "aegis")])
-@pytest.mark.parametrize("clone_payload,worktree_payload", [
-    (False, False), (True, True), (True, False), (False, True),
-])
-def test_claim_selects_worktree_workflow_before_first_save(
-    tmp_path, monkeypatch, manual, clone_payload, worktree_payload, mode,
-):
-    """Admission probes only present clones; immutable identity comes from the worktree."""
-    from types import SimpleNamespace
+@pytest.mark.parametrize("eligible", [False, True])
+def test_remote_admission_fetches_only_for_eligible_ticket(tmp_path, monkeypatch, eligible):
+    """Use the verified remote commit even if the remote-tracking ref moves afterwards."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P1"] if eligible else []
+    expected = worktrees.target
+    events = []
 
-    engine, forge, worktrees, _, executor = make_engine(tmp_path)
-    clone, work = tmp_path / "clone", tmp_path / "work"
-    for root, present in ((clone, clone_payload), (work, worktree_payload)):
-        root.mkdir()
-        if present:
-            (root / ".agentic").mkdir()
-            (root / ".agentic/aegis.py").write_text("# test payload\n")
-    engine.config.worktree.repo_path = str(clone)
-    worktrees.repo_path = clone
-    forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P1"]
-    probes, allocations, saved = [], [], []
+    def fetch_target(branch):
+        events.append(("fetch", branch))
+        return expected
 
-    class Client:
-        """Admission-only client: code conduction is captured independently."""
-        def __init__(self, *args):
-            pass
-
-        def probe(self):
-            probes.append("probe")
-            return SimpleNamespace(version="supported", schema=1)
+    def read_payload(commit):
+        events.append(("probe", commit))
+        worktrees.target = "b" * 40
+        return 'VERSION = "0.16.1"\nSCHEMA = 1\n'
 
     def create(run_id, branch, base_ref, **kwargs):
-        assert not engine.store.exists(run_id), "workflow must precede first durable claim"
-        assert engine.config.labels.lifecycle.ready in forge.ticket.labels
-        allocations.append((base_ref, kwargs))
-        return work
+        events.append(("create", base_ref))
+        return tmp_path / run_id
 
-    original_save = engine.store.save
-
-    def save(run):
-        saved.append((run.workflow, run.stage, run.worktree))
-        original_save(run)
-
-    monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
+    monkeypatch.setattr(worktrees, "fetch_target", fetch_target, raising=False)
+    monkeypatch.setattr(worktrees, "read_aegis_payload", read_payload, raising=False)
     monkeypatch.setattr(worktrees, "create", create)
-    monkeypatch.setattr(engine.store, "save", save)
-    monkeypatch.setattr(engine, "_conduct", lambda *args: None)
-    admissions = []
+    result = engine.poll_once(admit_only=True)
+    if eligible:
+        assert result["picked"] == 7
+        assert engine.store.load(result["run_id"]).workflow == "aegis"
+        assert events == [("fetch", "main"), ("probe", expected), ("create", expected)]
+    else:
+        assert result["picked"] is None and not events
 
-    def on_admitted(admitted):
-        """The admission callback observes durable state before forge claim/conduction."""
-        observed = engine.store.load(admitted.run_id)
-        assert observed.lifecycle == "working" and observed.execution_pending
-        assert engine.store.load_ticket(admitted.run_id)["iid"] == 7
-        assert any(event["event"] == "picked"
-                   for event in engine.store.read_journal(admitted.run_id))
-        assert engine.config.labels.lifecycle.ready in forge.ticket.labels
-        admissions.append(admitted.run_id)
 
-    engine.on_admitted = on_admitted
+@pytest.mark.parametrize("manual,mode", [(False, "auto"), (False, "direct"),
+                                         (True, "auto"), (True, "direct"), (True, "aegis")])
+@pytest.mark.parametrize("payload", [None, 'VERSION = "0.16.1"\nSCHEMA = 1\n'])
+def test_claim_selects_remote_workflow_before_first_save(
+    tmp_path, monkeypatch, manual, mode, payload,
+):
+    """The durable reservation knows the workflow and excludes probe execution on the host."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P1"]
     engine.config.workflow.mode = "direct" if mode == "direct" and not manual else "auto"
-    override = mode if manual and mode != "auto" else None
-    if mode == "aegis" and not clone_payload:
-        result = engine.poll_once(ticket_iid=7, workflow=override)
-        assert result["start_reason"] == "workflow_unavailable" and not probes
-        assert not engine.store.list_runs()
-        return
-    if mode == "aegis" and not worktree_payload:
-        result = engine.poll_once(ticket_iid=7, workflow=override)
-        assert result["start_reason"] == "workflow_unavailable"
-        assert not engine.store.list_runs()
-        # The refused admission takes its worktree with it; a leftover would make
-        # every later admission of this ticket fail on an existing path.
-        assert worktrees.removed == ["github-owner-repo-7"]
-        return
-    result = engine.poll_once(ticket_iid=7 if manual else None, workflow=override)
-    run = engine.store.load("github-owner-repo-7")
-    expected = "aegis" if mode != "direct" and worktree_payload else "direct"
-    assert result["picked"] == 7
-    assert admissions == [run.run_id]
-    assert run.workflow == expected
-    assert run.stage == ("frame" if expected == "aegis" else "build")
-    assert run.active_task_id is None and run.task_ids == []
-    assert saved and all(row == (expected, run.stage, str(work)) for row in saved)
-    assert not run.execution_pending
-    assert probes == (["probe"] if mode != "direct" and clone_payload else [])
-    assert allocations == [("origin/main", {"new_branch": True})]
+    admissions, reads = [], []
+
+    def read_payload(revision):
+        reads.append(revision)
+        return payload
+
+    def create(run_id, branch, base_ref, **kwargs):
+        assert not engine.store.exists(run_id)
+        assert base_ref == worktrees.target
+        return tmp_path / run_id
+
+    def admitted(run):
+        persisted = engine.store.load(run.run_id)
+        assert persisted.execution_pending and persisted.workflow == run.workflow
+        assert engine.store.load_ticket(run.run_id)["iid"] == 7
+        assert engine.config.labels.lifecycle.ready in forge.ticket.labels
+        admissions.append(persisted)
+
+    engine.on_admitted = admitted
+    monkeypatch.setattr(worktrees, "read_aegis_payload", read_payload)
+    monkeypatch.setattr(worktrees, "create", create)
+    result = engine.poll_once(ticket_iid=7 if manual else None, admit_only=True,
+                              workflow=mode if manual and mode != "auto" else None)
+    assert reads == ([] if mode == "direct" else [worktrees.target])
+    if mode == "aegis" and payload is None:
+        assert result["start_reason"] == "workflow_unavailable" and not admissions
+    else:
+        assert result["picked"] == 7 and len(admissions) == 1
+        assert admissions[0].workflow == ("aegis" if payload and mode != "direct" else "direct")
+        assert admissions[0].base_ref == "origin/main"
     assert not executor.prompts
 
 
@@ -1641,69 +1632,29 @@ def test_claim_pins_preparation_revision_before_snapshot_allocation(tmp_path, mo
     assert not executor.prompts
 
 
-def test_payload_presence_observation_failure_refuses_before_claim(tmp_path, monkeypatch):
-    """An unreadable payload location is not evidence of absence/direct authority."""
-    engine, forge, _, _, executor, _ = direct_engine(tmp_path, monkeypatch)
-    payload = Path(engine.config.worktree.repo_path) / ".agentic/aegis.py"
-    original = Path.lstat
-
-    def stat(path):
-        if path == payload:
-            raise PermissionError("payload inspection denied")
-        return original(path)
-
-    monkeypatch.setattr(Path, "lstat", stat)
-    result = engine.poll_once(ticket_iid=7)
-    assert result["picked"] is None and result["start_reason"] == "workflow_unavailable"
-    assert not engine.store.list_runs() and not executor.prompts
-    assert engine.config.labels.lifecycle.ready in forge.ticket.labels
-
-
 @pytest.mark.parametrize("mode", ["auto", "aegis", "direct"])
-@pytest.mark.parametrize("entry", ["file", "directory", "dangling-link"])
-@pytest.mark.parametrize("failure", ["version", "protocol", "invocation"])
-def test_present_payload_refusal_never_claims_or_falls_back(
-    tmp_path, monkeypatch, entry, failure, request, mode,
-):
-    """Present unusable entries remain governed, including dangling symlinks."""
-    from adore.aegis import AegisError, AegisProtocolError
-
-    engine, forge, _, _, executor = make_engine(tmp_path)
-    root = tmp_path / "clone"
-    (root / ".agentic").mkdir(parents=True)
-    payload = root / ".agentic/aegis.py"
-    if entry == "file":
-        payload.write_text("# unsupported payload\n")
-    elif entry == "directory":
-        payload.mkdir()
-    else:
-        request.getfixturevalue("symlink_support")
-        payload.symlink_to(root / "missing")
-    engine.config.worktree.repo_path = str(root)
+@pytest.mark.parametrize("payload", ["read-error", 'VERSION = "0.13.0"\nSCHEMA = 1',
+                                      'VERSION = "0.16.1"\nSCHEMA = 2', 'VERSION = invalid('])
+def test_incompatible_remote_payload_refuses_before_claim(tmp_path, monkeypatch, mode, payload):
+    """Present unusable metadata refuses AEGIS without claiming or allocating a job."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P1"]
-    probes = []
 
-    class Client:
-        """Inject a typed client refusal at the present-payload boundary."""
-        def __init__(self, *args):
-            pass
+    def read_payload(revision):
+        assert mode != "direct"
+        if payload == "read-error":
+            raise IsolationError("unreadable payload")
+        return payload
 
-        def probe(self):
-            probes.append(failure)
-            error = AegisError if failure == "invocation" else AegisProtocolError
-            raise error(f"unsupported {failure}")
-
-    monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
-    monkeypatch.setattr(engine, "_conduct", lambda *args: None)
-    result = engine.poll_once(ticket_iid=7, workflow=None if mode == "auto" else mode)
+    monkeypatch.setattr(worktrees, "read_aegis_payload", read_payload)
+    result = engine.poll_once(ticket_iid=7, admit_only=True,
+                              workflow=None if mode == "auto" else mode)
     if mode == "direct":
-        assert result["picked"] == 7 and not probes
-        assert engine.store.load("github-owner-repo-7").workflow == "direct"
-        return
-    assert result["picked"] is None and result["start_reason"] == "workflow_unavailable"
-    assert probes == [failure]
+        assert result["picked"] == 7
+    else:
+        assert result["picked"] is None and result["start_reason"] == "workflow_unavailable"
+        assert not engine.store.list_runs()
     assert engine.config.labels.lifecycle.ready in forge.ticket.labels
-    assert not engine.store.list_runs() and not executor.prompts
 
 
 @pytest.mark.parametrize("failure", ["allocation", "plan"])
@@ -3658,7 +3609,6 @@ def test_public_pickup_obeys_optional_acceptance_criteria(tmp_path, monkeypatch,
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     forge.ready = [forge.ticket]
     selected = []
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     result = engine.poll_once()
     assert result["picked"] == (None if require_criteria else forge.ticket.iid)
@@ -3676,7 +3626,6 @@ def test_explicit_ticket_start_keeps_readiness_boundary(
                    labels=[ready, "P1", engine.config.labels.control.hold])
     forge.ready = [other, forge.ticket]
     selected = []
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
 
     assert engine.poll_once(ticket_iid=99)["picked"] is None
@@ -4872,7 +4821,6 @@ def test_manual_start_preserves_monitoring_pause(tmp_path, monkeypatch):
     engine, forge, _, _, _ = make_engine(tmp_path)
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     selected = []
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     engine.store.pause()
     assert engine.poll_once()["picked"] is None
@@ -4900,7 +4848,6 @@ def test_paused_manual_start_reports_its_actual_blocker(tmp_path, monkeypatch, b
     engine, forge, _, _, _ = make_engine(tmp_path)
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     selected = []
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     engine.store.pause()
     if blocker == "held":
@@ -4913,7 +4860,7 @@ def test_paused_manual_start_reports_its_actual_blocker(tmp_path, monkeypatch, b
     elif blocker == "payload":
         def unavailable(*args):
             raise AegisError("PRIVATE workflow error")
-        monkeypatch.setattr(engine, "_probe_repository_payload", unavailable)
+        monkeypatch.setattr(engine, "_admission_target", unavailable)
     result = engine.poll_once(ticket_iid=999 if blocker == "missing" else forge.ticket.iid)
     assert result["picked"] is None
     assert result["start_reason"] == {"held": "held", "capacity": "at_capacity",

@@ -13,7 +13,7 @@ Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În
 
 Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 
-Înainte de preluarea automată, `workflow.mode = "auto"` verifică AEGIS prezent și îl refuză dacă este inutilizabil; lipsa lui selectează Direct. `workflow.mode = "direct"` ocolește AEGIS. Pornirea manuală alege explicit fluxul. Agentul efectuează verificările repository-ului în ambele fluxuri; ADORE păstrează aprobarea și publicarea configurate. Consultați [Fluxurile repository-ului](/help/projects#workflows).
+Când un tichet este eligibil, ADORE preia ramura țintă și pornește din commitul preluat. În modul auto verifică acolo compatibilitatea AEGIS sau alege Direct dacă AEGIS lipsește. Restart verifică ținta înainte de curățare. `workflow.mode = "direct"` ocolește AEGIS. Pornirea manuală alege explicit fluxul. Agentul efectuează verificările repository-ului în ambele fluxuri; ADORE păstrează aprobarea și publicarea configurate. Consultați [Fluxurile repository-ului](/help/projects#workflows).
 
 ## Work Items Azure și labels PR {#azure-tags}
 

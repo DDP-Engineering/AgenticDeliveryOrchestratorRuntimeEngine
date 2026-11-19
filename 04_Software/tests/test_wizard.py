@@ -160,8 +160,9 @@ def test_wizard_writes_pi_without_agent_choice_or_host_sign_in(tmp_path: Path) -
                runner=_runner(), os_key="linux", name="pi")
     assert "executor_cli" not in asked and "auth_mode" not in asked
     document = tomllib.loads(store.config_path("pi").read_text(encoding="utf-8"))
-    assert document["executor"] == {"provider": "openai", "model": "gpt-6.1-terra",
-                                    "env_keys": []}
+    assert document["executor"] == {
+        "provider": "openai", "model": "gpt-6.2-sol", "thinking": "high", "env_keys": [],
+    }
     asker = ScriptedAsker(_answers(
         clone, execution_backend="local", auth_mode="host-auth"
     ), interactive=False)

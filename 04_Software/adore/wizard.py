@@ -42,7 +42,7 @@ _LICENSE_LINES = (
 )
 # REUSE-IgnoreEnd
 _DEFAULT_PROVIDER = "openai"
-_DEFAULT_MODEL = "gpt-6.1-terra"
+_DEFAULT_MODEL = "gpt-6.2-sol"
 _RECOMMENDED_BUDGETS = {
     name: numeric_default("budgets." + name)
     for name in ("max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched")
@@ -571,9 +571,8 @@ def run_wizard(
         ("a model a ChatGPT subscription serves: " + ", ".join(chatgpt_models))
         if chatgpt_models else
         "the model within the provider (Pi's list or any id the provider accepts)",
-        chatgpt_models[0] if chatgpt_models else _DEFAULT_MODEL,
-        default=(chatgpt_models[0] if chatgpt_models else
-                 _DEFAULT_MODEL if provider == _DEFAULT_PROVIDER else None),
+        _DEFAULT_MODEL,
+        default=_DEFAULT_MODEL if provider in (CHATGPT, _DEFAULT_PROVIDER) else None,
         validate=_model_ok,
     ), asker, out)
     if isinstance(asker, ScriptedAsker):
@@ -879,6 +878,8 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     sections.append(("container", container))
 
     executor: dict[str, object] = {"provider": a["provider"], "model": a["model"]}
+    if a["provider"] in (CHATGPT, _DEFAULT_PROVIDER) and a["model"] == _DEFAULT_MODEL:
+        executor["thinking"] = "high"
     # The provider's key variable always reaches Pi; these are additional names.
     executor["env_keys"] = []
     sections.append(("executor", executor))

@@ -16,13 +16,6 @@ import pytest
 from tests.test_orchestrator import direct_edit, direct_engine, make_engine, make_run
 
 
-@pytest.fixture(autouse=True)
-def offline_probe(monkeypatch):
-    """Concurrency proof never invokes target repository or host commands."""
-    from adore.orchestrator import Orchestrator
-    monkeypatch.setattr(Orchestrator, '_probe_repository_payload', lambda self, *args: None)
-
-
 def test_admission_releases_project_lock_before_conduction(tmp_path, monkeypatch):
     """A second admission proceeds while another run executes."""
     first, forge, *_ = make_engine(tmp_path)

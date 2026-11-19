@@ -353,12 +353,11 @@ def test_project_namespaces_separate_same_ticket_resources(tmp_path, monkeypatch
     for engine in (first, second):
         engine.worktrees.runner = lambda *args, **kwargs: CommandResult()
         engine.worktrees.fresh_branch = lambda base, **kwargs: base
-        engine.worktrees.fetch = lambda: None
+        engine.worktrees.fetch_target = lambda branch: "a" * 40
+        engine.worktrees.read_aegis_payload = lambda revision: None
         engine.worktrees.create = lambda run_id, *args, engine=engine, **kwargs: (
             engine.worktrees.path_for(run_id))
         engine.forge.ticket.labels = ["agent-ready", "P1"]
-        engine._probe_repository_payload = lambda *args: None
-        engine._has_payload = lambda _: False
     assert first.poll_once(ticket_iid=7, admit_only=True)["picked"] == 7
     assert second.poll_once(ticket_iid=7, admit_only=True)["picked"] == 7
     left, right = first.store.list_runs()[0], second.store.list_runs()[0]
@@ -534,7 +533,6 @@ def test_cli_loaded_before_archive_cannot_admit_after_barrier(tmp_path, monkeypa
     profiles = _ready_profile(tmp_path / "server-home")
     engine, forge, *_ = make_engine(tmp_path)
     forge.ticket.labels = ["agent-ready", "P1"]
-    monkeypatch.setattr(engine, "_probe_repository_payload", lambda *args: None)
     def loaded(*args, **kwargs):
         profile = profiles.load("proj")
         profile.archived = True

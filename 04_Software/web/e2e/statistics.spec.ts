@@ -178,7 +178,11 @@ test("all-project statistics show each per-project family once, in its own tab",
   await expect(page.getByText(/Statistics cover all projects you can access/)).toHaveCount(0);
   await expect(page.getByRole("tablist", { name: "Statistics", exact: true }).getByRole("tab")).toHaveText(["Summary", "Usage", "Quality", "Trends"]);
   const table = page.locator("#metrics-tab-panel table").first();
-  await expect(table.getByRole("columnheader")).toHaveText(["Project", "Started jobs", "Completed jobs", "Failed jobs", "Average elapsed"]);
+  const headings = table.getByRole("columnheader");
+  const columns = ["Project", "Started jobs", "Completed jobs", "Failed jobs", "Average elapsed"];
+  await expect(headings).toHaveCount(columns.length);
+  for (const [index, name] of columns.entries())
+    await expect(headings.nth(index)).toHaveAccessibleName(name);
   const alphaRow = table.locator("tbody tr").filter({ hasText: "alpha" });
   await expect(alphaRow).toContainText(alpha.repo);
   await expect(alphaRow).not.toContainText(alpha.id);
@@ -370,4 +374,50 @@ test("metric and usage responses with different canonical intervals fail closed 
   await page.goto(`/metrics?project=${alpha}&from=2026-10-25`);
   await expect(page.getByRole("alert").first()).toBeVisible();
   await expect(page.locator(".statistics-evidence")).toHaveCount(0); await expect(page.getByText("Export CSV", { exact: true })).toHaveCount(0);
+});
+
+test("project comparison filters and sorts before pagination", async ({ page }) => {
+  await signIn(page);
+  const [sampleProject] = await (await page.request.get("/api/v1/projects")).json();
+  const projects = Array.from({ length: 12 }, (_, index) => {
+    const name = `project-${String(index).padStart(2, "0")}`;
+    return { ...sampleProject, id: index.toString(16).padStart(32, "0"), name, repo: `owner/repo-${index}`,
+      verification: { status: "unverified", checked_at: null, revision: null } };
+  });
+  await page.route("**/api/v1/projects", route => route.fulfill({ json: projects }));
+  for (const endpoint of ["metrics", "usage"]) {
+    await page.route(`**/api/v1/${endpoint}?*`, async route => {
+      const existing = await (await route.fetch()).json();
+      const sample = Object.values(existing)[0] as any;
+      await route.fulfill({ json: Object.fromEntries(projects.map(({ id, name }, index) => {
+        const item = structuredClone(sample);
+        item.scope.project_ids = [id];
+        item.jobs = [];
+        if (endpoint === "metrics") item.totals.started = item.period.started = index;
+        return [name, item];
+      })) });
+    });
+  }
+  await page.goto("/metrics");
+  const panel = page.locator("section").filter({ has: page.getByRole("heading", { name: "Project comparison", exact: true }) });
+  const rows = panel.locator("tbody tr");
+  const size = panel.getByLabel("Rows per page");
+  await expect(rows).toHaveCount(10);
+  await panel.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(rows).toHaveCount(2);
+  await size.selectOption("25");
+  await expect(rows).toHaveCount(12);
+  await panel.getByRole("button", { name: "Started jobs", exact: true }).click();
+  await panel.getByRole("button", { name: "Started jobs", exact: true }).click();
+  await expect(rows.first()).toContainText("project-11");
+  await size.selectOption("10");
+  await panel.getByRole("button", { name: "Next", exact: true }).click();
+  await panel.getByRole("searchbox", { name: "Project", exact: true }).fill("project-1");
+  await panel.getByRole("searchbox", { name: "Started jobs", exact: true }).fill("11");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText("project-11");
+  await expect(size).toHaveValue("10");
+  await expect(panel.getByRole("button", { name: "Previous", exact: true })).toBeDisabled();
+  await panel.getByRole("searchbox", { name: "Failed jobs", exact: true }).fill("99");
+  await expect(panel.getByText("No projects match these filters")).toBeVisible();
 });

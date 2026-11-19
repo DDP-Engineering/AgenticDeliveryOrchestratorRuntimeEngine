@@ -5,9 +5,7 @@ An executor is what ADORE launches for every job: the Pi coding agent and the AI
 
 **Reasoning effort** offers levels supported by the selected model in the bundled Pi catalog. Pi default leaves its choice unchanged. Unlisted models and custom endpoints cannot claim unsupported levels. The selection applies to jobs and Test AI connection.
 
-New OpenAI projects start with model `gpt-6.1-terra`. Existing project model selections stay unchanged.
-
-The bundled model catalog comes from Pi 1.5.2 and includes GPT-6.1 Terra.
+The bundled model catalog comes from Pi 1.5.2 and includes GPT-6.1 Terra and GPT-6.2 Sol. With OpenAI or a ChatGPT subscription, setup starts with **GPT-6.2 Sol** and **high** reasoning.
 
 Windows/Linux delivery offers offline and online archives. Offline includes Node, Pi, its web extension and search tools. Online includes Python and application dependencies, but native execution needs separately prepared Node.js 22.23.4+ (22.x) with npm, then `pi install` with Internet access; Node is not downloaded automatically. Container images are separate archives imported with Docker or Podman; no image build or registry access is needed on the target. Source installations still require the documented tool setup. Remote AI providers and repositories require network access.
 

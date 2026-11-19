@@ -26,6 +26,8 @@ O liniuță înseamnă că valoarea este necunoscută. Sub o valoare, **Zero mă
 
 Carduri pentru **Joburi începute**, **Joburi terminate**, **Joburi eșuate**, **Tokenuri de intrare**, **Tokenuri de ieșire** și **Total tokeni cunoscuți**. Terminate numără fiecare lucrare încheiată, indiferent de rezultat. Totalul cere ca ambele direcții de tokenuri să fie cunoscute. Administratorii văd și cardurile **Cost raportat** și **Cost estimat**. Cu **Toate proiectele**, un tabel **Compararea proiectelor** listează lucrările începute, terminate și eșuate și durata medie pe proiect, cu repository-ul sub numele fiecărui proiect.
 
+În **Compararea proiectelor**, folosește câmpurile de sub anteturi pentru a combina filtrele. Apasă un antet pentru sortare și folosește selectorul de rânduri pe pagină și butoanele de navigare pentru a parcurge rezultatele.
+
 ### Utilizare {#tab-usage}
 
 **Utilizare după executor și model** începe cu totaluri compacte: evenimente de utilizare, tokenuri de intrare și de ieșire, cache citit și cache scris, precum și durata lucrărilor (**Lucrări măsurate**, **Durata medie**, **Durata mediană**). Tabelul de dedesubt listează utilizarea după dată, executor și model; faceți clic pe un antet de coloană pentru a sorta. Cu **Toate proiectele** urmează un tabel pe proiecte. Administratorii văd și coloanele de cost.

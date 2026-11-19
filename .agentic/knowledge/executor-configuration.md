@@ -23,6 +23,8 @@ CSRF/admin/immutable identity/config and conductor locks/pause/idle/pending guar
 
 ## Key behaviors
 
+OpenAI and ChatGPT setup default to GPT-6.2 Sol with high reasoning. See REQ-UX-8a06e183.
+
 - REQ-UX-b75e1df8: The server backend shows the current account and optional project tools PATH. ADORE owns the pinned Pi launcher. Protected provider edits and model evidence remain bound to the project.
 
 Native control/auth route to local-execution.md. Focused proof:

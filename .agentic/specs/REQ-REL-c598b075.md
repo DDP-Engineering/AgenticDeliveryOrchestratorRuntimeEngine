@@ -40,8 +40,9 @@ Workflow is exactly `aegis`, `direct` or `not-inspected`: read-only inspection o
 an available clone identifies AEGIS from `.agentic/aegis.py` alone; its absence
 identifies Direct. An unavailable or not-yet-created clone stays not-inspected.
 This is an observation, never a workflow setting or executable/version approval.
-The explicit pre-pick live probe retains runtime authority. No repository code
-runs and no files are added or changed for workflow identification.
+Admission separately validates AEGIS metadata at the fetched target commit.
+The executable protocol probe runs in the executor. Readiness workflow
+identification performs no repository execution or writes.
 
 Persist only schema-3 readiness.json separately from runtime state, using atomic
 unique-temp replacement. Its exact keys are schema, project_id, revision,

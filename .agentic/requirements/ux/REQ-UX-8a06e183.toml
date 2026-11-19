@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-UX-8a06e183"
+
+title = "Default OpenAI and ChatGPT setup to gpt-6.2-sol high"
+
+status = "active"
+
+requirement = """
+When an operator sets up an OpenAI or ChatGPT connection without choosing a different model, ADORE shall default to gpt-6.2-sol with high reasoning.
+"""
+
+verification = "Offline Chromium enrollment checks the OpenAI model default and the ChatGPT model and reasoning defaults after switching provider. The CLI wizard writes the default OpenAI model and high reasoning when no model is supplied."
+
+affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/AgentConnectionEditor.tsx", "04_Software/web/src/agentConnection.ts", "04_Software/adore/wizard.py"]
+
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts", "04_Software/tests/test_wizard.py::test_wizard_writes_pi_without_agent_choice_or_host_sign_in"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-19
+updated = 2026-11-19

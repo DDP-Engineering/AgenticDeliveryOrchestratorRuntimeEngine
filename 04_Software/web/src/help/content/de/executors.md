@@ -5,9 +5,7 @@ Ein Executor ist das, was ADORE für jeden Auftrag startet: der Coding-Agent Pi 
 
 **Denkaufwand** bietet die vom gewählten Modell im mitgelieferten Pi-Katalog unterstützten Stufen. Der Pi-Standard überlässt Pi die Wahl. Nicht gelistete Modelle und eigene Endpunkte können keine unbelegten Stufen wählen. Die Auswahl gilt für Aufträge und den KI-Verbindungstest.
 
-Neue OpenAI-Projekte beginnen mit dem Modell `gpt-6.1-terra`. Die Modellauswahl bestehender Projekte bleibt unverändert.
-
-Der mitgelieferte Modellkatalog stammt aus Pi 1.5.2 und enthält GPT-6.1 Terra.
+Der mitgelieferte Modellkatalog stammt aus Pi 1.5.2 und enthält GPT-6.1 Terra und GPT-6.2 Sol. Mit OpenAI oder einem ChatGPT-Abonnement schlägt die Einrichtung **GPT-6.2 Sol** und **high** vor.
 
 Die Windows/Linux-Lieferung bietet Offline- und Online-Archive. Offline enthält Node, Pi, seine Web-Erweiterung und Suchwerkzeuge. Online enthält Python und Anwendungsabhängigkeiten; native Ausführung erfordert separat eingerichtetes Node.js 22.23.4+ (22.x) mit npm, danach `pi install` mit Internetzugriff; Node wird nicht automatisch heruntergeladen. Container-Images werden als separate Archive mit Docker oder Podman importiert; am Ziel sind kein Build und kein Registry-Zugriff nötig. Quellinstallationen benötigen weiterhin die dokumentierte Werkzeugvorbereitung. Externe KI-Anbieter und Repositories benötigen Netzwerkzugriff.
 

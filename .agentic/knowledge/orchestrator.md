@@ -317,7 +317,7 @@ installed AEGIS policy. Existing prompt/partial-stage/native/RPC tests cover it.
 
 ## Explicit new-job workflow
 
-Manual aegis/direct selection resolves before AEGIS admission probing and is pinned after worktree allocation. Direct skips payload observation and AEGIS entirely, including unusable installations. Explicit AEGIS refuses absence; auto retains detection. Retry/continuation/review retain saved workflow and Pi conversation.
+An eligible new ticket triggers an exact target fetch. ADORE checks AEGIS version and schema from the fetched Git blob and allocates from the same SHA. Direct skips AEGIS inspection. Restart pins and checks the target before cleanup. Runtime protocol checks occur in the executor. Retry, continuation and review retain saved workflow and conversation. See REQ-FUNC-2050da54.
 
 ## Current contract
 

@@ -613,6 +613,36 @@ class WorktreeManager:
         with self.repository_lock("fetch"):
             self._git("fetch", remote)
 
+    def fetch_target(self, branch: str) -> str:
+        """Fetch one target branch and return its exact commit, or fail if it is absent."""
+        source = f"refs/heads/{branch}"
+        target = f"refs/remotes/origin/{branch}"
+        with self.repository_lock("fetch admission target"):
+            self._git("fetch", "--no-tags", "origin", f"+{source}:{target}")
+            revision = self.ref_head(target)
+            if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", revision) is None:
+                raise IsolationError("git did not resolve the target to a full commit ID")
+            return revision
+
+    def read_aegis_payload(self, revision: str) -> str | None:
+        """Read a bounded regular Git blob at the verified commit."""
+        directory = self._git("ls-tree", revision, "--", ".agentic").stdout.strip()
+        if not directory:
+            return None
+        if not directory.startswith("040000 tree "):
+            raise IsolationError("AEGIS target .agentic must be a repository directory")
+        path = ".agentic/aegis.py"
+        entry = self._git("ls-tree", "-l", revision, "--", path).stdout.strip()
+        if not entry:
+            return None
+        fields = entry.split()
+        if (len(fields) != 5 or fields[0] not in {"100644", "100755"}
+                or fields[1] != "blob" or fields[4] != path
+                or not fields[3].isascii() or not fields[3].isdigit()
+                or len(fields[3]) > 7 or int(fields[3]) > 1024 * 1024):
+            raise IsolationError("AEGIS target payload must be a regular blob of at most 1 MiB")
+        return self._git("show", f"{revision}:{path}").stdout
+
     @_repository_mutation
     def merge(self, run_id: str, ref: str) -> CommandResult:
         """

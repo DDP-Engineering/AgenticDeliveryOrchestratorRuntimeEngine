@@ -2,6 +2,14 @@ import { settingConstraints } from "./settingLimits.ts";
 import type { Locale } from "./i18n";
 
 /** The reviewed provider/model/endpoint selection (`executor.connection`). */
+export const DEFAULT_OPENAI_MODEL = "gpt-6.2-sol";
+export const DEFAULT_OPENAI_THINKING = "high";
+
+export function defaultThinking(provider: string, model: string): string {
+  return (provider === CHATGPT || provider === "openai") && model === DEFAULT_OPENAI_MODEL
+    ? DEFAULT_OPENAI_THINKING : "";
+}
+
 export type Connection = { provider: string; model: string; thinking: string; base_url: string; api: string };
 export type CatalogProvider = { id: string; name: string; variable: string; models: string[]; thinking: Record<string, string[]> };
 /** Pi's API-key providers and models from the pinned Pi, plus the two ADORE choices. */

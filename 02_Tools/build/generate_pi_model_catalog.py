@@ -178,6 +178,19 @@ def chatgpt_models(package: Path, openai: list[str]) -> list[str]:
     return models
 
 
+def supplement_chatgpt_catalog(openai: dict, chatgpt: list[str]) -> None:
+    """Keep models verified after the pinned provider snapshot was published."""
+    model = "gpt-6.2-sol"
+    if model not in openai["models"]:
+        openai["models"].append(model)
+        openai["models"].sort()
+    # OpenAI Codex models-manager/models.json lists these levels plus ultra,
+    # which is outside ADORE's Pi reasoning options.
+    openai["thinking"].setdefault(model, ["low", "medium", "high", "xhigh", "max"])
+    if model not in chatgpt:
+        chatgpt.append(model)
+
+
 def main() -> int:
     """
     Generate the catalog file.
@@ -209,6 +222,7 @@ def main() -> int:
     catalog = {"pi_version": version,
                "providers": sorted(providers.values(), key=lambda item: item["name"].casefold()),
                "chatgpt_models": chatgpt_models(package, providers["openai"]["models"])}
+    supplement_chatgpt_catalog(providers["openai"], catalog["chatgpt_models"])
     options.out.write_bytes((json.dumps(catalog, indent=1, ensure_ascii=False) + "\n")
                             .encode("utf-8"))
     print(f"wrote {options.out}: Pi {version}, {len(providers)} providers, "

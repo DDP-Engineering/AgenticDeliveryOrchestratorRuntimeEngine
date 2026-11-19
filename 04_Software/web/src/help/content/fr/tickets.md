@@ -13,7 +13,7 @@ Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En 
 
 Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 
-Avant la prise automatique, `workflow.mode = "auto"` vérifie AEGIS présent et le refuse s’il est inutilisable ; son absence sélectionne Direct. `workflow.mode = "direct"` ignore AEGIS. Démarrer choisit explicitement le workflow. L’agent réalise les vérifications du dépôt dans les deux cas ; ADORE conserve les contrôles d’approbation et de publication. Voir [Workflows du dépôt](/help/projects#workflows).
+Dès qu’un ticket est éligible, ADORE récupère la branche cible et démarre depuis ce commit. En mode auto, il vérifie la compatibilité d’AEGIS à ce commit ou choisit Direct si AEGIS est absent. Le redémarrage vérifie la cible avant le nettoyage. `workflow.mode = "direct"` ignore AEGIS. Démarrer choisit explicitement le workflow. L’agent réalise les vérifications du dépôt dans les deux cas ; ADORE conserve les contrôles d’approbation et de publication. Voir [Workflows du dépôt](/help/projects#workflows).
 
 ## Work Items Azure et labels PR {#azure-tags}
 

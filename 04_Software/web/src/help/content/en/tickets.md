@@ -13,7 +13,7 @@ Each project has a **Monitoring** state, shown as **Active** or **Paused** in th
 
 An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 
-Before automatic pickup, `workflow.mode = "auto"` probes a present AEGIS payload and refuses it if unusable; an absent payload selects Direct. `workflow.mode = "direct"` skips AEGIS. Manual Start chooses its workflow explicitly. The agent owns repository checks in both workflows; ADORE retains approval and publication controls. See [Repository workflows](/help/projects#workflows).
+Once a ticket is eligible, ADORE fetches the target branch and starts from the fetched commit. In auto mode, it checks AEGIS compatibility at that commit, or selects Direct if AEGIS is absent. Restart checks the target before cleanup. `workflow.mode = "direct"` skips AEGIS. Manual Start chooses its workflow explicitly. The agent owns repository checks in both workflows; ADORE retains approval and publication controls. See [Repository workflows](/help/projects#workflows).
 
 ## Azure Work Items and PR labels {#azure-tags}
 
