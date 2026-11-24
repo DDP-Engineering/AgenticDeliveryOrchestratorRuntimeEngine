@@ -1,5 +1,7 @@
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
+**Flip the workflow with ADORE.** No more “many developers, one project”! Switch to “one developer, multiple projects.”
+
 ADORE turns an opt-in GitHub, GitLab, Gitea or Azure DevOps Services ticket into an isolated,
 governed merge or pull request. Pi works in a dedicated branch and
 worktree using container or native local execution. A repository with AEGIS
